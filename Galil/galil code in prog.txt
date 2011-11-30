@@ -1,0 +1,115 @@
+'***************************************************************************
+' Helper Routines
+'***************************************************************************
+#CMDERR; 'code to execute when program exception encountered
+HX
+
+To zero step position: DP~a=0
+w/ analog feedback AF~a=0; DP~a=0;AF~a=1
+
+'Zeros the stepper counts, at current position, regardless of analog feedback status, preserves AF
+#ZEROSTP;^h=~a;~a=^a;^g=_AF~a;AF~a=0;DP~a=0;AF~a=^g;EN;
+
+#LOCKMON
+locki=1
+#LOCKMON
+@AN[7]
+@AN[8]
+
+
+
+
+'***************************************************************************
+' Initial Configuration
+'***************************************************************************
+#AUTO;
+MT -2.5,-2,-2,-2,-2,-2,-2.5,-2.5; ;'Set motor type, must be -2 or -2.5 per manual
+KS*=1;			;'Set step smoothing to Galil-recommended value, see AN#2446
+AG 3,1,3,1,1,0,0,0;	;'Set motor gain values
+AQ1,4; 			;'GES analog input: 0-10V
+AQ3,4 			;'FOC analog input: 0-10V
+AQ5,4 			;'FESEL analog input: 0-10V
+AQ7,4 			;'HRTLT analog input: 0-10V
+AQ8,4 			;'HRAZ analog input: 0-10V
+AF 1,,1,,1		;'Configure GES, FES, & FOC for analog feedback
+YA 16,4,16,4,16,16,16,16;'Set stepping mode resolutions (NB 4s are guesses)
+YB 200,200,200,200,200,400,400,400;'Set stepper motor steps/revolution
+YC 45,,102,,82		;'Encoder resolution counts/rev (APPROXIMATE VALUES!)
+ER*=-1			;'No built-in position error detection for steppers 
+OE*=3			;'Default to motor off in event of any error ????????
+'Configure Limits: active high
+'Home high -> go backward (retract) to go home (needed by M228)
+'Latch (Don't care)
+'DI 4-7,12-15 axis specific aborts
+'Abort doesn't kill program
+CN 1,-1,,1,1
+CI 0			;'Disable aux serial interrupt 
+'AC ?,?,?,?,?,?,?,?	;'Set Accelerations
+'DC ?,?,?,?,?,?,?,?	;'Set Decelerations
+'SD ?,?,?,?,?,190000,190000,190000	;'Set Switch Decelerations (19d4 is up.lim -2k)
+'HV ?,?,?,?,?,?,?,?	;'Set Homing velocity v^2/2/decel/time back
+EN;
+
+
+'Compute time a move would theoretically take in units of the RTC
+#MAXMVT; "'(dist,speed,accel,decal)
+EN,,(@ABS[^a/^b]+0.5*@ABS[^b/^c+^b/^d])*(1000000/_TM);
+
+
+#HRCAL;'hrcalax, 'Does not turn axis off
+~a=hrcalax;
+AC~a=hraccel;DC~a=hrdecel;
+JG~a=-hrlimspd         ;'jog towards reverse limit
+JS#MAXMVT(hrmaxd,hrlimspd,hraccel,hrdecel);
+^h=TIME;SH~a; BG~a;
+#HRTCAL1;JP#HRTCAL1, (_LR~a = 1)|(TIME-^h > _JS)  ;'wait until we hit the limit
+IF (_LR~a<>1) 
+ ST~a;MC~a;MO~a;
+ IF (~a="G") MG "!HR Tilt jammed, could not drive to -limit in time."
+ ELSE MG "!HR Az jammed, could not drive to -limit in time."
+ ENDIF
+ENDIF;
+HV~a=hrhmspd;SP~a=hrspeed; DC~a=67107840;
+HM~a;BG~a;MC~a; 'Assumes home switch doesn't fail.
+DP~a=0;
+IF (~a="G"); hrtcal=1; ELSE; hracal=1; ENDIF;
+EN;
+
+#GESPOS;'(gespos, gesaccel, gesdecel, gesspeed)
+JS #GESCAL;
+PAA=gespos; SPA=gesspeed; lastpa=_TPA; lastps=_TDA;
+XQ #GESCHK, 7			;'Start the MC timeout checker
+BGA; MCA; WT 10; HX, 7;
+MG "GES Move Complete", _TDA, _TPA;
+MOA;
+EN;
+
+#GESCAL; 'Does not turn motor off
+ACA=gesaccel;DCA=gesdecel;
+JGA=-gesspeed         ;'jog towards reverse limit
+lastpa=_TPA; lastps=_TDA;
+XQ #GESCHK, 7			;'Start the MC timeout checker
+SHA; BGA;
+#GESCAL1;JP#GESCAL1, _LRA = 1  ;'wait until we hit the limit
+STA;MCA;
+DCA=67107840; JGA=500  ;'set infinite deceleration, reverse direction SLOW
+BGA;
+#GESCAL2;JP#GESCAL1, _LRA = 0  ;'wait until we get off the limit
+STA;MCA;WT 10; HX, 7; DPA=0; gescal=1; 'MAKE SURE 10 IS LONG ENOUGH
+EN;
+
+#GESCHK; '(error, lastpa, lastps)
+AT0;
+#GESCHK1;
+newpa=_TPA; newps=_TDA;
+ds=newps-lastps; dp=(newpa - lastpa); lastps=newps; lastpa=newpa;
+IF (@ABS[dp*(_YBA * _YAA)/_YCA - ds] > error);
+ 'consider making stop time dep. on _SPA or forcing DCA=large
+ STA; WT 100;
+ MOA;
+ MG "! GES stalled:", ds, dp, error;
+ HX _ED4;
+ENDIF;
+AT-100;
+JP #GESCHK1;
+EN;

@@ -1,0 +1,58 @@
+'Configuration
+MT -2.5,-2,-2,-2,-2,-2,-2.5,-2.5;KS*=1;
+AG 3,1,3,1,1,0,0,0;
+AQ1,4;AQ3,4;AQ5,4;AQ7,4;AQ8,4;AF 1,,1,,1;
+YA 16,4,16,4,16,16,16,16;
+YB 200,200,200,200,200,400,400,400;
+YC 45,,102,,82,,,;ER*=-1;
+CN 1,-1,,1,1;
+AC 1024,,,,,1024,1024,1024;
+DC 1024,,,,,1024,1024,1024;
+SD ,,,,,190000,190000,190000;
+
+SHAFGH;PA 7500,,,,,,7500,7500;JGF=20000;BGAFGH;
+SHAFGH;PA 282000,,,,,,130000,138000;JGF=20000;BGAFGH;
+
+
+DL;
+#CONFIGU
+MT -2.5,-2,-2,-2,-2,-2,-2.5,-2.5;KS*=1;
+AG 3,1,3,1,1,0,0,0;
+AQ1,4;AQ3,4;AQ5,4;AQ7,4;AQ8,4;AF 1,,1,,1;
+YA 16,4,16,4,16,16,16,16;
+YB 200,200,200,200,200,400,400,400;
+YC 45,,102,,82,,,;ER*=-1;
+CN 1,-1,,1,1;
+AC 1024,,,,,1024,1024,1024;
+DC 1024,,,,,1024,1024,1024;
+SD ,,,,,190000,190000,190000;
+EN;
+#TSTLRT;
+DCF=100000;JGF=15000;BGF;AI9;STF;
+IF (@IN[9]=0);JGF=-250;BGF;AI9;STF;ENDIF;
+MCF;DPF=0;DEF=0;
+EN;
+#TELLSW;^b=_TS~a;
+MG "Axis ",~a
+IF (^b & $80);MG "In motion";ELSE;MG "Stopped";ENDIF;
+IF (^b & $40);MG "Axis error exceeds error limit";ENDIF;
+IF (^b & $20);MG "Motor Off";ELSE;MG "Motor On";ENDIF;
+IF (^b & $08);NO;ELSE;MG "Forward Limit Tripped";ENDIF;
+IF (^b & $04);NO;ELSE;MG "Reverse Limit Tripped";ENDIF;
+IF (^b & $02);MG "Home 1";ELSE;MG "Home 0";ENDIF;
+IF (^b & $01);MG "Axis Latched";ENDIF;
+IF (@IN[~a-60]) ;MG "Axis Abort 1";ELSE;MG "Axis Abort 0";ENDIF;
+EN;
+#TELLST
+^a=_TA0
+IF (^a & $10);MG "Over Current (E-H Axes)";ENDIF;
+IF (^a & $1);MG "Over Current (A-D Axes)";ENDIF;
+^a=_TA3
+IF (^a & $2);MG "ELO Active (E-H Axes)";ENDIF;
+IF (^a & $1);MG "ELO Active (A-D Axes)";ENDIF;
+EN;
+#TELLLOK
+MG @AN[7],@AN[8];
+IF (@AN[7] > 2);MG "HRTLT Locked";ELSE;MG "HRTLT Free";ENDIF;
+IF (@AN[8] > 2);MG "HRAZ Locked";ELSE;MG "HRAZ Free";ENDIF;
+EN;

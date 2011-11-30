@@ -1,0 +1,24 @@
+#######################################
+# Syntax Coloring Map for Timer
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+Timer	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+running		KEYWORD2
+expired		KEYWORD2
+stop		KEYWORD2
+start		KEYWORD2
+reset		KEYWORD2
+set		KEYWORD2
+value		KEYWORD2
+duration	KEYWORD2
+direction	KEYWORD2
+increment	KEYWORD2

@@ -1,0 +1,29 @@
+#######################################
+# Syntax Coloring Map for Timer
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+WatchdogSleeper	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+configureSleep  	KEYWORD2
+sleep		  	KEYWORD2
+cancelSleep	  	KEYWORD2
+registerCallback	KEYWORD2
+enableCallback		KEYWORD2
+disableCallback		KEYWORD2
+calibrate		KEYWORD2
+off			KEYWORD2
+on			KEYWORD2
+readPrescaler		KEYWORD2
+getTimer0Increment	KEYWORD2
+readPrescalerAsMS	KEYWORD2
+WDTCycles2MS		KEYWORD2
+MS2WDTCycles		KEYWORD2
+minimumSleepTime_us	KEYWORD2

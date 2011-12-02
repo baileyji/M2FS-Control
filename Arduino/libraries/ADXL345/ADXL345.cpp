@@ -29,7 +29,7 @@ boolean ADXL345Class::init(uint8_t csPin) {
   // Configure interrupts
   writeRegister(ADXL_INT_ENABLE, 0); //Disable interrupts
   
-  uint8_t interrupts= ADXL_INT_FREEFALL | ADXL_INT_WATERMARK |
+  uint8_t interrupts= ADXL_INT_FREEFALL |
 					  ADXL_INT_ACTIVITY  | ADXL_INT_INACTIVITY;
   
   //Send the Activity and Freefall Interrupts to INT1 pin, rest to INT2 pin

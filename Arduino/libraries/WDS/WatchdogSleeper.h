@@ -60,6 +60,9 @@ public:
   void configureSleep(SleepMode mode);
   int32_t sleep(uint32_t sleepDuration);
   void cancelSleep(void);
+  boolean sleepCanceled();
+  void resetSleepCanceled(void);
+  
   
   void registerCallback(callback_t func);
   boolean enableCallback(void);
@@ -80,7 +83,8 @@ public:
   void calibrate(void);
   uint32_t WDTCycles2MS(uint32_t cycles);
   uint32_t MS2WDTCycles(uint32_t duration_ms);
-  uint32_t minimumSleepTime_us(void);
+  uint8_t minimumSleepTime_ms(void);
+  void fakeSleep(uint32_t sleepDuration_ms);
   
 private:
   uint32_t __powerDown(uint32_t wdt_cycles);

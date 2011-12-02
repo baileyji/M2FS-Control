@@ -77,7 +77,7 @@ def receiveLogData(ser):
 
 	record=DataloggerRecord(data)
 	
-	#print " ",record.unixtime, record.millis
+	print " ",record.unixtime, record.millis
 	if record.accels != None:
 		print " ",record.temps,record.accels.shape
 

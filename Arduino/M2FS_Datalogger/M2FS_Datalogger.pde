@@ -2,7 +2,12 @@
 TODO:
 figure out why timer oly being decremented by 15 ms when sleep lasts for more than a second
 
-
+FUSES:
+  Default for 3.3V Arduino 328p
+  High: 0xDA  Low: 0xFF Ext: 0xFD
+  For this sketch:
+  High: 0xDA  Low: 0xDF Ext: 0xFB -> startup time from power-down/power-save 16k clocks (2ms), BOD @ 2.7V
+  
 */
 #include <avr/sleep.h>
 #include <avr/power.h>
@@ -34,6 +39,8 @@ figure out why timer oly being decremented by 15 ms when sleep lasts for more th
 
 #define DEBUG
 //#define DEBUG_STAY_POWERED
+#define DEBUG_ACCEL
+//#define DEBUG_FAKE_SLEEP
 
 //#############################
 //             Pins
@@ -61,7 +68,7 @@ figure out why timer oly being decremented by 15 ms when sleep lasts for more th
 #define MESSAGE_TIMER     'M'
 #define BATTERY_TIMER     'B'
 #define MSTIMER2_DELTA                       2	      // should be less than smallest timeout interval
-#define MESSAGE_CONFIRMATION_TIMEOUT_MS      100
+#define MESSAGE_CONFIRMATION_TIMEOUT_MS      100      //MUST be less than the ADXL FIFO period
 #define BATTERY_TEST_INTERVAL_MS             3600000  //Once per hour
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define ADXL_FIFO_RATE                       1280     //ADXL_CONVERSION_RATE*32
@@ -76,8 +83,8 @@ figure out why timer oly being decremented by 15 ms when sleep lasts for more th
 Timer batteryCheckTimer(BATTERY_TIMER, BATTERY_TEST_INTERVAL_MS);
 Timer logSyncTimer(LOG_TIMER, LOG_SYNC_TIME_INTERVAL_MS);
 Timer updateTempsTimer(TEMP_UPDATE_TIMER, TEMP_UPDATE_INTERVAL_MS);
+Timer accelTimer(ADXL_POLL_TIMER, ADXL_FIFO_RATE);
 Timer pollTempsTimer(TEMP_POLL_TIMER, DS18B20_10BIT_MAX_CONVERSION_TIME_MS);
-Timer pollADXLTimer(ADXL_POLL_TIMER, ADXL_FIFO_RATE); 
 Timer updateRTCTimer(RTC_TIMER, RTC_UPDATE_INTERVAL_MS);
 //How often do we check to see if we've be brought online
 Timer pollForPowerTimer(POWER_TIMER, EXTERNAL_POWER_TEST_INTERVAL_MS);
@@ -86,7 +93,7 @@ Timer messageConfTimer(MESSAGE_TIMER, MESSAGE_CONFIRMATION_TIMEOUT_MS);
 
 //Timers that should not be used in determining nap times must be placed at the end of the array 
 Timer* const timers[NUM_TIMERS]={
-  &logSyncTimer, &updateTempsTimer, &pollTempsTimer, &pollForPowerTimer, &pollADXLTimer, //Nap related
+  &logSyncTimer, &updateTempsTimer, &pollTempsTimer, &pollForPowerTimer, &accelTimer, //Nap related
   &updateRTCTimer, &batteryCheckTimer, &messageConfTimer};               //Not nap related
 
 #pragma mark -
@@ -120,10 +127,10 @@ boolean updateRTCPending=false;
 volatile boolean asleep=false;
 uint32_t msgID=0;
 
-volatile boolean currently_inactive=false;
+volatile boolean inactive=false;
 volatile uint8_t accelerometerInterrupt = 0;
 volatile boolean accelerometerCausedWakeup = false;
-volatile boolean store_fifo_accels=true;
+volatile boolean retrieve_fifo_accels=true;
 volatile uint8_t n_in_fifo=0;
 
 // Date/time format operator
@@ -170,33 +177,104 @@ ISR(WDT_vect) {
   }
 	
 	// Switch update source for timer, if required
-	if (WDT._switchUpdateSourceToMsTimer2Queued) {
-		WDT._switchUpdateSourceToMsTimer2Queued=false;
-		setTimerUpdateSourceToMsTimer2();
+  if (WDT._switchUpdateSourceToMsTimer2Queued) {
+    WDT._switchUpdateSourceToMsTimer2Queued=false;
+    setTimerUpdateSourceToMsTimer2();
     _WD_CONTROL_REG &= (~(1<<WDIE));
     WDT._autorestart=false;
-	}
+  }
 }
 
 
 //=============================
 // Accelerometer ISR
+/*
+each time hit one of the following:
+  go active, go inactive, freefall, watermark & active, watermark & inactive
+
+inactive && activity -> switch watermark to active pin & inactive=false
+inactive && freefall -> switch watermark to active pin & inactive=false
+inactive && watermark -> nothing
+!inactive & watermark -> retrieve_fifo_accels
+!inactive & inactivity -> retrieve_fifo_accels & & inactive=true & switch watermark to other pin
+
+initial condition ->
+  inactive=true;
+  retrieve_fifo_accels=true;
+*/
 //=============================
 void accelerometerISR(void) {
+
+ 
   ADXL345.readRegister(ADXL_INT_SOURCE, 1, (char*) &accelerometerInterrupt);
   ADXL345.readRegister(ADXL_FIFO_STATUS,1, (char*) &n_in_fifo);
-  accelerometerCausedWakeup = asleep;
-  store_fifo_accels=store_fifo_accels ||
-      (accelerometerInterrupt & (ADXL_INT_ACTIVITY | ADXL_INT_FREEFALL));
-      
-  //Update the activity status only when information about the activity status is present
-  if (accelerometerInterrupt & (ADXL_INT_ACTIVITY | ADXL_INT_FREEFALL | ADXL_INT_INACTIVITY))
-    currently_inactive = (accelerometerInterrupt & ADXL_INT_INACTIVITY) && 
-                       !(accelerometerInterrupt & ADXL_INT_FREEFALL);
-  if (accelerometerCausedWakeup)
-    WDT.cancelSleep();
-}
+	
+  if ( inactive ) {
+    if (accelerometerInterrupt & (ADXL_INT_ACTIVITY | ADXL_INT_FREEFALL)) {
 
+      //We've got activity
+      inactive=false;
+    
+      //Switch watermark to active pin
+      uint8_t interrupts= ADXL_INT_FREEFALL | ADXL_INT_WATERMARK | 
+                          ADXL_INT_ACTIVITY  | ADXL_INT_INACTIVITY;
+      ADXL345.writeRegister(ADXL_INT_MAP, ~interrupts );
+            
+      if ( accelerometerInterrupt & ADXL_INT_WATERMARK )
+        retrieve_fifo_accels=true;
+      
+    }
+    else {
+      //watermark
+      //inactivity (shouldn't be possible to get inactivity while inactive)
+    }
+    
+  }
+	else {
+  
+    if ( accelerometerInterrupt & ADXL_INT_WATERMARK )
+      retrieve_fifo_accels=true;
+
+    if (accelerometerInterrupt & ADXL_INT_INACTIVITY) {
+      inactive=true;
+      retrieve_fifo_accels=true; 
+      //Switch watermark to unused pin
+      uint8_t interrupts= ADXL_INT_FREEFALL | ADXL_INT_ACTIVITY  | ADXL_INT_INACTIVITY;
+      ADXL345.writeRegister(ADXL_INT_MAP, ~interrupts );
+    }
+    
+    //freefall
+    //activity ,(surpurfolous)
+    if ( accelerometerInterrupt & ADXL_INT_ACTIVITY )
+      retrieve_fifo_accels=true;
+
+  }
+	
+  if (asleep) {
+    WDT.cancelSleep();
+    accelerometerCausedWakeup = true;
+  }
+  
+  #ifdef DEBUG_ACCEL
+    uint8_t interrupts;
+    ADXL345.readRegister(ADXL_INT_MAP,1, (char*) &interrupts);
+
+    cout<<pstr("#hit, ai=");Serial.print(accelerometerInterrupt,BIN);
+    cout<<" n="<<(uint16_t)n_in_fifo<<" map=";Serial.print(interrupts,BIN);
+    if (!digitalRead(ACCELEROMETER_INTERRUPT_PIN))
+      cout<<pstr(" low");
+    else 
+      cout<<pstr(" high");
+    if (retrieve_fifo_accels)
+      cout<<pstr(" store=t ");
+    else 
+      cout<<pstr(" store=f ");
+    if (inactive)
+      cout<<pstr("in");
+    cout<<pstr("active\n");
+  #endif
+  
+}
   
 //=============================
 // WDT ISR callback function
@@ -204,7 +282,8 @@ void accelerometerISR(void) {
 void timerUpdater(uint32_t delta) {
   for (int i=0; i<NUM_TIMERS; i++)
     timers[i]->increment(delta);
-    WDT.cancelSleep();
+//  cout<<"#Incrementing timers\n";
+//    WDT.cancelSleep();
 }
 
 
@@ -291,10 +370,10 @@ void setup(void)
   // Initialize Accelerometer
   cout<<pstr("#Init ADXL...");
   ADXL345.init(ACCELEROMETER_CS);
-  pollADXLTimer.reset();
-  pollADXLTimer.start();
-  //delay(5);
   attachInterrupt(ACCELEROMETER_INTERRUPT, accelerometerISR, FALLING);
+  if (!digitalRead(ACCELEROMETER_INTERRUPT_PIN)) {
+    accelerometerISR();
+  }
   cout<<pstr("initialized.\n");
 
   // Initialize the temp sensors
@@ -467,8 +546,9 @@ void loop(void){
     delay(500);
     if (!digitalRead(EJECT_PIN)) {
       logfile.close();
-      cout<<pstr("#Safe to remove SD card.\n");
-      return; //End program (need to test this works)
+      cout<<pstr("#Remove SD card within 1 minute.\n");
+      delay(60000);
+      return; //will cause reset 
     }
   }
   
@@ -532,9 +612,11 @@ void loop(void){
 
 
   // Acceleration Monitoring
-  if (accelerometerInterrupt & ADXL_INT_WATERMARK) {
+  //if (accelerometerInterrupt & ADXL_INT_WATERMARK) {
+  if (retrieve_fifo_accels) {
     
-    #ifdef DEBUG_ACCEL
+    /*#ifdef DEBUG_ACCEL
+
       cout<<pstr("# Accel. int=");Serial.print(accelerometerInterrupt,HEX);
       if (accelerometerInterrupt & ADXL_INT_DATAREADY)	  cout<<pstr(", data ready");
       if (accelerometerInterrupt & ADXL_INT_ACTIVITY)	  cout<<pstr(", activity");
@@ -543,36 +625,57 @@ void loop(void){
       if (accelerometerInterrupt & ADXL_INT_OVERRUN)	  cout<<pstr(", data dropped");
       if (accelerometerInterrupt & ADXL_INT_WATERMARK)  cout<<pstr(", watermark");
       cout<<". N in FIFO: "<<(unsigned int)n_in_fifo<<endl;
+     
+      uint8_t interrupts;
+      ADXL345.readRegister(ADXL_INT_MAP,1, (char*) &interrupts );
+      cout<<pstr("# Int map: ");Serial.println(interrupts,HEX);
     #endif
-
+    */
     
-    if (store_fifo_accels) {
-      if (n_in_fifo < 32) delay(40*(32-n_in_fifo)+10);  //40 is for sample rate of 25Hz
-      for (uint8_t i=0; i<n_in_fifo;i++) {
-        ADXL345.getRawAccelerations(accel);
-        //cout<<"#  "<<accel[0]<<" "<<accel[1]<<" "<<accel[2]<<endl;
-        bufferPut(accel,6);
-      }
+    retrieve_fifo_accels=false;
+    
+    if (n_in_fifo < 32) delay(40*(32-n_in_fifo)+10);  //40 is for sample rate of 25Hz
+    
+    for (uint8_t i=0; i<n_in_fifo;i++) {
+      ADXL345.getRawAccelerations(accel);
+      bufferPut(accel,6);
     }
-    else {
-      for (uint8_t i=0; i<n_in_fifo;i++) {
-        ADXL345.getRawAccelerations(accel);
-      }
-      //cout<<"Purged "<<(unsigned int)n_in_fifo<<" Millis: "<<millis()<<endl;
-    }
-    pollADXLTimer.reset();
-    pollADXLTimer.start();
+    
+    accelTimer.reset();
+    if (!inactive)
+      accelTimer.start();
+    
+    //accelerometerISR();
     #ifdef DEBUG_ACCEL
       if (digitalRead(3)) cout<<pstr("#Accel int. inactive")<<endl;
       else cout<<pstr("#Accel int. active: BAD")<<endl;
     #endif
 
-    store_fifo_accels=!currently_inactive;
-
   }
+  
+  if(accelTimer.expired()) {
+    #ifdef DEBUG_ACCEL
+      cout<<pstr("#Accel tim. exp.")<<endl;
+    #endif
+    accelTimer.reset();
+    accelerometerISR();
+  }
+  
+  /*
+  if (inactive && !digitalRead(ACCELEROMETER_INTERRUPT_PIN)) {
+    ADXL345.readRegister(ADXL_INT_SOURCE, 1, (char*) &accelerometerInterrupt);
+    ADXL345.readRegister(ADXL_FIFO_STATUS,1, (char*) &n_in_fifo);
     
-    
-    
+    cout<<pstr("# Accel. int=");Serial.print(accelerometerInterrupt,HEX);
+    if (accelerometerInterrupt & ADXL_INT_DATAREADY)	  cout<<pstr(", data ready");
+    if (accelerometerInterrupt & ADXL_INT_ACTIVITY)	  cout<<pstr(", activity");
+    if (accelerometerInterrupt & ADXL_INT_FREEFALL)	  cout<<pstr(", freefall");
+    if (accelerometerInterrupt & ADXL_INT_INACTIVITY) cout<<pstr(", inactivity");
+    if (accelerometerInterrupt & ADXL_INT_OVERRUN)	  cout<<pstr(", data dropped");
+    if (accelerometerInterrupt & ADXL_INT_WATERMARK)  cout<<pstr(", watermark");
+    cout<<". N in FIFO: "<<(unsigned int)n_in_fifo<<endl;
+   
+  }*/
   // Upload old data
   if (powered && bufferIsEmpty()) {
     //cout<<"#GLDfF\n";
@@ -651,7 +754,7 @@ void loop(void){
   }
 
   // Go to sleep to conserve power
-  if (availableNaptimeMS > 100) {
+  if (!retrieve_fifo_accels) {
     cout<<"#Sleep "<<availableNaptimeMS<<" ms.\n";
     uint32_t timepoint; timepoint=millis();
 
@@ -839,8 +942,20 @@ void goSleep(uint32_t duration_ms, SleepMode mode) {
    
   WDT.configureSleep(mode);
   asleep=true;
-  //delay(duration_ms);
-  WDT.sleep(duration_ms);
+  #ifdef DEBUG_FAKE_SLEEP
+    WDT.fakeSleep(duration_ms);
+  #else
+    if (duration_ms < WDT.minimumSleepTime_ms()) {
+      WDT.fakeSleep(duration_ms);
+    }
+    else {
+      MsTimer2::stop();
+      power_timer2_disable(); 
+      WDT.enableCallback();
+      WDT.sleep(duration_ms);
+      setTimerUpdateSourceToMsTimer2();
+    }
+  #endif
   //WDT.enableAutorestart();
   //WDT.on(0);
   asleep=false;

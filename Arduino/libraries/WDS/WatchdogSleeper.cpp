@@ -11,7 +11,7 @@
 
 #define UINT32_MAX 0xFFFFFFFF
 #define F_CPU_MHZ 8
-#define MAX_PRESCALER 9
+//#define DEBUG_SLEEP
 
 extern "C" volatile uint32_t timer0_millis;
 
@@ -22,6 +22,7 @@ WatchdogSleeper::WatchdogSleeper(void) {
   _sleepCanceled = false;
   _config=SLEEP_HARD;
   _disable_BOD=true;
+  _prescaler=0;
   
 	_switchUpdateSourceToMsTimer2Queued=false;
 	
@@ -48,18 +49,12 @@ void WatchdogSleeper::calibrate() {
 	}
 	on(WDT_CALIBRATION_PRESCALE_V);
 	delay(WDT_CALIBRATION_PRESCALE_V_MS_OVERESTIMATE);
-	
-	Serial.print("#WDT clock rate: ");Serial.println(1.0/_cycles2ms,4);
 }
 
 uint32_t WatchdogSleeper::readPrescalerAsMS(void) {
   return WDTCycles2MS(__Prescaler2Cycles(readPrescaler()));
 }
 
-
-uint32_t WatchdogSleeper::getTimer0Increment(void) {
-  return _WDT_timer0_millis_increment;
-}
 
 
 //Returns any overshoot in the power down time as negative, 
@@ -117,11 +112,28 @@ int32_t WatchdogSleeper::sleep(uint32_t sleepDuration_ms) {
 }
 
 void WatchdogSleeper::fakeSleep(uint32_t sleepDuration_ms) {
+  uint8_t ADCSRA_save, prr_save, WDTps;
+  uint32_t sleepCycles, sleptDuration_ms;
+  
+  //Store modules power states
+  ADCSRA_save=ADCSRA; 
+  prr_save=PRR;
+  ADCSRA &= ~(1<<ADEN);
+
   _sleepCanceled=false;
   while(sleepDuration_ms > 0 && !_sleepCanceled) {
     delay(1);
     sleepDuration_ms-=1;
+    if (_WDT_Callback_Enabled) 
+      __WDT_Callback_Func(1);
   }
+  
+  // Modules to former state
+  ADCSRA &= ~(1<<ADEN);		// adc disable (just in case it was reenabled in an interrupt)
+  PRR = prr_save;
+  ADCSRA = ADCSRA_save;  
+  
+  
 }
 
 
@@ -137,7 +149,8 @@ inline uint32_t WatchdogSleeper::__powerDown(uint32_t wdt_cycles) {
   
   uint8_t prescaler;
   uint32_t cyclesRemaining=wdt_cycles;
-
+  boolean alreadyRunning;
+  
   _sleepCanceled=false;
   while(cyclesRemaining > 2047 && !_sleepCanceled) {
     
@@ -151,8 +164,17 @@ inline uint32_t WatchdogSleeper::__powerDown(uint32_t wdt_cycles) {
     _WDT_ISR_Called=false;
     _update_timer0_millis=true;
 		
-    on(prescaler);
-	
+    if (running()) {
+      #ifdef DEBUG_SLEEP
+        Serial.println("#Sleep remainder of WDT.");
+      #endif
+      alreadyRunning=true;
+    }
+    else {
+      alreadyRunning=false;
+      on(prescaler);
+    }
+    
     sleep_enable();
     if (_disable_BOD) {
       MCUCR |= (1<<BODS) | (1<<BODSE);
@@ -164,23 +186,24 @@ inline uint32_t WatchdogSleeper::__powerDown(uint32_t wdt_cycles) {
     
     
     // If we awoke prematurely, idle
-    if (!_sleepCanceled && !_WDT_ISR_Called) {
+    if (!_sleepCanceled && !_WDT_ISR_Called && running()) {
       #ifdef DEBUG_SLEEP
         Serial.println("#Awoke prematurely");
       #endif
       while (!_sleepCanceled && !_WDT_ISR_Called);
     }
       
-    if (_WDT_ISR_Called) {
+    if (_WDT_ISR_Called && !alreadyRunning) {
       uint32_t temp=__Prescaler2Cycles(prescaler);
       cyclesRemaining=(temp > cyclesRemaining) ? 0: cyclesRemaining-temp;
     }
 
   }
-  
-  if (_sleepCanceled) {
-    Serial.println("#Sleeping Canceled");
-  }
+  #ifdef DEBUG_SLEEP
+    if (_sleepCanceled) {
+      Serial.println("#Sleeping Canceled");
+    }
+  #endif
   
   return wdt_cycles - cyclesRemaining;
   
@@ -213,55 +236,6 @@ uint8_t WatchdogSleeper::readPrescaler() {
   (_WD_CONTROL_REG & ((1<<WDP2) | (1<<WDP1) | (1<<WDP0)));
 }
 
-//============================
-// configureSleep - Select the 
-//	sleep configuration
-//============================
-void WatchdogSleeper::configureSleep(SleepMode config) {
-  _config=config;
-}
-
-//============================
-// minimumSleepTime_ms - Return the 
-//	minimum sleep cycle time
-//  See datasheet pages 41 (BOD) and 28 (CKSEL)
-//  Note, 2ms assumes SUT of 16K clock + 0ms
-//============================
-uint8_t WatchdogSleeper::minimumSleepTime_ms(void) {
-  return 16;//2 for powerup, but WDT's shortest period is 16ms
-}
-
-//============================
-// enableAutorestart - Enable
-//	automatic restart of WDT
-//============================
-void WatchdogSleeper::enableAutorestart() {
-	_autorestart=true;
-}
-
-//============================
-// disableAutorestart - Disable
-//	automatic restart of WDT
-//============================
-void WatchdogSleeper::disableAutorestart() {
-	_autorestart=false;
-}
-
-
-//============================
-// cancelSleep - Cancel sleep
-//============================
-void WatchdogSleeper::cancelSleep() {
-	_sleepCanceled=true;
-}
-
-void WatchdogSleeper::resetSleepCanceled() {
-	_sleepCanceled=false;
-}
-
-boolean WatchdogSleeper::sleepCanceled() {
-	return _sleepCanceled;
-}
 
 
 //============================
@@ -308,6 +282,8 @@ uint32_t WatchdogSleeper::MS2WDTCycles(uint32_t duration_ms){
   return (uint32_t) (((float)duration_ms)/_cycles2ms);
 }
 
+
+
 //============================
 // WDTCycles2MS - Compute the number of
 //	milliseconds corresponding to
@@ -322,6 +298,7 @@ uint32_t WatchdogSleeper::WDTCycles2MS(uint32_t cycles){
 // prescaler value
 //============================
 void WatchdogSleeper::on(uint8_t psVal) {
+  _prescaler=psVal;
   // prepare timed sequence first
   uint8_t new_wdtcsr = ((((psVal & 0x08)>>3)<<WDP3) | 
 						(psVal & 0x07)		   |
@@ -394,6 +371,3 @@ boolean WatchdogSleeper::disableCallback(void) {
 }
 
 
-void WatchdogSleeper::queueCallbackSwitchToMsTimer2(void) {
-	_switchUpdateSourceToMsTimer2Queued=true;
-}

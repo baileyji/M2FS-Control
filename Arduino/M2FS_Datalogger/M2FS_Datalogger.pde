@@ -37,10 +37,12 @@ FUSES:
 #define ID "M2FS Datalogger test version"
 #define ID_SIZE 28
 
-#define DEBUG
+//#define DEBUG
 //#define DEBUG_STAY_POWERED
-#define DEBUG_ACCEL
+//#define DEBUG_ACCEL
 //#define DEBUG_FAKE_SLEEP
+//#define DEBUG_SLEEP
+#define DEBUG_LOGFILE
 
 //#############################
 //             Pins
@@ -115,6 +117,16 @@ DallasTemperature dallasSensors(&oneWire);  // Instantiate Dallas Temp sensors o
 
 ArduinoOutStream cout(Serial);  // Serial print stream
 
+uint8_t systemStatus=0;   //x,newheader,header,accel,temps,RTC,sd,logfile
+#define SYS_NOMINAL     0x3F
+#define SYS_FILE_OK     0x01
+#define SYS_SD_OK       0x02
+#define SYS_RTC_OK      0x04
+#define SYS_TEMP_OK     0x08
+#define SYS_ADXL_OK     0x10
+#define SYS_HEADER_OK   0x20
+#define SYS_HEADER_NEW  0x40
+
 SdFile logfile;             // file for logging
 uint32_t writePos, readPos;
 uint32_t Logfile_End;
@@ -126,6 +138,8 @@ boolean powered=false;
 boolean updateRTCPending=false;
 volatile boolean asleep=false;
 uint32_t msgID=0;
+
+uint32_t resetTime;
 
 volatile boolean inactive=false;
 volatile uint8_t accelerometerInterrupt = 0;
@@ -155,7 +169,7 @@ ISR(WDT_vect) {
   
   // Restart WDT if required
   if (WDT._autorestart)
-    WDT.on(WDT.readPrescaler());
+    WDT.on(WDT._prescaler);
   else
     _WD_CONTROL_REG &= (~(1<<WDIE)); //Disable the WDT interrupt
   
@@ -282,8 +296,6 @@ void accelerometerISR(void) {
 void timerUpdater(uint32_t delta) {
   for (int i=0; i<NUM_TIMERS; i++)
     timers[i]->increment(delta);
-//  cout<<"#Incrementing timers\n";
-//    WDT.cancelSleep();
 }
 
 
@@ -317,7 +329,7 @@ void dateTime(uint16_t* date, uint16_t* time) {
 //========================================================
 void setup(void)
 {
- 
+   
   pinMode(ACCELEROMETER_INTERRUPT_PIN, INPUT);
   
   pinMode(ACCELEROMETER_CS,OUTPUT);
@@ -358,8 +370,9 @@ void setup(void)
   WDT.off();
   WDT.calibrate();
   WDT.registerCallback(timerUpdater);
-  //WDT.enableAutorestart();
-  //WDT.on(0);
+  #ifdef DEBUG
+    cout<<pstr("#WDT clock: ")<<WDT.clockRatekHz()<<pstr(" kHz")<<endl;
+  #endif
   
   // Initialize timers
   batteryCheckTimer.start();
@@ -368,66 +381,112 @@ void setup(void)
 
 
   // Initialize Accelerometer
-  cout<<pstr("#Init ADXL...");
+  #ifdef DEBUG
+    cout<<pstr("#Init ADXL...");
+  #endif
   ADXL345.init(ACCELEROMETER_CS);
   attachInterrupt(ACCELEROMETER_INTERRUPT, accelerometerISR, FALLING);
   if (!digitalRead(ACCELEROMETER_INTERRUPT_PIN)) {
     accelerometerISR();
   }
-  cout<<pstr("initialized.\n");
-
+  systemStatus|=SYS_ADXL_OK;
+  #ifdef DEBUG
+    cout<<pstr("initialized.\n");
+  #endif
+  
   // Initialize the temp sensors
-  cout<<pstr("#Init Temp...");
+  #ifdef DEBUG
+    cout<<pstr("#Init Temp...");
+  #endif
   dallasSensors.begin();
   dallasSensors.setResolution(10);  //configure for 10bit, conversions take 187.5 ms max
   dallasSensors.setWaitForConversion(false);
-  cout<<pstr("initialized.\n"); //*/
-
+  systemStatus|=SYS_TEMP_OK;
+  #ifdef DEBUG
+    cout<<pstr("initialized.\n");
+  #endif
+  
   // Initialize RTC
-  cout<<pstr("#Init RTC...");
+  #ifdef DEBUG
+    cout<<pstr("#Init RTC...");
+  #endif
   if (! RTC.isrunning()) {
-    cout<<pstr("RTC start\n");
-    // following line sets the RTC to the date & time this sketch was compiled
+    #ifdef DEBUG
+      cout<<pstr("RTC start\n");
+    #endif
     RTC.adjust(DateTime(__DATE__, __TIME__));
     RTC.begin();
   }
   if ( !RTC.isrunning()) {
-    cout<<pstr("#RTC fail\n");
+    #ifdef DEBUG
+      cout<<pstr("#RTC fail\n");
+    #endif
   }
   else {
-    cout<<pstr("RTC init'd.\n");
-    // set date time callback function
+    #ifdef DEBUG
+      cout<<pstr("RTC init'd.\n");
+    #endif
+    systemStatus|=SYS_RTC_OK;
+
+    // Set date time callback function
     SdFile::dateTimeCallback(dateTime);
+    
+    //Set millis counter to proper point in day
+    DateTime now=RTC.now();
+    resetTime=now.unixtime();
+    cli();
+    timer0_millis=(now.unixtime()%86400)*1000;
+    sei();
   }
 
   // Initialize SD card
   char name[] = "LOG.CSV";
-  cout<<pstr("#Init SD...");
-  // initialize the SD card at SPI_HALF_SPEED to avoid bus errors with
-  // breadboards.  use SPI_FULL_SPEED for better performance.
-  // if SD chip select is not SS, the second argument to init is CS pin number
-  if (!SD.init(SPI_FULL_SPEED, SD_CS)) SD.initErrorHalt();
-  
+
+  #ifdef DEBUG_LOGFILE
+    cout<<pstr("#Init SD...");
+  #endif  
+  if (!SD.init(SPI_FULL_SPEED, SD_CS)) {
+    SD.initErrorPrint();
+    errorLoop();
+  }
+  else {
+    systemStatus|=SYS_SD_OK;
+  }
   
   Logfile_Data_Start=ID_SIZE + 13;  //Header size
   
   if (SD.exists(name)) {
     //Try to read header info and resume operation
     logfile.open(name, O_RDWR);
-    if (!logfile.isOpen()) 
-      error("file.open");
-	  
+    if (!logfile.isOpen()) { 
+      cout<<pstr("#file.reopen");
+      errorLoop();
+    }
+	  systemStatus|=SYS_FILE_OK;
+    
     int16_t header_size=logfile.read();
     logfile.seekSet(ID_SIZE+1);
     logfile.read((void*)&writePos,sizeof(writePos));
     logfile.read((void*)&readPos,sizeof(readPos));
     logfile.read((void*)&Logfile_End,sizeof(Logfile_End));
     
+    #ifdef DEBUG_LOGFILE
+      cout<<pstr("#Log Opened.\n");
+      cout<<pstr("# Header size=")<<header_size<<endl;
+      cout<<pstr("# Write ptr=")<<writePos<<endl;
+      cout<<pstr("# Read ptr=")<<readPos<<endl;
+      cout<<pstr("# File end=")<<Logfile_End<<endl;
+    #endif
+    
     //Sanity check
     if (writePos > MAX_LOGFILE_SIZE_BYTES ||
       readPos > MAX_LOGFILE_SIZE_BYTES ||
       Logfile_End > MAX_LOGFILE_SIZE_BYTES) {
       cout<<pstr("#Log header corrupt");
+      logfile.close();
+    }
+    else {
+      systemStatus|=SYS_HEADER_OK;
     }
      
   }
@@ -435,9 +494,12 @@ void setup(void)
   if (!logfile.isOpen()) {
     // create a new file in root, the current working directory
     logfile.open(name, O_RDWR | O_TRUNC | O_CREAT);
-    if (!logfile.isOpen()) 
-      error("file.open"); 
-  
+    if (!logfile.isOpen()) { 
+      cout<<pstr("#file.open");
+      errorLoop();
+    }
+    systemStatus|=SYS_FILE_OK;
+
     readPos=writePos=Logfile_End=Logfile_Data_Start;
 	
     logfile.write((uint8_t) Logfile_Data_Start); //Header Size
@@ -446,9 +508,12 @@ void setup(void)
     logfile.write((void*)&readPos,sizeof(readPos));
     logfile.write((void*)&Logfile_End,sizeof(Logfile_End));
     logfile.sync();
+    
+    systemStatus|=SYS_HEADER_NEW;
   }
-  cout<<pstr("initialized. Logging to: ")<<name<<endl;
-
+  #ifdef DEBUG_LOGFILE
+    cout<<pstr("initialized. Logging to: ")<<name<<endl;
+  #endif
 
   // Initialize power mode
   powered=START_POWERED;
@@ -463,9 +528,20 @@ void setup(void)
   #ifdef DEBUG
     cout<<pstr("#Free RAM: ")<<FreeRam()<<endl;
   #endif
+  
+  cout<<pstr("#Startup: ");Serial.print(systemStatus,HEX);
+  
 }
 
-         
+
+void errorLoop(void) {
+  while(1) {
+    cout<<pstr("Fatal Error: ");
+    Serial.println(systemStatus,HEX);
+    delay(5000);
+  }
+}
+
 //========================================================
 //--------------------------------------------------------
 //   loop
@@ -484,7 +560,7 @@ void loop(void){
   if(Serial.available()) {
     uint8_t temp=Serial.peek();
     #ifdef DEBUG
-      //cout<<pstr("#Byte In:")<<temp<<".\n";
+      cout<<pstr("#Byte In:")<<temp<<".\n";
     #endif
     switch (Serial.read()) {
 	
@@ -546,24 +622,26 @@ void loop(void){
     delay(500);
     if (!digitalRead(EJECT_PIN)) {
       logfile.close();
-      cout<<pstr("#Remove SD card within 1 minute.\n");
-      delay(60000);
-      return; //will cause reset 
+      cout<<pstr("#Safe to remove SD card.\n");
+      while(1);
     }
   }
   
   
-  // Reset millis() at 00:00:00
+  // Reset millis()
   if (needToResetMillis()) {
     resetMillis();
+    bufferPut(temps, N_TEMP_SENSORS*sizeof(float)); //Resend temp date as a time sync
   }
     
+  /*
   // Periodically check the battery status 
   if (batteryCheckTimer.expired()) {
     cout<<'B'<<testBattery()<<endl;
     batteryCheckTimer.reset();
     batteryCheckTimer.start();
   }
+  */
 
   // Periodically check for a connection while unpowered
   if (!powered && pollForPowerTimer.expired()) {
@@ -605,17 +683,16 @@ void loop(void){
       cout<<"#Poll T\n";
     #endif
     for (unsigned char i=0; i<N_TEMP_SENSORS; i++)
-        temps[i]=dallasSensors.getTempCByIndex(i);//20.34;//dallasSensors.getTempCByIndex(i);
+        temps[i]=dallasSensors.getTempCByIndex(i); //NB Returns -127 if a temp sensor is disconnected
     bufferPut(temps, N_TEMP_SENSORS*sizeof(float));
     pollTempsTimer.reset();
   }
 
 
   // Acceleration Monitoring
-  //if (accelerometerInterrupt & ADXL_INT_WATERMARK) {
   if (retrieve_fifo_accels) {
     
-    /*#ifdef DEBUG_ACCEL
+    #ifdef DEBUG_ACCEL
 
       cout<<pstr("# Accel. int=");Serial.print(accelerometerInterrupt,HEX);
       if (accelerometerInterrupt & ADXL_INT_DATAREADY)	  cout<<pstr(", data ready");
@@ -630,12 +707,14 @@ void loop(void){
       ADXL345.readRegister(ADXL_INT_MAP,1, (char*) &interrupts );
       cout<<pstr("# Int map: ");Serial.println(interrupts,HEX);
     #endif
-    */
+    
     
     retrieve_fifo_accels=false;
     
-    if (n_in_fifo < 32) delay(40*(32-n_in_fifo)+10);  //40 is for sample rate of 25Hz
-    
+    if (n_in_fifo < 32) {
+      delay(40*(32-n_in_fifo)+10);  //40 is for sample rate of 25Hz
+      ADXL345.readRegister(ADXL_FIFO_STATUS, 1, (char*) &n_in_fifo );
+    }
     for (uint8_t i=0; i<n_in_fifo;i++) {
       ADXL345.getRawAccelerations(accel);
       bufferPut(accel,6);
@@ -661,27 +740,17 @@ void loop(void){
     accelerometerISR();
   }
   
-  /*
-  if (inactive && !digitalRead(ACCELEROMETER_INTERRUPT_PIN)) {
-    ADXL345.readRegister(ADXL_INT_SOURCE, 1, (char*) &accelerometerInterrupt);
-    ADXL345.readRegister(ADXL_FIFO_STATUS,1, (char*) &n_in_fifo);
-    
-    cout<<pstr("# Accel. int=");Serial.print(accelerometerInterrupt,HEX);
-    if (accelerometerInterrupt & ADXL_INT_DATAREADY)	  cout<<pstr(", data ready");
-    if (accelerometerInterrupt & ADXL_INT_ACTIVITY)	  cout<<pstr(", activity");
-    if (accelerometerInterrupt & ADXL_INT_FREEFALL)	  cout<<pstr(", freefall");
-    if (accelerometerInterrupt & ADXL_INT_INACTIVITY) cout<<pstr(", inactivity");
-    if (accelerometerInterrupt & ADXL_INT_OVERRUN)	  cout<<pstr(", data dropped");
-    if (accelerometerInterrupt & ADXL_INT_WATERMARK)  cout<<pstr(", watermark");
-    cout<<". N in FIFO: "<<(unsigned int)n_in_fifo<<endl;
-   
-  }*/
+  
   // Upload old data
   if (powered && bufferIsEmpty()) {
-    //cout<<"#GLDfF\n";
-    //cout<<pstr("# buffer: ")<<(unsigned int) bufferSpaceRemaining()<<" "<<(unsigned int)bufferPos()<<endl;
+    #ifdef DEBUG_LOGFILE
+      cout<<"#GLDfF\n";
+      cout<<pstr("# buffer: ")<<(unsigned int) bufferSpaceRemaining()<<" "<<(unsigned int)bufferPos()<<endl;
+    #endif
     dataFromLogfile=getLogDataFromFile();
-    //cout<<pstr("# buffer: ")<<(unsigned int) bufferSpaceRemaining()<<" "<<(unsigned int)bufferPos()<<endl;
+    #ifdef DEBUG_LOGFILE
+      cout<<pstr("# buffer: ")<<(unsigned int) bufferSpaceRemaining()<<" "<<(unsigned int)bufferPos()<<endl;
+    #endif
   }
 
 
@@ -707,10 +776,12 @@ void loop(void){
   // Sync the logfile
   //   NB timer is started by logData()
   if (logSyncTimer.expired()) {
+    #ifdef DEBUG_LOGFILE
       cout<<pstr("#Logfile sync\n");
-      logfile.sync();
-      logSyncTimer.stop();
-      logSyncTimer.reset();
+    #endif
+    logfile.sync();
+    logSyncTimer.stop();
+    logSyncTimer.reset();
   }
   
   
@@ -733,7 +804,6 @@ void loop(void){
   if (messageConfTimer.running() || messageConfTimer.expired()) {
     sleepMode=SLEEP_IDLE;
     availableNaptimeMS=messageConfTimer.value();
-    //cout<<"# Message Naptime: "<<availableNaptimeMS<<endl;
   }
   else {
     sleepMode=SLEEP_HARD;
@@ -747,7 +817,6 @@ void loop(void){
       temp=(timers[i]->running() || timers[i]->expired()) ? timers[i]->value() : MAX_UINT32;
       
       if (temp < availableNaptimeMS) {
-        //cout<<"#  "<<temp<<endl;
         availableNaptimeMS=temp;
       }
     }
@@ -755,12 +824,17 @@ void loop(void){
 
   // Go to sleep to conserve power
   if (!retrieve_fifo_accels) {
-    cout<<"#Sleep "<<availableNaptimeMS<<" ms.\n";
-    uint32_t timepoint; timepoint=millis();
+    #ifdef DEBUG_SLEEP
+      cout<<"#Sleep "<<availableNaptimeMS<<" ms.\n";
+      uint32_t timepoint; timepoint=millis();
+    #endif
 
     goSleep(availableNaptimeMS, sleepMode);
-    if (availableNaptimeMS < 0) 
-      cout<<"#Overslept: "<<millis()-timepoint-availableNaptimeMS<<" ms.\n";
+
+    #ifdef DEBUG_SLEEP
+      if (availableNaptimeMS < 0) 
+        cout<<"#Overslept: "<<millis()-timepoint-availableNaptimeMS<<" ms.\n";
+    #endif
   }
   
   while(messageConfTimer.running()); //MUST expire before next loop or bad things happen
@@ -770,7 +844,13 @@ void loop(void){
 
 
 boolean needToResetMillis() {
-  return millis() > 86400000; //Reset once per day 
+  DateTime now=RTC.now();
+  if ( (now.unixtime() % 86400 == 0) && resetTime!=now.unixtime()){
+    resetTime=now.unixtime();
+    return true;
+  }
+  else
+    return false;
 }
 
 //=======================================
@@ -781,7 +861,6 @@ boolean needToResetMillis() {
 //=======================================
 boolean getLogDataFromFile() {
   
-  return false;
   if (readPos!=writePos) {
     
     logfile.seekSet(readPos);
@@ -800,7 +879,7 @@ boolean getLogDataFromFile() {
 
     readPos=logfile.curPosition();
 	
-	//Update the file header
+    //Update the file header
     logfile.seekSet(Logfile_Data_Start-2*sizeof(writePos));
     logfile.write((void*)&readPos,sizeof(readPos));
 	
@@ -814,11 +893,11 @@ boolean getLogDataFromFile() {
 
 void ungetLogDataFromFile() {
   if (readPos == Logfile_Data_Start ) {
-	//wrap around to end
-	logfile.seekCur(Logfile_End-bufferGetRecordSize());
+    //wrap around to end
+    logfile.seekCur(Logfile_End-bufferGetRecordSize());
   }
   else {
-	logfile.seekCur(-bufferGetRecordSize());	//rewind readPos
+    logfile.seekCur(-bufferGetRecordSize());	//rewind readPos
   }
   readPos=logfile.curPosition();
   
@@ -837,29 +916,28 @@ void ungetLogDataFromFile() {
 //=======================================
 void logData() {
   if (bufferIsEmpty()) {
-    return;	//Nothing to log
-  }
-  if (powered) {
-    cout<<pstr("#Logging while powered!\n");
-    return;
+    return;	// Nothing to log
   }
   uint32_t futurePos=writePos + bufferGetRecordSize();
   
       //can wp be < rp && (fp overflow || fp >= max filesize) 
   if ( writePos >= readPos || futurePos < writePos) {
     if (futurePos < MAX_LOGFILE_SIZE_BYTES && futurePos > writePos ) {
+    
+      #ifdef DEBUG_LOGFILE
+        cout<<pstr("#Logging (rp<=wp)")<<(uint16_t)bufferGetRecordSize()<<pstr(" bytes at")
+        <<writePos<<endl;
+      #endif
+    
       logfile.seekSet(writePos);
       logfile.write(bufferGetRecordPtr(), bufferGetRecordSize());
       logSyncTimer.start();
       
-      // Debugging messages
-      cout<<pstr("#Logging ")<<(uint16_t)bufferGetRecordSize()<<pstr(" bytes\n");
-
+      // Update the file write pointer and extents
       writePos=logfile.curPosition();
-	  
       Logfile_End=Logfile_End > writePos ? Logfile_End:writePos;
       
-      //Update the file header
+      // Update the file header
       logfile.seekSet(Logfile_Data_Start-3*sizeof(writePos));
       logfile.write((void*)&writePos,sizeof(writePos));
       logfile.seekCur(sizeof(readPos));//logfile.write((void*)&readPos,sizeof(readPos));
@@ -877,34 +955,33 @@ void logData() {
   }
 	
   if (futurePos<readPos) {
+  
+    #ifdef DEBUG_LOGFILE
+      cout<<pstr("#Logging (wp<rp)")<<(uint16_t)bufferGetRecordSize()<<pstr(" bytes at")
+      <<writePos<<endl;
+    #endif
+
     logfile.seekSet(writePos);
     logfile.write(bufferGetRecordPtr(), bufferGetRecordSize());
     logSyncTimer.start();
     
-    // Debugging messages
-    cout<<pstr("# case2 wp=")<<writePos<<" rp="<<readPos<<" fp="<<futurePos<<endl;
-    
+    // Update write pointer
     writePos=logfile.curPosition();
 	
 	
-    //Update the file header
+    // Update the file header
     logfile.seekSet(Logfile_Data_Start-3*sizeof(writePos));
     logfile.write((void*)&writePos,sizeof(writePos));
-//    logfile.write((void*)&readPos,sizeof(readPos));
-//    logfile.write((void*)&Logfile_End,sizeof(Logfile_End));
+    //logfile.write((void*)&readPos,sizeof(readPos));
+    //logfile.write((void*)&Logfile_End,sizeof(Logfile_End));
 	
     bufferRewind();
   }
   else {
-    //cout<<'#'<<buff.buf();
-    cout<<pstr("# case3(error) wp=")<<writePos<<" "<<readPos<<" "<<futurePos<<endl;
-    //error("Out of space.");
+    cout<<pstr("#Logfile Full\n");
     bufferRewind();  //log message is lost
   }
   
-  
-  //Update Logfile_End as needed, shall always have 
-
 }
 
 
@@ -916,10 +993,11 @@ void sendData() {
     return;	//Nothing to log
   }
   msgID++;
-  cout<<"#Send Message: "<<msgID<<pstr(". Length: ")<<(uint16_t)bufferGetRecordSize()<<endl;
-
+  #ifdef DEBUG
+    cout<<"#Send Message: "<<msgID<<pstr(". Length: ")<<(uint16_t)bufferGetRecordSize()<<endl;
+  #endif
+  
   Serial.write('L');
-//  Serial.write(thebuffer,thebuffer[0]+1);
   Serial.write(bufferGetRecordPtr(), bufferGetRecordSize());
 
   messageConfTimer.reset();
@@ -936,9 +1014,11 @@ void sendData() {
 //  it sleeps for that long
 //=============================
 void goSleep(uint32_t duration_ms, SleepMode mode) {
-      //logfile.sync();
-      logSyncTimer.stop();
-      logSyncTimer.reset();
+
+  //Log the data so SD card powers down
+  logfile.sync();
+  logSyncTimer.stop();
+  logSyncTimer.reset();
    
   WDT.configureSleep(mode);
   asleep=true;
@@ -949,26 +1029,43 @@ void goSleep(uint32_t duration_ms, SleepMode mode) {
       WDT.fakeSleep(duration_ms);
     }
     else {
-      MsTimer2::stop();
-      power_timer2_disable(); 
-      WDT.enableCallback();
-      WDT.sleep(duration_ms);
-      setTimerUpdateSourceToMsTimer2();
+      if (powered) {
+        MsTimer2::stop();
+        power_timer2_disable(); 
+        WDT.enableCallback();
+        WDT.sleep(duration_ms);
+        
+        cli();
+        if (WDT.running() ) {
+          WDT.queueCallbackSwitchToMsTimer2();
+        }
+        else {
+          setTimerUpdateSourceToMsTimer2();
+        }
+        sei();
+        
+      }
+      else{
+        WDT.sleep(duration_ms);
+        WDT.enableAutorestart(0);
+        if (!WDT.running()) 
+          WDT.on(0);
+      }
     }
   #endif
-  //WDT.enableAutorestart();
-  //WDT.on(0);
   asleep=false;
 }
 
 //=============================
 // powerUp - Sets timer update source to
-//  ???, stops poll for power timer,
+//  MsTimer2, stops poll for power timer,
 //  sets powered to true
 //=============================
 void powerUp(void ) {
   if(!powered){
-    cout<<pstr("#PU\n");
+    #ifdef DEBUG
+      cout<<pstr("#PU\n");
+    #endif
     powered=true;
     WDT.queueCallbackSwitchToMsTimer2();
     pollForPowerTimer.reset();
@@ -984,7 +1081,9 @@ void powerUp(void ) {
 //=============================
 void powerDown(void) {
   if (powered) {
-    cout<<pstr("#PD\n");
+    #ifdef DEBUG
+      cout<<pstr("#PD\n");
+    #endif
     powered=false;
     setTimerUpdateSourceToWDT();
     pollForPowerTimer.start();
@@ -995,8 +1094,8 @@ void powerDown(void) {
 
 //=============================
 // setRTCFromSerial - Attemps to grab
-// 20 bytes from serial, parse as
-// "Dec 26 2009 12:34:56"
+// 4 bytes from serial, parse as
+// uint32_t
 // and use to set the RTC time
 // returns true if RTC time was sucessfully set
 //=============================
@@ -1039,7 +1138,7 @@ boolean setRTCFromSerial() {
 
 }
 
-		
+/*
 //=======================================
 // testBattery() - Read the battery voltage
 //  and return a rough estimate of the number
@@ -1079,12 +1178,10 @@ int testBattery(void) {
 //  16ms minimum time slice
 //=============================
 void setTimerUpdateSourceToWDT(void) {
-  ///*
   MsTimer2::stop();
   power_timer2_disable(); 
-  //*/
-	WDT.enableAutorestart();
-	WDT.on(0);
+  WDT.enableAutorestart();
+  WDT.on(0);
   WDT.enableCallback();
 }
 
@@ -1097,10 +1194,7 @@ void setTimerUpdateSourceToWDT(void) {
 //	Use with caution, will appear as if elapsed WDT time never happened 
 //=============================
 void setTimerUpdateSourceToMsTimer2(void) {
-  
-  //WDT.enableCallback();
-  ///*
-	WDT.disableCallback();
+  WDT.disableCallback();
   power_timer2_enable();
   MsTimer2::set(MSTIMER2_DELTA, timerUpdater);
   MsTimer2::start(); 

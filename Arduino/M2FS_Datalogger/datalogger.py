@@ -77,7 +77,8 @@ def receiveLogData(ser):
 
 	record=DataloggerRecord(data)
 	
-	print " ",record.unixtime, record.millis
+	timestr=time.strftime("%a, %d %b %Y %H:%M:%S +0000",time.localtime(record.unixtime))
+	print " ",timestr, record.millis
 	if record.accels != None:
 		print " ",record.temps,record.accels.shape
 
@@ -96,16 +97,11 @@ def debugMessage(ser):
 
 def tellTime(ser):
 	utime=int(time.time())
-	#utime=2172748161
 	hexutime=hex(utime)[2:].upper()
-	#hexutime='000102030405000000000'
 	s='t'+UBInt32("f").build(utime)
-	#str='t'+hexutime
 	sentbytes=s
-	#sentbytes=''.join([hex(ord(b))[2:] for b in str[1:]])
 	print "Time: ", utime
 	print " Sent Bytes:    ", hexutime
-	#ser.write(str)
 	ser.write(s[0])
 	ser.write('\x00'+s[1])
 	ser.write('\x00'+s[2])

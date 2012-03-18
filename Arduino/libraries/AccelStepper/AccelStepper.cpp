@@ -1,9 +1,8 @@
 // AccelStepper.cpp
 //
 // Copyright (C) 2009 Mike McCauley
-// $Id: AccelStepper.cpp,v 1.4 2011/01/05 01:51:01 mikem Exp $
+// $Id: AccelStepper.cpp,v 1.5 2012/01/28 22:45:25 mikem Exp mikem $
 
-#include "WProgram.h"
 #include "AccelStepper.h"
 
 void AccelStepper::moveTo(long absolute)
@@ -51,15 +50,13 @@ boolean AccelStepper::runSpeed()
 	    // Anticlockwise  
 	    _currentPos -= 1;
 	}
-	step(_currentPos & 0x3); // Bottom 2 bits (same as mod 4, but works with + and - numbers) 
+	step(_currentPos & 0x7); // Bottom 3 bits (same as mod 8, but works with + and - numbers) 
 
-//	_lastRunTime = time;
 	_lastStepTime = time;
 	return true;
     }
     else
     {
-//	_lastRunTime = time;
 	return false;
     }
 }
@@ -82,7 +79,8 @@ long AccelStepper::currentPosition()
 // Useful during initialisations or after initial positioning
 void AccelStepper::setCurrentPosition(long position)
 {
-    _currentPos = position;
+    _targetPos = _currentPos = position;
+    computeNewSpeed(); // Expect speed of 0
 }
 
 void AccelStepper::computeNewSpeed()
@@ -103,57 +101,40 @@ void AccelStepper::computeNewSpeed()
 float AccelStepper::desiredSpeed()
 {
     float requiredSpeed;
-    long distanceTo = distanceToGo();
+    long distanceTo = distanceToGo(); // +ve is clockwise from curent location
 
-    // Max possible speed that can still decelerate in the available distance
-    // Use speed squared to avoid using sqrt
     if (distanceTo == 0)
 	return 0.0f; // We're there
-    else if (distanceTo > 0) // Clockwise
-	requiredSpeed = (2.0f * distanceTo * _acceleration);
-    else  // Anticlockwise
-	requiredSpeed = -(2.0f * -distanceTo * _acceleration);
 
-    float sqrSpeed = (_speed * _speed) * ((_speed > 0.0f) ? 1.0f : -1.0f);
-    if (requiredSpeed > sqrSpeed)
+    // sqrSpeed is the signed square of _speed.
+    float sqrSpeed = sq(_speed);
+    if (_speed < 0.0)
+      sqrSpeed = -sqrSpeed;
+    float twoa = 2.0f * _acceleration; // 2ag
+    // if v^^2/2as is the the left of target, we will arrive at 0 speed too far -ve, need to accelerate clockwise
+    if ((sqrSpeed / twoa) < distanceTo)
     {
-	if (_speed == _maxSpeed)  // Reduces processor load by avoiding extra calculations below
-	{
-	    // Maintain max speed
+	// Accelerate clockwise
+	// Need to accelerate in clockwise direction
+	if (_speed == 0.0f)
+	    requiredSpeed = sqrt(twoa);
+	else
+	    requiredSpeed = _speed + abs(_acceleration / _speed);
+	if (requiredSpeed > _maxSpeed)
 	    requiredSpeed = _maxSpeed;
-	}
-	else
-        {
-	    // Need to accelerate in clockwise direction
-	    if (_speed == 0.0f)
-	        requiredSpeed = sqrt(2.0f * _acceleration);
-	    else
-	        requiredSpeed = _speed + abs(_acceleration / _speed);
-	    if (requiredSpeed > _maxSpeed)
-	        requiredSpeed = _maxSpeed;
-	}
     }
-    else if (requiredSpeed < sqrSpeed)
+    else
     {
-	if (_speed == -_maxSpeed)  // Reduces processor load by avoiding extra calculations below
-	{
-	    // Maintain max speed
-	    requiredSpeed = -_maxSpeed;
-	}
+	// Decelerate clockwise, accelerate anticlockwise
+	// Need to accelerate in clockwise direction
+	if (_speed == 0.0f)
+	    requiredSpeed = -sqrt(twoa);
 	else
-        {
-	    // Need to accelerate in clockwise direction
-	    if (_speed == 0.0f)
-	        requiredSpeed = -sqrt(2.0f * _acceleration);
-	    else
-	        requiredSpeed = _speed - abs(_acceleration / _speed);
-	    if (requiredSpeed < -_maxSpeed)
-	        requiredSpeed = -_maxSpeed;
-	}
+	    requiredSpeed = _speed - abs(_acceleration / _speed);
+	if (requiredSpeed < -_maxSpeed)
+	    requiredSpeed = -_maxSpeed;
     }
-    else // if (requiredSpeed == sqrSpeed)
-        requiredSpeed = _speed;
-
+    
 //    Serial.println(requiredSpeed);
     return requiredSpeed;
 }
@@ -181,8 +162,10 @@ AccelStepper::AccelStepper(uint8_t pins, uint8_t pin1, uint8_t pin2, uint8_t pin
     _maxSpeed = 1.0;
     _acceleration = 1.0;
     _stepInterval = 0;
-//    _lastRunTime = 0;
     _minPulseWidth = 1;
+    _dirInverted = false;
+    _stepInverted = false;
+    _enablePin = 0xff;
     _lastStepTime = 0;
     _pin1 = pin1;
     _pin2 = pin2;
@@ -204,8 +187,10 @@ AccelStepper::AccelStepper(void (*forward)(), void (*backward)())
     _maxSpeed = 1.0;
     _acceleration = 1.0;
     _stepInterval = 0;
-//    _lastRunTime = 0;
     _minPulseWidth = 1;
+    _dirInverted = false;
+    _stepInverted = false;
+    _enablePin = 0xff;
     _lastStepTime = 0;
     _pin1 = 0;
     _pin2 = 0;
@@ -266,38 +251,41 @@ void AccelStepper::step(uint8_t step)
 	case 4:
 	    step4(step);
 	    break;  
+
+	case 8:
+	    step8(step);
+	    break;  
     }
 }
 
 // 0 pin step function (ie for functional usage)
 void AccelStepper::step0()
 {
-  if (_speed > 0) {
+  if (_speed > 0)
     _forward();
-  } else {
+  else
     _backward();
-  }
 }
 
 // 1 pin step function (ie for stepper drivers)
-// This is passed the current step number (0 to 3)
+// This is passed the current step number (0 to 7)
 // Subclasses can override
 void AccelStepper::step1(uint8_t step)
 {
-    digitalWrite(_pin2, _speed > 0); // Direction
+    digitalWrite(_pin2, (_speed > 0) ^ _dirInverted); // Direction
     // Caution 200ns setup time 
-    digitalWrite(_pin1, HIGH);
+    digitalWrite(_pin1, HIGH ^ _stepInverted);
     // Delay the minimum allowed pulse width
     delayMicroseconds(_minPulseWidth);
-    digitalWrite(_pin1, LOW);
+    digitalWrite(_pin1, LOW ^ _stepInverted);
 }
 
 // 2 pin step function
-// This is passed the current step number (0 to 3)
+// This is passed the current step number (0 to 7)
 // Subclasses can override
 void AccelStepper::step2(uint8_t step)
 {
-    switch (step)
+    switch (step & 0x3)
     {
 	case 0: /* 01 */
 	    digitalWrite(_pin1, LOW);
@@ -321,12 +309,12 @@ void AccelStepper::step2(uint8_t step)
     }
 }
 
-// 4 pin step function
-// This is passed the current step number (0 to 3)
+// 4 pin step function for half stepper
+// This is passed the current step number (0 to 7)
 // Subclasses can override
 void AccelStepper::step4(uint8_t step)
 {
-    switch (step)
+    switch (step & 0x3)
     {
 	case 0:    // 1010
 	    digitalWrite(_pin1, HIGH);
@@ -359,37 +347,143 @@ void AccelStepper::step4(uint8_t step)
 }
 
 
+// 4 pin step function
+// This is passed the current step number (0 to 3)
+// Subclasses can override
+void AccelStepper::step8(uint8_t step)
+{
+    switch (step & 0x7)
+    {
+	case 0:    // 1000
+            digitalWrite(_pin1, HIGH);
+            digitalWrite(_pin2, LOW);
+            digitalWrite(_pin3, LOW);
+            digitalWrite(_pin4, LOW);
+            break;
+	    
+        case 1:    // 1010
+            digitalWrite(_pin1, HIGH);
+            digitalWrite(_pin2, LOW);
+            digitalWrite(_pin3, HIGH);
+            digitalWrite(_pin4, LOW);
+            break;
+	    
+	case 2:    // 0010
+            digitalWrite(_pin1, LOW);
+            digitalWrite(_pin2, LOW);
+            digitalWrite(_pin3, HIGH);
+            digitalWrite(_pin4, LOW);
+            break;
+	    
+        case 3:    // 0110
+            digitalWrite(_pin1, LOW);
+            digitalWrite(_pin2, HIGH);
+            digitalWrite(_pin3, HIGH);
+            digitalWrite(_pin4, LOW);
+            break;
+	    
+	case 4:    // 0100
+            digitalWrite(_pin1, LOW);
+            digitalWrite(_pin2, HIGH);
+            digitalWrite(_pin3, LOW);
+            digitalWrite(_pin4, LOW);
+            break;
+	    
+        case 5:    //0101
+            digitalWrite(_pin1, LOW);
+            digitalWrite(_pin2, HIGH);
+            digitalWrite(_pin3, LOW);
+            digitalWrite(_pin4, HIGH);
+            break;
+	    
+	case 6:    // 0001
+            digitalWrite(_pin1, LOW);
+            digitalWrite(_pin2, LOW);
+            digitalWrite(_pin3, LOW);
+            digitalWrite(_pin4, HIGH);
+            break;
+	    
+        case 7:    //1001
+            digitalWrite(_pin1, HIGH);
+            digitalWrite(_pin2, LOW);
+            digitalWrite(_pin3, LOW);
+            digitalWrite(_pin4, HIGH);
+            break;
+    }
+}
+    
 // Prevents power consumption on the outputs
 void    AccelStepper::disableOutputs()
 {   
-  if (! _pins) return;
+    if (! _pins) return;
 
-    digitalWrite(_pin1, LOW);
-    digitalWrite(_pin2, LOW);
-    if (_pins == 4)
+    if (_pins == 1)
     {
-	digitalWrite(_pin3, LOW);
-	digitalWrite(_pin4, LOW);
+        // Invert only applies for stepper drivers.
+        digitalWrite(_pin1, LOW ^ _stepInverted);
+        digitalWrite(_pin2, LOW ^ _dirInverted);
+    }
+    else
+    {
+        digitalWrite(_pin1, LOW);
+        digitalWrite(_pin2, LOW);
+    }
+    
+	if (_pins == 4 || _pins == 8)
+    {
+        digitalWrite(_pin3, LOW);
+        digitalWrite(_pin4, LOW);
+    }
+
+    if (_enablePin != 0xff)
+    {
+        digitalWrite(_enablePin, LOW ^ _enableInverted);
     }
 }
 
 void    AccelStepper::enableOutputs()
 {
-    if (! _pins) return;
+	if (! _pins) return;
 
     pinMode(_pin1, OUTPUT);
     pinMode(_pin2, OUTPUT);
-    if (_pins == 4)
+    if (_pins == 4 || _pins == 8)
     {
-	pinMode(_pin3, OUTPUT);
-	pinMode(_pin4, OUTPUT);
+        pinMode(_pin3, OUTPUT);
+        pinMode(_pin4, OUTPUT);
+    }
+
+	if (_enablePin != 0xff)
+    {
+        pinMode(_enablePin, OUTPUT);
+        digitalWrite(_enablePin, HIGH ^ _enableInverted);
     }
 }
 
 void AccelStepper::setMinPulseWidth(unsigned int minWidth)
 {
-  _minPulseWidth = minWidth;
+    _minPulseWidth = minWidth;
 }
+
+void AccelStepper::setEnablePin(uint8_t enablePin)
+{
+	_enablePin = enablePin;
+
+    // This happens after construction, so init pin now.
+    if (_enablePin != 0xff)
+    {
+        pinMode(_enablePin, OUTPUT);
+        digitalWrite(_enablePin, HIGH ^ _enableInverted);
+    }
+}
+
+void AccelStepper::setPinsInverted(bool direction, bool step, bool enable)
+{
+    _dirInverted    = direction;
+    _stepInverted   = step;
+    _enableInverted = enable;
+}
+
 
 // Blocks until the target position is reached
 void AccelStepper::runToPosition()

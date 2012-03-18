@@ -23,7 +23,7 @@ speed	KEYWORD2
 distanceToGo	KEYWORD2
 targetPosition	KEYWORD2
 currentPosition	KEYWORD2
-setCurrentPosition	KEYWORD2
+steCurrentPosition	KEYWORD2
 runToPosition	KEYWORD2
 runSpeedToPosition	KEYWORD2
 runToNewPosition	KEYWORD2

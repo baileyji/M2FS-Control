@@ -1,7 +1,11 @@
 #ifndef __Timer_H__
 #define __Timer_H__
 
+#if ARDUINO < 100
 #include <WProgram.h>
+#else  // ARDUINO
+#include <Arduino.h>
+#endif  // ARDUINO
 class Timer {
   
   private:

@@ -1,24 +1,15 @@
 OTHER TODOS
 ¿remove pot jam rotune ?
 
-decide when the report errors seperate routine or as part of getposition
-
 errmsg ^h return status 
-
-call galil to get a better feel for even sampling of analog data and CPU
-effects threads, etc
 
 add halt everthying routine
 
+
+
 NB No math within subroutine jumps
 
-Convert things like:
-782 ~a=^a;JS#FANCYMV(^a,(_TD~a+_JS));MC~a;MO~a;
-to:
-782 ~a=^a;JS#FANCYMV(^a,(_TD~a+_JS))
-783 ~a=^a;MC~a
-784 ~a=^a;MO~a
-because trippoints can interfere with threading
+
 
 
 Internal routines

@@ -49,7 +49,7 @@ def main():
     for line in data:
         ser.write(line)
     
-    ser.write('\\;\\\r')
+    ser.write('\r\\;\\\r')
     ser.flush()
     #import pdb; pdb.set_trace()
     resp=ser.read(3)

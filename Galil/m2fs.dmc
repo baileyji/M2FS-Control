@@ -1553,7 +1553,10 @@ EN
 ' Command Error Interrupt
 ' Routine executed whenever a program error occurs
 '***************************************************************************
-#CMDERR;MG "!CMDERR (line",_ED,"):";TC1;EN
+#CMDERR
+MG "Threads active:",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7
+MG "!CMDERR (thread",_ED1," line",_ED,"):";TC1
+EN
 
 
 '***************************************************************************

@@ -392,40 +392,41 @@ EN
 '***************************************************************************
 #CALLRT
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#CALLRT;^f=_JS;ret[_ED4]=_JS;ELSE
+JS#ZS;IF (_JS<1);JS#CALLRT;^f=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Axis F, Hope Success
 ^a=LRTLTAX;^f=ENONE
-'Find home sensor
+'Find home sensor if not there already
 IF (@IN[lrtinpt]<>lrtathm)
 II ,,lrtinhx,lrtinhx;'Trip on @IN[lrtinpt] goes to 1
 lrhomng=true
 'Do a relative move -1.1 revolutions
 ~a=^a;^b=-1.10*(axmaxp[^a]-axminp[^a])
-~a=^a; AC~a=axaccel[^a]; DC~a=axdecel[^a]; SP~a=axspd[^a];PR~a=^b;SH~a; BG~a;
+~a=^a; AC~a=axaccel[^a]; DC~a=axdecel[^a]; SP~a=axspd[^a];PR~a=^b;SH~a; BG~a
 ' wait till stopped (input interrupt stopped us) or get to position
 #CALLRT1;WT 500;JP#CALLRT1, (_SCF=0);~a=^a;MC~a
 'If not stopped by ST in interrupt routine turn off and fail.
-IF (_SCF<>4);~a=^a;MO~a;^f=ELRTSEN;ENDIF
-ENDIF
-IF (^f<>ENONE)
-'Move off home sensor
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a];PR~a=lrthmos
-~a=^a;SH~a;BG~a;MC~a
+IF (_SCF<>4);~a=^a;MO~a;^f=ELRTSEN
+ENDIF;ENDIF
+'If all is well
+IF (^f=ENONE)
+'Continue on to move off the home sensor
+^b=-lrthmos
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a];PR~a=^b;SH~a;BG~a;MC~a
 'Move to home sensor
 lrhomng=true
-JS#MOVTIME(lrthmos, axhmspd[^a], axaccel[^a], axdecel[^a]);^h=_JS*1.05
-~a=^a; DC~a=axdecel[^a]; JG~a=-axhmspd[^a]; SH~a; BG~a; ^g=TIME; 'Begin jog
+^b=(1.1*lrthmos)+bcklsh[^a] 
+~a=^a; DC~a=axdecel[^a]; SP~a=axhmspd[^a]; PR~a=^b;SH~a; BG~a
 ' wait till stopped (input interrupt stopped us) or timeout
-#CALLRT2;WT 100;JP#CALLRT2, ((_SCF=0)&((TIME-^g) < ^h))
-'If still running, stop motor and turn off. Fail.
-IF (_SCF=0);~a=^a;ST~a;MC~a;~a=^a;MO~a^f=ECALLRTO
-ELSE
-~a=^a;MC~a;~a=^a;DP~a=0;'Define the new position as home
-axiscal[^a]=true
-ldelta[^a]=-10*bcklsh[^a];'Just want it to be negative and > bcklash amt
-ENDIF;ENDIF;ENDIF
-II 0,,,;' Turn off input interrupt
-axiserr[^a]=^f
+#CALLRT2;WT 500;JP#CALLRT2, (_SCF=0);~a=^a;MC~a
+'If not stopped by ST in interrupt routine turn off and fail
+' else Define the new position as home
+IF (_SCF<>4)~a=^a;MO~a;^f=ELRTSEN
+ELSE;~a=^a;DP~a=0;axiscal[^a]=true;ldelta[^a]=^b
+ENDIF
+ENDIF
+' Turn off input interrupt and store status
+II 0,,,;axiserr[^a]=^f
+ENDIF
 EN ,,^f
 
 

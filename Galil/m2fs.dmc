@@ -96,21 +96,22 @@ axdecel[FLSINAX]=256000
 axdecel[FOCAX]=256000
 axdecel[FESINAX]=256000
 axdecel[FESELAX]=256000
-axdecel[LRTLTAX]=100000
-axdecel[HRTLTAX]=100000
-axdecel[HRAZAX]=100000
-DM axlgdcl[8];'Rapid Deceleration rate
-axlgdcl[GESAX]=256000
-axlgdcl[FLSINAX]=256000
-axlgdcl[FOCAX]=256000
-axlgdcl[FESINAX]=256000
-axlgdcl[FESELAX]=256000
-axlgdcl[LRTLTAX]=190000;'In my notes from somewhere
-axlgdcl[HRTLTAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
-axlgdcl[HRAZAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
-DM axlmspd[8];'limit speed (speed used when intentionally moving to a limit)
-REM NB Intentional or not, the PI actuators advise no greater than 10% max speed
+axdecel[LRTLTAX]=190000
+axdecel[HRTLTAX]=160000
+axdecel[HRAZAX]=160000
+'Short on arrays, make axlgdcl=axdecel
+'DM axlgdcl[8];'Rapid Deceleration rate
+'axlgdcl[GESAX]=256000
+'axlgdcl[FLSINAX]=256000
+'axlgdcl[FOCAX]=256000
+'axlgdcl[FESINAX]=256000
+'axlgdcl[FESELAX]=256000
+'axlgdcl[LRTLTAX]=190000;'In my notes from somewhere
+'axlgdcl[HRTLTAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
+'axlgdcl[HRAZAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
+REM NB The PI actuators advise no greater than 10% max speed
 REM    when approaching limits.
+DM axlmspd[8];'limit speed (speed used when intentionally moving to a limit)
 axlmspd[GESAX]=6400
 axlmspd[FLSINAX]=6400
 axlmspd[FOCAX]=6400;'unused
@@ -139,17 +140,6 @@ axspd[FESELAX]=0
 axspd[LRTLTAX]=15000;'seems ok (w/o grating) Max per DS: 30091
 axspd[HRTLTAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
-DM axmaxd[8];'Maximum travel (steps, 16x microstepping)
-axmaxd[GESAX]=288112;'Actual value slightly greater if overshooting limits
-axmaxd[FLSINAX]=0
-REM Pot has dead zone, might deduct that from full revoloution of steps
-axmaxd[FOCAX]=0;''Infinite
-axmaxd[FESINAX]=0
-axmaxd[FESELAX]=0
-axmaxd[LRTLTAX]=1126400; '1 revolution
-axmaxd[HRTLTAX]=128205;'10mm
-axmaxd[HRAZAX]=128205;'10mm
-
 DM axmaxp[8];'Max possible position (steps, 16x microstepping)
 axmaxp[GESAX]=288112;'Actual value slightly greater if overshooting limits
 axmaxp[FLSINAX]=0
@@ -180,15 +170,16 @@ ldelta[FESELAX]=0
 ldelta[LRTLTAX]=0
 ldelta[HRTLTAX]=0
 ldelta[HRAZAX]=0
-DM dperus[8];'delta per microstep
-dperus[GESAX]=0;'microns per microstep
-dperus[FLSINAX]=0
-dperus[FOCAX]=49.087;'microradians per microstep
-dperus[FESINAX]=0
-dperus[FESELAX]=0
-dperus[LRTLTAX]=5.8;'microradians per microstep
-dperus[HRTLTAX]=0.078;'microns per microstep
-dperus[HRAZAX]=0.078;'microns per microstep
+'Unused, comented as short of array space
+'DM dperus[8];'delta per microstep
+'dperus[GESAX]=0;'microns per microstep
+'dperus[FLSINAX]=0
+'dperus[FOCAX]=49.087;'microradians per microstep
+'dperus[FESINAX]=0
+'dperus[FESELAX]=0
+'dperus[LRTLTAX]=5.8;'microradians per microstep
+'dperus[HRTLTAX]=0.078;'microns per microstep
+'dperus[HRAZAX]=0.078;'microns per microstep
 DM bcklsh[8];'backlash in steps, for reference
 bcklsh[GESAX]=76.2;'microns
 bcklsh[FLSINAX]=0
@@ -333,11 +324,11 @@ AC ,,,,axaccel[4],axaccel[5],axaccel[6],axaccel[7]
 DC axdecel[0],axdecel[1],axdecel[2],axdecel[3]
 DC ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
 'Set limit switch triggered deceleration
-SD axlgdcl[0],axlgdcl[1],axlgdcl[2],axlgdcl[3]
-SD ,,,,axlgdcl[4],axlgdcl[5],axlgdcl[6],axlgdcl[7]
+SD axdecel[0],axdecel[1],axdecel[2],axdecel[3]
+SD ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
 'Set homing velocity defaults
-HV axlgdcl[0],axlgdcl[1],axlgdcl[2],axlgdcl[3]
-HV ,,,,axlgdcl[4],axlgdcl[5],axlgdcl[6],axlgdcl[7]
+HV axdecel[0],axdecel[1],axdecel[2],axdecel[3]
+HV ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
 REM MT -2.5,-2,-2,-2,-2,-2,-2.5,-2.5;KS*=1;AG 3,1,3,1,1,0,0,0;AQ1,4;AQ3,4;AQ5,4;
 REM AQ7,4;AQ8,4;AF 1,,1,,1;YA 16,4,16,4,16,16,16,16;ER*=-1;CN 1,-1,,1,1
 REM YB 200,200,200,200,200,400,400,400;ER*=-1;YC 45,,102,,82
@@ -407,14 +398,15 @@ JS#ZS;IF (_JS<1);JS#CALLRT;^f=_JS;ret[_ED4]=_JS;ELSE
 IF (@IN[lrtinpt]<>lrtathm)
 II ,,lrtinhx,lrtinhx;'Trip on @IN[lrtinpt] goes to 1
 lrhomng=true
-JS#MOVTIME(axmaxd[^a], axspd[^a], axaccel[^a], axdecel[^a]);^h=_JS*1.05
-'MG "Move time:",^h,axmaxd[^a], axspd[^a], axaccel[^a], axdecel[^a]
+^b=axmaxp[^a]-axminp[^a]
+JS#MOVTIME(^b, axspd[^a], axaccel[^a], axdecel[^a])
+^h=_JS*1.05
 ~a=^a; AC~a=axaccel[^a]; DC~a=axdecel[^a]; JG~a=-axspd[^a]
 ~a=^a; SH~a; BG~a; ^g=TIME;'    Begin jog
 ' wait till stopped (input interrupt stopped us) or timeout
 #CALLRT1;WT 100;JP#CALLRT1, ((_SCF=0)&((TIME-^g) < ^h))
 'If still running, stop motor and turn off. Fail.
-IF (_SCF=0);~a=^a;ST~a;MC~a;MO~a;^f=ECALLRTO
+IF (_SCF=0);~a=^a;ST~a;MC~a;~a=^a;MO~a;^f=ECALLRTO
 ELSE; ~a=^a;MC~a;ENDIF
 ENDIF
 IF (^f<>ENONE)
@@ -423,14 +415,14 @@ IF (^f<>ENONE)
 ~a=^a;SH~a;BG~a;MC~a
 'Move to home sensor
 lrhomng=true
-JS#MOVTIME(lrthmos, axhmspd[^a], axaccel[^a], axlgdcl[^a]);^h=_JS*1.05
-~a=^a; DC~a=axlgdcl[^a]; JG~a=-axhmspd[^a]; SH~a; BG~a; ^g=TIME; 'Begin jog
+JS#MOVTIME(lrthmos, axhmspd[^a], axaccel[^a], axdecel[^a]);^h=_JS*1.05
+~a=^a; DC~a=axdecel[^a]; JG~a=-axhmspd[^a]; SH~a; BG~a; ^g=TIME; 'Begin jog
 ' wait till stopped (input interrupt stopped us) or timeout
 #CALLRT2;WT 100;JP#CALLRT2, ((_SCF=0)&((TIME-^g) < ^h))
 'If still running, stop motor and turn off. Fail.
-IF (_SCF=0);~a=^a;ST~a;MC~a;MO~a^f=ECALLRTO
+IF (_SCF=0);~a=^a;ST~a;MC~a;~a=^a;MO~a^f=ECALLRTO
 ELSE
-~a=^a;MC~a;DP~a=0;'	Define the new position as home
+~a=^a;MC~a;~a=^a;DP~a=0;'Define the new position as home
 axiscal[^a]=true
 ldelta[^a]=-10*bcklsh[^a];'Just want it to be negative and > bcklash amt
 ENDIF;ENDIF;ENDIF
@@ -456,14 +448,6 @@ ENDIF;ENDIF;ENDIF
 EN
 
 
-
-'***************************************************************************
-' LoRes Tilt Angle 2 Step conversion(angle)
-'***************************************************************************
-#LRTA2S;EN,,^a*lrtres+lrtoff
-
-
-
 '***************************************************************************
 ' Set LoRes TiLt(angle)
 ' Set the lo res tilt angle
@@ -471,24 +455,16 @@ EN
 #SETLRTL
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#SETLRTL(a[_ED4]);^h=_JS;ret[_ED4]=_JS;ELSE
-^f=^a
+^b=^a
 ^a=LRTLTAX
-'Convert angle to steps
-JS#LRTA2S(^f);^b=_JS
 'Calibrate if not
 IF (axiscal[^a]<>true);JS#CALLRT;^h=_JS;ENDIF
 'If we are good to go, MOVE!
-IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a;lrtang=^f;ENDIF
+IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
 'Store status
-axiserr[^f]=^h
+axiserr[^a]=^h
 ENDIF
 EN,,^h
-
-
-'***************************************************************************
-' Calibrate HiRes TiLt position
-'***************************************************************************
-#CALHRTL;JS#CALHMAX(HRTLTAX);EN
 
 
 '***************************************************************************
@@ -509,25 +485,17 @@ EN
 
 
 '***************************************************************************
-' HiRes Tilt Angle 2 Step conversion(angle)
-'***************************************************************************
-#HRTA2S;EN,,^a*hrtres+hrtoff
-
-
-'***************************************************************************
-' Set HiRes TiLt(angle)
+' Set HiRes TiLt(steps)
 ' Set the hi res tilt angle
 '***************************************************************************
 #SETHRTL
-^f=^a
+^b=^a
 ^a=HRTLTAX
 'Make sure the axis isn't locked
 IF(HRTLTLK=true);^h=ELCKERR;ENDIF
 'If we are good to go
 IF(^h=0)
-'Make sure commanded angle is sane
-'JS#HRTA2S(^f);'^b=_JS
-^b=^f
+'Make sure commanded position is sane
 JS#SANEPOS(^a,^b)
 IF(_JS<>true);^h=ECRAZY;ENDIF
 'If we are good to go
@@ -561,24 +529,17 @@ EN
 
 
 '***************************************************************************
-' HiRes Azimuth Angle 2 Step conversion(angle)
-'***************************************************************************
-#HRAA2S;EN,,^a*hrares+hraoff
-
-
-'***************************************************************************
-' Set HiRes AZimuth(angle)
+' Set HiRes AZimuth(pos)
 ' Set the hi res azimuth angle
 '***************************************************************************
 #SETHRAZ
-^f=^a
+^b=^a
 ^a=HRAZAX
 'Make sure the axis isn't locked
 IF(HRAZLK=true);JS#ERRMSG(HRAZAX,ELCKERR);^h=1;ENDIF
 'If we are good to go
 IF(^h=0)
 'Make sure commanded angle is sane
-JS#HRAA2S(^f);^b=_JS
 JS#SANEPOS(^a,^b)
 IF(_JS<>true);JS#ERRMSG(HRAZAX,ECRAZY);^h=1;ENDIF
 'If we are good to go
@@ -586,7 +547,7 @@ IF(^h=0)
 'Calibrate if not calibrated
 IF (axiscal[^a]<>true);JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
-IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a;hraang=^f;ENDIF
+IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a;ENDIF
 'Check and report errors
 IF(^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
 ENDIF
@@ -850,8 +811,6 @@ EN
 '***************************************************************************
 #GETFOCU
 ^a=FOCAX
-'Wait for filtered analog position to be clean
-'JS#WAITAMF(^a)
 IF(axiscal[^a]<>true)
 ~a=^a;MG "GETFOC: ",focanap," UNKNOWN"
 ELSE
@@ -870,7 +829,8 @@ EN
 'First move to near the pot transition
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
-JS#ENC2STP(^a,(encnlim[^a]-focanap))
+^b=encnlim[^a]-focanap
+JS#ENC2STP(^a,^b)
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=_JS;SH~a;BG~a;MC~a
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
@@ -879,7 +839,7 @@ JS#WAITAMF(^a)
 IF(@ABS[^b-encnlim[^a]]>focentol);^h=1
 ELSE
 'Figure out how far we need to move to pass the edge
-JS#ENC2STP(^a,((4096-^b)+200)))
+^b=(4096-^b)+200;JS#ENC2STP(^a,^b)
 'Now move further until the pot wraps around
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=_JS;SH~a;BG~a
 #CALFOC1;WT 50;~a=^a;JP#CALFOC1,(_TP~a>2048);IF(_SC~a=0);ST~a;ENDIF;MC~a
@@ -887,7 +847,7 @@ JS#ENC2STP(^a,((4096-^b)+200)))
 ~a=^a;IF(_SC~a<>4);^h=1
 ELSE
 'Move slowly back until the pot rolls over 0-to-4096
-~a=^a;AC~a=axaccel[^a];DC~a=axlgdcl[^a];PR~a=-_JS;SH~a;BG~a
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=-_JS;SH~a;BG~a
 #CALFOC2;WT 50;~a=^a;JP#CALFOC2,(_TP~a<2048);IF(_SC~a=0);ST~a;ENDIF;MC~a
 'If not stopped by the stop command the pot has failed
 ~a=^a;IF(_SC~a<>4);^h=1
@@ -914,13 +874,24 @@ EN,,^h
 '***************************************************************************
 #SETFOC
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#SETFOC(a[_ED4]);^h=_JS;ret[_ED4]=_JS;ELSE
+JS#ZS;IF (_JS<1)
+kkk=_ED4
+MG kkk,_ED4
+JS#SETFOC(a[kkk])
+^h=_JS
+MG kkk,_ED4,_JS
+ret[kkk]=_JS
+ELSE
 ^b=^a
 ^a=FOCAX
+MG "Requested p:",^b 
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
-JS#ENC2STP(^a,(^b-focanap))
-~a=^a;JS#FANCYMV(^a,(_TD~a+_JS));MC~a;MO~a
+^b=^b-focanap
+MG "Counts to convert:",^b
+JS#ENC2STP(^a,^b);~a=^a;^b=(_TD~a+_JS)
+MG "Moving to:",^b
+~a=^a;JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a
 ENDIF
 EN
 
@@ -1101,7 +1072,7 @@ ELSE
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a])
 ^h=_JS
 IF (^h=0)
- ~a=^a;HV~a=axhmspd[^a];SP~a=axspd[^a]; DC~a=axlgdcl[^a]
+ ~a=^a;HV~a=axhmspd[^a];SP~a=axspd[^a]; DC~a=axdecel[^a]
  ~a=^a;HM~a;BG~a;MC~a; 'Assumes home switch doesn't fail.
  'Does hitting the limit satisfy MC~a here? If not then this will hang if the
  ' home switch fails.
@@ -1140,7 +1111,7 @@ JS#WAITAMF(^a)
 'If pot reads close to the negative limit move positive by a little
 IF (analogp[^a] < encnlim[^a])
 JS#ENC2STP(^a,encnlim[^a])
-~a=^a;AC~a=axaccel[^a]; DC~a=axlgdcl[^a];SP~a=-axspd[^a]
+~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=-axspd[^a]
 ~a=^a;PR~a=_JS;SH~a;BG~a;MC~a
 ENDIF
 'Overestimate the dstance to the negative limit
@@ -1148,7 +1119,7 @@ ENDIF
 JS#WAITAMF(^a)
 JS#ENC2STP(^a,analogp[^a]);^b=1.25*_JS
 'Estimate time needed to trip the negative limit
-JS#MOVTIME(^b, axspd[^a], axaccel[^a], axlgdcl[^a]);^f=_JS*1.05
+JS#MOVTIME(^b, axspd[^a], axaccel[^a], axdecel[^a]);^f=_JS*1.05
 'Now start a move to past the -limit
 ~a=^a;PR~a=-^b;SH~a;BG~a;^g=TIME
 'Wait until stopped by limit or timed out
@@ -1160,7 +1131,7 @@ ELSE
 'Estimate time needed to move totally off the negative limit
 JS#ENC2STP(^a,encnlim[^a])
 ^b=_JS
-JS#MOVTIME(^b, axhmspd[^a], axaccel[^a], axlgdcl[^a]);^f=_JS*1.05
+JS#MOVTIME(^b, axhmspd[^a], axaccel[^a], axdecel[^a]);^f=_JS*1.05
 'If we somehow overshot limit move forward slowly until on limit
 IF(_LR~a=1)
 'Repport the error
@@ -1328,8 +1299,8 @@ EN,,(((ldelta[^a]<0)&(^b>0)) | ((ldelta[^a]>0)&(^b<0)))
 JS#DIRCNGQ(^a,^b)
 IF(_JS=true)
 'Correct for backlash by simply changing the current position
-IF(^b>0);JS#DPWAFE(^a,(_TD~a-bcklsh[^a]))
-ELSE;JS#DPWAFE(^a,(_TD~a+bcklsh[^a]));ENDIF
+~a=^a;IF(^b>0);^c=_TD~a-bcklsh[^a];ELSE;^c=_TD~a+bcklsh[^a];ENDIF
+JS#DPWAFE(^a,^c)
 ENDIF
 ldelta[^a]=^b
 EN,,1
@@ -1342,7 +1313,7 @@ EN,,1
 '***************************************************************************
 #ININT
 IF ((lrhomng=true)&(@IN[lrtinpt]=lrtathm))
-DCF=axlgdcl[5];STF;SHF;lrhomng=false
+DCF=axdecel[5];STF;SHF;lrhomng=false
 ENDIF
 RI
 
@@ -1356,7 +1327,9 @@ RI
 '***************************************************************************
 #FANCYMV;'(axis,absolute)
 'Compute delta
+^b=@RND[^b]
 ~a=^a;^c=^b-_TD~a
+IF(^c<>0)
 'If required move is too small
 IF(@ABS[^c]<mininc[^a])
 'First move mininc[^a]+@ABS[^c] in direction we last headed
@@ -1384,6 +1357,7 @@ ENDIF
 JS#BACKLSH(^a,^c)
 'Start move to position
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a];PA~a=^b;SH~a;BG~a;
+ENDIF
 EN
 
 
@@ -1425,7 +1399,8 @@ IF(^f)
 'TODO consider adding backlash correction
 'TODO set ldelta[^a]
 ' when calibrated, we could tighten the move distance estimate
-JS#MOVTIME(axmaxd[^a], ^d, ^b, ^c);^h=1.05*_JS
+^e=axmaxp[^a]-axminp[^a]
+JS#MOVTIME(^e, ^d, ^b, ^c);^h=1.05*_JS
 'Begin move (-limit if neg, +lim if pos) wait until limit or timeout
 ~a=^a; AC~a=^b; DC~a=^c; JG~a=^d; SH~a; BG~a; ^g=TIME
 'wait until we stop moving or timeout
@@ -1500,7 +1475,9 @@ EN
 ' ENCoder counts to STePs(axis, counts) 
 '***************************************************************************
 #ENC2STP
+MG "Counts: ",^b
 ~a=^a;^h=(^b*_YA~a*_YB~a)/_YC~a
+MG "To Steps: ",^h
 EN,,^h
 
 
@@ -1580,7 +1557,7 @@ ENDIF
 ^g=^e - ^c
 ^c=^e; ^b=^d
 ~a=^a;^f=@ABS[^h*(_YB*_YA~a)/_YC~a-^g]
-IF(^f>error);DC~a=axlgdcl[^a];ST~a;MC~a;MO~a;potStat[^a]=potjam
+IF(^f>error);DC~a=axdecel[^a];ST~a;MC~a;MO~a;potStat[^a]=potjam
 JS#ERRMSG(^a,EPOTJAM,dpot,dstep,error)
 ENDIF;
 AT-250;JP #POTCHK1;'        Check again in a few ms

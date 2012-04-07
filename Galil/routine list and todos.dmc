@@ -1,0 +1,92 @@
+OTHER TODOS
+¿remove pot jam rotune ?
+
+decide when the report errors seperate routine or as part of getposition
+
+errmsg ^h return status 
+
+call galil to get a better feel for even sampling of analog data and CPU
+effects threads, etc
+
+add halt everthying routine
+
+NB No math within subroutine jumps
+
+Convert things like:
+782 ~a=^a;JS#FANCYMV(^a,(_TD~a+_JS));MC~a;MO~a;
+to:
+782 ~a=^a;JS#FANCYMV(^a,(_TD~a+_JS))
+783 ~a=^a;MC~a
+784 ~a=^a;MO~a
+because trippoints can interfere with threading
+
+
+Internal routines
+#MOV2LIM  .first pass testing complete
+#MOVTIME  .first pass testing complete
+#POTMON   .
+#QUFLSIN  .
+#QUFESIN  .
+#QUFILP    ¿? NEEDED
+#QUFELP   .
+#QUGESP   .
+#INFESIN  .Insert FESIN arm
+#RMFESIN  .Remove FESIN arm
+#FESELSF  .
+#DIRCNGQ  .
+#BACKLSH  .
+#LRTA2S   .
+#HRTA2S   .
+#HRAA2S   .
+#ANAMAF   .
+#ENC2STP  .
+#STP2ENC  .
+#ZEROARR  .first pass testing complete
+#ZERSTP   .first pass testing complete
+#MEANARR  .first pass testing complete
+#STDDEV   .first pass testing complete
+#ININT    .first pass testing complete
+#CMDERR   .first pass testing complete
+#ERRMSG   .first pass testing complete
+#ZS       .validated, testing complete
+#LOCKMON  .validated, testing complete, caveat no smoothing for noise
+#AUTO     .first pass testing complete
+#INIT     .first pass testing complete
+#M2FSCFG  .first pass testing complete
+#DPWAFE   .
+
+
+#CALFOCU  .Calibrate the focus
+#CALLRT   .Calibrate LoRes, first pass testing complete
+#CALHMAX  .Calibrate an axis with a home sensor and no pot, first pass testing complete
+#CALENAX  .Calibrate an encoded axis
+
+
+Public Interface
+#CODEVER  .Report the code version, first pass testing complete
+#LOADFIL  .Move to the Filter Loading Position
+#PICKFIL  .Set the Filter
+#INFLSIN  .Insert FLSIN arm
+#RMFLSIN  .Remove FLSIN arm
+#HIRES    .HiRes Mode
+#LORES    .LoRes Mode
+#CALMODE   calibrate ges stage 
+#GETMODE  .Get HiRes/LoRes Mode status
+#SETFOCU  .Set FOC Position
+#GETFOCU  .Get Foc Position
+#SETLRTL  .Set LoRes Tilt Angle
+#GETLRTL  .Get LRTLT Pos
+#GETHRTL  .Get HRTLT Pos
+#GETHRAZ  .Get HRAZ Pos
+#SETHRTL  .Set HRTLT Pos
+#SETHRAZ  .Set HRAZ Pos
+#GETFILT  .Get Current Filter 1-8, Load, or none
+#GETFLSI  .Get FLSIN Position
+#GETFESI  .Get FESIN Position
+#CALHRAZ  .Calibrate HiRes Azimuth
+#CALHRTL  .Calibrate HiRes Tilt
+
+Testing routines
+#TELLTS   .first pass testing complete
+#TELLTA   .first pass testing complete
+#NOISEST  .first pass testing complete

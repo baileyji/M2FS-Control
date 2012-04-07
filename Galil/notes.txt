@@ -1,0 +1,9 @@
+GES R
+JGA=50000 with SDA=256000 stopped at TPA=91 NB hard limit @ 49 trips @ 171
+Stalls at 80000
+Positive limit is essentially @ hard limit
+
+
+
+LRTLT
+Speed @ 15k preferred to 12k

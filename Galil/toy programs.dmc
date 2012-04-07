@@ -1,0 +1,82 @@
+'***
+' Noise Statistics
+' Gather statistics on pot noise
+'****
+#NOISEST
+DA gHFno[0],gLFno[0]
+DM gHFno[100]
+DM fHFno[100]
+DM fLFno[60]
+DM gLFno[60]
+DM hfstd[2]
+DM hfmn[2]
+DM lfstd[2]
+DM lfmn[2]
+JS#ZEROARR("gHFno")
+JS#ZEROARR("gLFno")
+JS#ZEROARR("fHFno")
+JS#ZEROARR("fLFno")
+JS#ZEROARR("hfstd")
+JS#ZEROARR("lfstd")
+JS#ZEROARR("hfmn")
+JS#ZEROARR("lfmn")
+JS#NOISES2
+EN
+#NOISES2
+^a=0;^b=0
+AT0,1
+#NOISES1
+gHFno[^a]=_TPA;fHFno[^a]=_TPC
+^a=^a+1
+IF(^a>(gHFno[-1]-1))
+^a=0
+JS#MEANARR("gHFno");hfmn[0]=_JS;gLFno[^b]=_JS
+JS#MEANARR("fHFno");hfmn[1]=_JS;fLFno[^b]=_JS
+JS#STDDEV("gHFno",hfmn[0]);hfstd[0]=_JS
+JS#STDDEV("fHFno",hfmn[1]);hfstd[1]=_JS
+MG "Mean (GES, FOC):",hfmn[0],hfmn[1]
+MG "Sigma(GES, FOC):",hfstd[0],hfstd[1]
+^b=^b+1
+IF(^b>59)
+^b=0
+JS#MEANARR("gLFno");lfmn[0]=_JS
+JS#MEANARR("fLFno");lfmn[1]=_JS
+JS#STDDEV("gLFno",lfmn[0]);lfstd[0]=_JS
+JS#STDDEV("fLFno",lfmn[1]);lfstd[1]=_JS
+MG "Long Mean (GES, FOC):",lfmn[0],lfmn[1]
+MG "Long Sigma(GES, FOC):",lfstd[0],lfstd[1]
+ENDIF
+ENDIF
+AT-10
+JP#NOISES1
+EN
+
+
+#TEST
+^a=0;^b=0;^c=0;^d=0;^e=0;^f=0;^g=0;^h=0
+JS#ZS
+MG "Stack Level:",_JS
+IF (_JS<1);JS#TEST
+ELSE
+MG "Level",_ZS1," starts with:",^a,^b,^c,^d,^e,^f,^g,^h
+^a=2;^b=3;^c=4
+JS#TEST2(^c)
+MG "Level",_ZS1," exited with:",^a,^b,^c,^d,^e,^f,^g,^h
+ENDIF
+EN
+
+#TEST2;'(a)
+^b=0;^c=0;^d=0;^e=0;^f=0;^g=0;^h=0
+MG "Level",_ZS1," called with:",^a,^b,^c,^d,^e,^f,^g,^h
+JS#TEST3(^a,^a,^a)
+MG "Level",_ZS1," return with:",^a,^b,^c,^d,^e,^f,^g,^h
+^c=15;^f=22
+MG "Level",_ZS1," exited with:",^a,^b,^c,^d,^e,^f,^g,^h
+EN
+
+#TEST3;'(a,b,c)
+^d=0;^e=0;^f=0;^g=0;^h=0
+MG "Level",_ZS1," called with:",^a,^b,^c,^d,^e,^f,^g,^h
+^b=100;^c=0;^d=25
+MG "Level",_ZS1," exited with:",^a,^b,^c,^d,^e,^f,^g,^h
+EN

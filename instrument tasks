@@ -1,0 +1,113 @@
+Tasks
+
+Move to the Filter Loading Position
+  Add task to appropriate galil queue
+
+Insert a chosen filter
+	Add task to appropriate galil queue
+	
+Set the [HRAZ|LRTLT|HRTLT|FOC] position
+	Add task to appropriate galil queue
+  
+Select [HiRes|LoRes] mode
+  Add task to appropriate galil queue
+	
+Select slit [1-6] for  Tetris [1-8]
+	Activate FLS Subsystem
+	If slit # or tetris # are invalid return error
+	If desired slit is already selected return else
+	Determine region to illuminate
+	Command projector to draw pattern
+
+	If slit is not calibrated calibrate slit else
+	Tell Tetris x to move to estimated leading edge of slit
+	During move count minima/maxima in FLSIM image
+	If wrong number of slits seen then error
+	Move ~1/3 way to slit center
+	Compare illumination profile with expected and compute number of additional steps to take
+	Take those steps
+	If illumination is not in valid range error
+	Set desired slit as selected slit fro tetris x
+	store slit poitioning data
+
+Activate FLS Subsystem
+	GalilR: Insert FLSIM
+	GalilB: Insert FLSIM	
+	¿TCS: Insert CALUNIT?
+	FLSIM On
+	FLSPROJ On
+	Set integration time of imager
+	grab frames in sync with VS pulse
+	If FLSPROJ isn't calibrated, calibrate it
+
+Deactivate FLS Subsystem
+	GalilR: Remove FLSIM
+	GalilB: Remove FLSIM	
+	¿TCS: Remove CALUNIT?
+	FLSIM Off
+	FLSPROJ Off
+
+Exit slit positioning mode
+	Deactivate FLS Subsystem
+
+Set current plate & setup
+	load hole/star/fiber data from saved setups data
+
+Upload (email?) plate files
+	if files are invalid error
+	store files to setups data
+	load setup in file if only one uploaded
+
+Verify fiber plug positions are correct
+	Activate FLS Subsystem
+  if plate & setup not set then error
+	ensire all slits are on a slit
+	Galil: Insert FLSIM arm
+	TCS: Insert Secondary arm
+	Power up FLSIM
+	Set integration time of imager
+	Power up FLSPROJ
+	prime fiber testing loop
+	execute fiber testing loop
+	if fiber is plugged incorrectly tell CM arduino to display fiber ID and play appropriate sound
+	once all fibers are plugged properly tell plugging time
+
+
+
+Exit plugging mode
+	on exit of mode record fiber/hole mapping
+	Deactivate FLS Subsystem
+
+
+Report the instrument status
+	Query Galils for needed status information
+	Query FLSPROJ for needed status information 
+	Report software information
+	Reply with needed status information
+
+Communicate with GUI computer
+	Listen for messages on eth1 port X and handle them
+	
+Communicate with Engineering computer
+  Run engineering webpage
+
+Reprogram Galil
+	find out if R or B
+	dowload appropriate code to galil
+	update udev device info
+	
+Reprogram datalogger
+	find out if location
+	dowload appropriate code to datalogger
+	update udev device info
+
+Reprogram secondary arduino
+	to be done manually, for now
+
+Communicate with galil
+maintains queue of galil tasks & coordinates communication
+while run queue isn't empty
+	Query Galil for free threads
+	for each free thread deque a task and execute it
+	wait awhile
+	

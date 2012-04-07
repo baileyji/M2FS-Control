@@ -1,0 +1,1666 @@
+REM ISR routines (e.g. ININT) always interrupt thread 0.
+REM If a limit caused deceleration at SD rate and a ST 
+REM   is issued the deceleration rate is not changed.
+
+REM ST changes the stop code even if an axis is already stopped.
+
+REM It appears that ^a, etc only get pushed onto the stack from the 2nd level down
+REM also, it does not appear there is a way to use introspection to determine 
+REM what stack depth a function is at
+'***************************************************************************
+' Initial Configuration
+'***************************************************************************
+#INIT
+REM Defines
+GESAX=0
+FLSINAX=1
+FOCAX=2
+FESINAX=3
+FESELAX=4
+LRTLTAX=5
+HRTLTAX=6
+HRAZAX=7
+
+ENONE=0;'All is well
+ETIMEO=1;'TIMEOut
+EHMERR=2
+EHMERR=3;'HoMeingERRor
+EPOTJAM=4;'POTJAMmed
+ELIMSWF=5;'LIMitSWitchFail
+ELCKERR=6;'LockError
+EBADFP=7;'BADFilterPos
+EGESPMM=8;'GESPotMotorMismatch
+EFAIL=9
+
+'Array of threaded execution parameters
+DM a[8],b[8],c[8],d[8],e[8],f[8],g[8],h[8],ret[8]
+a[0]=0;a[1]=0;a[2]=0;a[3]=0;a[4]=0;a[5]=0;a[6]=0;a[7]=0
+b[0]=0;b[1]=0;b[2]=0;b[3]=0;b[4]=0;b[5]=0;b[6]=0;b[7]=0
+c[0]=0;c[1]=0;c[2]=0;c[3]=0;c[4]=0;c[5]=0;c[6]=0;c[7]=0
+d[0]=0;d[1]=0;d[2]=0;d[3]=0;d[4]=0;d[5]=0;d[6]=0;d[7]=0
+e[0]=0;e[1]=0;e[2]=0;e[3]=0;e[4]=0;e[5]=0;e[6]=0;e[7]=0
+f[0]=0;f[1]=0;f[2]=0;f[3]=0;f[4]=0;f[5]=0;f[6]=0;f[7]=0
+g[0]=0;g[1]=0;g[2]=0;g[3]=0;g[4]=0;g[5]=0;g[6]=0;g[7]=0
+h[0]=0;h[1]=0;h[2]=0;h[3]=0;h[4]=0;h[5]=0;h[6]=0;h[7]=0
+ret[0]=0;ret[1]=0;ret[2]=0;ret[3]=0;ret[4]=0;ret[5]=0;ret[6]=0;ret[7]=0
+
+'Possible Axis positions
+out=0
+in=1
+moving=2
+intermd=3
+unknown=4
+filterp1=5
+'rest of filter position enums are set automatically
+filterp2=filterp1+1
+filterp3=filterp1+2
+filterp4=filterp1+3
+filterp5=filterp1+4
+filterp6=filterp1+5
+filterp7=filterp1+6
+filterp8=filterp1+7
+filterld=filterp1+8
+
+potjam=1
+
+'Logic States
+true=1
+false=0
+
+'Analog Position Filtering
+ANAMAFSZ=1000
+DM analogp[8]
+~a=GESAX;gesanap=_TP~a;analogp[GESAX]=gesanap
+~a=FOCAX;focanap=_TP~a;analogp[FOCAX]=focanap
+~a=FESELAX;felanap=_TP~a;analogp[FESELAX]=felanap
+DM anapcln[8];'Whether or not motion has dirtied the filtered reading
+'-1 if reading is clean
+anapcln[GESAX]=-1
+anapcln[FOCAX]=-1
+anapcln[FESELAX]=-1
+
+REM Absolutly do not consider a value final unless it has a comment!
+REM  (or the instrument is on the telescope and in use, then Mea Culpa -JB)
+DM axaccel[8];'Generic Acceleration rate
+axaccel[GESAX]=256000;'Default value seems ok
+axaccel[FLSINAX]=256000
+axaccel[FOCAX]=256000;'Default
+axaccel[FESINAX]=256000
+axaccel[FESELAX]=256000
+axaccel[LRTLTAX]=100000
+axaccel[HRTLTAX]=100000
+axaccel[HRAZAX]=100000
+DM axdecel[8];'Generic Deceleration rate
+axdecel[GESAX]=256000
+axdecel[FLSINAX]=256000
+axdecel[FOCAX]=256000
+axdecel[FESINAX]=256000
+axdecel[FESELAX]=256000
+axdecel[LRTLTAX]=100000
+axdecel[HRTLTAX]=100000
+axdecel[HRAZAX]=100000
+DM axlgdcl[8];'Rapid Deceleration rate
+axlgdcl[GESAX]=256000
+axlgdcl[FLSINAX]=256000
+axlgdcl[FOCAX]=256000
+axlgdcl[FESINAX]=256000
+axlgdcl[FESELAX]=256000
+axlgdcl[LRTLTAX]=190000;'In my notes from somewhere
+axlgdcl[HRTLTAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
+axlgdcl[HRAZAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
+DM axlmspd[8];'limit speed (speed used when intentionally moving to a limit)
+REM NB Intentional or not, the PI actuators advise no greater than 10% max speed
+REM    when approaching limits.
+axlmspd[GESAX]=6400
+axlmspd[FLSINAX]=6400
+axlmspd[FOCAX]=6400;'unused
+axlmspd[FESINAX]=6400
+axlmspd[FESELAX]=6400
+axlmspd[LRTLTAX]=6400;'unused
+axlmspd[HRTLTAX]=6400
+axlmspd[HRAZAX]=6400
+DM axhmspd[8];'homing speed, used when returning to home after overshoot
+'Consider steeing in terms of time to get back
+' e.g. HV=axspd^2/2/axlgdcl/desired return time
+axhmspd[GESAX]=256
+axhmspd[FLSINAX]=256
+axhmspd[FOCAX]=256
+axhmspd[FESINAX]=256
+axhmspd[FESELAX]=256
+axhmspd[LRTLTAX]=256
+axhmspd[HRTLTAX]=256
+axhmspd[HRAZAX]=256
+DM axspd[8];'Generic travel speed
+axspd[GESAX]=16215;'seems ok
+axspd[FLSINAX]=0
+axspd[FOCAX]=15000;'seems ok
+axspd[FESINAX]=0
+axspd[FESELAX]=0
+axspd[LRTLTAX]=15000;'seems ok (w/o grating) Max per DS: 30091
+axspd[HRTLTAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
+axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
+DM axmaxd[8];'Maximum travel (steps, 16x microstepping)
+axmaxd[GESAX]=288112;'Actual value slightly greater if overshooting limits
+axmaxd[FLSINAX]=0
+REM Pot has dead zone, might deduct that from full revoloution of steps
+axmaxd[FOCAX]=0;''Infinite
+axmaxd[FESINAX]=0
+axmaxd[FESELAX]=0
+axmaxd[LRTLTAX]=1126400; '1 revolution
+axmaxd[HRTLTAX]=128205;'10mm
+axmaxd[HRAZAX]=128205;'10mm
+
+DM axmaxp[8];'Max possible position (steps, 16x microstepping)
+axmaxp[GESAX]=288112;'Actual value slightly greater if overshooting limits
+axmaxp[FLSINAX]=0
+axmaxp[FOCAX]=0;''Infinite
+axmaxp[FESINAX]=0
+axmaxp[FESELAX]=0
+axmaxp[LRTLTAX]=1126400; '1 revolution
+axmaxp[HRTLTAX]=128205/2;'10mm
+axmaxp[HRAZAX]=128205/2;'10mm
+DM axminp[8];'Max possible position (steps, 16x microstepping)
+axminp[GESAX]=0
+axminp[FLSINAX]=0
+axminp[FOCAX]=0
+axminp[FESINAX]=0
+axminp[FESELAX]=0
+axminp[LRTLTAX]=0
+axminp[HRTLTAX]=-128205/2;'10mm
+axminp[HRAZAX]=-128205/2;'10mm
+
+'delta steps from last move, maintained by BACKLSH
+'  before each move 
+DM ldelta[8]
+ldelta[GESAX]=0
+ldelta[FLSINAX]=0
+ldelta[FOCAX]=0
+ldelta[FESINAX]=0
+ldelta[FESELAX]=0
+ldelta[LRTLTAX]=0
+ldelta[HRTLTAX]=0
+ldelta[HRAZAX]=0
+DM dperus[8];'delta per microstep
+dperus[GESAX]=0;'microns per microstep
+dperus[FLSINAX]=0
+dperus[FOCAX]=49.087;'microradians per microstep
+dperus[FESINAX]=0
+dperus[FESELAX]=0
+dperus[LRTLTAX]=5.8;'microradians per microstep
+dperus[HRTLTAX]=0.078;'microns per microstep
+dperus[HRAZAX]=0.078;'microns per microstep
+DM bcklsh[8];'backlash in steps, for reference
+bcklsh[GESAX]=76.2;'microns
+bcklsh[FLSINAX]=0
+bcklsh[FOCAX]=880;'microradians (estimate)
+bcklsh[FESINAX]=0
+bcklsh[FESELAX]=0
+bcklsh[LRTLTAX]=200;'microradians
+bcklsh[HRTLTAX]=10;'microns (128.2 usteps)
+bcklsh[HRAZAX]=10;'microns (128.2 usteps)
+DM mininc[8];'minimum incremental motion
+mininc[GESAX]=0
+mininc[FLSINAX]=0
+mininc[FOCAX]=0
+mininc[FESINAX]=0
+mininc[FESELAX]=0
+mininc[LRTLTAX]=4;'Per DS: 21 microradians = 3.62 us => 4 usteps = 23.2 urad
+mininc[HRTLTAX]=13;'microsteps, 1 micron
+mininc[HRAZAX]=13;'microsteps, 1 micron
+
+
+'Value must be set to 1 atomically when 
+'    zeroing the position of an encoded axis
+GESPM=0;FESELPM=1
+DM rstpm[2]
+rstpm[GESPM]=false
+rstpm[FESELPM]=false
+
+
+'Encoder value near a limit, unused on unencoded
+DM encnlim[8]
+'Value strictly > -limit
+' Got reading of 161 while on -lim.
+' hard limit is at 49. 
+' Noise on pot with motors off has a sigma of about 1.3 with on 80
+encnlim[GESAX]=200
+'Value strictly > -limit
+' unknown, system not yet built TODO
+encnlim[FESELAX]=0
+'Value slightly before 4096-to-0 rollover
+'unknown, NEED testing TODO
+encnlim[FOCAX]=3800
+
+
+'Whether or not the axis is calibrated
+DM axiscal[8]
+axiscal[GESAX]=false
+axiscal[FLSINAX]=false
+axiscal[FOCAX]=false
+axiscal[FESINAX]=false
+axiscal[FESELAX]=false
+axiscal[LRTLTAX]=false
+axiscal[HRTLTAX]=false
+axiscal[HRAZAX]=false
+
+
+'Last error state of the axis
+DM axiserr[8]
+axiserr[GESAX]=ENONE
+axiserr[FLSINAX]=ENONE
+axiserr[FOCAX]=ENONE
+axiserr[FESINAX]=ENONE
+axiserr[FESELAX]=ENONE
+axiserr[LRTLTAX]=ENONE
+axiserr[HRTLTAX]=ENONE
+axiserr[HRAZAX]=ENONE
+
+
+'FOC related defines
+focentol=5;' Encoder tolerance of a desired pot position TODO: DETERMINE
+
+
+'GES Related Defines
+geshrp=20 ;'The step position for HiRes mode from calibrated 0 TODO: TBD
+geslrp=200000 ;'The step position for LoRes mode from calibrated 0 TODO: TBD
+geslrep=400; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
+'GES encoder nominal position tolerance 
+gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
+geshrep=3900; 'GES HR encoder nominal position ROUGH GUESS TODO: finalize
+
+
+'HiRes Alt & Az defines
+HRTLTLK=true
+HRAZLK=true
+LCKVOLT=2 ;'Determined empirically, > => locked 
+hrares=3000;'TODO: TBD
+hraoff=0;'TODO: TBD
+hrtres=4000;'TODO: TBD
+hrtoff=0;'TODO: TBD
+hrtang=0;'setpoint for tlt
+hraang=0;'setpoint for az
+
+'LoRes Tilt defines
+lrthmos=6400;' Amount to overshoot home before creeping back 
+' (ROUGH STAB TODO:refine)
+lrtinpt=2 ;'  Digital in corresponding to the LoRes origin sensor
+lrtinhx=$2
+lrtathm=1 ;'  value of origin sensor (via @IN) when at home
+lrtang=0; 'Last commanded LoRes Tilt angle
+lrhomng=false
+lrtoff=0;'TODO: TBD
+lrtres=3000;'TODO: TBD
+
+'Filter related defines
+nfilt=8 ;' Number of filter slots
+^a=nfilt+1;'Can't have expression within subscripts
+'FES Elevator nominal filter position in steps
+DM feselfp[^a]
+feselfp[0]=0
+feselfp[1]=0
+feselfp[2]=0
+feselfp[3]=0
+feselfp[4]=0
+feselfp[5]=0
+feselfp[6]=0
+feselfp[7]=0
+feselfp[8]=0
+'FES Elevator nominal filter position in encoder counts
+DM felencp[^a]
+felencp[0]=0
+felencp[1]=0
+felencp[2]=0
+felencp[3]=0
+felencp[4]=0
+felencp[5]=0
+felencp[6]=0
+felencp[7]=0
+felencp[8]=0
+'Allowable range (+/-) in encoder counts around nominal filter position
+feselrg=0 ;'about 0.15mm
+fesinsp=0 ;'The inserted position in steps of the FESIN arm
+fesremp=0 ;'The removed position in steps of the FESIN arm
+nearfilt=0
+
+'FLS related defines
+flsremp=0;'The removed position in steps of the FLSIN arm
+flsinsp=0;'The inserted position in steps of the FLSIN arm
+
+'Set acceleration defaults
+AC axaccel[0],axaccel[1],axaccel[2],axaccel[3]
+AC ,,,,axaccel[4],axaccel[5],axaccel[6],axaccel[7]
+'Set deceleration defaults
+DC axdecel[0],axdecel[1],axdecel[2],axdecel[3]
+DC ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
+'Set limit switch triggered deceleration
+SD axlgdcl[0],axlgdcl[1],axlgdcl[2],axlgdcl[3]
+SD ,,,,axlgdcl[4],axlgdcl[5],axlgdcl[6],axlgdcl[7]
+'Set homing velocity defaults
+HV axlgdcl[0],axlgdcl[1],axlgdcl[2],axlgdcl[3]
+HV ,,,,axlgdcl[4],axlgdcl[5],axlgdcl[6],axlgdcl[7]
+REM MT -2.5,-2,-2,-2,-2,-2,-2.5,-2.5;KS*=1;AG 3,1,3,1,1,0,0,0;AQ1,4;AQ3,4;AQ5,4;
+REM AQ7,4;AQ8,4;AF 1,,1,,1;YA 16,4,16,4,16,16,16,16;ER*=-1;CN 1,-1,,1,1
+REM YB 200,200,200,200,200,400,400,400;ER*=-1;YC 45,,102,,82
+
+EN,,0
+
+
+'***************************************************************************
+' Galil hardware config
+'***************************************************************************
+#M2FSCFG
+MO*
+'Set motor type, must be -2 or -2.5 per manual
+MT -2.5,-2,-2.5,-2,-2,-2,-2.5,-2.5
+KS*=1;'       Set step smoothing to Galil-recommended value, see AN#2446
+AG 3,1,3,1,1,0,0,0;'              Set motor gain values
+AQ1,4;AQ3,4;AQ5,4;AQ7,4;AQ8,4;'  GES,FOC,FESEL,HRTLT,HRAZ analog inputs: 0-10V
+AF 1,,1,,1;'		Configure GES, FES, & FOC for analog feedback
+YA 16,16,16,16,16,16,16,16;'Set stepping mode resolutions
+YB 200,200,200,200,200,400,400,400;'Set stepper motor steps/revolution
+'Encoder resolution counts/rev (APPROXIMATE VALUES!)
+YC 45,,102,,82	
+'No built-in position error detection for steppers 	
+ER*=-1			
+'Configure: Limits active high, Home high -> go backward (retract)
+'  to go home (needed by M228), Latch (Don't care), 
+'  DI 4-7,12-15 axis specific aborts, Abort doesn't kill program
+CN 1,-1,,1,1
+CI 0
+EN,,0
+
+
+'***************************************************************************
+' Starutp Routine
+'***************************************************************************
+#AUTO
+HX1;HX2
+JS#M2FSCFG
+JS#INIT
+'Query the Filter elevator position to initialize nearfilt
+JS#QUFELP
+'Start monitor for pot jamming on GES and FESEL axes
+REM ^a=GESAX;XQ#POTMON,1
+REM ^a=FESELAX;XQ#POTMON,2
+'Start the HIRes lock monitor
+XQ #ANAMAF,1
+XQ #LOCKMON,2
+#IDLE;WT 10000;JP#IDLE
+EN
+
+
+
+'***************************************************************************
+' CALibrate LoRes Tilt
+' Calibrate the LoRes tilt
+' Does not turn axis off if sucessful, 
+' Returns ENONE iff sucessful
+' Errors: ECALLRTO - Timeout  while calibrating LR Tilt
+' assumes LoRes Axis is "F" (regardless of ^a)
+'***************************************************************************
+#CALLRT
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#CALLRT;^f=_JS;ret[_ED4]=_JS;ELSE
+'Axis F, Hope Success
+^a=LRTLTAX;^f=ENONE
+'Find home sensor
+IF (@IN[lrtinpt]<>lrtathm)
+II ,,lrtinhx,lrtinhx;'Trip on @IN[lrtinpt] goes to 1
+lrhomng=true
+JS#MOVTIME(axmaxd[^a], axspd[^a], axaccel[^a], axdecel[^a]);^h=_JS*1.05
+'MG "Move time:",^h,axmaxd[^a], axspd[^a], axaccel[^a], axdecel[^a]
+~a=^a; AC~a=axaccel[^a]; DC~a=axdecel[^a]; JG~a=-axspd[^a]
+~a=^a; SH~a; BG~a; ^g=TIME;'    Begin jog
+' wait till stopped (input interrupt stopped us) or timeout
+#CALLRT1;WT 100;JP#CALLRT1, ((_SCF=0)&((TIME-^g) < ^h))
+'If still running, stop motor and turn off. Fail.
+IF (_SCF=0);~a=^a;ST~a;MC~a;MO~a;^f=ECALLRTO
+ELSE; ~a=^a;MC~a;ENDIF
+ENDIF
+IF (^f<>ENONE)
+'Move off home sensor
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a];PR~a=lrthmos
+~a=^a;SH~a;BG~a;MC~a
+'Move to home sensor
+lrhomng=true
+JS#MOVTIME(lrthmos, axhmspd[^a], axaccel[^a], axlgdcl[^a]);^h=_JS*1.05
+~a=^a; DC~a=axlgdcl[^a]; JG~a=-axhmspd[^a]; SH~a; BG~a; ^g=TIME; 'Begin jog
+' wait till stopped (input interrupt stopped us) or timeout
+#CALLRT2;WT 100;JP#CALLRT2, ((_SCF=0)&((TIME-^g) < ^h))
+'If still running, stop motor and turn off. Fail.
+IF (_SCF=0);~a=^a;ST~a;MC~a;MO~a^f=ECALLRTO
+ELSE
+~a=^a;MC~a;DP~a=0;'	Define the new position as home
+axiscal[^a]=true
+ldelta[^a]=-10*bcklsh[^a];'Just want it to be negative and > bcklash amt
+ENDIF;ENDIF;ENDIF
+II 0,,,;' Turn off input interrupt
+axiserr[^a]=^f
+EN ,,^f
+
+
+'***************************************************************************
+' Get LoRes TiLt position
+'***************************************************************************
+#GETLRTL
+^a=LRTLTAX;
+'Error status
+IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
+'Move in progress
+ELSE; ~a=^a;IF(SC~a=0);MG "GETLRTL: MOVING"
+'Not calibrated
+ELSE; IF(axiscal[^a]<>true);MG "GETLRTL: UNCALIBRATED"
+'report position
+ELSE; ~a=^a; MG "GETLRTL:",lrtang,_TD~a
+ENDIF;ENDIF;ENDIF
+EN
+
+
+
+'***************************************************************************
+' LoRes Tilt Angle 2 Step conversion(angle)
+'***************************************************************************
+#LRTA2S;EN,,^a*lrtres+lrtoff
+
+
+
+'***************************************************************************
+' Set LoRes TiLt(angle)
+' Set the lo res tilt angle
+'***************************************************************************
+#SETLRTL
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#SETLRTL(a[_ED4]);^h=_JS;ret[_ED4]=_JS;ELSE
+^f=^a
+^a=LRTLTAX
+'Convert angle to steps
+JS#LRTA2S(^f);^b=_JS
+'Calibrate if not
+IF (axiscal[^a]<>true);JS#CALLRT;^h=_JS;ENDIF
+'If we are good to go, MOVE!
+IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a;lrtang=^f;ENDIF
+'Store status
+axiserr[^f]=^h
+ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' Calibrate HiRes TiLt position
+'***************************************************************************
+#CALHRTL;JS#CALHMAX(HRTLTAX);EN
+
+
+'***************************************************************************
+' Get HiRes TiLt position
+'***************************************************************************
+#GETHRTL
+^a=HRTLTAX;
+'Error status
+IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
+'Move in progress
+ELSE; ~a=^a;IF(SC~a=0);MG "GETHRTL: MOVING"
+'Not calibrated
+ELSE; IF(axiscal[^a]<>true);MG "GETHRTL: UNCALIBRATED"
+'report position
+ELSE; ~a=^a; MG "GETHRTL:",hrtang,_TD~a
+ENDIF;ENDIF;ENDIF
+EN
+
+
+'***************************************************************************
+' HiRes Tilt Angle 2 Step conversion(angle)
+'***************************************************************************
+#HRTA2S;EN,,^a*hrtres+hrtoff
+
+
+'***************************************************************************
+' Set HiRes TiLt(angle)
+' Set the hi res tilt angle
+'***************************************************************************
+#SETHRTL
+^f=^a
+^a=HRTLTAX
+'Make sure the axis isn't locked
+IF(HRTLTLK=true);^h=ELCKERR;ENDIF
+'If we are good to go
+IF(^h=0)
+'Make sure commanded angle is sane
+'JS#HRTA2S(^f);'^b=_JS
+^b=^f
+JS#SANEPOS(^a,^b)
+IF(_JS<>true);^h=ECRAZY;ENDIF
+'If we are good to go
+IF(^h=0)
+'Calibrate if not calibrated
+IF (axiscal[^a]<>true);JS#CALHMAX(^a);^h=_JS;ENDIF
+'If we are good to go, MOVE!
+IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a;hrtang=^f;ENDIF
+'Check and report errors
+IF(^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
+ENDIF
+ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' Calibrate HiRes Azimuth position
+'***************************************************************************
+#CALHRAZ;JS#CALHMAX(HRAZAX);EN
+
+
+'***************************************************************************
+' Get HiRes AZimuth position
+'***************************************************************************
+#GETHRAZ
+^a=HRAZAX;
+IF(axiscal[^a]=true);~a=^a;MG "GETHRAZ:",hraang,_TD~a
+ELSE;~a=^a;MG "GETHRAZ: UNCALIBRATED";',hraang,_TD~a
+ENDIF
+EN
+
+
+'***************************************************************************
+' HiRes Azimuth Angle 2 Step conversion(angle)
+'***************************************************************************
+#HRAA2S;EN,,^a*hrares+hraoff
+
+
+'***************************************************************************
+' Set HiRes AZimuth(angle)
+' Set the hi res azimuth angle
+'***************************************************************************
+#SETHRAZ
+^f=^a
+^a=HRAZAX
+'Make sure the axis isn't locked
+IF(HRAZLK=true);JS#ERRMSG(HRAZAX,ELCKERR);^h=1;ENDIF
+'If we are good to go
+IF(^h=0)
+'Make sure commanded angle is sane
+JS#HRAA2S(^f);^b=_JS
+JS#SANEPOS(^a,^b)
+IF(_JS<>true);JS#ERRMSG(HRAZAX,ECRAZY);^h=1;ENDIF
+'If we are good to go
+IF(^h=0)
+'Calibrate if not calibrated
+IF (axiscal[^a]<>true);JS#CALHMAX(^a);^h=_JS;ENDIF
+'If we are good to go, MOVE!
+IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a;hraang=^f;ENDIF
+'Check and report errors
+IF(^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
+ENDIF
+ENDIF
+EN,,^h
+
+
+
+'***************************************************************************
+' GET FES Iserter status
+' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
+'***************************************************************************
+#GETFESI
+JS#QUFESIN
+IF (_JS=out);MG "GETFLSI: OUT";ENDIF
+IF (_JS=in);MG "GETFLSI: IN";ENDIF
+IF (_JS=intermed);MG "GETFLSI: INTERMEDIATE";ENDIF
+IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
+EN
+
+
+
+'***************************************************************************
+' QUery FES INserter position status
+' returns
+' out, in, intermediate, unknown, moving
+'***************************************************************************
+#QUFESIN
+^a=FESINAX
+'Uncalibrated
+IF (axiscal[^a]<>true);^h=unknown
+ELSE
+'Stopped, out position
+~a=^a;IF ((_SC~a=1) & (_TP~a=fesremp));^h=out
+ELSE
+'Stopped, in position
+~a=^a;IF ((_SC~a=1) & (_TP~a=fesinsp));^h=in
+ELSE
+'Stopped, somewhere else
+~a=^a;IF (_SC~a<>0);^h=intermd
+ELSE
+'Moving
+^h=moving
+ENDIF;ENDIF;ENDIF;ENDIF
+EN,,^h
+
+
+
+'***************************************************************************
+' INsert FES INserter arm
+'***************************************************************************
+#INFESIN
+^h=0;'          Hope for success
+^a=FESINAX
+'Make sure the FESEL is in a safe position to insert filter
+JS#FESELSF;^h=_JS
+'Make sure we are calibrated
+IF((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
+'Insert FESIN if all is well
+IF(^h=0)
+JS#FANCYMV(^a,fesinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+ENDIF
+'Handle status reporting, could be better
+IF (^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
+EN,,^h
+
+
+
+
+'***************************************************************************
+' ReMove FES INserter arm
+'***************************************************************************
+#RMFESIN
+^h=0;'          Hope for success
+^a=FESINAX
+'Make sure the FESEL is in a safe position to remove filter
+JS#FESELSF;^h=_JS
+'Make sure we are calibrated
+IF((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
+'Insert FESIN if all is well
+IF(^h=0)
+JS#FANCYMV(^a,fesremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+ENDIF
+'Handle status reporting, could be better
+IF (^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
+EN,,^h
+
+
+
+
+'***************************************************************************
+' GET FLS Iserter status
+' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
+'***************************************************************************
+#GETFLSI
+JS#QUFLSIN
+IF (_JS=out);MG "GETFLSI: OUT";ENDIF
+IF (_JS=in);MG "GETFLSI: IN";ENDIF
+IF (_JS=intermed);MG "GETFLSI: INTERMEDIATE";ENDIF
+IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
+EN
+
+
+
+'***************************************************************************
+' QUery FLS INserter position status
+' returns
+' out, in, intermediate, or unknown
+'***************************************************************************
+#QUFLSIN
+^a=FLSINAX
+'Uncalibrated
+IF (axiscal[^a]<>true);^h=unknown
+ELSE
+'Stopped, out position
+~a=^a;IF ((_SC~a=1) & (_TP~a=fesremp));^h=out
+ELSE
+'Stopped, in position
+~a=^a;IF ((_SC~a=1) & (_TP~a=fesinsp));^h=in
+ELSE
+'Stopped, somewhere else
+~a=^a;IF (_SC~a<>0);^h=intermed
+ELSE
+'Moving
+^h=intermed
+ENDIF;ENDIF;ENDIF;ENDIF
+EN,,^h
+
+
+
+
+'***************************************************************************
+' INsert FLS INserter arm
+'***************************************************************************
+#INFLSIN
+^h=0;'          Hope for success
+^a=FLSINAX
+'Make sure we are calibrated
+IF(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
+'Insert FLSIN if all is well
+IF(^h=0)
+JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+ENDIF
+'Handle status reporting, could be better
+IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
+EN,,^h
+
+
+
+'***************************************************************************
+' ReMove FLS INserter arm
+' NB it is always safe to remove
+'***************************************************************************
+#RMFLSIN
+^h=0;'          Hope for success
+^a=FLSINAX
+'Make sure we are calibrated
+IF(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
+'Remove FLSIN if all is wellIF(^h=0)
+JS#FANCYMV(^a,flsremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+ENDIF
+'Handle status reporting, could be better
+IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
+EN,,^h
+
+
+
+'***************************************************************************
+' QUery GES Position
+' returns hires, lores, unknown, intermed
+' TODO sort out behavior for case where motor and pot disagree
+'***************************************************************************
+#QUGESP
+^a=GESAX
+IF(axiscal[^a]<>true);^h=unknown
+ELSE;~a=^a;IF (_SC~a=0);^h=moving
+ELSE
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+'^g=step position
+~a=^a;^g=_TD~a
+'^b=encoder position
+^b=gesanap
+'^c step position is equal to geslrp
+^c=(^g=geslrp)
+'^d encoder position is within tolerance of lores position
+^d=( ((^b>(geslrep-gesenct) & (^b<(geslrep+gesenct)) )
+'^c step position is equal to geshrp
+^e=(^g=geshrp)
+'^f encoder position is within tolerance of hires position
+^f=( ((^b>(geshrep-gesenct) | (^b<(geshrep+gesenct)) )
+IF (^c & ^d);^h=lores;ELSE
+IF (^e & ^f);^h=hires;ELSE
+IF ((^d=0 & ^c) | (^e & ^f=0));JS#ERRMSG(^a,EGESPMM,^b,^g);
+ELSE;^h=intermed;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF
+EN,,^h
+
+
+
+'***************************************************************************
+' Get Mode
+' Return the GES mode
+'***************************************************************************
+#GETMODE
+^a=GESAX
+JS#QUGESP
+IF(_JS=unknown);MG "GETMODE: UNCALIBRATED";ENDIF
+IF(_JS=moving);~a=^a;MG "GETMODE: MOVING",_TP~a,_TD~a;ENDIF
+IF(_JS=lores);~a=^a;MG "GETMODE: LORES",gesanap,_TD~a;ENDIF
+IF(_JS=hires);~a=^a;MG "GETMODE: HIRES",gesanap,_TD~a;ENDIF
+IF(_JS=intermed);~a=^a;MG "GETMODE: INTERMEDIATE",gesanap,_TD~a;ENDIF
+EN
+
+
+
+'***************************************************************************
+' HIgh RESolution mode
+'***************************************************************************
+#HIRES
+^a=GESAX
+^h=0;'      Hope for success
+'Calibrate if needed
+IF(axiscal[^a]<>false);JS#CALENAX(^a);^h=_JS;ENDIF
+'If all is well
+IF(^h=0)
+'Start moving to position
+JS#FANCYMV(^a,geshrp);MC~a;MO~a;
+'Verify we are in an acceptable position
+JS#QUGESP
+IF (_JS<>hires);^h=1;ENDIF
+ENDIF
+IF(^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
+EN
+
+
+'***************************************************************************
+' LOw RESolution mode
+'***************************************************************************
+#LORES
+^a=GESAX
+^h=0;'      Hope for success
+'Calibrate if needed
+IF(axiscal[^a]<>false);JS#CALENAX(^a);^h=_JS;ENDIF
+'If all is well
+IF(^h=0)
+'Start moving to position
+JS#FANCYMV(^a,geslrp);MC~a;MO~a;
+'Verify we are in an acceptable position
+JS#QUGESP
+IF (_JS<>hires);^h=1;ENDIF
+ENDIF
+IF(^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
+EN
+
+
+
+'***************************************************************************
+' Get Focus Position
+' Does not wait for analog value to stabilize
+'***************************************************************************
+#GETFOCU
+^a=FOCAX
+'Wait for filtered analog position to be clean
+'JS#WAITAMF(^a)
+IF(axiscal[^a]<>true)
+~a=^a;MG "GETFOC: ",focanap," UNKNOWN"
+ELSE
+~a=^a;MG "GETFOC: ",focanap,_TD~a
+ENDIF
+EN
+
+
+'***************************************************************************
+' Calibrate FOCus
+'TODO make sure the typical moves in this routine are not less than the mininc
+'for the axis, also make sure that they are larg enough to overcome backlash
+'***************************************************************************
+#CALFOCU
+^a=FOCAX
+'First move to near the pot transition
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+JS#ENC2STP(^a,(encnlim[^a]-focanap))
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=_JS;SH~a;BG~a;MC~a
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+^b=focanap
+'If the pot doesn't read within the tolerance of the desired value, fail
+IF(@ABS[^b-encnlim[^a]]>focentol);^h=1
+ELSE
+'Figure out how far we need to move to pass the edge
+JS#ENC2STP(^a,((4096-^b)+200)))
+'Now move further until the pot wraps around
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=_JS;SH~a;BG~a
+#CALFOC1;WT 50;~a=^a;JP#CALFOC1,(_TP~a>2048);IF(_SC~a=0);ST~a;ENDIF;MC~a
+'If not stopped by the stop command the pot has failed
+~a=^a;IF(_SC~a<>4);^h=1
+ELSE
+'Move slowly back until the pot rolls over 0-to-4096
+~a=^a;AC~a=axaccel[^a];DC~a=axlgdcl[^a];PR~a=-_JS;SH~a;BG~a
+#CALFOC2;WT 50;~a=^a;JP#CALFOC2,(_TP~a<2048);IF(_SC~a=0);ST~a;ENDIF;MC~a
+'If not stopped by the stop command the pot has failed
+~a=^a;IF(_SC~a<>4);^h=1
+ELSE
+'Define this position to correspond with 4096 encoder counts
+'TODO consider using focanap instead of 4096, also consider that 4096 may not
+'  correspond to one full revolution with the pot is configured correctly
+'  since there is a dead region
+JS#ENC2STP(^a,4096)
+~a=^a;DP~a=_JS
+axiscal[^a]=true
+ldelta[^a]=-bcklsh[^a]
+ENDIF;ENDIF;ENDIF
+'Report status
+IF(^h=1);JS#ERRMSG(^a,EFAIL)
+ELSE;TODO REPORT STATUS MESSAGE, focanap & _TD~a
+EN,,^h
+
+
+
+'***************************************************************************
+' Set FOC Position(Encoder position)
+' TODO ADD in check for pot failure
+'***************************************************************************
+#SETFOC
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#SETFOC(a[_ED4]);^h=_JS;ret[_ED4]=_JS;ELSE
+^b=^a
+^a=FOCAX
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+JS#ENC2STP(^a,(^b-focanap))
+~a=^a;JS#FANCYMV(^a,(_TD~a+_JS));MC~a;MO~a
+ENDIF
+EN
+
+
+
+'IN TESTING WE MUST MAKE SURE THAT WE CANT BECOME CLOSER TO AN ADJCENT FILTER
+'  POS THAN THE CURRENT ONE WHILE THE INSERTER ARM IS IN
+'***************************************************************************
+' FES ELevator SaFe
+' Returns 0 if the elevator is in a safe position for the 
+'  FESIN arm to move
+' If the elevator isn't is a safe position it attempts to move it to a safe
+' position
+'***************************************************************************
+#FESELSF
+^a=FESELAX
+'Hope for success
+^h=0
+'Get current filter elevator position
+JS#QUFELP
+'If not in one of the alowed positions
+IF( (_JS<filterp1) | (_JS>filterld) )
+'We are in a position that needs fine tuning before it is safe to 
+' move the FESIN arm
+'Try to nudge elevator toward nearest valid position
+'Compute number of steps between current encoder position and nominal 
+' encoder position filter
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+^b=nearfilt-filterp1
+^b=felencp[^b]-felanap
+JS#ENC2STP(FESELAX,^b)
+'Compute new desired position
+~a=^a;^b=_TD~a+_JS
+'TODO WARNING: if mininc is too large then the backing off and moving procedure
+' could cause a collision with the rack of the FESIN arm if it isn't stowed
+' THIS NEEDS TO BE SORTED OUT IN TESTING
+JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a
+'Check the position again
+JS#QUFELP
+'If we still aren't in a safe spot fail
+IF( (_JS<filterp1) | (_JS>filterld) );^h=1;JS#ERRMSG(FESELAX,EFESELS);ENDIF
+ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' QUery Filter ELevator Position
+' returns moving, filterp1,...,filterp8, filterld, intermd
+' Does not consider inserter arm status
+'***************************************************************************
+#QUFELP
+^a=FESELAX
+~a=^a;IF(_SC~a=0);^h=moving
+ELSE
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+'Determine which filter is nearest current position 
+'Compute abs(feselfp[i]-position)
+^f=felanap
+^d=@ABS[felencp[0]-^f];^e=0;^b=1
+'find minumum ^e=iue of minimumndex of minimum ^d=val
+#QUFELP1
+^c=@ABS[felencp[^b]-^f]
+IF (^c<^d);^d=^c;^e=^b;ENDIF;^b=^b+1
+JP#QUFELP1,(^b<=nfilt)
+'Store the nearest filter
+nearfilt=^e+filterp1
+'If minimum is < feselrg then we are in the position
+IF(^d<feselrg)
+'Convert ^e to the return value
+^h=^e+filterp1
+ELSE
+'Not in position of a filter
+^h=intermd
+ENDIF
+ENDIF
+EN,,^h
+
+
+
+'***************************************************************************
+' GET FILTer
+'   Report the current filter
+'  Filter 1-8 In, Out?????TODO, None, Load, Moving, Intermediate
+'***************************************************************************
+#GETFILT
+JS#QUFESIN;^a=_JS
+JS#QUFELP;^b=_JS
+IF(_JS=filterp1);MG "GETFILT: Filter 1";ENDIF
+IF(_JS=filterp2);MG "GETFILT: Filter 2";ENDIF
+IF(_JS=filterp3);MG "GETFILT: Filter 3";ENDIF
+IF(_JS=filterp4);MG "GETFILT: Filter 4";ENDIF
+IF(_JS=filterp5);MG "GETFILT: Filter 5";ENDIF
+IF(_JS=filterp6);MG "GETFILT: Filter 6";ENDIF
+IF(_JS=filterp7);MG "GETFILT: Filter 7";ENDIF
+IF(_JS=filterp8);MG "GETFILT: Filter 8";ENDIF
+IF(^a=out);MG "GETFILT: None";ENDIF
+IF(_JS=filterld);MG "GETFILT: Load";ENDIF
+IF(_JS=moving);MG "GETFILT: Moving";ENDIF
+IF(_JS=intermd);MG "GETFILT: Intermediate";ENDIF
+EN
+
+
+'***************************************************************************
+' Load FILters
+'   This is just a wraper for pick filter 9 to maintain a uniform interface
+'***************************************************************************
+#LOADFIL
+JS#PICKFIL(9)
+EN
+
+
+'***************************************************************************
+' Pick FILter(filternum)
+' 1-10,
+' 1-8= Filters 1-8
+' 9  = load position
+' 10 = no filter
+' Forces filternum to be integer
+'***************************************************************************
+#PICKFIL
+'  Hope for success
+^h=0
+'Force filternum to an integer
+^a=@INT[^a]
+'Make sure the arguments are valid
+IF ((^a<1)|(^a>10));^h=1;JS#ERRMSG(FESELAX,EBADFP,^a)
+'If argument is a valid position
+ELSE
+'Get current state of elevator and inserter
+JS#QUFELP;^b=_JS
+JS#QUFESIN;^c=_JS
+'If the desired position is the same as the current position we are done
+IF( ((^a=10)&(^c=out)) | ((^c=in)&(^b=(^a+filterp1-1))) );^h=0
+'Else figure out and do what needs doing
+ELSE
+'Stow the FESIN arm, note REFESIN ensures safe to move 
+JS#REFESIN;^h=_JS
+'If No Filter requested we're done
+IF (^a<>10)
+'If all is well...
+IF (^h=0)
+'move to the desired filter
+^d=^a-1;' No math in array subscripts, stupid language
+JS#FANCYMV(FESELAX,feselfp[^d]);MC~a;MO~a
+'Get current state of elevator
+JS#QUFELP;^b=_JS
+'If we are where we should be...
+IF(^b=(^a+filterp1-1))
+'...and we need to insert a filter, insert it
+IF(^b<>filterld);JS#INFESIN;^h=_JS;ENDIF
+'else we are not where we should be
+ELSE
+^h=1
+ENDIF
+ENDIF
+ENDIF
+ENDIF
+ENDIF
+'check for errors
+IF (^h=1);JS#ERRMSG(FESELAX,EFAIL);ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' CALibrate HoMe-switched, unencoded AXis(axis)
+' Calibrate an axis that has a home switch but no encoder
+' If home switch fails then sends EHMERR
+' Does not turn axis off if sucessful, 
+' For use on axes w/o pot & with a Home switch (HRTLT,HRAZ,FLSIN?,FESIN?)
+' Returns 0 iff sucessful
+'***************************************************************************
+#CALHMAX;'(axis)
+JS#ZS
+IF (_JS<1);JS#CALHMAX(^a);^h=_JS
+ELSE
+JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a])
+^h=_JS
+IF (^h=0)
+ ~a=^a;HV~a=axhmspd[^a];SP~a=axspd[^a]; DC~a=axlgdcl[^a]
+ ~a=^a;HM~a;BG~a;MC~a; 'Assumes home switch doesn't fail.
+ 'Does hitting the limit satisfy MC~a here? If not then this will hang if the
+ ' home switch fails.
+ 'If we didn't stop because of homing then the home switch
+ ' broke.
+ MG _SC~a
+ ~a=^a;IF (_SC~a<>10)
+ ~a=^a;ST~a; MC~a; MO~a
+ JS#ERRMSG(^a,EHMERR)
+ ELSE
+  ~a=^a; MC~a;DP~a=0;	'Define the new position as home
+  axiscal[^a]=true
+  ^h=0
+  ldelta[^a]=-10*bcklsh[^a];'Just want it to be positive and > bcklash amt
+ ENDIF
+ENDIF
+ENDIF
+EN ,,^h
+
+
+'***************************************************************************
+' CALibrate ENcoded AXis(axis)
+' Calibrate an axis that has an analog encoder
+' Does not turn axis off if sucessful, 
+' For use on axes w/o pot & with a Home switch (GES, ¿FESEL?)
+'TODO finish documentation
+' Returns 0 iff sucessful
+'***************************************************************************
+#CALENAX
+'Hope for success
+^h=0
+'If pot reads on the negative side, move toward positive by 1/8 encoded
+' travel
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+'If pot reads close to the negative limit move positive by a little
+IF (analogp[^a] < encnlim[^a])
+JS#ENC2STP(^a,encnlim[^a])
+~a=^a;AC~a=axaccel[^a]; DC~a=axlgdcl[^a];SP~a=-axspd[^a]
+~a=^a;PR~a=_JS;SH~a;BG~a;MC~a
+ENDIF
+'Overestimate the dstance to the negative limit
+'Wait for filtered analog position to be clean
+JS#WAITAMF(^a)
+JS#ENC2STP(^a,analogp[^a]);^b=1.25*_JS
+'Estimate time needed to trip the negative limit
+JS#MOVTIME(^b, axspd[^a], axaccel[^a], axlgdcl[^a]);^f=_JS*1.05
+'Now start a move to past the -limit
+~a=^a;PR~a=-^b;SH~a;BG~a;^g=TIME
+'Wait until stopped by limit or timed out
+#CALENA1;WT100;~a=^a;JP#CALENA1, ((_SC~a=0)&((TIME-^g) < ^f))
+~a=^a;MC~a
+'If we weren't stopped by the -limit, fail
+IF(_SC~a<>3);^h=1
+ELSE
+'Estimate time needed to move totally off the negative limit
+JS#ENC2STP(^a,encnlim[^a])
+^b=_JS
+JS#MOVTIME(^b, axhmspd[^a], axaccel[^a], axlgdcl[^a]);^f=_JS*1.05
+'If we somehow overshot limit move forward slowly until on limit
+IF(_LR~a=1)
+'Repport the error
+JS#ERRMSG(^a,ELIMOST)
+'Try to move back Onto the limit
+~a=^a;PR~a=^b;BG~a;^g=TIME
+#CALENA2;WT 50;~a=^a;JP#CALENA2, ((_LR~a=1) & (TIME-^g)<^f);ST~a;MC~a
+'Either the switch has failed or we managed to mis it either way this is a fail
+IF(_LR~a=1);JS#ERRMSG(^a,ELIMSWF);^h=1;ENDIF
+ENDIF
+'If all is well
+IF(^h=0)
+'move off limit slowly and stop
+~a=^a;PR~a=^b;BG~a;^g=TIME
+#CALENA3;WT 50;~a=^a;JP#CALENA3, ((_LR~a=0) & (TIME-^g)<^f);ST~a;MC~a
+'If we didn't get off the limit, fail
+IF(_LR~a=1);^h=1;ENDIF
+ENDIF;ENDIF
+'If success, make this the reference position
+IF (^h=0)
+JS#ZERSTP(^a);
+axiscal[^a]=true
+ldelta[^a]=10*backlash
+'TODO consider defining position based on pots value
+ELSE
+~a=^a;MC~a;MO~a;
+JS#ERRMSG(^a,EFAIL)
+ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' ANAlog Moving Average Filter
+' Locals:
+'   ^a=index counter
+'   ^b=filter size
+'   ^c=filter size -1
+'   ^d=running total for GES
+'   ^e=running total for FESEL
+'   ^f=running total for FOC
+' Arrays:
+'   gespacu, felpacu, focpacu Accumulator arrays for the average
+' Output (GLOBAL):
+'   gesanap  filtered GES position
+'   felanap  filtered FESEL position
+'   focanap  filtered FOC position
+'   analogp[8]  filter analog positions for each axis, only the GES,FESEL, &
+'            FOC axes are meaningful
+'***************************************************************************
+#ANAMAF
+JS#ZS
+IF (_JS<1);JS#ANAMAF
+ELSE
+^b=ANAMAFSZ;^c=^b-1
+~a=GESAX;gesanap=_TP~a
+~a=FESELAX;felanap=_TP~a
+~a=FOCAX;focanap=_TP~a
+^d=gesanap*^c;^e=felanap*^c;^f=focanap*^c
+DA gespacu[0], felpacu[0], focpacu[0]
+DM gespacu[^b], felpacu[^b], focpacu[^b]
+REM Initialize array with analog encoder values
+^a=0
+#ANAMAF1
+~a=GESAX;gespacu[^a]=_TP~a
+~a=FESELAX;felpacu[^a]=_TP~a
+~a=FOCAX;focpacu[^a]=_TP~a
+^a=^a+1
+JP#ANAMAF1,^a<^b
+'#ANAMAF2 is the filter.  It takes the most recent reading,
+'  tosses out the oldest reading, sums the values and takes an average.
+^a=0
+'^h=TIME
+AT0
+#ANAMAF2
+'If axis is in motion, update the index of the most recent dirty value
+~a=GESAX;IF(_TS~a & $80);anapcln[GESAX]=^a;ENDIF
+~a=FOCAX;IF(_TS~a & $80);anapcln[FOCAX]=^a;ENDIF
+~a=FESELAX;IF(_TS~a & $80);anapcln[FESELAX]=^a;ENDIF
+'Current value
+~a=GESAX;gespacu[^a]=_TP~a
+~a=FESELAX;felpacu[^a]=_TP~a
+~a=FOCAX;focpacu[^a]=_TP~a
+'sum in current value and subract oldest value
+^g=^a+1
+^d=^d-gespacu[^g]+gespacu[^a]
+^e=^e-felpacu[^g]+felpacu[^a]
+^f=^f-focpacu[^g]+focpacu[^a]
+'Store filtered readings
+gesanap=^d/^c;felanap=^e/^c;focanap=^f/^c
+analogp[GESAX]=gesanap;analogp[FESELAX]=felanap;analogp[FOCAX]=focanap
+^a=^g
+'See if the reading is clear of motion contamination
+IF(anapcln[GESAX]=^a);anapcln[GESAX]=-1;ENDIF
+IF(anapcln[FESELAX]=^a);anapcln[FESELAX]=-1;ENDIF
+IF(anapcln[FOCAX]=^a);anapcln[FOCAX]=-1;ENDIF
+'If last read then subtract first array element and reset ^a
+'MG TIME-^g
+AT-1;JP#ANAMAF2,^a<^c
+'If axis is in motion, update the index of the most recent dirty value
+~a=GESAX;IF(_TS~a & $80);anapcln[GESAX]=^a;ENDIF
+~a=FOCAX;IF(_TS~a & $80);anapcln[FOCAX]=^a;ENDIF
+~a=FESELAX;IF(_TS~a & $80);anapcln[FESELAX]=^a;ENDIF
+'Current value
+~a=GESAX;gespacu[^a]=_TP~a
+~a=FESELAX;felpacu[^a]=_TP~a
+~a=FOCAX;focpacu[^a]=_TP~a;
+'sum in current value and subract oldest value
+^d=^d-gespacu[0]+gespacu[^a]
+^e=^e-felpacu[0]+felpacu[^a]
+^f=^f-focpacu[0]+focpacu[^a]
+'Store filtered readings
+gesanap=^d/^c;felanap=^e/^c;focanap=^f/^c
+analogp[GESAX]=gesanap;analogp[FESELAX]=felanap;analogp[FOCAX]=focanap
+^a=0
+'See if the reading is clear of motion contamination
+IF(anapcln[GESAX]=^a);anapcln[GESAX]=-1;ENDIF
+IF(anapcln[FESELAX]=^a);anapcln[FESELAX]=-1;ENDIF
+IF(anapcln[FOCAX]=^a);anapcln[FOCAX]=-1;ENDIF
+'MG TIME-^h,gesanap,felanap,focanap
+AT-1;JP#ANAMAF2
+ENDIF
+EN
+
+
+
+'***************************************************************************
+' WAITAMF(axis) Wait for the analog moving average filter to refresh for
+'  the specified axis
+' Maximum wait time is: TODO
+'***************************************************************************
+#WAITAMF
+IF (anapcln[^a]<>-1)
+MG "Waiting..."
+^a=TIME
+#WAITAM1;WT50;JP#WAITAM1,(anapcln[^a]<>-1)
+MG TIME-^a," ms."
+ENDIF
+EN
+
+
+'***************************************************************************
+' ZERO ARRay
+' Zeros the contents of the array
+'***************************************************************************
+#ZEROARR;^b=^a[-1];^c=0
+#ZEROAR1;^a[^c]=0;^c=^c+1;JP#ZEROAR1,(^c<^b);EN
+
+
+
+'***************************************************************************
+' Direction Change Query (Axis,position delta/direction)
+'***************************************************************************
+#DIRCNGQ
+EN,,(((ldelta[^a]<0)&(^b>0)) | ((ldelta[^a]>0)&(^b<0)))
+
+
+
+'***************************************************************************
+' Back LaSH correction(axis, position delta)
+' Routine applies a backlash correction if direction change
+'   leaves motor on
+'***************************************************************************
+#BACKLSH
+'Figure out if a change in direction
+JS#DIRCNGQ(^a,^b)
+IF(_JS=true)
+'Correct for backlash by simply changing the current position
+IF(^b>0);JS#DPWAFE(^a,(_TD~a-bcklsh[^a]))
+ELSE;JS#DPWAFE(^a,(_TD~a+bcklsh[^a]));ENDIF
+ENDIF
+ldelta[^a]=^b
+EN,,1
+
+
+'***************************************************************************
+' INput change INTerrupt
+' If LoRes Tilt is homing and the input is triggered then halt the motion and
+'  SHF (this should mean that a MC trippoint on the axis is cleared.
+'***************************************************************************
+#ININT
+IF ((lrhomng=true)&(@IN[lrtinpt]=lrtathm))
+DCF=axlgdcl[5];STF;SHF;lrhomng=false
+ENDIF
+RI
+
+
+
+
+'***************************************************************************
+' Fancy MoVe(axis, position)
+' Start a move to position on the specified axis, accounting for
+'  both minimum incremental motion & backlash
+'***************************************************************************
+#FANCYMV;'(axis,absolute)
+'Compute delta
+~a=^a;^c=^b-_TD~a
+'If required move is too small
+IF(@ABS[^c]<mininc[^a])
+'First move mininc[^a]+@ABS[^c] in direction we last headed
+IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
+ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a];PA~a=^d;SH~a;BG~a
+~a=^a;MC~a
+'Check position to see if we didn't reach our goal (i.e. we hit a limit)
+~a=^a;IF(_TD~a<>^d)
+'Figure how far we need to move in the other direction
+IF(ldelta[^a]>0);~a=^a;^d=_TD~a-(2*(mininc[^a]+@ABS[^c]))
+ELSE;~a=^a;^d=_TD~a+(2*(mininc[^a]+@ABS[^c]));ENDIF
+'Compute delta
+~a=^a;^e=^d-_TD~a
+'Handle backlash
+JS#BACKLSH(^a,^e)
+'Move past in the other direction
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a];PA~a=^d;SH~a;BG~a
+~a=^a;MC~a
+ENDIF
+'Recompute delta
+~a=^a;^c=^b-_TD~a
+ENDIF
+'Handle backlash
+JS#BACKLSH(^a,^c)
+'Start move to position
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a];PA~a=^b;SH~a;BG~a;
+EN
+
+
+
+
+
+'***************************************************************************
+' Check Sanity(axis, position)
+'  Return true if position is, potentially, physically realizeable.
+'  False otherwise 
+'***************************************************************************
+#SANEPOS
+EN,,((^b>=axminp[^a]) & (^b<=axmaxp[^a]))
+
+
+
+
+'***************************************************************************
+' Move to limit (axis, acceleration, deceleration, velocity)
+' Checks for stall by figuing the travel time for the entire extent of the axis
+' If limit doesn't hit in allowed time the sends ETIMEO
+' velocity must not be 0
+' Intended for uncalibrated use
+'***************************************************************************
+#MOV2LIM
+'These first two lines are problematic for the FLSIN & FESIM,
+' if it becomes necessary to enable them
+'At present only the GES is physically capable of overshooting its limits
+'If we didn't last stop because of the opposite limit
+' move away from the limit we want be just a bit so account for having 
+' potentially overshot it.
+REM IF(^d>0);^e=-axlmos[^a];^f=3;ELSE;^e=axlmos[^a];^f=2;ENDIF;
+REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
+
+'If we are at the limit then we are done!
+~a=^a;^f=(((_LR~a<>0)|(^d>0))&((_LF~a<>0)|(^d<0)))
+IF(^f)
+
+'TODO consider adding backlash correction
+'TODO set ldelta[^a]
+' when calibrated, we could tighten the move distance estimate
+JS#MOVTIME(axmaxd[^a], ^d, ^b, ^c);^h=1.05*_JS
+'Begin move (-limit if neg, +lim if pos) wait until limit or timeout
+~a=^a; AC~a=^b; DC~a=^c; JG~a=^d; SH~a; BG~a; ^g=TIME
+'wait until we stop moving or timeout
+#MOV2LI1;WT 100;~a=^a;JP#MOV2LI1, ((_SC~a = 0)&(TIME-^g < ^h))
+
+'Determine the expected stop code
+IF(^d>0);^f=2;ELSE;^f=3;ENDIF
+
+'If the stop code is not that for the expected limit switch we failed
+~a=^a;IF (_SC~a<>^f)
+~a=^a;ST~a;MC~a;MO~a;
+JS#ERRMSG(^a,ETIMEO);^f=1;'		Exit Code is failure
+ELSE;^f=0;ENDIF
+
+ENDIF
+EN ,,^f
+
+
+
+'***************************************************************************
+' Mean of an ARRay
+'***************************************************************************
+#MEANARR
+^b=^a[-1];^c=0;^d=0
+#MEANAR1;^d=^d+^a[^c];^c=^c+1;JP#MEANAR1,(^c<^b)
+EN,,^d/^b
+
+
+
+'***************************************************************************
+' Standard Deviation of an array, must pass mean as arg 2
+'***************************************************************************
+#STDDEV
+^c=^a[-1];^d=0;^e=0
+#STDDEV1;^g=^a[^d]-^b;^e=^e+(^g*^g);^d=^d+1;JP#STDDEV1,(^d<^c)
+EN,,@SQR[^e/^c]
+
+
+
+'***************************************************************************
+' Tell Switch status
+'***************************************************************************
+#TELLTS;
+^b=_TS~a;MG "Axis ",~a
+IF (^b & $80);MG "In motion";ELSE;MG "Stopped";ENDIF
+IF (^b & $40);MG "Axis error exceeds error limit";ENDIF
+IF (^b & $20);MG "Motor Off";ELSE;MG "Motor On";ENDIF
+IF (^b & $08);NO;ELSE;MG "Forward Limit Tripped";ENDIF
+IF (^b & $04);NO;ELSE;MG "Reverse Limit Tripped";ENDIF
+IF (^b & $02);MG "Home 1";ELSE;MG "Home 0";ENDIF
+IF (^b & $01);MG "Axis Latched";ENDIF
+IF (@IN[~a-60]) ;MG "Axis Abort 1";ELSE;MG "Axis Abort 0";ENDIF
+EN
+
+
+'***************************************************************************
+' ZERo STePper counts(axis)
+'   Zeros the stepper counts for axis, at current position, 
+'  regardless of analog feedback status, preserves AF
+' Define Position With Analog Feedback Enabled(axis,position)
+'***************************************************************************
+#ZERSTP
+^b=0
+#DPWAFE
+^h=~a;~a=^a;^g=_AF~a;AF~a=0
+DP~a=^b;IF(^a=GESAX);rstpm[GESPM]=1;ENDIF;IF(^a=FESELAX);rstpm[FESELPM]=1;ENDIF
+AF~a=^g;~a=^a
+EN
+
+
+'***************************************************************************
+' ENCoder counts to STePs(axis, counts) 
+'***************************************************************************
+#ENC2STP
+~a=^a;^h=(^b*_YA~a*_YB~a)/_YC~a
+EN,,^h
+
+
+'***************************************************************************
+' STePs to ENCoder counts(axis, steps) 
+'***************************************************************************
+#STP2ENC
+~a=^a;^h=(^b*_YC~a)/(_YA~a*_YB~a)
+EN,,^h
+
+
+'***************************************************************************
+' Tell Amplifier status
+'***************************************************************************
+#TELLTA
+^a=_TA0
+IF (^a & $10);MG "Over Current (E-H Axes)";ENDIF;
+IF (^a & $1);MG "Over Current (A-D Axes)";ENDIF;
+^a=_TA3
+IF (^a & $2);MG "ELO Active (E-H Axes)";ENDIF;
+IF (^a & $1);MG "ELO Active (A-D Axes)";ENDIF;
+EN
+
+
+'***************************************************************************
+' Command Error Interrupt
+' Routine executed whenever a program error occurs
+'***************************************************************************
+#CMDERR;MG "!CMDERR (line",_ED,"):";TC1;EN
+
+
+'***************************************************************************
+' Code Version
+' Run to report code version
+'***************************************************************************
+#CODEVER;MG "CODEVER: m2fs.dmc v0.1";EN;
+
+
+
+'***************************************************************************
+' MOVTIME(dist,speed,accel,decel)
+' Compute the time travel would theoretically take in units of the RTC
+'***************************************************************************
+#MOVTIME
+REMa=^a;b=^b;c=^c;d=^d
+REMMG "Move Time:",^a,^b,^c,^d
+EN,,(@ABS[^a/^b]+(0.5*@ABS[(^b/^c)+(^b/^d)]))*(1000000/_TM)
+
+
+
+
+
+
+'***************************************************************************
+' POTentiometer MONitor(axis)
+' Check to see if the steps changed more (within reason) than the pot 
+'  did every 100 ms
+'   If so then Halt motion as the pot may be jammed
+'   when a monitored axis has its steps reset one must also set
+'   rstpm[GESPM]=true or rstpm[FESELPM]=true 
+'  ^a=axis ^b=oldpot ^c=oldstep ^d=newpot  ^e=newstep
+'  ^f=disagreement in pot v steps
+'  ^h=delta pot ^g=delta step 
+'***************************************************************************
+#POTMON
+AT0;
+~a=^a;^b=_TP~a; ^c=_TD~a
+#POTCHK1
+IF((rstpm[GESPM]=true)&(^a=GESAX))
+ ~a=^a;^c=0;^e=0;^b=_TP~a;^d=_TP~a;rstpm[GESPM]=false;' Reset old and new
+ENDIF
+IF((rstpm[FESELPM]=true)&(^a=FESELAX))
+ ~a=^a;^c=0;^e=0;^b=_TP~a;^d=_TP~a;rstpm[GESPM]=false;' Reset old and new
+ENDIF
+~a=^a;^d=_TP~a; ^e=_TD~a
+^h=^d  - ^b
+^g=^e - ^c
+^c=^e; ^b=^d
+~a=^a;^f=@ABS[^h*(_YB*_YA~a)/_YC~a-^g]
+IF(^f>error);DC~a=axlgdcl[^a];ST~a;MC~a;MO~a;potStat[^a]=potjam
+JS#ERRMSG(^a,EPOTJAM,dpot,dstep,error)
+ENDIF;
+AT-250;JP #POTCHK1;'        Check again in a few ms
+EN
+
+'***************************************************************************
+' ERRor MeSsaGe(axis, error,...)
+' Reports the specified error
+'ETIMEO "Move did not complete in allowed time."
+'EHMERR "Homing failure. Switch did not toggle."
+'***************************************************************************
+#ERRMSG
+axiserr[^a]=^b
+MG "ERRMSG:",^a,^b
+IF (^a=GESAX)
+IF (^b=ENONE);MG "OK.";ENDIF
+IF (^b=ETIMEO);MG "!GES: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!GES: Homing failure. Switch did not toggle.";ENDIF
+IF (^b=EPOTJAM);MG "!GES: pot not changing with steps.", ^c, ^d, ^e;ENDIF
+IF (^b=ELIMSWF);MG "!GES: Limit switch failure.";ENDIF
+IF (^b=EGESPMM);
+MG "!GES: Encoder & stepper mismatch. Try recalibrating.",^b,^g;ENDIF
+ENDIF
+IF (^a=HRTLTAX)
+IF (^b=ETIMEO);MG "!HRTLT: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!HRTLT: Homing failure. Switch did not toggle.";ENDIF
+IF (^b=ELCKERR);MG "!HRTLT: Locked. Can not move.";ENDIF
+ENDIF
+IF (^a=HRAZAX)
+IF (^b=ETIMEO);MG "!HRAZ: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!HRAZ: Homing failure. Switch did not toggle.";ENDIF
+IF (^b=ELCKERR);MG "!HRAZ: Locked. Can not move.";ENDIF
+ENDIF
+IF (^a=LRTLTAX)
+IF (^b=ETIMEO);MG "!LRTLT: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!LRTLT: Homing failure. Switch did not toggle.";ENDIF
+ENDIF
+IF (^a=FOCAX);
+IF (^b=ETIMEO);MG "!FOC: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!FOC: Homing failure. Switch did not toggle.";ENDIF
+ENDIF
+IF (^a=FLSINAX);
+IF (^b=ETIMEO);MG "!FLSIN: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!FLSIN: Homing failure. Switch did not toggle.";ENDIF
+ENDIF
+IF (^a=FESINAX);
+IF (^b=ETIMEO);MG "!FESIN: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!FESIN: Homing failure. Switch did not toggle.";ENDIF
+ENDIF
+IF (^a=FESELAX)
+IF (^b=ETIMEO);MG "!FESEL: Move did not complete in allowed time.";ENDIF
+IF (^b=EHMERR);MG "!FESEL: Homing failure. Switch did not toggle.";ENDIF
+IF (^b=EBADFP);MG "!FESEL: ",^c," is not a valid filter position.";ENDIF
+ENDIF
+axiserr[^a]=ENONE
+EN
+
+
+'***************************************************************************
+' ZS
+' Returns the stack level of the calling subtoutine
+'***************************************************************************
+#ZS
+IF(_ED4=0);zs=_ZS0;ENDIF
+IF(_ED4=1);zs=_ZS1;ENDIF
+IF(_ED4=2);zs=_ZS2;ENDIF
+IF(_ED4=3);zs=_ZS3;ENDIF
+IF(_ED4=4);zs=_ZS4;ENDIF
+IF(_ED4=5);zs=_ZS5;ENDIF
+IF(_ED4=6);zs=_ZS6;ENDIF
+IF(_ED4=7);zs=_ZS7;ENDIF
+EN,,zs-1
+
+'***************************************************************************
+' Lock Monitor
+' Monitors the axis locks for the HiRes stage
+'***************************************************************************
+#LOCKMON
+IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
+IF(@AN[8] > LCKVOLT);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
+WT 500
+JP#LOCKMON
+EN

@@ -31,6 +31,7 @@ ELCKERR=6;'LockError
 EBADFP=7;'BADFilterPos
 EGESPMM=8;'GESPotMotorMismatch
 EFAIL=9
+ELRTSEN=10;'LRT home sensor failed
 
 'Array of threaded execution parameters
 DM a[8],b[8],c[8],d[8],e[8],f[8],g[8],h[8],ret[8]
@@ -398,16 +399,13 @@ JS#ZS;IF (_JS<1);JS#CALLRT;^f=_JS;ret[_ED4]=_JS;ELSE
 IF (@IN[lrtinpt]<>lrtathm)
 II ,,lrtinhx,lrtinhx;'Trip on @IN[lrtinpt] goes to 1
 lrhomng=true
-^b=axmaxp[^a]-axminp[^a]
-JS#MOVTIME(^b, axspd[^a], axaccel[^a], axdecel[^a])
-^h=_JS*1.05
-~a=^a; AC~a=axaccel[^a]; DC~a=axdecel[^a]; JG~a=-axspd[^a]
-~a=^a; SH~a; BG~a; ^g=TIME;'    Begin jog
-' wait till stopped (input interrupt stopped us) or timeout
-#CALLRT1;WT 100;JP#CALLRT1, ((_SCF=0)&((TIME-^g) < ^h))
-'If still running, stop motor and turn off. Fail.
-IF (_SCF=0);~a=^a;ST~a;MC~a;~a=^a;MO~a;^f=ECALLRTO
-ELSE; ~a=^a;MC~a;ENDIF
+'Do a relative move -1.1 revolutions
+~a=^a;^b=-1.10*(axmaxp[^a]-axminp[^a])
+~a=^a; AC~a=axaccel[^a]; DC~a=axdecel[^a]; SP~a=axspd[^a];PR~a=^b;SH~a; BG~a;
+' wait till stopped (input interrupt stopped us) or get to position
+#CALLRT1;WT 500;JP#CALLRT1, (_SCF=0);~a=^a;MC~a
+'If not stopped by ST in interrupt routine turn off and fail.
+IF (_SCF<>4);~a=^a;MO~a;^f=ELRTSEN;ENDIF
 ENDIF
 IF (^f<>ENONE)
 'Move off home sensor

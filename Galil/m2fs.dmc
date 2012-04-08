@@ -25,8 +25,6 @@ HRAZAX=7
 true=1;false=0
 
 ENONE=0;'All is well
-ETIMEO=1;'TIMEOut
-EHMERR=2
 EHMERR=3;'HoMeingERRor
 EPOTJAM=4;'POTJAMmed
 ELIMSWF=5;'LIMitSWitchFail
@@ -34,7 +32,6 @@ ELCKERR=6;'LockError
 EBADFP=7;'BADFilterPos
 EGESPMM=8;'GESPotMotorMismatch
 EFAIL=9
-ELRTSEN=10;'LRT home sensor failed
 ECRAZY=11;'A passed parameter is outside of all sane bounds
 ELIMOST=12;' Over shot the limitswitch
 
@@ -371,7 +368,7 @@ lrhomng=true
 ' wait till stopped (input interrupt stopped us) or get to position
 #CALLRT1;WT 500;JP#CALLRT1, (_SCF=0);~a=^a;MC~a
 'If not stopped by ST in interrupt routine turn off and fail.
-IF (_SCF<>4);~a=^a;MO~a;^h=ELRTSEN
+IF (_SCF<>4);~a=^a;MO~a;^h=EHMERR
 ENDIF;ENDIF
 'If all is well
 IF (^h=ENONE)
@@ -386,7 +383,7 @@ lrhomng=true
 #CALLRT2;WT 500;JP#CALLRT2, (_SCF=0);~a=^a;MC~a
 'If not stopped by ST in interrupt routine turn off and fail
 ' else Define the new position as home
-IF (_SCF<>4);~a=^a;MO~a;^h=ELRTSEN
+IF (_SCF<>4);~a=^a;MO~a;^h=EHMERR
 ELSE;~a=^a;DP~a=0;axiscal[^a]=true;ldelta[^a]=^b
 ENDIF
 ENDIF
@@ -589,7 +586,7 @@ EN
 #HIRES
 ^a=GESAX;^h=ENONE;'      Hope for success
 'Calibrate if needed
-IF(axiscal[^a]<>false);JS#CALENAX(^a);^h=_JS;ENDIF
+IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
 IF(^h=0);JS#FANCYMV(^a,geshrp);~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
@@ -606,7 +603,7 @@ EN
 #LORES
 ^a=GESAX;^h=ENONE;'      Hope for success
 'Calibrate if needed
-IF(axiscal[^a]<>false);JS#CALENAX(^a);^h=_JS;ENDIF
+IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
 IF(^h=0);JS#FANCYMV(^a,geslrp);~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
@@ -1061,6 +1058,7 @@ EN ,,^h
 #CALENAX
 'Hope for success
 ^h=0
+MG "Wait"
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
 'If pot reads close to the negative limit move positive by a little
@@ -1068,46 +1066,62 @@ JS#WAITAMF(^a)
 IF(^b < encnlim[^a])
 ^b=1.1*(encnlim[^a]-^b)
 JS#ENC2STP(^a,^b);~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axspd[^a]
+MG "Pot reads close to the negative limit move positive by a little", ^b,_JS
 ~a=^a;PR~a=_JS;SH~a;BG~a;MC~a
 ENDIF
+MG "Wait"
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
 'Overestimate distance to -limit
-JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
+JS#ENC2STP(^a,analogp[^a]);^b=2*_JS
 'Now start a move to past the -limit
+MG "Overest dist to -lim and start a move to past limit",-^b
 ~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axlmspd[^a];PR~a=-^b;SH~a;BG~a
 'Wait until stopped
 #CALENA1;WT500;~a=^a;JP#CALENA1, (_SC~a=0);~a=^a;MC~a
 'If we weren't stopped by the -limit, fail
-IF(_SC~a<>3);^h=EFAIL
+IF(_SC~a<>3);^h=ELIMSWF
+MG"Not stopped by -limit,fail."
 ELSE
 'If we somehow overshot limit move forward slowly until on limit
 IF(_LR~a=1)
 JS#ERRMSG(^a,ELIMOST)
 'Try to move back onto the limit
+MG "Wait"
 JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
-~a=^a;SP~a=axhmspd[^a];PR~a=-^b;BG~a
+MG "overshot limit move forward slowly until on limit",^b
+~a=^a;SP~a=axhmspd[^a];PR~a=^b;BG~a
 #CALENA2;WT 50;~a=^a;JP#CALENA2, (_LR~a=1);ST~a;MC~a
 'If negative movement is allowed then the switch failed 
 '  or we managed to overshoot twice it either way this is a fail
-IF(_LR~a=1);^h=ELIMSWF;ENDIF
+IF(_LR~a=1);^h=ELIMSWF
+MG "STILL NOT ON LIMIT, fail"
+ENDIF
 ENDIF
 'If all is well
 IF(^h=0)
 'Get number of steps to position near limit and use it
 '  to estimate steps needed to move totally off the negative limit
+MG "wait"
 JS#WAITAMF(^a);^b=encnlim[^a]-analogp[^a];JS#ENC2STP(^a,^b);^b=1.1*_JS
 'Move off limit slowly and stop
+MG "Move off limit slowly",^b
 ~a=^a;PR~a=^b;BG~a
 #CALENA3;WT 50;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a
 'If we didn't get off the limit, fail
-IF(_LR~a=0);^h=ELIMSWF;ENDIF
+IF(_LR~a=0);^h=ELIMSWF
+MG "STILL ON LIMIT, fail"
+ENDIF
 ENDIF
 ENDIF
 'If success, make this the reference position
-IF (^h=0);JS#ZERSTP(^a);axiscal[^a]=true;ldelta[^a]=10*backlash
+IF (^h=0)
+MG "Success"
+JS#ZERSTP(^a);axiscal[^a]=true;ldelta[^a]=10*bcklsh[^a]
 'TODO consider defining position based on pots value
-ELSE;~a=^a;MC~a;~a=^a;MO~a;ENDIF
+ELSE
+MG "Fail"
+~a=^a;MC~a;~a=^a;MO~a;ENDIF
 'Store status
 axiserr[^a]=^h
 EN,,^h
@@ -1458,52 +1472,85 @@ EN
 
 '***************************************************************************
 ' ERRor MeSsaGe(axis, error,...)
-' Reports the specified error
-'ETIMEO "Move did not complete in allowed time."
-'EHMERR "Homing failure. Switch did not toggle."
+'  Reports the specified error
 '***************************************************************************
 #ERRMSG
 axiserr[^a]=^b
-MG "ERRMSG:",^a,^b
 IF (^a=GESAX)
-IF (^b=ENONE);MG "OK.";ENDIF
-IF (^b=ETIMEO);MG "!GES: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!GES: Homing failure. Switch did not toggle.";ENDIF
-IF (^b=EPOTJAM);MG "!GES: pot not changing with steps.", ^c, ^d, ^e;ENDIF
-IF (^b=ELIMSWF);MG "!GES: Limit switch failure.";ENDIF
-IF (^b=EGESPMM);
-MG "!GES: Encoder & stepper mismatch. Try recalibrating.",^b,^g;ENDIF
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=EPOTJAM);MG "!GES: Pot not changing with steps.", ^c, ^d, ^e
+ELSE;IF (^b=ELIMSWF);MG "!GES: Limit switch failure."
+ELSE;IF (^b=EGESPMM);
+MG "!GES: Encoder & stepper mismatch. Try recalibrating.",^b,^g
+ELSE;IF (^b=EFAIL);MG "!GES: Unspecified error."
+ELSE;IF (^b=ECRAZY);MG "!GES: Requested value out of allowed range."
+ELSE;IF (^b=ELIMOST);MG "!GES: Overshot limit switch."
+ELSE;MG "!GES: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRTLTAX)
-IF (^b=ETIMEO);MG "!HRTLT: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!HRTLT: Homing failure. Switch did not toggle.";ENDIF
-IF (^b=ELCKERR);MG "!HRTLT: Locked. Can not move.";ENDIF
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=EHMERR);MG "!HRTLT: Homing failure. Switch did not toggle."
+ELSE;IF (^b=ELIMSWF);MG "!HRTLT: Limit switch failure."
+ELSE;IF (^b=ELCKERR);MG "!HRTLT: Locked. You must loosen the locking nut."
+ELSE;IF (^b=ECRAZY);MG "!HRTLT: Requested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!HRTLT: Unspecified error."
+ELSE;MG "!HRTLT: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRAZAX)
-IF (^b=ETIMEO);MG "!HRAZ: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!HRAZ: Homing failure. Switch did not toggle.";ENDIF
-IF (^b=ELCKERR);MG "!HRAZ: Locked. Can not move.";ENDIF
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=EHMERR);MG "!HRAZ: Homing failure. Switch did not toggle."
+ELSE;IF (^b=ELIMSWF);MG "!HRAZ: Limit switch failure."
+ELSE;IF (^b=ELCKERR);MG "!HRAZ: Locked. You must loosen the locking nut."
+ELSE;IF (^b=ECRAZY);MG "!HRAZ: Requested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!HRAZ: Unspecified error."
+ELSE;MG "!HRAZ: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=LRTLTAX)
-IF (^b=ETIMEO);MG "!LRTLT: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!LRTLT: Homing failure. Switch did not toggle.";ENDIF
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=EHMERR);MG "!LRTLT: Homing failure. Switch did not toggle."
+ELSE;IF (^b=ECRAZY);MG "!LRTLT: Requested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!LRTLT: Unspecified error."
+ELSE;MG "!LRTLT: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
-IF (^a=FOCAX);
-IF (^b=ETIMEO);MG "!FOC: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!FOC: Homing failure. Switch did not toggle.";ENDIF
+IF (^a=FOCAX)
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=ECRAZY);MG "!FOC: Requested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FOC: Unspecified error."
+ELSE;MG "!FOC: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF
 ENDIF
-IF (^a=FLSINAX);
-IF (^b=ETIMEO);MG "!FLSIN: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!FLSIN: Homing failure. Switch did not toggle.";ENDIF
+IF (^a=FLSINAX)
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=ELIMSWF);MG "!FLSIN: Limit switch failure."
+ELSE;IF (^b=EHMERR);MG "!FLSIN: Homing failure. Switch did not toggle."
+ELSE;IF (^b=ECRAZY);MG "!FLSIN: Requested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FLSIN: Unspecified error."
+ELSE;MG "!FLSIN: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
-IF (^a=FESINAX);
-IF (^b=ETIMEO);MG "!FESIN: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!FESIN: Homing failure. Switch did not toggle.";ENDIF
+IF (^a=FESINAX)
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=ELIMSWF);MG "!FESIN: Limit switch failure."
+ELSE;IF (^b=EHMERR);MG "!FESIN: Homing failure. Switch did not toggle."
+ELSE;IF (^b=ECRAZY);MG "!FESIN: Requested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FESIN: Unspecified error."
+ELSE;MG "!FESIN: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESELAX)
-IF (^b=ETIMEO);MG "!FESEL: Move did not complete in allowed time.";ENDIF
-IF (^b=EHMERR);MG "!FESEL: Homing failure. Switch did not toggle.";ENDIF
-IF (^b=EBADFP);MG "!FESEL: ",^c," is not a valid filter position.";ENDIF
+IF (^b=ENONE);MG "OK"
+ELSE;IF (^b=EPOTJAM);MG "!FESEL: Pot not changing with steps.", ^c, ^d, ^e
+ELSE;IF (^b=ELIMSWF);MG "!FESEL: Limit switch failure."
+ELSE;IF (^b=EHMERR);MG "!FESEL: Homing failure. Switch did not toggle."
+ELSE;IF (^b=EBADFP);MG "!FESEL: ",^c," is not a valid filter position."
+ELSE;IF (^b=ECRAZY);MG "!FESEL: Requested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FESEL: Unspecified error."
+ELSE;MG "!FESEL: Unknown error code",^b,". This is a software bug."
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 axiserr[^a]=ENONE
 EN

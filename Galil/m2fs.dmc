@@ -21,6 +21,9 @@ LRTLTAX=5
 HRTLTAX=6
 HRAZAX=7
 
+'Logic States
+true=1;false=0
+
 ENONE=0;'All is well
 ETIMEO=1;'TIMEOut
 EHMERR=2
@@ -55,20 +58,14 @@ intermd=3
 unknown=4
 filterp1=5
 'rest of filter position enums are set automatically
-filterp2=filterp1+1
-filterp3=filterp1+2
-filterp4=filterp1+3
-filterp5=filterp1+4
-filterp6=filterp1+5
-filterp7=filterp1+6
-filterp8=filterp1+7
-filterld=filterp1+8
+filterp2=filterp1+1;filterp3=filterp1+2;filterp4=filterp1+3;filterp5=filterp1+4
+filterp6=filterp1+5;filterp7=filterp1+6;filterp8=filterp1+7;filterld=filterp1+8
 
+'Pot monitoring
 potjam=1
+'Value must be set to 1 atomically when zeroing the position of an encoded axis
+GESPM=0;FESELPM=1;DM rstpm[2];rstpm[GESPM]=false;rstpm[FESELPM]=false
 
-'Logic States
-true=1
-false=0
 
 'Analog Position Filtering
 ANAMAFSZ=1000
@@ -146,7 +143,7 @@ axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 DM axmaxp[8];'Max possible position (steps, 16x microstepping)
 axmaxp[GESAX]=288112;'Actual value slightly greater if overshooting limits
 axmaxp[FLSINAX]=0
-axmaxp[FOCAX]=0;''Infinite
+axmaxp[FOCAX]=16*200*180;'Infinite, about 1 revolution
 axmaxp[FESINAX]=0
 axmaxp[FESELAX]=0
 axmaxp[LRTLTAX]=1126400; '1 revolution
@@ -162,17 +159,11 @@ axminp[LRTLTAX]=0
 axminp[HRTLTAX]=-128205/2;'10mm
 axminp[HRAZAX]=-128205/2;'10mm
 
-'delta steps from last move, maintained by BACKLSH
-'  before each move 
+'delta of last move, maintained by/for #BACKLSH
 DM ldelta[8]
-ldelta[GESAX]=0
-ldelta[FLSINAX]=0
-ldelta[FOCAX]=0
-ldelta[FESINAX]=0
-ldelta[FESELAX]=0
-ldelta[LRTLTAX]=0
-ldelta[HRTLTAX]=0
-ldelta[HRAZAX]=0
+ldelta[GESAX]=0;ldelta[FLSINAX]=0;ldelta[FOCAX]=0;ldelta[FESINAX]=0
+ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
+
 'Unused, comented as short of array space
 'DM dperus[8];'delta per microstep
 'dperus[GESAX]=0;'microns per microstep
@@ -203,14 +194,6 @@ mininc[HRTLTAX]=13;'microsteps, 1 micron
 mininc[HRAZAX]=13;'microsteps, 1 micron
 
 
-'Value must be set to 1 atomically when 
-'    zeroing the position of an encoded axis
-GESPM=0;FESELPM=1
-DM rstpm[2]
-rstpm[GESPM]=false
-rstpm[FESELPM]=false
-
-
 'Encoder value near a limit, unused on unencoded
 DM encnlim[8]
 'Value strictly > -limit
@@ -228,26 +211,16 @@ encnlim[FOCAX]=3800
 
 'Whether or not the axis is calibrated
 DM axiscal[8]
-axiscal[GESAX]=false
-axiscal[FLSINAX]=false
-axiscal[FOCAX]=false
-axiscal[FESINAX]=false
-axiscal[FESELAX]=false
-axiscal[LRTLTAX]=false
-axiscal[HRTLTAX]=false
-axiscal[HRAZAX]=false
+axiscal[GESAX]=false;axiscal[FLSINAX]=false;axiscal[FOCAX]=false
+axiscal[FESINAX]=false;axiscal[FESELAX]=false;axiscal[LRTLTAX]=false
+axiscal[HRTLTAX]=false;axiscal[HRAZAX]=false
 
 
 'Last error state of the axis
 DM axiserr[8]
-axiserr[GESAX]=ENONE
-axiserr[FLSINAX]=ENONE
-axiserr[FOCAX]=ENONE
-axiserr[FESINAX]=ENONE
-axiserr[FESELAX]=ENONE
-axiserr[LRTLTAX]=ENONE
-axiserr[HRTLTAX]=ENONE
-axiserr[HRAZAX]=ENONE
+axiserr[GESAX]=ENONE;axiserr[FLSINAX]=ENONE;axiserr[FOCAX]=ENONE
+axiserr[FESINAX]=ENONE;axiserr[FESELAX]=ENONE;axiserr[LRTLTAX]=ENONE
+axiserr[HRTLTAX]=ENONE;axiserr[HRAZAX]=ENONE
 
 
 'FOC related defines
@@ -264,8 +237,7 @@ geshrep=3900; 'GES HR encoder nominal position ROUGH GUESS TODO: finalize
 
 
 'HiRes Alt & Az defines
-HRTLTLK=true
-HRAZLK=true
+HRTLTLK=true;HRAZLK=true
 LCKVOLT=2 ;'Determined empirically, > => locked 
 
 'LoRes Tilt defines
@@ -327,7 +299,7 @@ REM MT -2.5,-2,-2,-2,-2,-2,-2.5,-2.5;KS*=1;AG 3,1,3,1,1,0,0,0;AQ1,4;AQ3,4;AQ5,4;
 REM AQ7,4;AQ8,4;AF 1,,1,,1;YA 16,4,16,4,16,16,16,16;ER*=-1;CN 1,-1,,1,1
 REM YB 200,200,200,200,200,400,400,400;ER*=-1;YC 45,,102,,82
 
-EN,,0
+EN
 
 
 '***************************************************************************
@@ -344,7 +316,7 @@ AF 1,,1,,1;'		Configure GES, FES, & FOC for analog feedback
 YA 16,16,16,16,16,16,16,16;'Set stepping mode resolutions
 YB 200,200,200,200,200,400,400,400;'Set stepper motor steps/revolution
 'Encoder resolution counts/rev (APPROXIMATE VALUES!)
-YC 45,,102,,82	
+YC 45,,24,,82	
 'No built-in position error detection for steppers 	
 ER*=-1			
 'Configure: Limits active high, Home high -> go backward (retract)
@@ -352,7 +324,7 @@ ER*=-1
 '  DI 4-7,12-15 axis specific aborts, Abort doesn't kill program
 CN 1,-1,,1,1
 CI 0
-EN,,0
+EN
 
 
 '***************************************************************************
@@ -409,11 +381,11 @@ IF (^h=ENONE)
 lrhomng=true
 ^b=(1.1*lrthmos)+bcklsh[^a] 
 ~a=^a; DC~a=axdecel[^a]; SP~a=axhmspd[^a]; PR~a=^b;SH~a; BG~a
-' wait till stopped (input interrupt stopped us) or timeout
+' wait till stopped (input interrupt stopped us) or get to position
 #CALLRT2;WT 500;JP#CALLRT2, (_SCF=0);~a=^a;MC~a
 'If not stopped by ST in interrupt routine turn off and fail
 ' else Define the new position as home
-IF (_SCF<>4)~a=^a;MO~a;^h=ELRTSEN
+IF (_SCF<>4);~a=^a;MO~a;^h=ELRTSEN
 ELSE;~a=^a;DP~a=0;axiscal[^a]=true;ldelta[^a]=^b
 ENDIF
 ENDIF
@@ -421,6 +393,19 @@ ENDIF
 II 0,,,;axiserr[^a]=^h
 ENDIF
 EN ,,^h
+'***************************************************************************
+' INput change INTerrupt
+' If LoRes Tilt is homing and the input is triggered then halt the motion and
+'  SHF (this should mean that a MC trippoint on the axis is cleared.)
+'  TODO call galil re this
+'***************************************************************************
+#ININT
+IF ((lrhomng=true)&(@IN[lrtinpt]=lrtathm))
+REM DCF=axdecel[5] This command is reported as not valid while running yet I can 
+REM  execute it over serial w/o any problem TODO: CALL GALIL 
+REM STF;SHF;lrhomng=false
+STF;lrhomng=false;ENDIF
+RI
 
 
 '***************************************************************************
@@ -493,6 +478,7 @@ IF(^h=0);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 IF ((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
 IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
+ENDIF
 'Store status
 axiserr[^a]=^h
 ENDIF
@@ -532,13 +518,14 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#SETHRAZ(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^b=^a
 ^a=HRAZAX
 'Make sure the axis isn't locked
-IF(HRTLTLK=true);^h=ELCKERR;ENDIF
+IF(HRTAZLK=true);^h=ELCKERR;ENDIF
 'If we are good to go, make sure commanded position is sane
 IF(^h=0);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 'If we are good to go, but not calibrated, calibrate
 IF ((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
 IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
+ENDIF
 'Store status
 axiserr[^a]=^h
 ENDIF
@@ -630,7 +617,7 @@ EN
 ' Get Focus Position
 ' Does not wait for analog value to stabilize
 '***************************************************************************
-#GETFOCU
+#GETFOC
 ^a=FOCAX
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
@@ -1047,13 +1034,8 @@ EN,,^h
 JS#ZS;IF (_JS<1);JS#CALHMAX(^a);^h=_JS;ELSE
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
 IF (^h=0)
-~a=^a;HV~a=axhmspd[^a];SP~a=axspd[^a];DC~a=axdecel[^a];HM~a;BG~a;~a=^a;MC~a
-
-'Assumes home switch doesn't fail.
-'Does hitting the limit satisfy MC~a here? If not then this will hang if the
-' home switch fails.
-~a=^a;MG "CALHMAX SC=",_SC~a
-
+~a=^a;HV~a=axhmspd[^a];SP~a=axspd[^a];DC~a=axdecel[^a];SH~a;HM~a;BG~a
+~a=^a;MC~a
 'If we didn't stop because of homing then the home switch broke.
 ~a=^a;IF(_SC~a<>10);ST~a;MC~a;~a=^a;MO~a;^h=EHMERR
 ELSE;'Define the new position as home
@@ -1177,15 +1159,14 @@ EN
 ' Intended for uncalibrated use
 '***************************************************************************
 #MOV2LIM
-'These first two lines are problematic for the FLSIN & FESIM,
-' if it becomes necessary to enable them
-'At present only the GES is physically capable of overshooting its limits
-'If we didn't last stop because of the opposite limit
-' move away from the limit we want be just a bit so account for having 
-' potentially overshot it.
+REM These first two lines are problematic for the FLSIN & FESIM,
+REM  if it becomes necessary to enable them
+REM At present only the GES is physically capable of overshooting its limits
+REM  If we didn't last stop because of the opposite limit
+REM   move away from the limit we want be just a bit so account for having 
+REM   potentially overshot it.
 REM IF(^d>0);^e=-axlmos[^a];^f=3;ELSE;^e=axlmos[^a];^f=2;ENDIF;
 REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
-
 'If we are at the limit then we are done!
 ^h=ENONE;'Hope success
 ~a=^a;^f=(((_LR~a<>0)|(^d>0))&((_LF~a<>0)|(^d<0)))
@@ -1351,18 +1332,6 @@ EN
 
 
 '***************************************************************************
-' INput change INTerrupt
-' If LoRes Tilt is homing and the input is triggered then halt the motion and
-'  SHF (this should mean that a MC trippoint on the axis is cleared.
-'***************************************************************************
-#ININT
-IF ((lrhomng=true)&(@IN[lrtinpt]=lrtathm))
-DCF=axdecel[5];STF;SHF;lrhomng=false
-ENDIF
-RI
-
-
-'***************************************************************************
 ' Mean of an ARRay
 '***************************************************************************
 #MEANARR
@@ -1404,9 +1373,11 @@ EN
 '***************************************************************************
 #ZERSTP;^b=0
 #DPWAFE
-^h=~a;~a=^a;^g=_AF~a;AF~a=0
-DP~a=^b;IF(^a=GESAX);rstpm[GESPM]=1;ENDIF;IF(^a=FESELAX);rstpm[FESELPM]=1;ENDIF
-AF~a=^g;~a=^a
+~a=^a;^g=_AF~a;AF~a=0
+IF(^a=GESAX);~a=^a;DP~a=^b;rstpm[GESPM]=1
+ELSE;IF(^a=FESELAX);~a=^a;DP~a=^b;rstpm[FESELPM]=1
+ELSE;~a=^a;DP~a=^b;ENDIF;ENDIF
+~a=^a;AF~a=^g;
 EN
 
 

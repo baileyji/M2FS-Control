@@ -6,6 +6,11 @@ errmsg ^h return status
 add halt everthying routine
 
 
+How can it reset itself w/o command?
+
+'Does hitting the limit satisfy MC~a during homing? 
+'  If not then need to modify CALHMAX
+
 
 NB No math within subroutine jumps
 
@@ -64,6 +69,8 @@ Public Interface
 #CALMODE   calibrate ges stage 
 #GETMODE  .Get HiRes/LoRes Mode status
 #SETFOCU  .Set FOC Position
+first pass testing complete, May need PID loop to hit position 
+encoder->step conversion is a bit all over
 #GETFOCU  .Get Foc Position
 #SETLRTL  .Set LoRes Tilt Angle
 #GETLRTL  .Get LRTLT Pos

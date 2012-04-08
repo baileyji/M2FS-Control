@@ -56,7 +56,9 @@ in=1
 moving=2
 intermd=3
 unknown=4
-filterp1=5
+lores=5
+hires=6
+filterp1=7
 'rest of filter position enums are set automatically
 filterp2=filterp1+1;filterp3=filterp1+2;filterp4=filterp1+3;filterp5=filterp1+4
 filterp6=filterp1+5;filterp7=filterp1+6;filterp8=filterp1+7;filterld=filterp1+8
@@ -231,10 +233,9 @@ focentol=5;' Encoder tolerance of a desired pot position TODO: DETERMINE
 geshrp=20 ;'The step position for HiRes mode from calibrated 0 TODO: TBD
 geslrp=200000 ;'The step position for LoRes mode from calibrated 0 TODO: TBD
 geslrep=400; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
+geshrep=3900; 'GES HR encoder nominal position ROUGH GUESS TODO: finalize
 'GES encoder nominal position tolerance 
 gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
-geshrep=3900; 'GES HR encoder nominal position ROUGH GUESS TODO: finalize
-
 
 'HiRes Alt & Az defines
 HRTLTLK=true;HRAZLK=true
@@ -536,7 +537,7 @@ EN,,^h
 
 '***************************************************************************
 ' QUery GES Position
-' returns hires, lores, unknown, intermed
+' returns hires, lores, unknown, intermd
 ' TODO sort out behavior for case where motor and pot disagree
 '***************************************************************************
 #QUGESP
@@ -559,7 +560,7 @@ REM ^f encoder position is within tolerance of hires position
 IF (^c & ^d);^h=lores
 ELSE;IF (^e & ^f);^h=hires
 ELSE;IF (((^d=0) & ^c) | (^e & (^f=0)));JS#ERRMSG(^a,EGESPMM,^b,^g)
-ELSE;^h=intermed;ENDIF
+ELSE;^h=intermd;ENDIF
 ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 
@@ -577,7 +578,7 @@ IF(_JS=unknown);MG "GETMODE: UNCALIBRATED";ENDIF
 IF(_JS=moving);~a=^a;MG "GETMODE: MOVING",_TP~a,_TD~a;ENDIF
 IF(_JS=lores);~a=^a;MG "GETMODE: LORES",gesanap,_TD~a;ENDIF
 IF(_JS=hires);~a=^a;MG "GETMODE: HIRES",gesanap,_TD~a;ENDIF
-IF(_JS=intermed);~a=^a;MG "GETMODE: INTERMEDIATE",gesanap,_TD~a;ENDIF
+IF(_JS=intermd);~a=^a;MG "GETMODE: INTERMEDIATE",gesanap,_TD~a;ENDIF
 ENDIF
 EN
 
@@ -718,7 +719,7 @@ EN
 JS#QUFESIN
 IF (_JS=out);MG "GETFLSI: OUT";ENDIF
 IF (_JS=in);MG "GETFLSI: IN";ENDIF
-IF (_JS=intermed);MG "GETFLSI: INTERMEDIATE";ENDIF
+IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
 IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
 EN
 
@@ -794,7 +795,7 @@ EN,,^h
 JS#QUFLSIN
 IF (_JS=out);MG "GETFLSI: OUT";ENDIF
 IF (_JS=in);MG "GETFLSI: IN";ENDIF
-IF (_JS=intermed);MG "GETFLSI: INTERMEDIATE";ENDIF
+IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
 IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
 EN
 
@@ -816,10 +817,10 @@ ELSE
 ~a=^a;IF ((_SC~a=1) & (_TP~a=fesinsp));^h=in
 ELSE
 'Stopped, somewhere else
-~a=^a;IF (_SC~a<>0);^h=intermed
+~a=^a;IF (_SC~a<>0);^h=intermd
 ELSE
 'Moving
-^h=intermed
+^h=intermd
 ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 

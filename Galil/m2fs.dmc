@@ -470,6 +470,7 @@ EN
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#SETHRTL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^b=^a
 ^a=HRTLTAX
+^h=0;'Hope success
 'Make sure the axis isn't locked
 IF(HRTLTLK=true);^h=ELCKERR;ENDIF
 'If we are good to go, make sure commanded position is sane
@@ -517,6 +518,7 @@ EN
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#SETHRAZ(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^b=^a
 ^a=HRAZAX
+^h=0;'Hope success
 'Make sure the axis isn't locked
 IF(HRAZLK=true);^h=ELCKERR;ENDIF
 'If we are good to go, make sure commanded position is sane
@@ -1416,8 +1418,7 @@ EN,,(@ABS[^a/^b]+(0.5*@ABS[(^b/^c)+(^b/^d)]))*(1000000/_TM)
 #LOCKMON
 IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
 IF(@AN[8] > LCKVOLT);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
-WT 500
-JP#LOCKMON
+WT 1000;JP#LOCKMON
 EN
 
 

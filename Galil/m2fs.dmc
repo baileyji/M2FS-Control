@@ -518,7 +518,7 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#SETHRAZ(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^b=^a
 ^a=HRAZAX
 'Make sure the axis isn't locked
-IF(HRTAZLK=true);^h=ELCKERR;ENDIF
+IF(HRAZLK=true);^h=ELCKERR;ENDIF
 'If we are good to go, make sure commanded position is sane
 IF(^h=0);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 'If we are good to go, but not calibrated, calibrate

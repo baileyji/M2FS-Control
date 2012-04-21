@@ -30,7 +30,7 @@ class Director(Agent):
     def __init__(self):
         Agent.__init__(self,'M2FS Interface')
         self.max_clients=2
-        #self.galilAgentR_Connection=ThreadedSocket('localhost',GALIL_AGENT_R_PORT)
+        self.galilAgentR_Connection=ThreadedSocket('localhost',GALIL_AGENT_R_PORT, logger)
         #self.galilAgentB_Connection=ThreadedSocket('localhost',GALIL_AGENT_B_PORT)
     
     def listenOn(self):

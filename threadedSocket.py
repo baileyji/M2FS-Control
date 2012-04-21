@@ -1,12 +1,13 @@
 import serial, thread, threading, time, sys, socket
 
 class ThreadedSocket(threading.Thread):
-    def __init__(self, host, port):
+    def __init__(self, host, port, logger):
         threading.Thread.__init__(self)
         self.host=host
         self.port=port
         self.socket=None
         self.connect_socket()
+        self.logger=logger
         self.out_buffer=''
         self.in_buffer=''
         self.responseCallback=None

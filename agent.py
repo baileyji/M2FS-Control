@@ -1,0 +1,210 @@
+import time
+import argparse
+import socket
+import signal
+import logging
+import logging.handlers
+import atexit
+import sys
+import select
+from HandledSocket import HandledSocket
+
+class Agent():
+    def __init__(self, name):
+        self.name=name
+        self.sockets=[]
+        self.devices=[]
+        self.commands=[]
+        self.max_clients=1
+        self.initialize_logger()
+        self.initialize_cli_parser()
+        self.args=self.cli_parser.parse_args()
+        if self.args.DAEMONIZE:
+            self.daemonize()
+        if self.args.PORT:
+            self.PORT=self.args.PORT
+            self.initialize_socket_server()
+        else:
+            self.PORT=None
+            self.server_socket=None
+
+        #register an exit function
+        atexit.register(self.on_exit, self)
+        #Register a terminate signal handler
+        signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(1))
+    
+    def initialize_logger(self):
+        """Configure logging"""
+        #create the logger
+        self.logger=logging.getLogger(self.name)
+        self.logger.setLevel(logging.DEBUG)
+        # create formatter
+        formatter = logging.Formatter(
+            '%(asctime)s:%(name)s:%(levelname)s - %(message)s')
+        # create console handler and set level to debug
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        # create syslog handler and set level to debug
+        sh = logging.handlers.SysLogHandler(
+            facility=logging.handlers.SysLogHandler.LOG_USER)
+        sh.setLevel(logging.DEBUG)
+        # add formatter to handlers
+        ch.setFormatter(formatter)
+        sh.setFormatter(formatter)
+        # add handlers to logger
+        self.logger.addHandler(ch)
+        #self.logger.addHandler(sh)
+
+    def initialize_cli_parser(self):
+        """Configure the command line interface"""
+        #Create a command parser with the default agent commands
+        helpdesc="This is the instrument interface"
+        cli_parser = argparse.ArgumentParser(
+                    description=helpdesc,
+                    add_help=True)
+        cli_parser.add_argument('--version',
+                                action='version',
+                                version=self.get_version_string())
+        cli_parser.add_argument('-p','--port', dest='PORT',
+                                action='store', required=True, type=int,
+                                help='the port on which to listen')
+        cli_parser.add_argument('-d','--daemon',dest='DAEMONIZE',
+                                action='store_true', default=False,
+                                help='Run agent as a daemon')
+        self.cli_parser=cli_parser
+    
+    def daemonize(self):
+        """Daemonize the process"""
+        import pwd
+        # do the UNIX double-fork magic, see Stevens' "Advanced
+        # Programming in the UNIX Environment" for details 
+        # (ISBN 0201563177)
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # exit first parent
+                sys.exit(0)
+        except OSError, e:
+            self.logger.error("fork #1 failed: %d (%s)\n" % 
+                              (e.errno, e.strerror))
+            sys.exit(1)
+        # decouple from parent environment
+        os.chdir("/")   # don't prevent unmounting....
+        os.setsid()
+        os.umask(0)
+        # do second fork
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # exit from second parent, print eventual PID before
+                # print "Daemon PID %d" % pid
+                if options.pid_file is not None:
+                    open(options.pid_file,'w').write("%d"%pid)
+                sys.exit(0)
+        except OSError, e:
+            self.logger.error("fork #2 failed: %d (%s)\n" % 
+                              (e.errno, e.strerror))
+            sys.exit(1)
+        # ensure the that the daemon runs a normal user, if run as root
+        #if os.getuid() == 0:
+            #    name, passwd, uid, gid, desc, home, shell = pwd.getpwnam('someuser')
+            #    os.setgid(gid)     # set group first
+            #    os.setuid(uid)     # set user
+            
+    def initialize_socket_server(self):
+        #start the socket server
+        self.server_socket = socket.socket(
+            socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setblocking(0)
+        try:
+            location_tuple=self.listenOn()
+            self.server_socket.bind(location_tuple)
+            self.server_socket.listen(1)
+            self.logger.info(" Waiting for connection on %s:%s..." % 
+                         location_tuple)
+        except socket.error, msg:
+            self.handle_server_error()
+    
+    def listenOn(self):
+        """ Implemented by subclass """
+        pass
+    
+    def socket_message_recieved_callback(self, source, message):
+        pass
+        
+    def get_version_string(self):
+        return 'AGENT Base Class Version 0.1'
+    
+    def on_exit(self, arg):
+        """Prepare to exit"""
+        self.logger.info("exiting %s" % arg)
+        if self.server_socket:
+            self.server_socket.close()
+        for d in self.devices:
+            d.close()
+        for s in self.sockets:
+            s.handle_disconnect()
+    
+    def handle_connect(self):
+        """Server socket gets a connection"""
+        # accept a connection in any case, close connection
+        # below if already busy
+        connection, addr = self.server_socket.accept()
+        if len(self.sockets) < self.max_clients:
+            soc = HandledSocket(
+                connection,
+                logger=self.logger,
+                message_callback=self.socket_message_recieved_callback)
+            soc.setblocking(0)
+            soc.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
+            self.sockets.append(soc)
+        else:
+            connection.close()
+            self.logger.info(
+                'Rejecting connect from %s:%s' % (addr[0], addr[1]))
+    
+    def handle_server_error(self):
+        """Socket server fails"""
+        self.logger.error('Socket server error.')
+        sys.exit(1)
+        
+    def update_select_maps(self, read_map, write_map, error_map):
+        """Update dictionaries for select call. insert fd->callback mapping"""
+        # check the server socket
+        read_map[self.server_socket] = self.handle_connect
+        error_map[self.server_socket] = self.handle_server_error
+        #check client sockets
+        for socket in self.sockets:
+            if socket.do_select_read():
+                read_map[socket] = socket.handle_read
+            if socket.do_select_write():
+                write_map[socket] = socket.handle_write
+            if socket.do_select_error():
+                error_map[socket] = socket.handle_error
+        #check device connections
+        for device in self.devices:
+            if device.do_select_read():
+                read_map[device] = device.handle_read
+            if device.do_select_write():
+                write_map[device] = device.handle_write
+            if device.do_select_error():
+                error_map[device] = device.handle_error
+    
+    def cull_dead_sockets_and_their_commands(self):
+        """Remove dead sockets from list of sockets & purge commands from same."""
+        dead_sockets=filter(lambda x: not x.isOpen(), self.sockets)
+        for dead_socket in dead_sockets:
+            self.logger.debug("Cull dead socket: %s" % dead_socket)
+            self.sockets.remove(dead_socket)
+            dead_commands=filter(lambda x:x.source==dead_socket,self.commands)
+            for dead_command in dead_commands:
+                self.commands.remove(dead_command)
+                
+    def handle_completed_commands(self):
+        """Return results of complete commands and cull the commands."""
+        completed_commands=filter(lambda x: x.state=='complete',self.commands)
+        for command in completed_commands:
+            self.logger.debug("Closing out command %s" % command)
+            command.source.send(command.reply)
+            self.commands.remove(command)

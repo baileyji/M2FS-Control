@@ -1,0 +1,35 @@
+Focus B Pot readings (and deltas) after 3200*5 steps in the same direction (barring very first move). SP=15000 AC&DC=10000
+Pos: 2714
+Change Dir: 3200*5
+Pos: 2591 123
+Same Dir:   3200*5
+Pos: 2470 121
+Pos: 2347 123
+Pos: 2219 128
+Pos: 2094 125 
+Pos: 1966 128
+Pos: 1833 133
+Pos: 1698 135
+Pos: 1566 132
+Pos: 1449 117
+Pos: 1330 119
+Pos: 1208 122
+Pos: 1081 127
+Pos:  948 133
+Pos:  812 136
+Pos:  683 129
+Pos:  556 127
+Pos:  431 125
+Pos:  298 133
+Pos:  164 134
+Pos:   28 136 
+
+Pos: 3988
+Pos: 3819 169
+Pos: 3643 176
+Pos: 3510 132
+Pos: 3368 141
+
+NB: Dead zone is <3200*10 steps
+
+Write routine to take these measurements for me.

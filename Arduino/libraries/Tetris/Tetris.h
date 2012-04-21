@@ -9,14 +9,14 @@
 
 #include <AccelStepper.h>
 
-#define DEFAULT_POS_SLIT1 -290
-#define DEFAULT_POS_SLIT2 -510
-#define DEFAULT_POS_SLIT3 -745
-#define DEFAULT_POS_SLIT4 -935
-#define DEFAULT_POS_SLIT5 -1115
-#define DEFAULT_POS_SLIT6 -1275
-#define DEFAULT_POS_SLIT7 -1435
-#define DEFAULT_BACKLASH 10 //10 full steps
+#define DEFAULT_POS_SLIT1 -290*16
+#define DEFAULT_POS_SLIT2 -510*16
+#define DEFAULT_POS_SLIT3 -745*16
+#define DEFAULT_POS_SLIT4 -935*16
+#define DEFAULT_POS_SLIT5 -1115*16
+#define DEFAULT_POS_SLIT6 -1275*16
+#define DEFAULT_POS_SLIT7 -1435*16
+#define DEFAULT_BACKLASH 160 //10 full steps
 #define MOTOR_HOME_POSITION DEFAULT_POS_SLIT2
 
 class Tetris
@@ -27,9 +27,9 @@ class Tetris
     Tetris(int rst_pin, int stby_pin, int dir_pin, int ck_pin, int phase_pin);
     ~Tetris();
     void motorOff();
-		void motorPwrOffPos(); //Move to a predefined off position
+    void motorPwrOffPos(); //Move to a predefined off position
     bool motorIsOn();
-		void motorOn();
+    void motorOn();
     void tellPosition();
     void stop();
     bool moving();
@@ -40,6 +40,8 @@ class Tetris
     void setBacklash(unsigned int b);
     void positionRelativeMove(long d);
     void positionAbsoluteMove(long p);
+    void positionRelativeMoveFS(long d); //Move in full stels
+    void positionAbsoluteMoveFS(long p); //Move in full stels
     void defineSlitPosition(uint8_t slit);
     void dumbMoveToSlit(uint8_t slit);
     void run();
@@ -50,10 +52,10 @@ class Tetris
     int _reset_pin;
     int _clock_pin;
     int _dir_pin;
-		int _phase_pin;
-		int8_t _lastDir;
+    int _phase_pin;
+    int8_t _lastDir;
     unsigned int _backlash;
-		long _slitPositions[7];      
+    long _slitPositions[7];      
     AccelStepper _motor;
 
 };

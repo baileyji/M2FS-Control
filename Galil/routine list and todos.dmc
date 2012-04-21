@@ -49,25 +49,24 @@ Internal routines
 
 
 #CALFOCU  .Calibrate the focus
-#CALLRT   .Calibrate LoRes, first pass testing complete
+#CALLRT   .Calibrate LoRes,                                 first pass testing complete
 #CALHMAX  .Calibrate an axis with a home sensor and no pot, first pass testing complete
-#CALENAX  .Calibrate an encoded axis
+#CALENAX  .Calibrate an encoded axis,                       first pass testing complete
 
 
 Public Interface
 #CODEVER  .Report the code version, first pass testing complete
-#LOADFIL  .Move to the Filter Loading Position
 #PICKFIL  .Set the Filter
 #INFLSIN  .Insert FLSIN arm
 #RMFLSIN  .Remove FLSIN arm
-#HIRES    .HiRes Mode
-#LORES    .LoRes Mode
-#CALMODE   calibrate ges stage 
-#GETMODE  .Get HiRes/LoRes Mode status
-#SETFOCU  .Set FOC Position
+#HIRES    .HiRes Mode, first pass testing complete
+#LORES    .LoRes Mode, first pass testing complete
+#CALGES   .calibrate ges stage
+#GETGES   .Get HiRes/LoRes position of ges, first pass testing complete
+#SETFOC  .Set FOC Position
 first pass testing complete, May need PID loop to hit position 
 encoder->step conversion is a bit all over
-#GETFOCU  .Get Foc Position, first pass testing complete
+#GETFOC  .Get Foc Position, first pass testing complete
 #SETLRTL  .Set LoRes Tilt Angle, first pass testing complete
 #GETLRTL  .Get LRTLT Pos, first pass testing complete
 #GETHRTL  .Get HRTLT Pos, 

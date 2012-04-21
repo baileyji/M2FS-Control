@@ -103,7 +103,7 @@ void Tetris::tellPosition() {
 
 //No Deceleration
 void Tetris::stop() {
-	_motor.moveTo(_motor.currentPosition());
+  _motor.moveTo(_motor.currentPosition());
 }
 
 bool Tetris::moving(){
@@ -111,7 +111,6 @@ bool Tetris::moving(){
 }
 
 void Tetris::definePosition(long p) {
-  
   _motor.setCurrentPosition(p);
 }
 
@@ -123,26 +122,37 @@ void Tetris::setAcceleration(long	s){
   _motor.setAcceleration(abs(s));
 }
 
-void Tetris::positionRelativeMove(long d){
+void Tetris::positionRelativeMoveFS(long d){
   positionAbsoluteMove( d*16 + _motor.currentPosition());
+}
+
+void Tetris::positionAbsoluteMoveFS(long p){
+  positionAbsoluteMove(16*p);
+}
+
+
+void Tetris::positionRelativeMove(long d){
+  positionAbsoluteMove(d + _motor.currentPosition());
 }
 
 void Tetris::positionAbsoluteMove(long p){
   //Handle backlash
-  if (_lastDir<0 && (p*16>_motor.currentPosition()))
+  if (_lastDir<0 && (p>_motor.currentPosition()))
   {
-    _motor.setCurrentPosition(_motor.currentPosition()-_backlash*16);
-    _lastDir=1;
+      _motor.setCurrentPosition(_motor.currentPosition()-_backlash);
+      _lastDir=1;
   }
-  else if (_lastDir>0 && p*16<_motor.currentPosition())
+  else if (_lastDir>0 && p<_motor.currentPosition())
   {
-    _motor.setCurrentPosition(_motor.currentPosition()+_backlash*16);
-    _lastDir=-1;
+      _motor.setCurrentPosition(_motor.currentPosition()+_backlash);
+      _lastDir=-1;
   }
   //Move
-  _motor.moveTo(p*16); 
+  _motor.moveTo(p);
 }
-      
+
+
+
 //Function WILL cause stall at negative physical limit.
 //Function WILL block for multiple seconds.
 void Tetris::calibrateToHardStop(){

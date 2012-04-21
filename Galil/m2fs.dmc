@@ -55,7 +55,8 @@ intermd=3
 unknown=4
 lores=5
 hires=6
-filterp1=7
+settle=7
+filterp1=8
 'rest of filter position enums are set automatically
 filterp2=filterp1+1;filterp3=filterp1+2;filterp4=filterp1+3;filterp5=filterp1+4
 filterp6=filterp1+5;filterp7=filterp1+6;filterp8=filterp1+7;filterld=filterp1+8
@@ -81,18 +82,18 @@ anapcln[FESELAX]=-1
 REM Absolutly do not consider a value final unless it has a comment!
 REM  (or the instrument is on the telescope and in use, then Mea Culpa -JB)
 DM axaccel[8];'Generic Acceleration rate
-axaccel[GESAX]=256000;'Default value seems ok
+axaccel[GESAX]=100000
 axaccel[FLSINAX]=256000
-axaccel[FOCAX]=256000;'Default
+axaccel[FOCAX]=100000
 axaccel[FESINAX]=256000
 axaccel[FESELAX]=256000
 axaccel[LRTLTAX]=100000
 axaccel[HRTLTAX]=100000
 axaccel[HRAZAX]=100000
 DM axdecel[8];'Generic Deceleration rate
-axdecel[GESAX]=256000
+axdecel[GESAX]=100000
 axdecel[FLSINAX]=256000
-axdecel[FOCAX]=256000
+axdecel[FOCAX]=100000
 axdecel[FESINAX]=256000
 axdecel[FESELAX]=256000
 axdecel[LRTLTAX]=190000
@@ -131,12 +132,12 @@ axhmspd[LRTLTAX]=256
 axhmspd[HRTLTAX]=256
 axhmspd[HRAZAX]=256
 DM axspd[8];'Generic travel speed
-axspd[GESAX]=16215;'seems ok
+axspd[GESAX]=7000;'16215;'seems ok
 axspd[FLSINAX]=0
-axspd[FOCAX]=15000;'seems ok
+axspd[FOCAX]=7000;'15000;'seems ok
 axspd[FESINAX]=0
 axspd[FESELAX]=0
-axspd[LRTLTAX]=15000;'seems ok (w/o grating) Max per DS: 30091
+axspd[LRTLTAX]=10000;'seems ok (w/o grating) Max per DS: 30091
 axspd[HRTLTAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 DM axmaxp[8];'Max possible position (steps, 16x microstepping)
@@ -165,7 +166,7 @@ ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
 
 'Unused, comented as short of array space
 'DM dperus[8];'delta per microstep
-'dperus[GESAX]=0;'microns per microstep
+'dperus[GESAX]=.992;'microns per microstep
 'dperus[FLSINAX]=0
 'dperus[FOCAX]=49.087;'microradians per microstep
 'dperus[FESINAX]=0
@@ -174,14 +175,14 @@ ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
 'dperus[HRTLTAX]=0.078;'microns per microstep
 'dperus[HRAZAX]=0.078;'microns per microstep
 DM bcklsh[8];'backlash in steps, for reference
-bcklsh[GESAX]=76.2;'microns
+bcklsh[GESAX]=77;'76.2 microns
 bcklsh[FLSINAX]=0
-bcklsh[FOCAX]=880;'microradians (estimate)
+bcklsh[FOCAX]=18;'880 microradians (estimate based on LRTLT stage)
 bcklsh[FESINAX]=0
 bcklsh[FESELAX]=0
-bcklsh[LRTLTAX]=200;'microradians
-bcklsh[HRTLTAX]=10;'microns (128.2 usteps)
-bcklsh[HRAZAX]=10;'microns (128.2 usteps)
+bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
+bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
+bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
 DM mininc[8];'minimum incremental motion
 mininc[GESAX]=0
 mininc[FLSINAX]=0
@@ -227,10 +228,10 @@ focentol=5;' Encoder tolerance of a desired pot position TODO: DETERMINE
 
 
 'GES Related Defines
-geshrp=20 ;'The step position for HiRes mode from calibrated 0 TODO: TBD
-geslrp=200000 ;'The step position for LoRes mode from calibrated 0 TODO: TBD
-geslrep=400; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
-geshrep=3900; 'GES HR encoder nominal position ROUGH GUESS TODO: finalize
+geshrp=1000;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
+geslrp=265000;'(steps) Position of LoRes mode from calibrated 0 TODO: finalize
+geslrep=3798; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
+geshrep=194; 'GES HR encoder nominal position TODO: finalize
 'GES encoder nominal position tolerance 
 gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
 
@@ -314,7 +315,8 @@ AF 1,,1,,1;'		Configure GES, FES, & FOC for analog feedback
 YA 16,16,16,16,16,16,16,16;'Set stepping mode resolutions
 YB 200,200,200,200,200,400,400,400;'Set stepper motor steps/revolution
 'Encoder resolution counts/rev (APPROXIMATE VALUES!)
-YC 45,,24,,82	
+'GES Nominally 44.7. GER R measured to be about 42.3
+YC 42,,26,,82
 'No built-in position error detection for steppers 	
 ER*=-1			
 'Configure: Limits active high, Home high -> go backward (retract)
@@ -533,6 +535,15 @@ EN,,^h
 
 
 '***************************************************************************
+' Calibrate the GES Stage
+' return value is in ret
+'***************************************************************************
+#CALGES
+JS#CALENAX(GESAX);ed4=_ED4;ret[ed4]=_JS
+EN
+
+
+'***************************************************************************
 ' QUery GES Position
 ' returns hires, lores, unknown, intermd
 ' TODO sort out behavior for case where motor and pot disagree
@@ -553,29 +564,50 @@ REM ^e step position is equal to geshrp
 REM ^f encoder position is within tolerance of hires position
 ~a=^a;^g=_TD~a;^b=gesanap;^c=(^g=geslrp);^e=(^g=geshrp)
 ^d=( ((^b>(geslrep-gesenct) & (^b<(geslrep+gesenct)) )
-^f=( ((^b>(geshrep-gesenct) | (^b<(geshrep+gesenct)) )
+^f=( ((^b>(geshrep-gesenct) & (^b<(geshrep+gesenct)) )
 IF (^c & ^d);^h=lores
 ELSE;IF (^e & ^f);^h=hires
-ELSE;IF (((^d=0) & ^c) | (^e & (^f=0)));JS#ERRMSG(^a,EGESPMM,^b,^g)
+ELSE;IF (((^d=0) & ^c) | (^e & (^f=0)));^h=EGESPMM;axiserr[^a]=^h
 ELSE;^h=intermd;ENDIF
 ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 
 
 '***************************************************************************
-' Get Mode
-' Return the GES mode
+' Get GES
+' Return the GES position
 '***************************************************************************
-#GETMODE
+#GETGES
 ^a=GESAX
+'Determine status
+~a=^a;IF (_TS~a & $80);^h=moving
+ELSE;IF(axiscal[^a]<>true);^h=unknown
+ELSE;IF(anapcln[^a]<>-1);^h=settle
+ELSE
+REM ^g step position
+REM ^b encoder position
+REM ^c step position is equal to geslrp
+REM ^d encoder position is within tolerance of lores position
+REM ^e step position is equal to geshrp
+REM ^f encoder position is within tolerance of hires position
+~a=^a;^g=_TD~a;^b=gesanap;^c=(^g=geslrp);^e=(^g=geshrp)
+^d=( ((^b>(geslrep-gesenct) & (^b<(geslrep+gesenct)) )
+^f=( ((^b>(geshrep-gesenct) & (^b<(geshrep+gesenct)) )
+IF (^c & ^d);^h=lores
+ELSE;IF (^e & ^f);^h=hires
+ELSE;IF (((^d=0) & ^c) | (^e & (^f=0)));axiserr[^a]=EGESPMM
+ELSE;^h=intermd
+ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF
+'Report status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE
-JS#QUGESP
-IF(_JS=unknown);MG "GETMODE: UNCALIBRATED";ENDIF
-IF(_JS=moving);~a=^a;MG "GETMODE: MOVING",_TP~a,_TD~a;ENDIF
-IF(_JS=lores);~a=^a;MG "GETMODE: LORES",gesanap,_TD~a;ENDIF
-IF(_JS=hires);~a=^a;MG "GETMODE: HIRES",gesanap,_TD~a;ENDIF
-IF(_JS=intermd);~a=^a;MG "GETMODE: INTERMEDIATE",gesanap,_TD~a;ENDIF
+IF(^h=unknown);MG "GETGES: UNCALIBRATED";ENDIF
+IF(^h=moving);~a=^a;MG "GETGES: MOVING",_TP~a,_TD~a;ENDIF
+IF(^h=settle);~a=^a;MG "GETGES: SETTLING",gesanap,_TD~a;ENDIF
+IF(^h=lores);~a=^a;MG "GETGES: LORES",gesanap,_TD~a;ENDIF
+IF(^h=hires);~a=^a;MG "GETGES: HIRES",gesanap,_TD~a;ENDIF
+IF(^h=intermd);~a=^a;MG "GETGES: INTERMEDIATE",gesanap,_TD~a;ENDIF
 ENDIF
 EN
 
@@ -584,6 +616,8 @@ EN
 ' HIgh RESolution mode
 '***************************************************************************
 #HIRES
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#HIRES;ELSE
 ^a=GESAX;^h=ENONE;'      Hope for success
 'Calibrate if needed
 IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
@@ -594,6 +628,7 @@ JS#QUGESP;IF (_JS<>hires);^h=EFAIL;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
+ENDIF
 EN
 
 
@@ -601,6 +636,8 @@ EN
 ' LOw RESolution mode
 '***************************************************************************
 #LORES
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#HIRES;ELSE
 ^a=GESAX;^h=ENONE;'      Hope for success
 'Calibrate if needed
 IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
@@ -611,6 +648,7 @@ JS#QUGESP;IF (_JS<>lores);^h=EFAIL;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
+ENDIF
 EN
 
 '***************************************************************************
@@ -1064,7 +1102,7 @@ JS#WAITAMF(^a)
 'If pot reads close to the negative limit move positive by a little
 ^b=analogp[^a]
 IF(^b < encnlim[^a])
-^b=1.1*(encnlim[^a]-^b)
+^b=1024;'5*(encnlim[^a]-^b)
 JS#ENC2STP(^a,^b);~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axspd[^a]
 MG "Pot reads close to the negative limit move positive by a little", ^b,_JS
 ~a=^a;PR~a=_JS;SH~a;BG~a;MC~a
@@ -1080,12 +1118,11 @@ MG "Overest dist to -lim and start a move to past limit",-^b
 'Wait until stopped
 #CALENA1;WT500;~a=^a;JP#CALENA1, (_SC~a=0);~a=^a;MC~a
 'If we weren't stopped by the -limit, fail
-IF(_SC~a<>3);^h=ELIMSWF
+~a=^a;IF(_SC~a<>3);^h=ELIMSWF
 MG"Not stopped by -limit,fail."
 ELSE
 'If we somehow overshot limit move forward slowly until on limit
-IF(_LR~a=1)
-JS#ERRMSG(^a,ELIMOST)
+~a=^a;IF(_LR~a=1)
 'Try to move back onto the limit
 MG "Wait"
 JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
@@ -1094,7 +1131,7 @@ MG "overshot limit move forward slowly until on limit",^b
 #CALENA2;WT 50;~a=^a;JP#CALENA2, (_LR~a=1);ST~a;MC~a
 'If negative movement is allowed then the switch failed 
 '  or we managed to overshoot twice it either way this is a fail
-IF(_LR~a=1);^h=ELIMSWF
+~a=^a;IF(_LR~a=1);^h=ELIMOST
 MG "STILL NOT ON LIMIT, fail"
 ENDIF
 ENDIF
@@ -1109,19 +1146,20 @@ MG "Move off limit slowly",^b
 ~a=^a;PR~a=^b;BG~a
 #CALENA3;WT 50;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a
 'If we didn't get off the limit, fail
-IF(_LR~a=0);^h=ELIMSWF
+~a=^a;IF(_LR~a=0);^h=ELIMSWF
 MG "STILL ON LIMIT, fail"
 ENDIF
 ENDIF
 ENDIF
 'If success, make this the reference position
 IF (^h=0)
-MG "Success"
+MG "Calibrated axis",^a
 JS#ZERSTP(^a);axiscal[^a]=true;ldelta[^a]=10*bcklsh[^a]
 'TODO consider defining position based on pots value
 ELSE
-MG "Fail"
-~a=^a;MC~a;~a=^a;MO~a;ENDIF
+MG "Failed to calibrate axis",^a
+~a=^a;MC~a;~a=^a;MO~a
+ENDIF
 'Store status
 axiserr[^a]=^h
 EN,,^h
@@ -1137,8 +1175,10 @@ EN,,^h
 ^b=@RND[^b]
 ~a=^a;^c=^b-_TD~a
 IF(^c<>0)
+~a=^a;MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
 'If required move is too small
 IF(@ABS[^c]<mininc[^a])
+MG "FANCYMV: Move is less than the minimum increment of",mininc[^a]
 'First move mininc[^a]+@ABS[^c] in direction we last headed
 IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
 ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
@@ -1334,7 +1374,7 @@ EN
 #WAITAMF
 IF (anapcln[^a]<>-1)
 MG "Waiting...";^b=TIME
-#WAITAM1;WT50;JP#WAITAM1,(anapcln[^a]<>-1)
+#WAITAM1;WT200;JP#WAITAM1,(anapcln[^a]<>-1)
 ^c=TIME-^b;MG ^c," ms."
 ENDIF
 EN
@@ -1475,14 +1515,14 @@ EN
 '  Reports the specified error
 '***************************************************************************
 #ERRMSG
-axiserr[^a]=^b
 IF (^a=GESAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=EPOTJAM);MG "!GES: Pot not changing with steps.", ^c, ^d, ^e
+ELSE;IF (^b=EPOTJAM);MG "!GES: Pot not changing with steps."
 ELSE;IF (^b=ELIMSWF);MG "!GES: Limit switch failure."
-ELSE;IF (^b=EGESPMM);
-MG "!GES: Encoder & stepper mismatch. Try recalibrating.",^b,^g
-ELSE;IF (^b=EFAIL);MG "!GES: Unspecified error."
+ELSE;IF (^b=EGESPMM)
+MG "!GES: Encoder & stepper mismatch. Try recalibrating.",gesanap,_TDA
+ELSE;IF (^b=EFAIL)
+MG "!GES: Unspecified error. GES Pos:",gesanap," counts,",_TDA," steps"
 ELSE;IF (^b=ECRAZY);MG "!GES: Requested value out of allowed range."
 ELSE;IF (^b=ELIMOST);MG "!GES: Overshot limit switch."
 ELSE;MG "!GES: Unknown error code",^b,". This is a software bug."
@@ -1543,7 +1583,7 @@ ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESELAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=EPOTJAM);MG "!FESEL: Pot not changing with steps.", ^c, ^d, ^e
+ELSE;IF (^b=EPOTJAM);MG "!FESEL: Pot not changing with steps."
 ELSE;IF (^b=ELIMSWF);MG "!FESEL: Limit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FESEL: Homing failure. Switch did not toggle."
 ELSE;IF (^b=EBADFP);MG "!FESEL: ",^c," is not a valid filter position."

@@ -9,6 +9,9 @@ import atexit
 import serial
 import sys
 import select
+sys.path.append('./galil/')
+import galil
+from HandledSocket import HandledSocket
 
 MAX_CLIENTS=2
 VERSION_STRING='0.1'
@@ -43,173 +46,36 @@ class ArgumentParser(argparse.ArgumentParser):
         
 
 class Command:
-    def __init__(self, source, string, parsedCommand,
+    def __init__(self, source, command_string,
                  callback=None, state='recieved',
                  replyRequired=True, reply=None):
         self.source=source
-        self.string=string
+        self.string=command_string
         self.callback=callback
         self.state=state
         self.replyRequired=replyRequired
         self.reply=reply
-        self.parsedCommand=parsedCommand
         
     def __str__(self):
         return ''.join([str(self.source),str(self.string),
                         str(self.state),str(self.reply)])
 
-class HandledSocket():
-    def __init__(self, sock, message_callback=None,logger=None):
-        self.__dict__['socket']=sock
-        self.__dict__['logger']=logger
-        self.__dict__['in_buffer']=''
-        self.__dict__['out_buffer']=''
-        self.__dict__['message_recieved_callback']=message_callback
 
-    def __getattr__(self, attr):
-        return getattr(self.socket, attr)
-    #def __setattr__(self, attr, value):
-        #return setattr(self.socket, attr, value)   
-
-    def handle_read(self):
-        """Read from socket. Call callback"""
-        try:
-            # read a chunk from the serial port
-            data = self.socket.recv(1024)
-            if data:
-                self.in_buffer += data
-                count=self.in_buffer.find('\n')
-                if count is not -1:
-                    message_str=self.in_buffer[0:count+1]
-                    self.in_buffer=self.in_buffer[count+1:]
-                    self.logger.info("Recieved command %s on %s" % 
-                        (message_str, self))
-                    self.message_recieved_callback(self,message_str)
-            else:
-                # empty read indicates disconnection
-                self.handle_disconnect()
-        except socket.error:
-            self.handle_socket_error()
-            
-    def handle_write(self):
-        """Write to socket"""
-        try:
-            if self.out_buffer and '\n' not in self.out_buffer:
-                self.out_buffer+='\n'
-            # write a chunk
-            count = self.socket.send(self.out_buffer)
-            self.logger.debug('Attempted write: "%s" , Wrote: "%s"' %
-                              (self.out_buffer,self.out_buffer[count:]))
-            # and remove the sent data from the buffer
-            self.out_buffer = self.out_buffer[count:]
-        except socket.error,err:
-            self.handle_socket_error(err)
-
-    def handle_error(self, error=None):
-        """Socket connection fails"""
-        self.logger.error("Socket error %s, disconnecting." % socket.error)
-        self.handle_disconnect()
-        
-    def handle_disconnect(self):
-        """Socket gets disconnected"""
-        # close network connection
-        if self.socket is not None:
-            self.socket.close()
-            self.socket = None
-            self.logger.info('Client disconnected')
-        
-        
-class HandledSerial():
-    """class that add select handlers to serial.Serial
-    
-    messageComplete shall be a function which accepts a string
-    and returns the length of the complete message, <1 indicate message 
-    is incomplete
-    """
-    def __init__(self, baudrate=115200, timeout=0, logger=None,
-                 sendTerminator='\r', messageComplete=None):
-        self.serial=serial.Serial(baudrate=baudrate,timeout=timeout)
-        self.logger=logger
-        self.in_buffer=''
-        self.out_buffer=''
-        self.message_sent_callback=None
-        self.message_recieved_callback=None
-        self.sendTerminator=sendTerminator
-        if messageComplete is None:
-            self.messageComplete=lambda msg: msg.find('\n')+1
-        else:
-            self.messageComplete=messageComplete
-
-    def __getattr__(self, attr):
-        return getattr(self.serial, attr)
-
-    def handle_read(self):
-        bytes_in=self.read(self.inWaiting())
-        self.in_buffer+=bytes_in
-        #see if message is complete
-        msg_len=self.messageComplete(self.in_buffer)
-        if msg_len > 0:
-            #Complete mesage just recieved
-            message_str=self.in_buffer[0:msg_len]
-            self.in_buffer=self.in_buffer[msg_len:]
-            #message is a response
-            self.logger.info("Recieved serial data %s on %s" % 
-                (message_str, self))
-            if self.message_recieved_callback:
-                self.message_recieved_callback(self, message_str)
-
-    def handle_write(self):
-        if self.out_buffer:
-            try:
-                count=self.write(self.out_buffer)
-                self.out_buffer=self.out_buffer[count:]
-                if (not self.out_buffer and 
-                    self.message_sent_callback is not None):
-                    self.message_sent_callback(self)
-            except serial.SerialException,err:
-                self.handle_error(error=err)
-
-    def handle_error(self,error=None):
-        self.close()
-        if error is not None:
-            self.logger.error('%s error %s' % (self.port,error))
-        else:
-            self.logger.error('Serial port %s error.' % self.port)
-
-    def send_message(self, msg, sentCallback=None, recievedCallback=None):
-        """Add message to output buffer and register callbacks
-        
-        Message may have at most one terminator and it must be at the end of
-        the message. If message does not have a terminator one will be added.
-        """
-        if self.out_buffer:
-            raise Exception("Message pending")
-        msg_str=str(msg)
-        terminator_count=msg_str.count(self.sendTerminator)
-        if terminator_count == 0:
-            msg_str=msg_str+self.sendTerminator
-        elif terminator_count == 1:
-            if msg_str[-1] != self.sendTerminator:
-                raise Exception("Message terminator not and end of message")
-        else:
-            raise Exception("Message malformed: has multiple terminators.")
-        self.flushInput()
-        self.out_buffer=msg_str
-        if sentCallback is not None:
-            self.message_sent_callback=sentCallback
-        if recievedCallback is not None:
-            self.message_recieved_callback=recievedCallback
-
-
-class RedShoeAgent():
+class GalilAgent():
     def __init__(self):
         
-        helpdesc="This is the shoe agent. It takes shoe commands via \
+        helpdesc="This is the galil agent. It takes shoe commands via \
             a socket connection (if started as a daemon) or via \
             CLI arguments."
     
-        name='Shoe Agent'
-        self.agentName=name
+        self.agentName='Galil Agent'
+        default_device='/dev/galilR'
+        self.devices=[]
+        self.commands={}
+                
+        #configure specialized agent command parsing
+        self.configure_command_parser()
+
       
         #create the logger
         self.logger=logging.getLogger(self.agentName)
@@ -238,6 +104,10 @@ class RedShoeAgent():
         cli_parser.add_argument('--version',
                                 action='version',
                                 version=VERSION_STRING)
+        cli_parser.add_argument('--device', dest='DEVICE',
+                                action='store', required=False, type=str,
+                                help='the device to control',
+                                default=default_device)
         cli_parser.add_argument('-p','--port', dest='PORT',
                                 action='store', required=False, type=int,
                                 help='the port on which to listen')
@@ -314,37 +184,15 @@ class RedShoeAgent():
         
         #register a terminate signal handler
         signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(1))
-        
-        
-        #configure specialized agent command parsing
-        self.configure_command_parser()
 
-        #Open the shoe
-        def shoeMsgCompleteFunc(msg):
-            """
-            Determine if message from shoe is complete.
-            
-            Shoe ends response with : or ? based on command being good
-            or bad. The colon and question mark are not used anywhere else.
-            """
-            #0 if no : or ?
-            #-1 plus location of : or ? plus 2 is length of message, otherwise
-            return msg.find(':')+msg.find('?')+2
-            
-        shoe=HandledSerial(baudrate=115200,timeout=0,
-                           logger=self.logger,
-                           sendTerminator='\n', 
-                           messageComplete=shoeMsgCompleteFunc
-                           )
-        shoe.serial.port='/dev/tty.usbmodemfd14711'
+        #Initialize the Galil
         try:
-            shoe.open()
-        except serial.SerialException,err:
-            shoe.handle_error(error=err)
-            
-        self.devices=[shoe]
-        self.commands={}
+            galilR=galil.Galil(args.DEVICE, self.logger)
+        except galil.GalilStartupException:
+            exit(1)
         
+        self.devices.append(galilR)
+    
     def on_exit(self, arg):
         """Prepare to exit"""
         self.logger.info("exiting %s" % arg)
@@ -354,7 +202,32 @@ class RedShoeAgent():
             d.close()
         for s in self.sockets:
             s.handle_disconnect()
+    
+    def handle_connect(self):
+        """Server socket gets a connection"""
+        # accept a connection in any case, close connection
+        # below if already busy
+        connection, addr = self.server_socket.accept()
+        if len(self.sockets) < MAX_CLIENTS:
+            soc = HandledSocket(connection, logger=self.logger,
+                                message_callback=self.socket_message_recieved_callback)
+            soc.setblocking(0)
+            soc.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
+            self.sockets.append(soc)
+            self.commands[soc]=None
             
+        else:
+            # reject connection if there is already one
+            connection.close()
+            self.logger.info('Rejecting connect from %s:%s' %
+                             (addr[0], addr[1]))
+    
+    def handle_server_error(self):
+        """Socket server fails"""
+        self.logger.error('Socket server error. exiting.')
+        sys.exit(1)
+        
     def configure_command_parser(self):
         #Create a parser for commands
         self.command_parser=ArgumentParser(description='Command Parser',
@@ -375,31 +248,6 @@ class RedShoeAgent():
                         help='The position to define as 0 \
                              (default: the current position)')
     
-    def handle_connect(self):
-        """Server socket gets a connection"""
-        # accept a connection in any case, close connection
-        # below if already busy
-        connection, addr = self.server_socket.accept()
-        if len(self.sockets) < MAX_CLIENTS:
-            soc = HandledSocket(connection,logger=self.logger,
-                                message_callback=self.socket_message_processor)
-            soc.setblocking(0)
-            soc.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
-            self.sockets.append(soc)
-            self.commands[soc]=None
-            
-        else:
-            # reject connection if there is already one
-            connection.close()
-            self.logger.info('Rejecting connect from %s:%s' %
-                             (addr[0], addr[1]))
-    
-    def handle_server_error(self):
-        """Socket server fails"""
-        self.logger.error('Socket server error. exiting.')
-        sys.exit(1)
-    
     def update_select_maps(self, read_map, write_map, error_map):
         """Update dictionaries for select call. insert fd->callback mapping"""
         # check the server socket
@@ -411,76 +259,24 @@ class RedShoeAgent():
                 # handle socket if connected
                 read_map[s] = s.handle_read
                 # only check for write readiness when there is data
-                if s.out_buffer:
+                if s.have_data_to_send():
                     write_map[s] = s.handle_write
                 # always check for errors
                 error_map[s] = s.handle_error
             else:
                 # no connection, ensure clear buffer
-                s.out_buffer = ''
+                s.clear_output_buffer()
         #check device connections
         for device in self.devices:
-            if not device.isOpen():
-                try:
-                    device.open()
-                except serial.SerialException,e:
-                    self.logger.debug("couldn't open shoe for command")
-                    for key in filter(lambda k: self.commands[k] is not None,
-                                      self.commands.keys()):
-                        self.commands[key].state='complete'
-                        self.commands[key].reply='Device not available'
-            else:    
-                # always handle device reads & errors
+            if device.do_select_read():
                 read_map[device] = device.handle_read
+            if device.do_select_write():
+                write_map[device] = device.handle_write
+            if device.do_select_error():
                 error_map[device] = device.handle_error
-                # handle serial port writes if buffer is not empty
-                if device.out_buffer:
-                    write_map[device] = device.handle_write
     
-    def socket_message_processor(self, source, message_str):
-        """for the shoe we won't ever get a response over a socket"""
-        #if message is command
-        self.socket_command_handler(source, message_str)
-        #if message is response
-        #   self.socket_response_handler(source, message_str)
-    
-    def socket_command_handler(self, source, message_str):
-        """Create and execute a Command from the message"""
-        #try parsing command
-        try:
-            from cStringIO import StringIO
-            sys.stderr = mystderr = StringIO()
-            command=self.command_parser.parse_args(message_str.split())
-            sys.stderr = sys.__stderr__
-            cmderrmsg=mystderr.getvalue()
-            #fetch the command callback
-            callback=getattr(self,'command_'+command.command_name.upper())
-            #create the command
-            command=Command(source, message_str,command, callback=callback)
-        #command was bad
-        except argparse.ArgumentError, err:
-            sys.stderr = sys.__stderr__
-            cmderrmsg=mystderr.getvalue()
-            err_str='command parse error %s on command \
-                   string %s' % (str(err),message_str)
-            err_str.replace('\n', '\r')
-            self.logger.error(err_str)
-            self.logger.error(mystderr.getvalue())
-            command=Command(source, message_str, None,state='complete',
-                            reply=err_str)
-        #if command from device already exists
-        if self.commands[source] is not None:
-            #...ignore and log error
-            self.logger.warning('Command %s recieved \
-                                 before command %s finished.' %
-                                 (command.string,self.commands[source].string))
-        else:
-            self.commands[source]=command
-            if self.commands[source].callback is not None:
-                self.commands[source].callback(self.commands[source])
-    
-                    
     def cull_dead_sockets_and_their_commands(self):
+        """Remove dead sockets from list of sockets & purge commands from same."""
         dead_sockets=filter(lambda x: x.socket is None, self.sockets)
         #cull dead keys from self.commands
         #   and dead sockets from self.sockets
@@ -489,10 +285,42 @@ class RedShoeAgent():
                 self.logger.debug("Cull dead socket:%s"% dead_socket)
                 self.commands.pop(dead_socket,None)
                 self.sockets.remove(dead_socket)
+    
+    
+    def socket_message_recieved_callback(self, source, message_str):
+        """Create and execute a Command from the message"""
+        if False:#message_str is malformed:
+            command=Command(source, message_str, state='complete',
+                reply='!ERROR: Malformed Command', callback=None)
+        else:
+            command=Command(source, message_str, callback=None)
+            
+            if self.commands[source] is not None:
+                #...ignore and log error
+                self.logger.warning(
+                    'Command %s recieved before command %s finished.' %
+                    (command.string, self.commands[source].string))
+            else:
+                self.commands[source]=command
+        
+                if False:# TODO command is command for agent:
+                    1
+                else:
+                    def responseCallback(response_string):
+                        command.state='complete'
+                        command.reply=response_string
+                    def errorCallback(response_string):
+                        command.state='complete'
+                        command.reply='!ERROR:'+response_string
+                    self.devices[0].executeCommand(
+                        command.string,
+                        responseCallback,
+                        errorCallback
+                        )
                 
     def handle_completed_commands(self):
         """Return results of complete commands and cull the commands."""
-        complete_command_keys=filter(lambda x: 
+        complete_command_keys=filter(lambda x: #TODO there is a bug here when the client disconnects
                 self.commands[x] is not None and
                 self.commands[x].state=='complete',
                 self.commands.keys())
@@ -500,39 +328,8 @@ class RedShoeAgent():
             for key in complete_command_keys:
                 command=self.commands[key]
                 self.logger.debug("Closing out command %s" % command)
-                command.source.out_buffer=command.reply
+                command.source.out_buffer=command.reply #TODO: make this a function
                 self.commands[key]=None
-    
-    def command_COMMANDS(self, command):
-        """Report a list of all agent commands."""
-        command.state='complete'
-        command.reply='list\rof\rcommands\n'
-        self.logger.info('commands callback')
-    
-    def command_TD(self,command):
-        command.state='pending'
-        msg='TD'+command.parsedCommand.tetrisID
-        self.logger.info('%s to device %s' % (msg,self.devices[0]))
-        def callback(source, message):
-            self.logger.debug("Response callback: %s, %s" % (source, message))
-            if '?' in message:
-                command.reply='Bad command. The offending command should never have been sent to the device.'
-            else:
-                command.reply=message.strip('\n\r?:')
-            command.state='complete'
-        self.devices[0].send_message(msg, recievedCallback=callback)
-    
-    def command_SP(self,command):
-        command.state='pending'
-        msg='SP'+command.parsedCommand.tetrisID+command.parsedCommand.speed
-        self.logger.info('%s to device %s' % (msg,self.devices[0]))
-        def callback(source, message):
-            if ':' in message:
-                command.reply='OK'
-            else:
-                command.reply='INVALID'
-            command.state='complete'
-        self.devices[0].send_message(msg, recievedCallback=callback)
     
     def main(self):
         """
@@ -564,7 +361,7 @@ class RedShoeAgent():
             #Exit
             sys.exit(0)
             
-        while 1:
+        while True:
             select_start = time.time()
             read_map = {}
             write_map = {}
@@ -577,14 +374,10 @@ class RedShoeAgent():
                 if err[0] != EINTR:
                     raise
             select_end = time.time()
-            #self.logger.debug("select used %.3f s" % (select_end - 
-            #                                          select_start))
-            for reader in readers:
-                read_map[reader]()
-            for writer in writers:
-                write_map[writer]()
-            for error in errors:
-                error_map[error]()       
+            #self.logger.debug("select used %.3f s" % (select_end-select_start))
+            for reader in readers: read_map[reader]()
+            for writer in writers: write_map[writer]()
+            for error  in errors:  error_map[error]()       
             #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
 
             #log commands
@@ -597,17 +390,6 @@ class RedShoeAgent():
 
 
 if __name__=='__main__':
-    agent=RedShoeAgent()
+    agent=GalilAgent()
     agent.main()
 
-    
-
-
-"""
-  cout<<"PRx# Position Relative - Command tetris x to move #"<<endl;
-  cout<<"SPx# Speed - Set the movement speed of tetris x to # (usteps/s)"<<endl;
-  cout<<"ACx# Acceleration - Set the acceleration rate of tetris x to # (usteps/s^2)"<<endl;
-  cout<<"SLx# Slit - Command tetris x to go to the position of slit #"<<endl;
-  cout<<"SDx# Slit Define - Set slit # for tetris x to be at the current position"<<endl;
-  cout<<"BLx# Backlash - Set the amount of backlash of tetris x to # (usteps)"<<endl;
-"""

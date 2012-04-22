@@ -219,17 +219,44 @@ class Galil(object):
            It is an error to call this routine with a command that is invalid
            e.g. do your error checking elsewhere!
         """
-        #Backdoor for executing arbitrary commands
         if command[0:3]=='RAW':
             return command[3:]
-            
         command_name,junk,command_args=command.partition(' ')
+        subroutine_name=self.get_subroutine_name_from_command(command)
+        if not subroutine_name:
+            return ''
+        subroutine_has_parameters={
+            '#PICKFIL':True, '#SETLRTL':True, '#SETHRTL':True,
+            '#SETHRAZ':True, '#SETFOC' :True,
+            '#GETLRTL':False, '#GETHRTL':False, '#GETHRAZ':False,
+            '#GETFOC' :False, '#GETFILT':False, '#GETGES' :False,
+            '#HIRES'  :False, '#LORES'  :False, '#INFLSIN':False,
+            '#RMFLSIN':False, '#CALFOCU':False, '#CALLRT' :False,
+            '#CALHRTL':False, '#CALHRAZ':False, '#CALGES' :False
+            }
+        if subroutine_has_parameters[subroutine_name]:
+            packed_parameters=self.pack_parameters(command_args)
+        command_string="XQ%s,%s" % (subroutine_name, thread) + packed_parameters
+        self.logger.debug(
+                "Galil command string %s generated from command %s." %
+                (command_string,command)
+            )
+        return command_string
         
+    def pack_parameters(self, command_args):
+        command_string_list=[]
+        if command_args and '?' not in command_args:
+            command_args=command_args.split(' ')
+            variable_names=['a','b','c','d','e','f','g','h']
+            for i, param in enumerate(command_args):
+                command_string_list.append(
+                    "%s[%s]=%s;" % (variable_names[i],thread,param) )
+        return ''.join(command_string_list)
+        
+    def get_subroutine_name_from_command(self, command):
         if command_name == 'FILTER':
-            if '?' in command:
-                subroutine_name='#GETFILT'
-            else:
-                subroutine_name='#PICKFIL'
+            if '?' in command: subroutine_name='#GETFILT'
+            else:              subroutine_name='#PICKFIL'
         elif command_name == 'LREL':
             if '?' in command:
                 subroutine_name='#GETLRTL'
@@ -272,25 +299,7 @@ class Galil(object):
         elif command_name == 'GES_CALIBRATE':
             subroutine_name='#CALGES'
         else:
-            return ''
-        
-        
-        command_string_list=[]
-        
-        
-        if command_args and '?' not in command_args:
-            command_args=command_args.split(' ')
-            variable_names=['a','b','c','d','e','f','g','h']
-            for i, param in enumerate(command_args):
-                command_string_list.append(
-                    "%s[%s]=%s;" % (variable_names[i],thread,param)
-                    )
-        
-        command_string_list.append("XQ%s,%s" % (subroutine_name, thread))
-        command_string=''.join(command_string_list)
-        
-        self.logger.debug("Galil command string %s generated from command %s." %
-            (command_string,command))
-        return command_string
+            subroutine_name=''
+        return subroutine_name
 
 

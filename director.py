@@ -3,7 +3,7 @@ from agent import Agent
 import socket
 import time
 import select
-from threadedSocket import ThreadedSocket
+from threadedSocket import SelectedSocket
 
 MAX_CLIENTS=2
 VERSION_STRING='0.1'
@@ -30,7 +30,8 @@ class Director(Agent):
     def __init__(self):
         Agent.__init__(self,'M2FS Interface')
         self.max_clients=2
-        self.galilAgentR_Connection=ThreadedSocket('localhost',GALIL_AGENT_R_PORT, logger)
+        self.galilAgentR_Connection=SelectedSocket('localhost',GALIL_AGENT_R_PORT, self.logger)
+        self.devices.append(galilAgentR_Connection)
         #self.galilAgentB_Connection=ThreadedSocket('localhost',GALIL_AGENT_B_PORT)
     
     def listenOn(self):

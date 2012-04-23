@@ -9,7 +9,7 @@ import atexit
 import serial
 import sys
 import select
-sys.path.append('./galil/')
+sys.path.append('./Galil/')
 import galil
 from HandledSocket import HandledSocket
 from agent import Agent

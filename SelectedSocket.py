@@ -29,9 +29,9 @@ class SelectedSocket():
 
     def __str__(self):
         if self.isOpen():
-            return 'Open SelectedSocket '+addr_str(self)
+            return 'Open SelectedSocket '+self.addr_str(self)
         else:
-            return 'Closed SelectedSocket '+addr_str(self)
+            return 'Closed SelectedSocket '+self.addr_str(self)
 
     def __getattr__(self, attr):
         return getattr(self.socket, attr)

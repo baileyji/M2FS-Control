@@ -76,7 +76,7 @@ class Agent():
     
     def daemonize(self):
         """Daemonize the process"""
-        import pwd
+        import pwd,os
         # do the UNIX double-fork magic, see Stevens' "Advanced
         # Programming in the UNIX Environment" for details 
         # (ISBN 0201563177)

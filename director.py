@@ -4,28 +4,12 @@ import socket
 import time
 import select
 from SelectedSocket import SelectedSocket
+from command import Command
 
 MAX_CLIENTS=2
 VERSION_STRING='0.1'
 GALIL_AGENT_R_PORT=40000
 GALIL_AGENT_B_PORT=45000
-
-class Command:
-    def __init__(self, source, command_string,
-                 callback=None, state='recieved',
-                 replyRequired=True, reply=None):
-        self.source=source
-        self.string=command_string
-        self.callback=callback
-        self.state=state
-        self.replyRequired=replyRequired
-        self.reply=reply
-
-    def __str__(self):
-        return ''.join([str(self.source),str(self.string),
-                        str(self.state),str(self.reply)])
-
-
 class Director(Agent):
     def __init__(self):
         Agent.__init__(self,'M2FS Interface')
@@ -58,13 +42,18 @@ class Director(Agent):
             'PLATESETUP':self.not_implemented_handler,
             'PLUGPOS':self.not_implemented_handler,
             'TEMPS':self.not_implemented_handler,
-            'STATUS':self.not_implemented_handler}
+            'STATUS':self.not_implemented_handler,
+            'VERSION':self.version_request_handler}
 
         command_class=message_str.partition(' ')[0].partition('_')[0]
         command=Command(source,message_str)
         if not filter(lambda x: x.source==source, self.commands):
             self.commands.append(command)
         command_handlers.get(command_class, self.bad_command_handler)(command)
+
+    def version_request_handler(self,command):
+        command.state='complete'
+        command.reply=get_version_string()+'\n'
 
     def galil_command_handler(self, command):
         """ Galil command handler """

@@ -13,24 +13,12 @@ sys.path.append('./galil/')
 import galil
 from HandledSocket import HandledSocket
 from agent import Agent
+from command import Command
 
 MAX_CLIENTS=2
 VERSION_STRING='0.1'
 
-class Command:
-    def __init__(self, source, command_string,
-                 callback=None, state='recieved',
-                 replyRequired=True, reply=None):
-        self.source=source
-        self.string=command_string
-        self.callback=callback
-        self.state=state
-        self.replyRequired=replyRequired
-        self.reply=reply
-        
-    def __str__(self):
-        return ''.join([str(self.source),str(self.string),
-                        str(self.state),str(self.reply)])
+
 
 class GalilAgent(Agent):
     def __init__(self):

@@ -27,6 +27,12 @@ class SelectedSocket():
         self.responseCallback=self.defaultResponseCallback
         self.sentCallback=self.defaultSentCallback
 
+    def __str__(self):
+        if self.isOpen():
+            return 'Open SelectedSocket '+addr_str(self)
+        else:
+            return 'Closed SelectedSocket '+addr_str(self)
+
     def __getattr__(self, attr):
         return getattr(self.socket, attr)
 

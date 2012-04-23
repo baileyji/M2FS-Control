@@ -45,13 +45,13 @@ class HandledSocket():
                     message_str=self.in_buffer[0:count+1]
                     self.in_buffer=self.in_buffer[count+1:]
                     self.logger.debug("Recieved message %s on %s" % 
-                        (message_str, self))
+                        (message_str[:-1], self.getsockname()))
                     self.message_recieved_callback(self, message_str[:-1])
             else:
                 # empty read indicates disconnection
                 self.handle_disconnect()
-        except socket.error:
-            self.handle_socket_error()
+        except socket.error, err:
+            self.handle_error(err)
             
     def handle_write(self):
         """Write to socket"""
@@ -65,13 +65,12 @@ class HandledSocket():
             # and remove the sent data from the buffer
             self.out_buffer = self.out_buffer[count:]
         except socket.error,err:
-            self.handle_socket_error(err)
+            self.handle_error(err)
 
     def handle_error(self, error=None):
         """Socket connection fails"""
-        self.logger.error("Socket error %s, disconnecting." % socket.error)
+        self.logger.error("Socket error %s, disconnecting." % str(error))
         self.handle_disconnect()
-    
     
     def isOpen(self):
         return self.socket is not None

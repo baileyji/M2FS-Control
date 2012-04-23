@@ -8,7 +8,7 @@ import atexit
 import sys
 import select
 from HandledSocket import HandledSocket
-
+from SelectedSocket import SelectedSocket
 class Agent():
     def __init__(self, name):
         self.name=name
@@ -32,6 +32,7 @@ class Agent():
         atexit.register(self.on_exit, self)
         #Register a terminate signal handler
         signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(1))
+        signal.signal(signal.SIGINT, lambda signum, stack_frame: exit(1))
     
     def initialize_logger(self):
         """Configure logging"""
@@ -52,8 +53,8 @@ class Agent():
         ch.setFormatter(formatter)
         sh.setFormatter(formatter)
         # add handlers to logger
-        self.logger.addHandler(ch)
         #self.logger.addHandler(sh)
+        self.logger.addHandler(ch)
 
     def initialize_cli_parser(self):
         """Configure the command line interface"""
@@ -106,22 +107,20 @@ class Agent():
                               (e.errno, e.strerror))
             sys.exit(1)
         # ensure the that the daemon runs a normal user, if run as root
-        #if os.getuid() == 0:
-            #    name, passwd, uid, gid, desc, home, shell = pwd.getpwnam('someuser')
-            #    os.setgid(gid)     # set group first
-            #    os.setuid(uid)     # set user
+        if os.getuid() == 0:
+                name, passwd, uid, gid, desc, home, shell = pwd.getpwnam('someuser')
+                os.setgid(gid)     # set group first
+                os.setuid(uid)     # set user
             
     def initialize_socket_server(self):
         #start the socket server
-        self.server_socket = socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setblocking(0)
         try:
             location_tuple=self.listenOn()
             self.server_socket.bind(location_tuple)
             self.server_socket.listen(1)
-            self.logger.info(" Waiting for connection on %s:%s..." % 
-                         location_tuple)
+            self.logger.info(" Waiting for connection on %s:%s..." % location_tuple)
         except socket.error, msg:
             self.handle_server_error()
     
@@ -143,7 +142,7 @@ class Agent():
         for d in self.devices:
             d.close()
         for s in self.sockets:
-            s.handle_disconnect()
+            s.close()
     
     def handle_connect(self):
         """Server socket gets a connection"""
@@ -151,12 +150,13 @@ class Agent():
         # below if already busy
         connection, addr = self.server_socket.accept()
         if len(self.sockets) < self.max_clients:
-            soc = HandledSocket(
-                connection,
-                logger=self.logger,
-                message_callback=self.socket_message_recieved_callback)
-            soc.setblocking(0)
-            soc.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            connection.setblocking(0)
+            connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            #soc = HandledSocket(connection, logger=self.logger,
+            #    message_callback=self.socket_message_recieved_callback)
+            soc = SelectedSocket(addr[0],addr[1], self.logger,
+                Live_Socket_To_Use=connection,
+                default_message_recieved_callback=self.socket_message_recieved_callback)
             self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
             self.sockets.append(soc)
         else:

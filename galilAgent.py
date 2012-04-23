@@ -17,35 +17,6 @@ from agent import Agent
 MAX_CLIENTS=2
 VERSION_STRING='0.1'
 
-#http://stackoverflow.com/questions/5943249/python-argparse-and-controlling-overriding-the-exit-status-code
-class ArgumentParser(argparse.ArgumentParser):    
-    def _get_action_from_name(self, name):
-        """Given a name, get the Action instance registered with this parser.
-        If only it were made available in the ArgumentError object. It is 
-        passed as it's first arg...
-        """
-        container = self._actions
-        if name is None:
-            return None
-        for action in container:
-            if '/'.join(action.option_strings) == name:
-                return action
-            elif action.metavar == name:
-                return action
-            elif action.dest == name:
-                return action
-
-    def error(self, message):
-        exc = sys.exc_info()[1]
-        if exc:
-            exc.argument = self._get_action_from_name(exc.argument_name)
-            raise exc
-        super(ArgumentParser, self).error(message)
-
-    def exit(self):
-        pass
-        
-
 class Command:
     def __init__(self, source, command_string,
                  callback=None, state='recieved',
@@ -60,7 +31,6 @@ class Command:
     def __str__(self):
         return ''.join([str(self.source),str(self.string),
                         str(self.state),str(self.reply)])
-
 
 class GalilAgent(Agent):
     def __init__(self):
@@ -120,10 +90,10 @@ class GalilAgent(Agent):
                     self.commands.append(command)
                     def responseCallback(response_string):
                         command.state='complete'
-                        command.reply=response_string
+                        command.reply=response_string+'\n'
                     def errorCallback(response_string):
                         command.state='complete'
-                        command.reply='!ERROR:'+response_string
+                        command.reply='!ERROR:'+response_string+'\n'
                     self.devices[0].executeCommand(
                         command.string,
                         responseCallback,

@@ -7,3 +7,25 @@ Positive limit is essentially @ hard limit
 
 LRTLT
 Speed @ 15k preferred to 12k
+
+HX0;TR0,1;XQ#AUTO,0
+MG focanap,anapcln[FOCAX],_TPC,_TDC,ldelta[FOCAX],@AN[FOCAX]
+TR1,16;a[4]=500;XQ#SETFOC,4
+
+axspd[FOCAX]=6400;axaccel[FOCAX]=100000;axdecel[FOCAX]=axaccel[FOCAX]
+HX0;TR1,1;XQ#AUTO,0
+MG _HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7
+MG focanap,anapcln[FOCAX],TPC,TDC
+
+TR1,16;a[4]=30000;XQ#SETHRAZ,4
+
+_UL Number of variables left 	510 max
+_DL Number of labels left 	510 max
+_DA Number of arrays left 	30? max
+_DM Number of array elem left	16000 max
+MG _UL,_DL,_DA,_DM
+MG focanap,anapcln[FOCAX],_TPC,_TDC,ldelta[FOCAX]
+
+
+XQ#HIRES,4;a[5]=15000;XQ#SETLRTL,5;a[6]=40000;XQ#SETHRAZ,6;a[7]=2048;XQ#SETFOC,7
+XQ#GETGES,4;XQ#GETHRAZ,5;XQ#GETLRTL,6;XQ#GETFOC,7

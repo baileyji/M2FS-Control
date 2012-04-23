@@ -3,7 +3,7 @@ from agent import Agent
 import socket
 import time
 import select
-from threadedSocket import SelectedSocket
+from SelectedSocket import SelectedSocket
 
 MAX_CLIENTS=2
 VERSION_STRING='0.1'
@@ -31,7 +31,7 @@ class Director(Agent):
         Agent.__init__(self,'M2FS Interface')
         self.max_clients=2
         self.galilAgentR_Connection=SelectedSocket('localhost',GALIL_AGENT_R_PORT, self.logger)
-        self.devices.append(galilAgentR_Connection)
+        self.devices.append(self.galilAgentR_Connection)
         #self.galilAgentB_Connection=ThreadedSocket('localhost',GALIL_AGENT_B_PORT)
     
     def listenOn(self):
@@ -72,15 +72,22 @@ class Director(Agent):
         RorB,junk,args=args.partition(' ')
         galil_command=command_name+' '+args
         if RorB =='R':
-            def onReply(reply):
+            def onReply(source, reply):
                 command.state='complete'
-                command.reply=reply
-            galilAgentR_Connection.sendMessage(galil_command,responseCallback=onReply)
+                command.reply=reply+'\n'
+            if not self.galilAgentR_Connection.isOpen():
+                try:
+                    self.galilAgentR_Connection.connect()
+                except socket.error, err:
+                    command.state='complete'
+                    command.reply='!ERROR: Could not establish a connection with the galil agent.\n'
+            if self.galilAgentR_Connection.isOpen():
+                self.galilAgentR_Connection.sendMessage(galil_command, responseCallback=onReply)
         elif RorB =='B':
-            def onReply(reply):
+            def onReply(source, reply):
                 command.state='complete'
-                command.reply=reply
-            galilAgentB_Connection.sendMessage(galil_command,responseCallback=onReply)
+                command.reply=reply+'\n'
+            self.galilAgentB_Connection.sendMessage(galil_command, responseCallback=onReply)
         else:
             self.bad_command_handler(command)
 

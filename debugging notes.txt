@@ -1,0 +1,11 @@
+Needs to make director attempt a reconnect to the agent when it is next needed, and if the reconnect fails reply to the command with an error. perhaps including a time delay for init to restard the errant process.
+
+need to implemnet a wait and retry if agent is started and the server socket is busy
+
+
+validate code execution in event director is running but agent is not because it died 
+validate code execution in event director is running but agent is not because it was never running
+
+why is a bad galil connection causing the handled socket to the GUI to fail? we are getting a socket.error exception in handle read on the gui connection socket after sending a command when there is no connection to the galil, wtf Or perhaps not!
+
+check to see if shutdown is needed when we must kill the socket

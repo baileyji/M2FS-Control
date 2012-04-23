@@ -130,12 +130,13 @@ class Galil(object):
             message="Galil did not respond to thread status request. Response: %s" % response
             self.logger.error(message)
             raise GalilThreadUpdateException(message)
-        response=response[hx_pos+3:]
+        response=response[hx_pos+4:]
         response=response[:response.find('\r')] #TODO add in error where not complete message is recieved
+        #if self.thread_command_map['3']!=None: import pdb;pdb.set_trace()
         #Remove executing commands from list if respective threads are no longer running
-        for thread_number, thread_status in enumerate(response.split(',')):
+        for thread_number, thread_status in enumerate(response.split(' ')):
             #TODO tidy thread_status if needed
-            if thread_status=='0':
+            if '0.' in thread_status:
                 self.thread_command_map["%i"%thread_number]=None
         return
         
@@ -205,7 +206,11 @@ class Galil(object):
             command_class=command_name.split('_')[0]
             #Get executing command names from self.thread_command_map.items()
             #import pdb;pdb.set_trace()
-            executing_command_names=map(lambda x:x[1].split()[0],filter(lambda x: x[1] != None, self.thread_command_map.items()))
+            executing_command_names=map(lambda x:x[1].split()[0],
+                filter(lambda x: x[1] != None and x[0]!='7',
+                    self.thread_command_map.items()
+                    )
+                )
             #Get executing command classes from executing_command_names
             executing_command_classes=map(lambda x:x.split('_')[0], executing_command_names)
             return (command_name in executing_command_names or
@@ -221,10 +226,11 @@ class Galil(object):
         """
         if command[0:3]=='RAW':
             return command[3:]
-        command_name,junk,command_args=command.partition(' ')
         subroutine_name=self.get_subroutine_name_from_command(command)
         if not subroutine_name:
             return ''
+            
+        command_string="XQ%s,%s" % (subroutine_name, thread)
         subroutine_has_parameters={
             '#PICKFIL':True, '#SETLRTL':True, '#SETHRTL':True,
             '#SETHRAZ':True, '#SETFOC' :True,
@@ -235,15 +241,17 @@ class Galil(object):
             '#CALHRTL':False, '#CALHRAZ':False, '#CALGES' :False
             }
         if subroutine_has_parameters[subroutine_name]:
-            packed_parameters=self.pack_parameters(command_args)
-        command_string="XQ%s,%s" % (subroutine_name, thread) + packed_parameters
+            foo,bar,command_args=command.partition(' ')
+            packed_parameters=self.pack_parameters(command_args,thread)
+            command_string = packed_parameters + command_string
+            
         self.logger.debug(
                 "Galil command string %s generated from command %s." %
                 (command_string,command)
             )
         return command_string
         
-    def pack_parameters(self, command_args):
+    def pack_parameters(self, command_args, thread):
         command_string_list=[]
         if command_args and '?' not in command_args:
             command_args=command_args.split(' ')
@@ -254,6 +262,7 @@ class Galil(object):
         return ''.join(command_string_list)
         
     def get_subroutine_name_from_command(self, command):
+        command_name,junk,command_args=command.partition(' ')
         if command_name == 'FILTER':
             if '?' in command: subroutine_name='#GETFILT'
             else:              subroutine_name='#PICKFIL'

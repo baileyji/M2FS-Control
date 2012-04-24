@@ -41,8 +41,7 @@ class SelectedSocket():
 
     def sendMessage(self, message, sentCallback=None, responseCallback=None):
         if self.socket==None:
-            self.logger.error('Attempting to send %s on disconnected socket %s:%s.'%
-                (message,self.host,self.port))
+            self.logger.error('Attempting to send %s on %s' % str(self) )
             raise IOError
         if message=='' or self.out_buffer!='':
             return
@@ -94,8 +93,7 @@ class SelectedSocket():
                 # write a chunk
                 count = self.socket.send(self.out_buffer)
                 self.logger.debug('Attempted write "%s", wrote "%s" on %s:%s' %
-                                  (self.out_buffer,self.out_buffer[count:],
-                                   self.host,self.port))
+                    (self.out_buffer,self.out_buffer[:count], self.host,self.port))
                 # and remove the sent data from the buffer
                 self.out_buffer = self.out_buffer[count:]
                 if self.sentCallback and self.out_buffer=='':

@@ -11,4 +11,4 @@ class Command:
         
     def __str__(self):
         return ("Command '%s' from %s. State: %s. Reply '%s'."%
-                (str(self.source),self.string,self.state,self.reply))
+                (self.string,str(self.source),self.state,self.reply))

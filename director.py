@@ -28,7 +28,7 @@ class Director(Agent):
         """Dispatch message to from the appropriate handler"""
         message_str=message_str.upper()
         command_handlers={
-            'RAWGALIL':self.galil_command_handler
+            'RAWGALIL':self.galil_command_handler,
             'LREL':self.galil_command_handler,
             'HREL':self.galil_command_handler,
             'HRAZ':self.galil_command_handler,

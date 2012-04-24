@@ -54,7 +54,7 @@ class Director(Agent):
 
     def version_request_handler(self,command):
         command.state='complete'
-        command.reply=get_version_string()+'\n'
+        command.reply=self.get_version_string()+'\n'
 
     def galil_command_handler(self, command):
         """ Galil command handler """

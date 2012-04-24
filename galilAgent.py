@@ -16,9 +16,6 @@ from agent import Agent
 from command import Command
 
 MAX_CLIENTS=2
-VERSION_STRING='0.1'
-
-
 
 class GalilAgent(Agent):
     def __init__(self):

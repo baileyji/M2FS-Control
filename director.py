@@ -28,6 +28,7 @@ class Director(Agent):
         """Dispatch message to from the appropriate handler"""
         message_str=message_str.upper()
         command_handlers={
+            'RAWGALIL':self.galil_command_handler
             'LREL':self.galil_command_handler,
             'HREL':self.galil_command_handler,
             'HRAZ':self.galil_command_handler,
@@ -60,7 +61,10 @@ class Director(Agent):
         """ Galil command handler """
         command_name,junk,args=command.string.partition(' ')
         RorB,junk,args=args.partition(' ')
-        galil_command=command_name+' '+args
+        if command_name[0:3]=='RAW':
+            galil_command='RAW'+args
+        else:
+            galil_command=command_name+' '+args
         if RorB =='R':
             def onReply(source, reply):
                 command.state='complete'

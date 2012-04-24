@@ -1,4 +1,4 @@
-import serial
+import serial, termios
 
 class GalilStartupException(Exception):
     pass
@@ -30,7 +30,7 @@ class Galil(object):
             if not command_acknowledged:
                 critical_error_message="Fatal error. Failed to request galil software version."
             response=self.get_response_from_galil()
-            response=expected_version_string #TODO remove DEBUGGING LINE OF CODE
+            #response=expected_version_string #TODO remove DEBUGGING LINE OF CODE
             ver_pos=response.find('CODEVER:')
             if ver_pos == -1:
                 critical_error_message="Fatal error. Galil did not respond to software version request."
@@ -113,6 +113,10 @@ class Galil(object):
             message="Serial error: %s" % str(e)
             self.logger.error(message)
             errorCallback(message)
+        except termios.error, e:
+            message="Serial error: %s" % str(e)
+            self.logger.error(message)
+            errorCallback(message)
         except GalilThreadUpdateException, e:
             self.logger.error(str(e))
             errorCallback(str(e))
@@ -174,8 +178,6 @@ class Galil(object):
             else:
                 out_string+='\r'
             num_colons_expected=1+out_string.count(';')
-            import time
-            time.sleep(1)
             self.serial.flushInput()
             self.serial.write(out_string)
             self.serial.flush()

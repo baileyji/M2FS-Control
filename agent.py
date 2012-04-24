@@ -9,6 +9,7 @@ import sys
 import select
 from HandledSocket import HandledSocket
 from SelectedSocket import SelectedSocket
+SERVER_RETRY_TIME=10
 class Agent():
     def __init__(self, name):
         self.name=name
@@ -23,7 +24,7 @@ class Agent():
             self.daemonize()
         if self.args.PORT:
             self.PORT=self.args.PORT
-            self.initialize_socket_server()
+            self.initialize_socket_server(tries=5)
         else:
             self.PORT=None
             self.server_socket=None
@@ -112,17 +113,22 @@ class Agent():
                 os.setgid(gid)     # set group first
                 os.setuid(uid)     # set user
             
-    def initialize_socket_server(self):
+    def initialize_socket_server(self, tries=0):
         #start the socket server
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setblocking(0)
+        
         try:
-            location_tuple=self.listenOn()
-            self.server_socket.bind(location_tuple)
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.setblocking(0)
+            self.server_socket.bind(self.listenOn())
             self.server_socket.listen(1)
-            self.logger.info(" Waiting for connection on %s:%s..." % location_tuple)
+            self.logger.info(" Waiting for connection on %s:%s..." % self.listenOn())
         except socket.error, msg:
-            self.handle_server_error()
+            if tries > 0:
+                self.logger.info('Server socket error %s, retrying %s more times.'%(msg,tries))
+                time.sleep(SERVER_RETRY_TIME)
+                self.initialize_socket_server(tries=tries-1)
+            else:
+                self.handle_server_error(error=msg)
     
     def listenOn(self):
         """ Implemented by subclass """
@@ -164,9 +170,9 @@ class Agent():
             self.logger.info(
                 'Rejecting connect from %s:%s' % (addr[0], addr[1]))
     
-    def handle_server_error(self):
+    def handle_server_error(self, error=''):
         """Socket server fails"""
-        self.logger.error('Socket server error.')
+        self.logger.error('Socket server error:%s'%error)
         sys.exit(1)
         
     def update_select_maps(self, read_map, write_map, error_map):

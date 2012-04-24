@@ -36,7 +36,7 @@ class Galil(object):
                 critical_error_message="Fatal error. Galil did not respond to software version request."
             response=response[ver_pos:]
             if response != expected_version_string:
-                critical_error_message=("Fatal error. Galil reported %s , expected %s." %
+                critical_error_message=("Fatal error. Galil reported '%s' , expected '%s'." %
                     (response,expected_version_string))        
         if critical_error_message !='':
             self.logger.critical(critical_error_message)
@@ -162,6 +162,11 @@ class Galil(object):
     def get_response_from_galil(self):
         """Wait for a response from the galil"""
         response=self.serial.read(1024)
+        if len(response) >0 and response[-1] in '\r\n':
+            chop=1
+            if len(response) > 1 and response[-2] in '\r\n':
+                chop=2
+            response=response[:-chop]
         return response
     
     def send_command_to_gail(self, command_string):

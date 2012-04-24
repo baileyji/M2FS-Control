@@ -129,7 +129,7 @@ class Galil(object):
         self.serial.flush()
         response=self.serial.read(62)
         #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
-        if response[-1] != '?' or response[0:3] !='HX=':
+        if response[-1] == '?' or response[0:3] !='HX=':
             message="Failed to request thread status from galil. Got: '%s'"%response
             raise GalilThreadUpdateException(message)
         response=response[4:response.find('\r')] #TODO add in error where not complete message is recieved

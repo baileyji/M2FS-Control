@@ -26,7 +26,6 @@ class Director(Agent):
     
     def socket_message_recieved_callback(self, source, message_str):
         """Dispatch message to from the appropriate handler"""
-        message_str=message_str.upper()
         command_handlers={
             'RAWGALIL':self.galil_command_handler,
             'LREL':self.galil_command_handler,
@@ -51,7 +50,7 @@ class Director(Agent):
         command=Command(source,message_str)
         if not filter(lambda x: x.source==source, self.commands):
             self.commands.append(command)
-        command_handlers.get(command_class, self.bad_command_handler)(command)
+        command_handlers.get(command_class.upper(), self.bad_command_handler)(command)
 
     def version_request_handler(self,command):
         command.state='complete'

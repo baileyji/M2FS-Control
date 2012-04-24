@@ -133,10 +133,8 @@ class Galil(object):
             message="Failed to request thread status from galil. Got: '%s'"%response
             raise GalilThreadUpdateException(message)
         response=response[4:response.find('\r')] #TODO add in error where not complete message is recieved
-        #if self.thread_command_map['3']!=None: import pdb;pdb.set_trace()
         #Remove executing commands from list if respective threads are no longer running
         for thread_number, thread_status in enumerate(response.split(' ')):
-            #TODO tidy thread_status if needed
             if '0.' in thread_status:
                 self.thread_command_map["%i"%thread_number]=None
         return
@@ -182,8 +180,7 @@ class Galil(object):
             self.serial.write(out_string)
             self.serial.flush()
             response=self.serial.read(num_colons_expected)
-            #import pdb;pdb.set_trace()
-            self.logger.debug("Galil sent command string %s. Galil response: '%s'" % (out_string[0:-1],response))
+            self.logger.debug("Galil sent '%s', response '%s'" % (out_string[0:-1],response))
             if '?' in response or response.count(':') != num_colons_expected:
                 return False
         return True

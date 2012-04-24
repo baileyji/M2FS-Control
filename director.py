@@ -26,6 +26,7 @@ class Director(Agent):
     
     def socket_message_recieved_callback(self, source, message_str):
         """Dispatch message to from the appropriate handler"""
+        message_str=message_str.upper()
         command_handlers={
             'LREL':self.galil_command_handler,
             'HREL':self.galil_command_handler,
@@ -83,12 +84,12 @@ class Director(Agent):
     def not_implemented_handler(self, command):
         """ Placeholder command handler """
         command.state='complete'
-        command.reply='!ERROR: Command not implemented.'
+        command.reply='!ERROR: Command not implemented.\n'
     
     def bad_command_handler(self, command):
         """ Handle an unrecognized command """
         command.state='complete'
-        command.reply='!ERROR: Unrecognized command.'
+        command.reply='!ERROR: Unrecognized command.\n'
     
     def main(self):
         """

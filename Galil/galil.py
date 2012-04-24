@@ -2,7 +2,10 @@ import serial
 
 class GalilStartupException(Exception):
     pass
-                
+
+class GalilThreadUpdateException(Exception):
+    pass
+
 class Galil(object):
     """ Galil DMC-4183 Controller Class """
     def __init__(self, portName, logger):
@@ -108,8 +111,11 @@ class Galil(object):
                         return
         except serial.SerialException, e:
             message="Serial error: %s" % str(e)
-            self.logger.error(emssage)
+            self.logger.error(message)
             errorCallback(message)
+        except GalilThreadUpdateException, e:
+            self.logger.error(str(e))
+            errorCallback(str(e))
     
     def command_is_valid(self, command):
         """Check the command for validity. Returns true always"""

@@ -73,8 +73,8 @@ class SelectedSocket():
                 if count is not -1:
                     message_str=self.in_buffer[0:count+1]
                     self.in_buffer=self.in_buffer[count+1:]
-                    self.logger.debug("Recieved message %s on %s" % 
-                        (message_str, self))
+                    self.logger.debug("Recieved message '%s' on %s" % 
+                        (message_str.replace('\n','\\n'), self))
                     if self.responseCallback:
                         callback=self.responseCallback
                         self.responseCallback=self.defaultResponseCallback
@@ -93,7 +93,9 @@ class SelectedSocket():
                 # write a chunk
                 count = self.socket.send(self.out_buffer)
                 self.logger.debug('Attempted write "%s", wrote "%s" on %s:%s' %
-                    (self.out_buffer,self.out_buffer[:count], self.host,self.port))
+                    (self.out_buffer.replace('\n','\\n'),
+                     self.out_buffer[:count].replace('\n','\\n'),
+                     self.host,self.port))
                 # and remove the sent data from the buffer
                 self.out_buffer = self.out_buffer[count:]
                 if self.sentCallback and self.out_buffer=='':

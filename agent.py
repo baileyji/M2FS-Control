@@ -79,8 +79,7 @@ class Agent():
         """Daemonize the process"""
         import pwd,os
         # do the UNIX double-fork magic, see Stevens' "Advanced
-        # Programming in the UNIX Environment" for details 
-        # (ISBN 0201563177)
+        # Programming in the UNIX Environment" for details (ISBN 0201563177)
         try:
             pid = os.fork()
             if pid > 0:
@@ -114,8 +113,7 @@ class Agent():
                 os.setuid(uid)     # set user
             
     def initialize_socket_server(self, tries=0):
-        #start the socket server
-        
+        """ Start listening for socket connections """
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.setblocking(0)
@@ -135,6 +133,7 @@ class Agent():
         pass
     
     def socket_message_recieved_callback(self, source, message):
+        """ Implemented by subclass """
         pass
         
     def get_version_string(self):

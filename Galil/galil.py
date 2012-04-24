@@ -124,20 +124,15 @@ class Galil(object):
     def update_executing_threads_and_commands(self):
         """Retrieve and update the list of thread statuses from the galil""" 
         #Ask galil for thread statuses
-        command_acknowledged=self.send_command_to_gail('MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
-        if not command_acknowledged:
-            message="Failed to request thread status from galil."
-            self.logger.error(message)
+        self.serial.flushInput()
+        self.serial.write('MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7\r')
+        self.serial.flush()
+        response=self.serial.read(62)
+        #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
+        if response[-1] != '?' or response[0:3] !='HX=':
+            message="Failed to request thread status from galil. Got: '%s'"%response
             raise GalilThreadUpdateException(message)
-        response=self.get_response_from_galil()
-        response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n' 
-        hx_pos=response.find('HX=')
-        if hx_pos == -1:
-            message="Galil did not respond to thread status request. Response: %s" % response
-            self.logger.error(message)
-            raise GalilThreadUpdateException(message)
-        response=response[hx_pos+4:]
-        response=response[:response.find('\r')] #TODO add in error where not complete message is recieved
+        response=response[4:response.find('\r')] #TODO add in error where not complete message is recieved
         #if self.thread_command_map['3']!=None: import pdb;pdb.set_trace()
         #Remove executing commands from list if respective threads are no longer running
         for thread_number, thread_status in enumerate(response.split(' ')):

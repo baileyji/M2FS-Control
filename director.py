@@ -16,7 +16,7 @@ class Director(Agent):
         self.max_clients=2
         self.galilAgentR_Connection=SelectedSocket('localhost',GALIL_AGENT_R_PORT, self.logger)
         self.devices.append(self.galilAgentR_Connection)
-        self.galilAgentR_Connection=SelectedSocket('localhost',GALIL_AGENT_B_PORT, self.logger)
+        self.galilAgentB_Connection=SelectedSocket('localhost',GALIL_AGENT_B_PORT, self.logger)
         self.devices.append(self.galilAgentB_Connection)
     
     def listenOn(self):

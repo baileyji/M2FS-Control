@@ -179,7 +179,7 @@ class Galil(object):
         if command_string:
             out_string=command_string
             if out_string[-1]==';':
-                out_string[-1]='\r'
+                out_string=[:-1]+'\r'
             else:
                 out_string+='\r'
             num_colons_expected=1+out_string.count(';')

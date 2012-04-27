@@ -135,8 +135,8 @@ DM axspd[8];'Generic travel speed
 axspd[GESAX]=7000;'16215;'seems ok
 axspd[FLSINAX]=0
 axspd[FOCAX]=7000;'15000;'seems ok
-axspd[FESINAX]=0
-axspd[FESELAX]=0
+axspd[FESINAX]=1024
+axspd[FESELAX]=1024
 axspd[LRTLTAX]=10000;'seems ok (w/o grating) Max per DS: 30091
 axspd[HRTLTAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
@@ -228,10 +228,10 @@ focentol=5;' Encoder tolerance of a desired pot position TODO: DETERMINE
 
 
 'GES Related Defines
-geshrp=1000;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
+geshrp=7400;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
 geslrp=265000;'(steps) Position of LoRes mode from calibrated 0 TODO: finalize
 geslrep=3798; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
-geshrep=194; 'GES HR encoder nominal position TODO: finalize
+geshrep=285; 'GES HR encoder nominal position TODO: finalize
 'GES encoder nominal position tolerance 
 gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
 
@@ -262,18 +262,19 @@ feselfp[6]=0
 feselfp[7]=0
 feselfp[8]=0
 'FES Elevator nominal filter position in encoder counts
+felencsp=324.24;'579"
 DM felencp[^a]
-felencp[0]=0
-felencp[1]=0
-felencp[2]=0
-felencp[3]=0
-felencp[4]=0
-felencp[5]=0
-felencp[6]=0
-felencp[7]=0
-felencp[8]=0
+felencp[0]=4050
+felencp[1]=felencp[0]-felencsp
+felencp[2]=felencp[1]-felencsp
+felencp[3]=felencp[2]-felencsp
+felencp[4]=felencp[3]-felencsp
+felencp[5]=felencp[4]-felencsp
+felencp[6]=felencp[5]-felencsp
+felencp[7]=felencp[6]-felencsp
+felencp[8]=felencp[7]-2172;'Load position is an additional 3.572" further
 'Allowable range (+/-) in encoder counts around nominal filter position
-feselrg=0 ;'about 0.15mm
+feselrg=2 ;'about 0.003"
 fesinsp=0 ;'The inserted position in steps of the FESIN arm
 fesremp=0 ;'The removed position in steps of the FESIN arm
 nearfilt=0
@@ -307,16 +308,17 @@ EN
 #M2FSCFG
 MO*
 'Set motor type, must be -2 or -2.5 per manual
-MT -2.5,-2,-2.5,-2,-2,-2,-2.5,-2.5
+MT -2.5,-2,-2.5,-2.5,-2,-2,-2.5,-2.5
 KS*=1;'       Set step smoothing to Galil-recommended value, see AN#2446
-AG 3,1,3,1,3,0,0,0;'              Set motor gain values
+AG 3,2,3,2,3,0,0,0;'              Set motor gain values
 AQ1,4;AQ3,4;AQ5,4;AQ7,4;AQ8,4;'  GES,FOC,FESEL,HRTLT,HRAZ analog inputs: 0-10V
 AF 1,,1,,1;'		Configure GES, FES, & FOC for analog feedback
 YA 16,16,16,16,16,16,16,16;'Set stepping mode resolutions
 YB 200,200,200,200,200,400,400,400;'Set stepper motor steps/revolution
 'Encoder resolution counts/rev (APPROXIMATE VALUES!)
 'GES Nominally 44.7. GER R measured to be about 42.3
-YC 42,,26,,82
+'FESEL measured to be 608 counts per inch
+YC 42,,26,,56 
 'No built-in position error detection for steppers 	
 ER*=-1			
 'Configure: Limits active high, Home high -> go backward (retract)
@@ -812,7 +814,7 @@ EN,,^h
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 'Make sure we are calibrated
-IF((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
+IF((^h=0)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
 'Insert FESIN if all is well
 IF(^h=0)
 JS#FANCYMV(^a,fesremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
@@ -820,6 +822,19 @@ ENDIF
 'Handle status reporting, could be better
 IF (^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
 EN,,^h
+
+
+#CALINAX;'(axis)
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALINAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
+IF (^h=0)
+~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
+ENDIF
+'Store status
+axiserr[^a]=^h
+ENDIF
+EN ,,^h
 
 
 '***************************************************************************
@@ -993,15 +1008,6 @@ EN
 
 
 '***************************************************************************
-' Load FILters
-'   This is just a wraper for pick filter 9 to maintain a uniform interface
-'***************************************************************************
-#LOADFIL
-JS#PICKFIL(9)
-EN
-
-
-'***************************************************************************
 ' Pick FILter(filternum)
 ' 1-10,
 ' 1-8= Filters 1-8
@@ -1026,7 +1032,7 @@ IF( ((^a=10)&(^c=out)) | ((^c=in)&(^b=(^a+filterp1-1))) );^h=0
 'Else figure out and do what needs doing
 ELSE
 'Stow the FESIN arm, note REFESIN ensures safe to move 
-JS#REFESIN;^h=_JS
+JS#RMFESIN;^h=_JS
 'If No Filter requested we're done
 IF (^a<>10)
 'If all is well...
@@ -1227,6 +1233,7 @@ REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
 'If we are at the limit then we are done!
 ^h=ENONE;'Hope success
 ~a=^a;^f=(((_LR~a<>0)|(^d>0))&((_LF~a<>0)|(^d<0)))
+~a=^a;MG ^a,^f,^d,_LR~a,_LF~a
 IF(^f)
 ' when calibrated, we could tighten the move distance estimate
 ^e=(axmaxp[^a]-axminp[^a])*1.1

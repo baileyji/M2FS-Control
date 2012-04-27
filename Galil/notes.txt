@@ -1,3 +1,9 @@
+WS 10 Elevator Notes
+3200usteps=~.0990"
++ physical extreme pot reading = 567
+-physical extreme pot reading =4089
+Measured CLP-200 pot to give 608 counts per inch by wiring up spare and measuring dV/dx w/ voltmeter & micrometer
+
 GES R
 JGA=50000 with SDA=256000 stopped at TPA=91 NB hard limit @ 49 trips @ 171
 Stalls at 80000

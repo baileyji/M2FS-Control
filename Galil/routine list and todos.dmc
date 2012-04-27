@@ -45,14 +45,14 @@ Internal routines
 #AUTO     .first pass testing complete
 #INIT     .first pass testing complete
 #M2FSCFG  .first pass testing complete
-#DPWAFE   .
+#DPWAFE   .first pass testing complete
 
 
 #CALFOCU  .Calibrate the focus
 #CALLRT   .Calibrate LoRes,                                 first pass testing complete
 #CALHMAX  .Calibrate an axis with a home sensor and no pot, first pass testing complete
 #CALENAX  .Calibrate an encoded axis,                       first pass testing complete
-
+#CALINAX  .Calibrate an inserter axis
 
 Public Interface
 #CODEVER  .Report the code version, first pass testing complete
@@ -63,16 +63,16 @@ Public Interface
 #LORES    .LoRes Mode, first pass testing complete
 #CALGES   .calibrate ges stage
 #GETGES   .Get HiRes/LoRes position of ges, first pass testing complete
-#SETFOC  .Set FOC Position
-first pass testing complete, May need PID loop to hit position 
-encoder->step conversion is a bit all over
-#GETFOC  .Get Foc Position, first pass testing complete
+#SETFOC   .Set FOC Position, first pass testing complete,
+           May need PID loop to hit position 
+            encoder->step conversion is a bit all over
+#GETFOC   .Get Foc Position, first pass testing complete
 #SETLRTL  .Set LoRes Tilt Angle, first pass testing complete
 #GETLRTL  .Get LRTLT Pos, first pass testing complete
-#GETHRTL  .Get HRTLT Pos, 
 #GETHRAZ  .Get HRAZ Pos,first pass testing complete
-#SETHRTL  .Set HRTLT Pos
 #SETHRAZ  .Set HRAZ Pos, first pass testing complete
+#GETHRTL  .Get HRTLT Pos
+#SETHRTL  .Set HRTLT Pos
 #GETFILT  .Get Current Filter 1-8, Load, or none
 #GETFLSI  .Get FLSIN Position
 #GETFESI  .Get FESIN Position

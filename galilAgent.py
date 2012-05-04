@@ -105,23 +105,7 @@ class GalilAgent(Agent):
             self.logger.info('Command line commands not yet implemented.')
             sys.exit(0)
         while True:
-            select_start = time.time()
-            read_map = {}
-            write_map = {}
-            error_map = {}
-            self.update_select_maps(read_map, write_map, error_map)
-            try:
-                readers, writers, errors = select.select(
-                    read_map.keys(),write_map.keys(),error_map.keys(), 5)
-            except select.error, err:
-                if err[0] != EINTR:
-                    raise
-            select_end = time.time()
-            #self.logger.debug("select used %.3f s" % (select_end-select_start))
-            for reader in readers: read_map[reader]()
-            for writer in writers: write_map[writer]()
-            for error  in errors:  error_map[error]()       
-            #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
+            self.do_select()
 
             #log commands
             for command in self.commands:

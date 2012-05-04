@@ -213,3 +213,39 @@ class Agent():
             self.logger.debug("Closing out command %s" % command)
             command.source.send(command.reply)
             self.commands.remove(command)
+
+    def not_implemented_command_handler(self, command):
+        """ Placeholder command handler """
+        command.state='complete'
+        command.reply='!ERROR: Command not implemented.\n'
+    
+    def bad_command_handler(self, command):
+        """ Handle an unrecognized command """
+        command.state='complete'
+        command.reply='!ERROR: Unrecognized command.\n'
+        
+    def version_request_command_handler(self,command):
+        """ Handle a version request """ 
+        command.state='complete'
+        command.reply=self.get_version_string()+'\n'
+
+
+    def do_select(self):
+        """ Perform the select operation on all devices and sockets whcih require it """
+        #select_start = time.time()
+        read_map = {}
+        write_map = {}
+        error_map = {}
+        self.update_select_maps(read_map, write_map, error_map)
+        try:
+            readers, writers, errors = select.select(
+                read_map.keys(),write_map.keys(),error_map.keys(), 5)
+        except select.error, err:
+            if err[0] != EINTR:
+                raise
+        #select_end = time.time()
+        #self.logger.debug("select used %.3f s" % (select_end-select_start))
+        for reader in readers: read_map[reader]()
+        for writer in writers: write_map[writer]()
+        for error  in errors:  error_map[error]()       
+        #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))

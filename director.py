@@ -35,27 +35,23 @@ class Director(Agent):
             'FOCUS':self.galil_command_handler,
             'GES':self.galil_command_handler,
             'FILTER':self.galil_command_handler,
-            'SLITS':self.not_implemented_handler,
-            'SHLED':self.not_implemented_handler,
-            'SHLENS':self.not_implemented_handler,
-            'PLUGMODE':self.not_implemented_handler,
-            'PLATELIST':self.not_implemented_handler,
-            'PLATE':self.not_implemented_handler,
-            'PLATESETUP':self.not_implemented_handler,
-            'PLUGPOS':self.not_implemented_handler,
-            'TEMPS':self.not_implemented_handler,
-            'STATUS':self.not_implemented_handler,
-            'VERSION':self.version_request_handler}
+            'SLITS':self.not_implemented_command_handler,
+            'SHLED':self.not_implemented_command_handler,
+            'SHLENS':self.not_implemented_command_handler,
+            'PLUGMODE':self.not_implemented_command_handler,
+            'PLATELIST':self.not_implemented_command_handler,
+            'PLATE':self.not_implemented_command_handler,
+            'PLATESETUP':self.not_implemented_command_handler,
+            'PLUGPOS':self.not_implemented_command_handler,
+            'TEMPS':self.not_implemented_command_handler,
+            'STATUS':self.not_implemented_command_handler,
+            'VERSION':self.version_request_command_handler}
 
         command_class=message_str.partition(' ')[0].partition('_')[0]
         command=Command(source,message_str)
         if not filter(lambda x: x.source==source, self.commands):
             self.commands.append(command)
         command_handlers.get(command_class.upper(), self.bad_command_handler)(command)
-
-    def version_request_handler(self,command):
-        command.state='complete'
-        command.reply=self.get_version_string()+'\n'
 
     def galil_command_handler(self, command):
         """ Galil command handler """
@@ -84,39 +80,15 @@ class Director(Agent):
             self.galilAgentB_Connection.sendMessage(galil_command, responseCallback=onReply)
         else:
             self.bad_command_handler(command)
-
-    def not_implemented_handler(self, command):
-        """ Placeholder command handler """
-        command.state='complete'
-        command.reply='!ERROR: Command not implemented.\n'
-    
-    def bad_command_handler(self, command):
-        """ Handle an unrecognized command """
-        command.state='complete'
-        command.reply='!ERROR: Unrecognized command.\n'
     
     def main(self):
         """
         Loop forever, acting on commands as received if on a port.
         """            
         while True:
-            select_start = time.time()
-            read_map = {}
-            write_map = {}
-            error_map = {}
-            self.update_select_maps(read_map, write_map, error_map)
-            try:
-                readers, writers, errors = select.select(
-                    read_map.keys(),write_map.keys(),error_map.keys(), 5)
-            except select.error, err:
-                if err[0] != EINTR:
-                    raise
-            select_end = time.time()
-            #self.logger.debug("select used %.3f s" % (select_end-select_start))
-            for reader in readers: read_map[reader]()
-            for writer in writers: write_map[writer]()
-            for error  in errors:  error_map[error]()       
-            #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
+        
+            self.do_select()
+
 
             #log commands
             for command in self.commands:

@@ -1,0 +1,13 @@
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="datalogR"
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="datalogB"
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="datalogC"
+perhaps these should be sahe as shoes?
+
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="plugIFace"
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="flsHSVS"
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="S-Hsystem"
+
+path based attr, NAME="galilR", RUN+="/m2fs-control/gallAgent.py -red --daemon"
+path based attr, NAME="galilB", RUN+="/m2fs-control/gallAgent.py -blue --daemon"
+vendor of mega, path based attr, NAME="shoeR", RUN+="/m2fs-control/shoeAgent.py -red --daemon"
+vendor of mega, path based attr, NAME="shoeB", RUN+="/m2fs-control/shoeAgent.py -blue --daemon"

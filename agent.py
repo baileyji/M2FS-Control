@@ -7,7 +7,6 @@ import logging.handlers
 import atexit
 import sys
 import select
-from HandledSocket import HandledSocket
 from SelectedSocket import SelectedSocket
 SERVER_RETRY_TIME=10
 class Agent():
@@ -157,8 +156,6 @@ class Agent():
         if len(self.sockets) < self.max_clients:
             connection.setblocking(0)
             connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            #soc = HandledSocket(connection, logger=self.logger,
-            #    message_callback=self.socket_message_recieved_callback)
             soc = SelectedSocket(addr[0],addr[1], self.logger,
                 Live_Socket_To_Use=connection,
                 default_message_recieved_callback=self.socket_message_recieved_callback)

@@ -10,6 +10,7 @@ class Datalogger(SelectedSerial):
         """open a threaded serial port connection with the controller
         assert the controller is running the correct version of the code
         """
+        self.n_temp_sensors=5
         SelectedSerial.__init__(self, portName, 115200, logger,
             default_message_recieved_callback=
             default_message_sent_callback=
@@ -98,10 +99,43 @@ class Datalogger(SelectedSerial):
         
     def receiveLogData(self, data):
         """ Convert logger data into a nice neat form and sit on it"""
-        record=DataloggerRecord(data)
-        timestr=time.strftime("%a, %d %b %Y %H:%M:%S +0000",time.localtime(record.unixtime))
-        self.out_buffer='#'
-
+		Acceleration_Record_Length=8+6*32
+		Temp_Record_Length=8+4*self.n_temp_sensors
+		Combined_Record_Length=Acceleration_Record_Length+4*Num_Temp_Sensors
+		tempConstruct=StrictRepeater(Num_Temp_Sensors,LFloat32("temps"))
+		accelConstruct=StrictRepeater(FIFO_Length*3,SLInt16("accel"))
+		if len(data)==Combined_Record_Length:
+            self._have_unfetched_accels=True
+            self._have_unfetched_temps=True
+			self.current_temps=tempConstruct.parse(record[0:4*Num_Temp_Sensors+1])
+			self.current_accels=accelConstruct.parse(record[4*Num_Temp_Sensors+1:-8])
+            self.most_recent_record_timestamp=(
+                ULInt32("foo").parse(record[-8:-4]),
+                ULInt32("foo").parse(record[-4:])
+                )
+            self.accels_timestamp=self.most_recent_record_timestamp
+            self.temps_timestamp=self.most_recent_record_timestamp  
+		elif len(data)==Acceleration_Record_Length:
+            self._have_unfetched_accels=True
+			self.current_accels=accelConstruct.parse(record[0:-8])
+            self.most_recent_record_timestamp=(
+                ULInt32("foo").parse(record[-8:-4]),
+                ULInt32("foo").parse(record[-4:])
+                )
+            self.accels_timestamp=self.most_recent_record_timestamp
+		elif len(data)==Temp_Record_Length:
+            self._have_unfetched_temps=True
+			self.current_temps=tempConstruct.parse(record[0:-8])
+            self.most_recent_record_timestamp=(
+                ULInt32("foo").parse(record[-8:-4]),
+                ULInt32("foo").parse(record[-4:])
+                )
+            self.temps_timestamp=self.most_recent_record_timestamp
+        #NB: to convert accels to Gs and numpy array do:
+        # 0.00390625*numpy.array(accels).reshape([32,3])
+        #time.strftime("%a, %d %b %Y %H:%M:%S +0000",time.localtime(record.unixtime))
+        self.serial.write('#')
+        
     def receiveDebugMessage(self, message):
         """ Process a debugging message from the datalogger"""
         self.logger.debug("Datalogger %s: %s " % (self,message) )
@@ -113,3 +147,17 @@ class Datalogger(SelectedSerial):
     def receiveBatteryStatus(self, message):
         """ Process an error message from the datalogger"""
         self.logger.info("Datalogger %s battery at %s " % (self,message) )
+    
+    def have_unfetched_temps(self):
+        return self._have_unfetched_temps
+    
+    def have_unfetched_accels(self):
+        return self._have_unfetched_accels
+
+    def fetch_temps(self):
+        self._have_unfetched_temps=False
+        return (self.temps_timestamp, self.current_temps)
+
+    def fetch_accelss(self):
+        self._have_unfetched_accels=False
+        return (self.accels_timestamp, self.current_accels)

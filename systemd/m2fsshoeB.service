@@ -1,0 +1,15 @@
+[Unit]
+Description=M2FS Shoe B
+
+[Install]
+WantedBy=multi-user.target
+#Also=
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/shoeAgent.py -B -p 42000 
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

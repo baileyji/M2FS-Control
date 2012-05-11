@@ -1,0 +1,15 @@
+[Unit]
+Description=M2FS Galil B
+
+[Install]
+WantedBy=multi-user.target
+#Also=
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/galilAgent.py -B -p 45000 
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

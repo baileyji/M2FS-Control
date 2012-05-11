@@ -1,0 +1,50 @@
+# This is the M2FS configuration file documentation.
+# VALUES SET IN THIS EXAMPLE FILE HAVE NO EFFECT!!!!!
+# The actual config file is intended to be changed manually by a qualified user.
+# Some values may also be changed programmatically via
+# the instrument GUI. Lines which start with a # are ignored, as are lines
+# containing only whitespace.
+
+[Director]
+#This is the port number on which the instrument will accept connections.
+# If changed, the GUI will need to be updated with the new value. It should 
+# be > 1024. 
+instrumentPort=51280
+
+[AgentPorts]
+# The following settings governed the ports used by the various control
+# programs and should not ever need to be changed. That said, changing
+# them should cause no harm. They should be > 1024. They must be unique.
+galilR=40000
+galilB=41000
+shoeR=42000
+shoeB=43000
+shackhartman=44000
+datalogger=45000
+projector=46000
+
+[PositionDefaults]
+# filterRemovedPositionR= and filterRemovedPositionB=
+# These two settings specify the retracted position of the filter inserter,
+# in step, from the negative limit. They can be determined by:
+# 1) Commanding the filter elevator to Engineering Position 2
+# 2) Command the filter inserter to move to negative limit
+# 3) Repeatedly command the filter inserter to move a in, a few steps at a
+#    time, until the key is aligned with the slot.
+# 4) Note the step position and set it here.
+filterRemovedPositionR=200
+filterRemovedPositionB=200
+
+
+# filterRemovedPositionR= and filterRemovedPositionB=
+# These two settings specify the retracted position of the filter inserter,
+# in step, from the negative limit.
+HiResPositionR=200
+HiResPositionB=200
+LoResPositionR=200
+LoResPositionB=200
+
+
+
+
+

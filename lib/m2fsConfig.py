@@ -1,7 +1,6 @@
 import ConfigParser
 
 class m2fsConfig:
-    fileName='./m2fs/conf/m2fs.conf'    
     def __init__(self):
         pass
     
@@ -21,6 +20,21 @@ class m2fsConfig:
     def getAgentPorts():
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        config.readfp(open(m2fsConfig.fileName,'r'))
+        config.readfp(open('../conf/m2fs_socket.conf','r'))
         agentports=config.items('AgentPorts')
         return dict(agentports)
+
+    @staticmethod
+    def getDirectorPort():
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open('../conf/m2fs_socket.conf','r'))
+        port=config.item('Director','instrumentPort')
+        return int(port)
+    
+    @staticmethod    
+    def getPlateFileDirectory():
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open('../conf/m2fs_paths.conf','r'))
+        return config.item('Director','plateFileDir')

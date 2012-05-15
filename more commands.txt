@@ -1,0 +1,58 @@
+Go to slit X open loop
+  if position unknown 
+    move to hardstop
+    zero position
+  move to nominal position of slit X 
+
+Go to slit X closed loop
+  if current slit == desired
+    return
+  turn on imager and illuminate fibers
+  if position unknown
+    move to hardtop
+    zero position
+  move to closed slit position, counting peaks, fail if wrong N
+  if blank desired, return
+  move up to nominal slit position, counting peaks, fail if wrong N
+  maximize light
+
+
+SLITPOS Get/Set nominal position of slit X
+Get nominal position (X, moving, unknown)
+Get illumination profile
+Get illumination measure
+Set active hold position on/off
+Move X steps
+Move to hardstop & zero
+Set Imager settings(image composting/exposure time)
+Set projector settings(color, brightness)
+
+Advanced closed loop calibration that tries to avoid hard stop
+	if see dark
+	  drive down at most max d above top slit or until see light
+	if still see dark
+	  drive up at most max d below bottom slit or until see light
+	if still see dark
+	  fail
+	else
+	  maximize light
+	  drive up slit above & below
+		  slit above & blackness below
+		  slit below & blackness above
+
+======================================
+
+
+stop
+set plate/setup
+Is plugging subsys online
+check which fibers plugged where
+turn plugging mode on/off
+report fiber plug positions
+test hole X -> yield fiber plugged into that hole
+checking rate goal
+get list of misplugged fibers
+turn on/off audio feedback
+Set Imager settings(image composting/exposure time)
+Set projector settings(color, brightness)
+

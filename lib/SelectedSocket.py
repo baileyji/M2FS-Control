@@ -2,7 +2,8 @@ import socket
 class SelectedSocket():
     def __init__(self, host, port, logger, Live_Socket_To_Use=None,
                 default_message_recieved_callback=None,
-                default_message_sent_callback=None):
+                default_message_sent_callback=None,
+                default_message_error_callabck=None):
         self.host=host
         self.port=port
         self.logger=logger
@@ -26,6 +27,7 @@ class SelectedSocket():
         self.defaultSentCallback=default_message_sent_callback
         self.responseCallback=self.defaultResponseCallback
         self.sentCallback=self.defaultSentCallback
+        self.errorCallback=self.defaultErrorCallback
 
     def __str__(self):
         if self.isOpen():
@@ -39,7 +41,7 @@ class SelectedSocket():
     def addr_str(self):
         return "%s:%s"%(self.host,self.port)
 
-    def sendMessage(self, message, sentCallback=None, responseCallback=None):
+    def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
         if self.socket==None:
             self.logger.error('Attempting to send %s on %s' % str(self) )
             raise IOError
@@ -53,6 +55,8 @@ class SelectedSocket():
             self.responseCallback=responseCallback
         if sentCallback is not None:
             self.sentCallback=sentCallback
+        if errorCallback is not None:
+            self.errorCallback=errorCallback
     
     def connect(self):
         if self.socket is None:
@@ -120,11 +124,15 @@ class SelectedSocket():
         self.out_buffer=''
         self.socket.close()
         self.socket = None
-        if self.responseCallback != None:
+        self.sentCallback=self.defaultSentCallback
+        if self.errorCallback !=None:
+            callback=self.errorCallback
+            self.errorCallback=self.defaultErrorCallback
+            callback(self,'Lost Socket Connection.')
+        elif self.responseCallback != None:
             callback=self.responseCallback
             self.responseCallback=self.defaultResponseCallback
             callback(self,'Lost Socket Connection.')
-        self.sentCallback=self.defaultSentCallback
     
     def isOpen(self):
         return self.socket is not None

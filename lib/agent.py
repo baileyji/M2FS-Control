@@ -246,3 +246,37 @@ class Agent():
         for writer in writers: write_map[writer]()
         for error  in errors:  error_map[error]()       
         #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
+        
+
+    def run(self):
+        pass
+
+    def runOnce(self):
+        self.logger.info('Command line commands not yet implemented.')
+        sys.exit(0)
+    
+    def runSetup(self):
+        pass
+
+    def main(self):
+        """
+        Loop forever, acting on commands as received if on a port.
+        
+        Run once from command line if no port.
+        
+        """
+        self.runSetup()
+        if self.PORT is None:
+            self.runOnce()
+        while True:
+            self.do_select()
+
+            self.run()
+
+            #log commands
+            for command in self.commands:
+                self.logger.debug(command)
+            
+            self.cull_dead_sockets_and_their_commands()
+            self.handle_completed_commands()
+        

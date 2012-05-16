@@ -112,61 +112,45 @@ class DataloggerAgent(Agent):
         except sqlite3.IntegrityError:
             pass
 
-    def main(self):
-        """
-        Loop forever, acting on commands as received if on a port.
-        
-        Run once from command line if no port.
-        
-        """
-        
+    def run(self):
+        """ execute once per loop, after select has run & before command closeout """
         num_R_temps=3
         num_C_temps=6
         num_B_temps=3
+        if self.dataloggerR.have_unfetched_temps():
+            timestamp,temps=self.dataloggerR.fetch_temps()
+            #self.insert_dataloggerR_temps_in_database(timestamp,temps)
+            if timestamp[0]>self.most_current_dataloggerR_timestamp:
+                self.most_current_dataloggerR_timestamp=timestamp[0]
+                self.current_temps[0:num_R_temps]=temps
+        if self.dataloggerC.have_unfetched_temps():
+            timestamp,temps=self.dataloggerC.fetch_temps()
+            #self.insert_dataloggerC_temps_in_database(timestamp,temps)
+            if timestamp[0]>self.most_current_dataloggerC_timestamp:
+                self.most_current_dataloggerC_timestamp=timestamp[0]
+                self.current_temps[num_R_temps:
+                    num_R_temps+num_C_temps]=temps
+        if self.dataloggerB.have_unfetched_temps():
+            timestamp,temps=self.dataloggerB.fetch_temps()
+            #self.insert_dataloggerB_temps_in_database(timestamp,temps)
+            if timestamp[0]>self.most_current_dataloggerB_timestamp:
+                self.most_current_dataloggerB_timestamp=timestamp[0]
+                self.current_temps[num_R_temps+num_C_temps:
+                    num_R_temps+num_C_temps+num_B_temps]=temps
+
+        #once per minute start a query to the shoes for temps
+        #TODO
+        
+        
+        #check that the dataloggers are online
+        #TODO
+
+
+    def runSetup(self):
+        """ execute before main loop """
         self.most_current_dataloggerR_timestamp=0
         self.most_current_dataloggerC_timestamp=0
         self.most_current_dataloggerB_timestamp=0
-        
-        if self.PORT is None:
-            self.logger.info('Command line commands not yet implemented.')
-            sys.exit(0)
-        while True:
-            self.do_select()
-            
-            if dataloggerR.have_unfetched_temps():
-                timestamp,temps=self.dataloggerR.fetch_temps()
-                #self.insert_dataloggerR_temps_in_database(timestamp,temps)
-                if timestamp[0]>self.most_current_dataloggerR_timestamp:
-                    self.most_current_dataloggerR_timestamp=timestamp[0]
-                    self.current_temps[0:num_R_temps]=temps
-            if dataloggerC.have_unfetched_temps():
-                timestamp,temps=self.dataloggerC.fetch_temps()
-                #self.insert_dataloggerC_temps_in_database(timestamp,temps)
-                if timestamp[0]>self.most_current_dataloggerC_timestamp:
-                    self.most_current_dataloggerC_timestamp=timestamp[0]
-                    self.current_temps[num_R_temps:
-                        num_R_temps+num_C_temps]=temps
-            if dataloggerB.have_unfetched_temps():
-                timestamp,temps=self.dataloggerB.fetch_temps()
-                #self.insert_dataloggerB_temps_in_database(timestamp,temps)
-                if timestamp[0]>self.most_current_dataloggerB_timestamp:
-                    self.most_current_dataloggerB_timestamp=timestamp[0]
-                    self.current_temps[num_R_temps+num_C_temps:
-                        num_R_temps+num_C_temps+num_B_temps]=temps
-
-            #once per minute start a query to the shoes for temps
-            #TODO
-            
-            
-            #check that the dataloggers are online
-            #TODO
-            
-            #log commands
-            for command in self.commands:
-                self.logger.debug(command)
-            
-            self.cull_dead_sockets_and_their_commands()
-            self.handle_completed_commands()
 
 
 if __name__=='__main__':

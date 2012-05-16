@@ -121,23 +121,6 @@ class Director(Agent):
             self.galilAgentB_Connection.sendMessage(galil_command, responseCallback=onReply)
         else:
             self.bad_command_handler(command)
-    
-    def main(self):
-        """
-        Loop forever, acting on commands as received if on a port.
-        """            
-        while True:
-        
-            self.do_select()
-
-
-            #log commands
-            for command in self.commands:
-                self.logger.debug(command)
-            
-            self.cull_dead_sockets_and_their_commands()
-            self.handle_completed_commands()
-            
 
 
 if __name__=='__main__':

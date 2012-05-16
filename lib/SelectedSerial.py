@@ -34,8 +34,47 @@ class SelectedSerial():
     def addr_str(self):
         return "%s@%s"%(self.port,self.baudrate)
 
+    def sendMessageBlocking(self, message):
+        """ Send a string immediately, appends string terminator if needed"""
+        if self.serial==None:
+            self.logger.error('Attempting to send %s on %s' % str(self) )
+            raise IOError
+        if message[-1]==';':
+            message=[:-1]+'\n'
+        else:
+            message+='\n'
+        self.serial.flushInput()
+        self.serial.write(message)
+        self.serial.flush()
+        except serial.SerialException, e:
+            self.handle_error(e)
+            raise IOError
+            
+    def recieveMessageBlocking(self, nBytes=0, delim=None, timeout=.125):
+        """Wait for a response, chops \r & \n off response if present"""
+        saved_timeout=self.serial.timeout
+        self.serial.timeout=timeout
+        try:
+            if type(delim)==str:
+                response=self.serial.readline(eol=delim)
+            else:
+                response=self.serial.read(nBytes)
+            chop=0
+            if len(response) >0 and response[-1] in '\r\n':
+                chop=1
+            if len(response) > 1 and response[-2] in '\r\n':
+                chop=2
+            if chop!=0:
+                response=response[:-chop]
+        except serial.SerialException, e:
+            self.handle_error(e)
+            raise IOError
+        finally:
+            self.serial.timeout=saved_timeout
+        return response
+
     def sendMessage(self, message, sentCallback=None, responseCallback=None):
-        if self.socket==None:
+        if self.serial==None:
             self.logger.error('Attempting to send %s on %s' % str(self) )
             raise IOError
         if message=='' or self.out_buffer!='':
@@ -79,22 +118,22 @@ class SelectedSerial():
             self.handle_error(str(err))
 
     def handle_write(self):
-        """Write to socket"""
+        """Write to serial"""
         try:
             if self.out_buffer:
                 # write a chunk
-                count = self.socket.send(self.out_buffer)
-                self.logger.debug('Attempted write "%s", wrote "%s" on %s:%s' %
+                count = self.serial.write(self.out_buffer)
+                self.logger.debug('Attempted write "%s", wrote "%s" on %s' %
                     (self.out_buffer.replace('\n','\\n'),
                      self.out_buffer[:count].replace('\n','\\n'),
-                     self.host,self.port))
+                     self.addr_str()))
                 # and remove the sent data from the buffer
                 self.out_buffer = self.out_buffer[count:]
                 if self.sentCallback and self.out_buffer=='':
                     callback=self.sentCallback
                     self.sentCallback=self.defaultSentCallback
                     callback(self)
-        except socket.error,err:
+        except serial.SerialException,err:
             self.handle_error(str(err))
             
     def handle_error(self, error=None):

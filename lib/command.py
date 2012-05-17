@@ -12,3 +12,8 @@ class Command:
     def __str__(self):
         return ("Command '%s' from %s. State: %s. Reply '%s'."%
                 (self.string,str(self.source),self.state,self.reply))
+                
+                
+    def setReply(self, reply):
+        command.state='complete'
+        command.reply=reply

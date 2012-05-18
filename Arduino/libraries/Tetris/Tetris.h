@@ -52,6 +52,7 @@ class Tetris
   	void calibrateToHardStop();
   
   private:
+    unsigned char _calibration_in_progress;
     int _standby_pin;
     int _reset_pin;
     int _clock_pin;

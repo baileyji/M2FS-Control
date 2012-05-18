@@ -12,6 +12,7 @@ Tetris::Tetris(int rst_pin, int stby_pin, int dir_pin, int ck_pin, int phase_pin
 	_phase_pin=phase_pin;
   
 	_calibrated=false;
+  _calibration_in_progress=0;
   _lastDir=1;
   _backlash=DEFAULT_BACKLASH;
 	
@@ -73,6 +74,18 @@ void Tetris::dumbMoveToSlit(uint8_t slit) {
 }
 
 void Tetris::run(){
+  if (_calibration_in_progress != 0 && 
+      _motor.currentPosition() == _motor.targetPosition()) {
+    if (_calibration_in_progress==2) { //enter second stage
+      _motor.setCurrentPosition(_backlash);
+      _motor.moveTo(0);
+      _calibration_in_progress=1;
+    }
+    else { // final stage, we are calibrated
+      _calibrated=true;
+      _calibration_in_progress=0;
+    }
+  }
   _motor.run();
 }
 
@@ -175,13 +188,9 @@ void Tetris::positionAbsoluteMove(long p){
 
 
 //Function WILL cause stall at negative physical limit.
-//Function WILL block for multiple seconds.
 void Tetris::calibrateToHardStop(){
+  _calibrated=false;
   _motor.setCurrentPosition(0);
   _motor.moveTo(1500);
-  while (_motor.run());
-  _motor.setCurrentPosition(_backlash);
-  _motor.moveTo(0);
-  while (_motor.run());
-  _calibrated=true;
+  _calibration_in_progress=2; //First stage
 }

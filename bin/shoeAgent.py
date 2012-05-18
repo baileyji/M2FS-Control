@@ -231,7 +231,10 @@ class ShoeAgent(Agent):
             return
         self.simpleSend('PR'+tetrisID+steps+'\n', command)
 
-
+    def status_command_handler(self, command):
+      """report status"""
+      self.simpleSendWithResponse('TS\n', command)
+      
 
 if __name__=='__main__':
     agent=ShoeAgent()

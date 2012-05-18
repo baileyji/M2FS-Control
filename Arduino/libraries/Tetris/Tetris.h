@@ -31,8 +31,11 @@ class Tetris
     bool motorIsOn();
     void motorOn();
     void tellPosition();
+    void tellSlitPosition(uint8_t slit);
     void stop();
     bool moving();
+    bool isCalibrated();
+    char getCurrentSlit();//0-6 if calibrated and currentposition==respective nominal slit position, else -1 
     
     void definePosition(long p);
     void setSpeed(int s);
@@ -40,8 +43,9 @@ class Tetris
     void setBacklash(unsigned int b);
     void positionRelativeMove(long d);
     void positionAbsoluteMove(long p);
-    void positionRelativeMoveFS(long d); //Move in full stels
-    void positionAbsoluteMoveFS(long p); //Move in full stels
+    void positionRelativeMoveFS(long d); //Move in full steps
+    void positionAbsoluteMoveFS(long p); //Move in full steps
+    void defineSlitPosition(uint8_t slit, long position);
     void defineSlitPosition(uint8_t slit);
     void dumbMoveToSlit(uint8_t slit);
     void run();
@@ -54,6 +58,7 @@ class Tetris
     int _dir_pin;
     int _phase_pin;
     int8_t _lastDir;
+    bool _calibrated;
     unsigned int _backlash;
     long _slitPositions[7];      
     AccelStepper _motor;

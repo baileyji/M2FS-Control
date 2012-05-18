@@ -63,27 +63,107 @@
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
 
+#define DISCONNECT_SHOE_PIN 50
+
+#define ONE_WIRE_BUS        13
+
+
+#define VERSION_STRING "Fibershoe v0.1"
+
+
 #include <SdFat.h>
 #include <Tetris.h>
 #include <AccelStepper.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
+OneWire oneWire(ONE_WIRE_BUS);  // Instantiate a oneWire instance
+DallasTemperature tempSensors(&oneWire);  // Instantiate Dallas Temp sensors on oneWire 
+float lastTempReading=0;
 
 Tetris tetris[8];
 ArduinoOutStream cout(Serial);
+char command_buffer[81];
+unsigned char command_buffer_ndx=0;
+unsigned char command_length=0;
+bool have_command_to_parse=false;
+bool leave_tetris_on_when_idle=false;
+
+
+String commands[23]={
+  "AC",//set acceleration
+  "AH",//Enable Active Holding
+  "BL",//Define backlash
+  "DH",//Drive to hardstop
+  "DP",//Define current position as X
+  "MO",//Motor Off
+  "PA",//Position absolute move
+  "PC",//Print Commands
+  "PH",//Passive holding
+  "PR",//position relative move
+  "PV",//Print version String
+  "SD",//Slit Defined Position, get the defined position of slit
+  "SG",//Slit get Get the current slit for tetris 1-7,UNKNOWN,INTERMEDIATE,MOVING
+  "SH",//turn motor on
+  "SL",//Slit, move to position of slit
+  "SP",//set speed
+  "SS",//Slit Set, define position of slit
+  "ST",//Stop moving
+  "TD",//Tell Step Position (# UKNOWN MOVING)
+  "TE",//Report temp
+  "TS",//Tell Status (e.g. moving vreg, etc)
+  "VE",//Vreg Off
+  "VO",//Vreg On
+  };
+bool (*cmdFuncArray[23])() = {
+  ACcommand,//set acceleration
+  AHcommand,
+  BLcommand,//Define backlash
+  DHcommand,//Drive to hardstop
+  DPcommand,//Define current position as X
+  MOcommand,
+  PAcommand,//Position absolute move
+  PCcommand,
+  PHcommand,
+  PRcommand,//position relative move
+  PVcommand,//Print version String
+  SGcommand,
+  SDcommand,//slit define, define position as slit position
+  SHcommand,                
+  SLcommand,//Slit, move to position of slit, 
+  SPcommand,//set speed
+  SScommand,
+  STcommand,                
+  TDcommand,                
+  TEcommand,//Report temp
+  TScommand,
+  powereUpTetrisShield,
+  powereDownTetrisShield
+  };
+  
 
 void serialEvent() {
-  //uint32_t t=micros();
-  char line[81];
-  int lineLen=Serial.readBytesUntil('\r',line,80);
-  line[lineLen]=0;
-  //uint32_t t2=micros();
-  boolean commandGood=parseCommand(line, lineLen);
-  //uint32_t t1=micros();
-  //cout<<"#Event took "<<t1-t<<"us. Parsing took "<<t1-t2<<" us.\n";
-  if(commandGood)
-    cout<<":";
-  else
-    cout<<"?";
+  char i, n_bytes_to_read;
+
+  if(!have_command_to_parse) {
+    n_bytes_to_read=Serial.available();
+    if (n_bytes_to_read > 80-command_buffer_ndx)
+      n_bytes_to_read=80-command_buffer_ndx;
+    
+    Serial.readBytes(command_buffer+command_buffer_ndx, n_bytes_to_read);
+
+    i=command_buffer_ndx;
+    command_buffer_ndx+=n_bytes_to_read;
+    while (!have_command_to_parse && i<command_buffer_ndx) {
+      have_command_to_parse=command_buffer[i]=='/n';
+      i++;
+    }
+    if (have_command_to_parse) {
+      command_length=i; //Length inclusive of null terminator
+      command_buffer[command_length]=0;
+    }
+  }
+
 }
 
 void setup() {
@@ -94,6 +174,15 @@ void setup() {
   digitalWrite(R_SIDE_POLL_PIN, LOW);
   pinMode(R_SIDE_POLL_DRIVER_PIN,OUTPUT);
   digitalWrite(R_SIDE_POLL_DRIVER_PIN, HIGH);
+  
+  //Set up shoe removal sensing
+  pinMode(DISCONNECT_SHOE_PIN,INPUT);
+  digitalWrite(DISCONNECT_SHOE_PIN,HIGH);
+  
+  //Set up temp sensor
+  tempSensors.begin();
+  tempSensors.setResolution(10);  //configure for 10bit, conversions take 187.5 ms max
+  tempSensors.setWaitForConversion(false);
   
   //Vm power control pin
   digitalWrite(TETRIS_MOTORS_POWER_ENABLE, LOW);
@@ -119,220 +208,65 @@ void setup() {
   
   Serial.begin(115200);
   
-  printCommands();
+  PCcommand();
 }
-
 
 void loop() {
 
-  uint32_t t=micros();
-  for(int i=0;i<8;i++) tetris[i].run();
-  uint32_t t1=micros();
+  if (have_command_to_parse) {
+    bool commandGood=parseCommand();
+    cout<<(commandGood ? ':':'?');
+    have_command_to_parse=false;
+  }
+
+  #ifdef DEBUG
+    uint32_t t=micros();
+  #endif
   
-  //if(t%5 ==0) cout<<"Run took "<<t1-t<<" us.\n";
-}
-
-
-
-//Toggle the value of a pin
-inline void togglePin(unsigned char pin) {
-  digitalWrite(pin, !digitalRead(pin));
-}
-
-/*"Command List"
-   
-   Simple Commands
-   VO Vreg off
-   VE Vreg on
-   TS Tel Status "side vreg state" "powered motors" "moving motors"
-
-   Commands with mask
-   TDx tell position
-   MOx motor off
-   STx stop motion
-
-   Commands with mask & parameters
-   DPx define position
-   PAx position absolute move
-   PRx position relative move
-   SPx set speed
-   ACx set acceleration
-   SLx move to slit
-   SDx define current position as slit
-   BLx define backlash amount 
-*/
-int parseCommand(const char *line, int lineLen) {
-
- if(lineLen >= 2)
- {
-   String command="";
-   command+=line[0];
-   command+=line[1];
-   
-   if (command=="PC")
-   {
-     printCommands();
-     return true;
-   }
-   else if (command=="VO")
-   {
-     
-    //Power down the tetris shield
+  if (digitalRead(DISCONNECT_SHOE_PIN)) {
+    //HOME AND HALT EVERYTHING
     powereDownTetrisShield();
-    return true;
-    
-   }
-   else if (command =="VE")
-   {
-     powereUpTetrisShield();
-     return true;
-   }
-   else if (command=="TS")
-   {
-     uint16_t statusBytes[3]={0,0,0};
-     for (int i=0;i<8;i++) statusBytes[0]|=(tetris[i].moving()<<i);
-     for (int i=0;i<8;i++) statusBytes[1]|=(tetris[i].motorIsOn()<<i);
-     statusBytes[3]=(tetrisShieldIsR()<<1)|tetrisShieldIsPowered();
-     cout<<statusBytes[3]<<" "<<statusBytes[2]<<" "<<statusBytes[0]<<endl;     
-   }
-   else if ((command=="MO" || command=="TD" || command =="ST" ||
-    command=="DP" || command=="PA" || command =="PR" ||
-    command=="SP" || command=="AC" || command=="SD" || 
-    command=="SL" || command=="BL" || command=="SH") && lineLen > 2)
-   {
-     
-     //Parse the axis
-     int axis = line[2];
-     
-     if (axis =='*' || (axis>= 'A' && axis <='H')) 
-     {
-       
-       axis= (axis =='*') ? 0:(axis-'A'+1);
-
-       //cout<<"Axis: "<<axis<<endl;
-
-       if (axis >=0 && axis <= 8)
-       {
+    saveMotorPositionsToEEPROM();
+    while(1);
+  }
   
-         if (command=="MO" || command=="TD" || command =="ST" ||
-             command=="SH" )
-         {
-
-           if(command=="MO")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].motorOff();
-             else tetris[axis-1].motorOff();
-           }
-           
-           if(command=="TD")
-           {
-             if(axis==0)
-               for(int i=0;i<8;i++) 
-               {
-                 tetris[i].tellPosition(); 
-                 if(i<7)cout<<", ";
-               }
-             else tetris[axis-1].tellPosition();
-             cout<<endl;
-           }
-           
-           if(command=="ST")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].stop();
-             else tetris[axis-1].stop();
-           }
-           
-           if(command=="SH")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].motorOn();
-             else tetris[axis-1].motorOn();
-           }
-           
-           return true;
-           
-         }
-         else if ( (lineLen > 3) && ((line[3] >='0' && line[3] <='9') ||
-                  (line[3]=='-' && (line[4] >='1' && line[4] <='9')))) 
-         {
+  if (!leave_tetris_on_when_idle) {
+    for (unsigned char i=0; i<8; i++) 
+      if (!tetris[i].moving()) tetris[i].motorOff();
+  }
   
-           //Parse the parameter
-           long param=atol(line+3);
-           
-           //cout<<"Param: "<<param<<endl;
-
-           if(command=="BL")
-           {
-             if (param<0) return false;
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].setBacklash(param);
-             else tetris[axis-1].setBacklash(param);
-           }
-           
-           if(command=="SL")
-           {
-             if (param<0 || param>6) return false;
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(param);
-             else tetris[axis-1].dumbMoveToSlit(param);
-           }
-
-           if(command=="SD")
-           {
-             if (param<0 || param>6) return false;
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].defineSlitPosition(param);
-             else tetris[axis-1].defineSlitPosition(param);
-           }
-
-           if(command=="DP")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].definePosition(param);
-             else tetris[axis-1].definePosition(param);
-           }
-           
-           if(command=="PA")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].positionAbsoluteMove(param);
-             else tetris[axis-1].positionAbsoluteMove(param);
-           }
-           
-           if(command=="PR")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].positionRelativeMove(param);
-             else tetris[axis-1].positionRelativeMove(param);
-           }
-           
-           if(command=="SP")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].setSpeed(param);
-             else tetris[axis-1].setSpeed(param);
-           }
-           
-           if(command=="AC")
-           {
-             if(axis==0) for(int i=0;i<8;i++) tetris[i].setAcceleration(param);
-             else tetris[axis-1].setAcceleration(param);
-           }
-           
-           return true;
-           
-         }
-       }
-     }
-   }
- }
- return false; 
+  
+  /*
+  TODO sort this out
+  if (time to update tempSensor) {
+    tempSensors.requestTemperatures();
+    start timer to read out temp sensor
+  }
+  if (time to read out temp sensor) {
+    lastTempReading=tempSensors.getTempCByIndex(0)
+  }
+  */
+  
+  for(int i=0;i<8;i++) tetris[i].run();
+  
+  #ifdef DEBUG
+    uint32_t t1=micros();
+    if(t%5 ==0) cout<<"Run took "<<t1-t<<" us.\n";
+  #endif
 }
 
-
-void powereDownTetrisShield() {
-  for(int i=0;i<8;i++) tetris[i].motorOff();
-  delayMicroseconds(POWERDOWN_DELAY_US);
-  digitalWrite(TETRIS_MOTORS_POWER_ENABLE,LOW);
+void saveMotorPositionsToEEPROM() {
+  //TODO
 }
 
-void powereUpTetrisShield() {
-  for(int i=0;i<8;i++) tetris[i].motorOff();
-  delayMicroseconds(POWERDOWN_DELAY_US);
-  digitalWrite(TETRIS_MOTORS_POWER_ENABLE,HIGH);
-}
+bool parseCommand() {
+  if(command_length >= 2) {
+    char ndx;
+    ndx=getCallbackNdxForCommand();
+    if (ndx !=-1 ) return cmdFuncArray[ndx]();
+    else return false;
+  }
+} 
 
 bool tetrisShieldIsPowered() {
   return digitalRead(TETRIS_MOTORS_POWER_ENABLE);
@@ -342,37 +276,334 @@ bool tetrisShieldIsR(){
   return digitalRead(R_SIDE_POLL_PIN);
 }
 
-//Print the commands and wait for a response
-void establishContact() {
-  printCommands(); 
-  while (Serial.available() <= 0);
+// Search through commands for a string that matches c and 
+//return the index, -1 if not found
+char getCallbackNdxForCommand() {
+  String command;
+  command+=command_buffer[0];
+  command+=command_buffer[1];
+  for (char i=0;i<3;i++) if (commands[i]==command) return i;
+  return -1;
 }
 
-/*"Command List"
-   
-   Simple Commands
-   PC Print Commands
-   VO Vreg off
-   VE Vreg on
-   TS Tel Status "side vreg state" "powered motors" "moving motors"
+//Parse the command for the axis designator
+// 0 all axes, 1-8, or 0xFF for bad axis ID
+unsigned char getAxisForCommand() {
+  char axis=command_buffer[2];
+  if (axis =='*' || (axis>= 'A' && axis <='H')) {
+    axis = (axis =='*') ? 0:(axis-'A'+1);
+  }
+  else
+    axis=0xFF;
+}
 
-   Commands with mask
-   TDx tell position
-   MOx motor off
-   STx stop motion
+bool powereDownTetrisShield() {
+  for(int i=0;i<8;i++) tetris[i].motorOff();
+  delayMicroseconds(POWERDOWN_DELAY_US);
+  digitalWrite(TETRIS_MOTORS_POWER_ENABLE,LOW);
+  return true;
+}
 
-   Commands with mask & parameters
-   DPx define position
-   PAx position absolute move
-   PRx position relative move
-   SPx set speed
-   ACx set acceleration
-   SLx move to slit
-   SDx define current position as slit
-   BLx define backlash amount 
-*/
+bool powereUpTetrisShield() {
+  for(int i=0;i<8;i++) tetris[i].motorOff();
+  delayMicroseconds(POWERDOWN_DELAY_US);
+  digitalWrite(TETRIS_MOTORS_POWER_ENABLE,HIGH);
+  return true;
+}
 
-void printCommands() {
+//Disable tetris on when idle
+// by setting flag, main loop turns off drivers if motor isnt moving
+// tetris turns on motor automatically for move
+bool PHcommand() {
+  leave_tetris_on_when_idle=false;
+  return true;
+}
+
+//Keep tetris on when idle
+// by setting flag, main loop turns off drivers if motor isnt moving
+// tetris turns on motor automatically for move
+bool AHcommand() {
+  leave_tetris_on_when_idle=true;
+  return true;
+}
+
+//Report the current slit for specified tetris: 1-7,UNKNOWN,INTERMEDIATE,MOVING
+bool SGcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+  
+  if (axis==0) for(int i=0;i<8;i++) {
+    
+    if(tetris[i].moving()) cout<<"MOVING";
+    else if (!tetris[i].isCalibrated()) cout<<"UNKNOWN";
+    else {
+      char slit=tetris[i].getCurrentSlit();
+      if (slit>=0) cout<<slit+1;
+      else cout<<"INTERMEDIATE";
+    }
+    if(i<7) cout<<", ";
+  }
+  else {
+    if(tetris[axis-1].moving()) cout<<"MOVING";
+    else if (!tetris[axis-1].isCalibrated()) cout<<"UNKNOWN";
+    else {
+      char slit=tetris[axis-1].getCurrentSlit();
+      if (slit>=0) cout<<slit+1;
+      else cout<<"INTERMEDIATE";
+    }
+  }
+  cout<<endl;
+  
+  
+  return true;
+}
+
+
+//Report the nominial position of the specified slit
+bool SDcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  unsigned char slit=convertCharToSlit(command_buffer[3]);
+  if ( slit>6 ) return false;
+
+  if (axis==0) for(int i=0;i<8;i++) {
+    tetris[i].tellSlitPosition(slit);
+    if(i<7) cout<<", ";
+  }
+  else {
+    tetris[axis-1].tellSlitPosition(slit);
+  }
+  cout<<endl;
+  return true;
+}
+
+//Report the status (e.g vreg, moving, etc)
+//xxxxxx[shieldR][shieldOn] [t7on]...[t0on] [t7moving]...[t0moving]
+bool TScommand() {
+  uint16_t statusBytes[3]={0,0,0};
+  for (int i=0;i<8;i++) statusBytes[0]|=(tetris[i].moving()<<i);
+  for (int i=0;i<8;i++) statusBytes[1]|=(tetris[i].motorIsOn()<<i);
+  statusBytes[3]=(tetrisShieldIsR()<<1)|tetrisShieldIsPowered();
+  cout<<statusBytes[3]<<" "<<statusBytes[2]<<" "<<statusBytes[0]<<endl;
+  return true;
+}
+
+
+//Turn a tetris motor (or all motors) off
+bool MOcommand(){
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+  
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].motorOff();
+  else tetris[axis-1].motorOff();
+  return true;
+}
+
+// Get currrent position/moving/unknown
+bool TDcommand(){
+  
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+  
+  if (axis==0) for(int i=0;i<8;i++) {
+    if (tetris[i].moving())
+      cout<<"MOVING";
+    else if (! tetris[i].isCalibrated())
+      cout<<"UNKNOWN";
+    else
+      tetris[i].tellPosition(); 
+    if(i<7) cout<<", ";
+  }
+  else {
+    if (tetris[axis-1].moving())
+      cout<<"MOVING";
+    else if (!tetris[axis-1].isCalibrated())
+      cout<<"UNKNOWN";
+    else
+      tetris[axis-1].tellPosition();
+  }
+  cout<<endl;
+  return true;
+}
+
+//Stop motion of a tetris
+bool STcommand(){
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].stop();
+  else tetris[axis-1].stop();
+  return true;
+}
+
+//Turn on a tetris
+bool SHcommand(){
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].motorOn();
+  else tetris[axis-1].motorOn();
+  return true;
+}
+
+//Set the backlash
+bool BLcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  unsigned long param=atol(command_buffer+3);
+  
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].setBacklash(param);
+  else tetris[axis-1].setBacklash(param);
+
+  return true;
+}
+
+//Move to a nominal slit position
+bool SLcommand() {
+
+  if (command_length==4) {//Set one slit (or all the slits to the same thing)
+    unsigned char axis = getAxisForCommand();
+    if ( axis >8 ) return false;
+    
+    unsigned char slit=convertCharToSlit(command_buffer[3]);
+    if ( slit>6 ) return false;
+
+    if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit);
+    else tetris[axis-1].dumbMoveToSlit(slit);
+  }
+  else if (command_length==10) { //Set all the slits
+
+    unsigned char slit[8];
+    for (unsigned char i=0;i<8;i++) {
+      slit[i]=convertCharToSlit(command_buffer[2+i]);
+      if (slit[i]>6) return false;
+    }
+    
+    for (unsigned char i=0;i<8;i++)
+      tetris[i].dumbMoveToSlit(slit[i]);  
+  }
+  else return false;
+  
+  return true;
+}
+
+//Convert a chanracter to a slit number
+unsigned char convertCharToSlit(char c) {
+  return c-'0'-1; //(-1 as slit is specified 1-7)
+}
+
+//Define a nominal slit position
+bool SScommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis>8 ) return false;
+
+  unsigned char slit=convertCharToSlit(command_buffer[3]);
+  if ( slit>6 ) return false;
+
+  if (command_length >4){
+    unsigned long param=atol(command_buffer+4);
+    if(axis==0) for(int i=0;i<8;i++) tetris[i].defineSlitPosition(slit,param);
+    else tetris[axis-1].defineSlitPosition(slit,param);
+  }
+  else {
+    if(axis==0) for(int i=0;i<8;i++) tetris[i].defineSlitPosition(slit);
+    else tetris[axis-1].defineSlitPosition(slit);
+  }
+  return true;
+}
+
+//Start a position relative move
+bool PRcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  long param=atol(command_buffer+3);
+
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].positionRelativeMove(param);
+  else tetris[axis-1].positionRelativeMove(param);
+
+  return true;
+}
+
+//Start a position absolute move
+bool PAcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  long param=atol(command_buffer+3);
+
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].positionAbsoluteMove(param);
+  else tetris[axis-1].positionAbsoluteMove(param);
+
+  return true;
+}
+
+//Report the version string
+bool PVcommand() {
+  cout<<VERSION_STRING<<endl;
+  return true;
+}
+
+//Report the last temp reading
+bool TEcommand() {
+  cout<<lastTempReading<<endl;
+}
+
+//Define the nominal position
+bool DPcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  long param=atol(command_buffer+3);
+
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].definePosition(param);
+  else tetris[axis-1].definePosition(param);
+
+  return true;
+}
+
+//Define the step speed
+bool SPcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  int param=atol(command_buffer+3);
+
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].setSpeed(param);
+  else tetris[axis-1].setSpeed(param);
+
+  return true;
+}
+
+//Define the acceleration rate
+bool ACcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+
+  unsigned long param=atol(command_buffer+3);
+  
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].setAcceleration(param);
+  else tetris[axis-1].setAcceleration(param);
+
+  return true;
+}
+
+
+//Calibrate the tetris
+bool DHcommand() {
+  unsigned char axis = getAxisForCommand();
+  if ( axis >8 ) return false;
+ 
+  if(axis==0) for(int i=0;i<8;i++) tetris[i].calibrateToHardStop();
+  else tetris[axis-1].calibrateToHardStop();
+
+  return true;
+}
+
+
+//Print the commands
+bool PCcommand() {
   cout<<"#PC   Print Commands - Print the list of commands"<<endl;
   cout<<"#VO   Voltage Off - Power down the tetris motors"<<endl;
   cout<<"#VE   Voltage Enable - Power up the motor supply"<<endl;
@@ -391,5 +622,5 @@ void printCommands() {
   cout<<"#SLx# Slit - Command tetris x to go to the position of slit #"<<endl;
   cout<<"#SDx# Slit Define - Set slit # for tetris x to be at the current position"<<endl;
   cout<<"#BLx# Backlash - Set the amount of backlash of tetris x to # (usteps)"<<endl;
-
+  return true;
 }

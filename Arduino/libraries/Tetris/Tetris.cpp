@@ -10,7 +10,8 @@ Tetris::Tetris(int rst_pin, int stby_pin, int dir_pin, int ck_pin, int phase_pin
 	_clock_pin=ck_pin;
 	_dir_pin=dir_pin;
 	_phase_pin=phase_pin;
-	
+  
+	_calibrated=false;
   _lastDir=1;
   _backlash=DEFAULT_BACKLASH;
 	
@@ -52,11 +53,18 @@ Tetris::~Tetris() {
 	_motor.~AccelStepper();	
 }
 
+bool Tetris::isCalibrated() {
+  return _calibrated;
+}
+
+void Tetris::defineSlitPosition(uint8_t slit, long position) {
+  if (slit <7)
+    _slitPositions[slit]=position;
+}
 
 void Tetris::defineSlitPosition(uint8_t slit) {
-  if (slit>=0 && slit <8)
+  if (slit <7)
     _slitPositions[slit]=_motor.currentPosition();
-
 }
 
 void Tetris::dumbMoveToSlit(uint8_t slit) {
@@ -101,6 +109,11 @@ void Tetris::tellPosition() {
   Serial.print(_motor.currentPosition());
 }
 
+void Tetris::tellSlitPosition(uint8_t slit) {
+  if (slit <7)
+    Serial.print(_slitPositions[slit]);
+}
+  
 //No Deceleration
 void Tetris::stop() {
   _motor.moveTo(_motor.currentPosition());
@@ -130,6 +143,14 @@ void Tetris::positionAbsoluteMoveFS(long p){
   positionAbsoluteMove(16*p);
 }
 
+char Tetris::getCurrentSlit() {
+  for (unsigned char i=0; i<7; i++) {
+    if (_motor.currentPosition()==_slitPositions[i]) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 void Tetris::positionRelativeMove(long d){
   positionAbsoluteMove(d + _motor.currentPosition());
@@ -162,4 +183,5 @@ void Tetris::calibrateToHardStop(){
   _motor.setCurrentPosition(_backlash);
   _motor.moveTo(0);
   while (_motor.run());
+  _calibrated=true;
 }

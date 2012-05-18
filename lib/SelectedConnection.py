@@ -1,3 +1,12 @@
+class ReadError(IOError):
+    pass
+
+class WriteError(IOError):
+    pass
+
+class ConnectError(IOError):
+    pass
+
 class SelectedConnection():
     def __init__(self, logger=None,
                 default_message_recieved_callback=None,
@@ -14,7 +23,6 @@ class SelectedConnection():
         self.out_buffer=''
         self.in_buffer=''
 
-
     def __str__(self):
         if self.isOpen():
             return 'Open SelectedConnection '+self.addr_str()
@@ -24,6 +32,9 @@ class SelectedConnection():
     def addr_str(self):
         """ Implemented by subclass """
         pass
+        
+    def __getattr__(self, attr):
+        return getattr(self.connection, attr)
 
     def trimNewlineFromString(self, string):
         """ remove \r\n \r\r \n\n \n\r \n \r from end of string. """
@@ -38,7 +49,7 @@ class SelectedConnection():
             return string
     
     def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
-        if self.socket==None:
+        if self.connection==None:
             self.logger.error('Attempting to send %s on %s' % str(self) )
             raise IOError
         if message=='' or self.out_buffer!='':
@@ -58,7 +69,26 @@ class SelectedConnection():
         """ Connection fails"""
         self.logger.error("Error %s on %s." %(error, self.addr_str()))
         self.handle_disconnect()
-                
+        
+    def handle_disconnect(self):
+        """Disconnect"""
+        if self.connection is None:
+            self.logger.error('Handle_Disconnect called on already disconnected %s' % self)
+            return
+        self.logger.info("%s disconnecting." % self)
+        self.out_buffer=''
+        self.implementationSpecificDisconnect()
+        self.connection = None
+        self.sentCallback=self.defaultSentCallback
+        if self.errorCallback !=None:
+            callback=self.errorCallback
+            self.errorCallback=self.defaultErrorCallback
+            callback(self,'Lost Connection.')
+        elif self.responseCallback != None:
+            callback=self.responseCallback
+            self.responseCallback=self.defaultResponseCallback
+            callback(self,'Lost Connection.')
+    
     def close(self):
         if self.isOpen():
             self.handle_disconnect()
@@ -67,14 +97,51 @@ class SelectedConnection():
         """ Do select for read whenever the connection is open """
         return self.isOpen()
     
+    def handle_read(self):
+        """Read callback for select"""
+        try:
+            data = self.implementationSpecificRead()
+            self.in_buffer += data
+            count=self.in_buffer.find('\n')
+            if count is not -1:
+                message_str=self.in_buffer[0:count+1]
+                self.in_buffer=self.in_buffer[count+1:]
+                self.logger.debug("Recieved message '%s' on %s" % 
+                    (message_str.replace('\n','\\n'), self))
+                if self.responseCallback:
+                    callback=self.responseCallback
+                    self.responseCallback=self.defaultResponseCallback
+                    callback(self, message_str[:-1])
+        except ReadError, err:
+            self.handle_error(err)
+    
     def do_select_write(self):
         """ Do select for write whenever the connection is open & have data """
         return self.isOpen() and self.out_buffer !=''
+        
+    
+    def handle_write(self):
+        """Write callback for select"""
+        try:
+            if self.out_buffer:
+                # write a chunk
+                count = self.implementationSpecificWrite(self.out_buffer)
+                self.logger.debug('Attempted write "%s", wrote "%s" on %s:%s' %
+                    (self.out_buffer.replace('\n','\\n'),
+                     self.out_buffer[:count].replace('\n','\\n'),
+                     self.host,self.port))
+                # and remove the sent data from the buffer
+                self.out_buffer = self.out_buffer[count:]
+                if self.sentCallback and self.out_buffer=='':
+                    callback=self.sentCallback
+                    self.sentCallback=self.defaultSentCallback
+                    callback(self)
+        except WriteError,err:
+            self.handle_error(str(err))
     
     def do_select_error(self):
         """ Do select for errors when the connection is open"""
         return self.isOpen()
-        
         
 import serial, termios
 class SelectedSerial(SelectedConnection):
@@ -92,16 +159,13 @@ class SelectedSerial(SelectedConnection):
         self.timeout=None
         creation_message='Creating SelectedSerial: '+self.addr_str()
         self.logger.debug(creation_message)
-        self.serial=None
+        self.connection=None
         try:
             self.connect()
         except serial.SerialException, err:
-            self.serial=None
+            self.connection=None
             self.logger.info('Could not connect to %s. %s' % 
                 (self.addr_str(),str(err)))
-
-    def __getattr__(self, attr):
-        return getattr(self.serial, attr)
 
     def addr_str(self):
         return "%s@%s"%(self.port,self.baudrate)
@@ -115,9 +179,9 @@ class SelectedSerial(SelectedConnection):
             return
         if message[-1]=='\n':
             message+='\n'
-        self.serial.flushInput()
-        self.serial.write(message)
-        self.serial.flush()
+        self.connection.flushInput()
+        self.connection.write(message)
+        self.connection.flush()
         except serial.SerialException, e:
             self.handle_error(e)
             raise IOError
@@ -127,90 +191,58 @@ class SelectedSerial(SelectedConnection):
         if not self.isOpen():
             self.logger.error('Attempting to receive on %s' % str(self) )
             raise IOError
-        saved_timeout=self.serial.timeout
-        self.serial.timeout=timeout
+        saved_timeout=self.connection.timeout
+        self.connection.timeout=timeout
         try:
             if type(delim)==str:
-                response=self.serial.readline(eol=delim)
+                response=self.connection.readline(eol=delim)
             else:
-                response=self.serial.read(nBytes)
+                response=self.connection.read(nBytes)
             response=trimNewlineFromString(response)
         except serial.SerialException, e:
             self.handle_error(e)
             raise IOError
         finally:
-            if self.serial !=None:
-                self.serial.timeout=saved_timeout
+            if self.connection !=None:
+                self.connection.timeout=saved_timeout
         return response
     
     def connect(self):
-        if self.serial is None:
-            self.serial=serial.Serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout)
-   
-    def handle_read(self):
-        """Read from serial. Call callback"""
-        try:
-            # read a chunk from the serial port
-            data = self.serial.read(self.serial.inWaiting())
-            if data:
-                self.in_buffer += data
-                count=self.in_buffer.find('\n')
-                if count is not -1:
-                    message_str=self.in_buffer[0:count+1]
-                    self.in_buffer=self.in_buffer[count+1:]
-                    self.logger.debug("Recieved message '%s' on %s" % 
-                        (message_str.replace('\n','\\n'), self))
-                    if self.responseCallback:
-                        callback=self.responseCallback
-                        self.responseCallback=self.defaultResponseCallback
-                        callback(self, message_str[:-1])
-            else:
-                # empty read indicates disconnection
-                self.logger.error("Empty read, should this happen on serial?.")
-                self.handle_disconnect()
-        except serial.SerialException, err:
-            self.handle_error(str(err))
-
-    def handle_write(self):
-        """Write to serial"""
-        try:
-            if self.out_buffer:
-                # write a chunk
-                count = self.serial.write(self.out_buffer)
-                self.logger.debug('Attempted write "%s", wrote "%s" on %s' %
-                    (self.out_buffer.replace('\n','\\n'),
-                     self.out_buffer[:count].replace('\n','\\n'),
-                     self.addr_str()))
-                # and remove the sent data from the buffer
-                self.out_buffer = self.out_buffer[count:]
-                if self.sentCallback and self.out_buffer=='':
-                    callback=self.sentCallback
-                    self.sentCallback=self.defaultSentCallback
-                    callback(self)
-        except serial.SerialException,err:
-            self.handle_error(str(err))
+        if self.connection is None:
+            try:
+                self.connection=serial.Serial(self.port, baudrate=self.baudrate,
+                    timeout=self.timeout)
+            except Exception, e:
+                raise ConnectError(e)
+            finally:
+                self.connection=None
     
-    def handle_disconnect(self):
-        """Serial gets disconnected"""
-        if self.serial is None:
-            self.logger.error('Handle_Disconnect called on already disconnected serial port %s'%
-            self.addr_str())
-            return
-        self.logger.info("Port %s disconnecting." % self.addr_str())
-        self.out_buffer=''
-        self.serial.flushOutput()
-        self.serial.flushInput()
-        self.serial.close()
-        self.serial = None
-        if self.responseCallback != None:
-            callback=self.responseCallback
-            self.responseCallback=self.defaultResponseCallback
-            callback(self,'Lost Serial Connection.')
-        self.sentCallback=self.defaultSentCallback
+    def implementationSpecificRead(self):
+        """ Perform a device specific read, Rais ReadError if no data or any error """
+        try:
+            data=self.connection.read(self.connection.inWaiting())
+            if not data:
+                raise ReadError("Unexpectedly empty read")
+            return data
+        except serial.SerialException, err:
+            raise ReadError(err)
+
+    def implementationSpecificWrite(self, data):
+        """ Perform a device specific read, Raise WriteError if no data or any error """
+        try:
+            count = self.connection.write(self.out_buffer)
+            return count
+        except serial.SerialException,err:
+            raise WriteError(err)
+    
+    def implementationSpecificDisconnect(self):
+        """disconnection specific to serial"""
+        self.connection.flushOutput()
+        self.connection.flushInput()
+        self.connection.close()
     
     def isOpen(self):
-        return self.serial is not None and self.serial.isOpen()
+        return self.connection is not None and self.connection.isOpen()
         
 import socket
 class SelectedSocket(SelectedConnection):
@@ -229,18 +261,15 @@ class SelectedSocket(SelectedConnection):
             creation_message+=' with live socket.'
         self.logger.debug(creation_message)
         if Live_Socket_To_Use:
-            self.socket=Live_Socket_To_Use
+            self.connection=Live_Socket_To_Use
         else:
-            self.socket=None
+            self.connection=None
             try:
                 self.connect()
             except socket.error, err:
-                self.socket=None
+                self.connection=None
                 self.logger.info('Could not connect to %s. %s' % 
                     (self.addr_str(),str(err)))
-    
-    def __getattr__(self, attr):
-        return getattr(self.socket, attr)
     
     def addr_str(self):
         return "%s:%s"%(self.host,self.port)
@@ -255,7 +284,7 @@ class SelectedSocket(SelectedConnection):
         if message[-1]!='\n':
             message+='\n'
         try:
-            count = self.socket.send(self.out_buffer)
+            count = self.connection.send(self.out_buffer)
             self.logger.debug('Attempted write "%s", wrote "%s" on %s' %
                     (message.replace('\n','\\n'),
                      message[:count].replace('\n','\\n'),
@@ -274,10 +303,10 @@ class SelectedSocket(SelectedConnection):
             raise IOError
         if nBytes==0:
             return ''
-        saved_timeout=self.socket.gettimeout()
-        self.socket.settimeout(timeout)
+        saved_timeout=self.connection.gettimeout()
+        self.connection.settimeout(timeout)
         try:
-            response=self.socket.recv(nBytes)
+            response=self.connection.recv(nBytes)
             response=self.trimNewlineFromString(response)
         except socket.timeout:
             return ''
@@ -285,82 +314,40 @@ class SelectedSocket(SelectedConnection):
             self.handle_error(e)
             raise IOError
         finally:
-            if self.socket !=None:
-                self.socket.settimeout(saved_timeout)
+            if self.connection !=None:
+                self.connection.settimeout(saved_timeout)
         return response
 
-      
     def connect(self):
-        if self.socket is None:
+        if self.connection is None:
             thesocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             thesocket.connect((self.host, self.port))
             thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             thesocket.setblocking(0)
-            self.socket=thesocket
+            self.connection=thesocket
    
-    def handle_read(self):
-        """Read from socket. Call callback"""
+    def implementationSpecificRead(self):
+        """ Perform a device specific read, Raise ReadError if no data or any error """
         try:
-            # read a chunk from the serial port
-            data = self.socket.recv(1024)
-            if data:
-                self.in_buffer += data
-                count=self.in_buffer.find('\n')
-                if count is not -1:
-                    message_str=self.in_buffer[0:count+1]
-                    self.in_buffer=self.in_buffer[count+1:]
-                    self.logger.debug("Recieved message '%s' on %s" % 
-                        (message_str.replace('\n','\\n'), self))
-                    if self.responseCallback:
-                        callback=self.responseCallback
-                        self.responseCallback=self.defaultResponseCallback
-                        callback(self, message_str[:-1])
-            else:
-                # empty read indicates disconnection
-                self.logger.error("Empty read, socket %s:%i dead."%(self.host,self.port))
-                self.handle_disconnect()
+            data=self.connection.recv(1024)
+            if not data:
+                raise ReadError("Unexpectedly empty read")
+            return data
         except socket.error, err:
-            self.handle_error(str(err))
+            raise ReadError(err)
 
-    def handle_write(self):
-        """Write to socket"""
+    def implementationSpecificWrite(self, data):
+        """ Perform a device specific read, Raise WriteError if no data or any error """
         try:
-            if self.out_buffer:
-                # write a chunk
-                count = self.socket.send(self.out_buffer)
-                self.logger.debug('Attempted write "%s", wrote "%s" on %s:%s' %
-                    (self.out_buffer.replace('\n','\\n'),
-                     self.out_buffer[:count].replace('\n','\\n'),
-                     self.host,self.port))
-                # and remove the sent data from the buffer
-                self.out_buffer = self.out_buffer[count:]
-                if self.sentCallback and self.out_buffer=='':
-                    callback=self.sentCallback
-                    self.sentCallback=self.defaultSentCallback
-                    callback(self)
-        except socket.error,err:
-            self.handle_error(str(err))
+            count = self.connection.send(self.out_buffer)
+            return count
+        except socket.error, err:
+            raise WriteError(err)
     
-    def handle_disconnect(self):
-        """Socket gets disconnected"""
-        if self.socket is None:
-            self.logger.error('Handle_Disconnect called on already disconnected socket %s:%s'%
-            (self.host,self.port))
-            return
-        self.logger.info("Socket %s:%s disconnecting." %(self.host,self.port))
-        self.out_buffer=''
-        self.socket.close()
-        self.socket = None
-        self.sentCallback=self.defaultSentCallback
-        if self.errorCallback !=None:
-            callback=self.errorCallback
-            self.errorCallback=self.defaultErrorCallback
-            callback(self,'Lost Socket Connection.')
-        elif self.responseCallback != None:
-            callback=self.responseCallback
-            self.responseCallback=self.defaultResponseCallback
-            callback(self,'Lost Socket Connection.')
+    def implementationSpecificDisconnect(self):
+        """disconnection specific to socket"""
+        self.connection.close()
     
     def isOpen(self):
-        return self.socket is not None
+        return self.connection is not None
 

@@ -128,26 +128,6 @@ class ShoeAgent(Agent):
         import os
         os.listdir(getPlateFileDirectory())
         return ''.join(os.listdir(getPlateFileDirectory()))
-
-    def main(self):
-        """
-        Loop forever, acting on commands as received if on a port.
-        
-        Run once from command line if no port.
-        
-        """
-        if self.PORT is None:
-            self.logger.info('Command line commands not yet implemented.')
-            sys.exit(0)
-        while True:
-            self.do_select()
-
-            #log commands
-            for command in self.commands:
-                self.logger.debug(command)
-            
-            self.cull_dead_sockets_and_their_commands()
-            self.handle_completed_commands()
             
 
 

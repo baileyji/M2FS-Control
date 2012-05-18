@@ -40,10 +40,10 @@ class ShoeAgent(Agent):
             'SLITS':SLITS_comand_handler,
             'SLITS_CLOSEDLOOP':SLITS_CLOSEDLOOP_command_handler,
             'SLITS_SLITPOS':
-            'SLITS_NOMINALPOS':
+            'SLITS_CURRENTPOS':
             'SLITS_ILLUMPROF':not_implemented_command_handler,
             'SLITS_ILLUMMEAS':not_implemented_command_handler,
-            'SLITS_ACTIVEHOLD':
+            'SLITS_ACTIVEHOLD':SLITS_ACTIVEHOLD_command_handler,
             'SLITS_MOVSTEPS':
             'SLITS_HARDSTOP':
             'SLITS_IMAGSET':
@@ -62,62 +62,132 @@ class ShoeAgent(Agent):
     def SLITS_comand_handler(self, command):
         """ Handle a SLITS command """
         if '?' in command.string:
-            command.state='complete'
-            command.reply='TODO: Fetching of slit positions not yet implemented.\n'
+            """ Retrieve the slit positions """
+            if 'R' in command.string:
+                def onReply(source, reply):
+                    command.state='complete'
+                    command.reply=reply+'\n'
+                self.shoeR_connection.sendMessage('SLITS ?', 
+                    responseCallback=onReply, errorCallback=onReply)
+            elif 'B' in command.string:
+                def onReply(source, reply):
+                    command.state='complete'
+                    command.reply=reply+'\n'
+                self.shoeB_connection.sendMessage('SLITS ?', 
+                    responseCallback=onReply, errorCallback=onReply)
         else:
             """Command should be in form SLITS [R|B] #,#,#,#,#,#,#,# """
-            if self.operating_mode='OPEN_LOOP':
-                def onAcceptaceOfCommand(source, reply):
+            if not self.closed_loop:
+                def onReply(source, reply):
                     command.state='complete'
-                    command.reply=response_string+'\n'
+                    command.reply=reply+'\n'
                 if 'R' in command.string:
-                    self.shoeR_connection.sendMessage( command_string w/o R/B, responseCallback=onAcceptaceOfCommand)
+                    shoe_command='SLITS'+command.string.partition('R')[2]
+                    self.shoeR_connection.sendMessage(shoe_command, 
+                        responseCallback=onReply, errorCallback=onReply)
                 elif 'B' in command.string:
-                    self.shoeB_connection.sendMessage( command_string w/o R/B, responseCallback=onAcceptaceOfCommand)
+                    shoe_command='SLITS'+command.string.partition('B')[2]
+                    self.shoeB_connection.sendMessage(shoe_command,
+                        responseCallback=onReply, errorCallback=onReply)
             else:
                 """ We are operating closed loop, way more work to do folks"""
                 command.state='complete'
-                command.reply='Closed Loop slit control not yet implemented. Switch to open loop mode.\n'
+                command.reply='!ERROR: Closed loop control not yet implemented. Switch to open loop mode.\n'
     
     def SLITS_CLOSEDLOOP_command_handler(self, command):
         """ handle switching between open and closed loop control"""
         if '?' in command.string:
             command.state='complete'
-            command.reply='TODO: Fetching of slit positions not yet implemented.\n'
-        elif any slits are currently moving:
+            command.reply='On\n' if self.closed_loop else 'Off\n'
+        elif:
+            def onReply(source, string):
+                if string means a motor is moving:
+                    command.state='complete'
+                    command.reply='!ERROR: Slits currently in motion. Try switching control mode later.\n'
+                else:
+                    def onReply2(source, string):
+                        if string means a motor is moving:
+                            command.state='complete'
+                            command.reply='!ERROR: Slits currently in motion. Try switching control mode later.\n'
+                        else:
+                            command.state='complete'
+                            command.reply='OK\n'
+                            self.closed_loop= 'ON' in command.string
+                    self.shoeB_connection.sendMessage('STATUS', responseCallback=onReply2)
+            self.shoeR_connection.sendMessage('STATUS', responseCallback=onReply)
+            
+    def SLITS_CLOSEDLOOP_command_handler_blocking(self, command):
+        """ handle switching between open and closed loop control"""
+        if '?' in command.string:
             command.state='complete'
-            command.reply='!ERROR: Slits currently in motion try switching control mode later.\n'
+            command.reply='On\n' if self.closed_loop else 'Off\n'
+        elif:
+            #First check Red shoe for motion
+            try:
+                self.shoeR_connection.sendMessageBlocking('STATUS')
+                status_msg=self.shoeR_connection.recieveBlocking()
+                if string means a motor is moving:
+                    command.state='complete'
+                    command.reply='!ERROR: Slits currently in motion. Try switching control mode later.\n'
+                    return
+            except SelectedSocketError, e:
+                command.state='complete'
+                command.reply='!ERROR: Coult not get slit motion status.\n'
+                return
+            #Then check Blue show for motion
+            try:
+                self.shoeB_connection.sendMessageBlocking('STATUS')
+                status_msg=self.shoeB_connection.recieveBlocking()
+                if string means a motor is moving:
+                    command.state='complete'
+                    command.reply='!ERROR: Slits currently in motion. Try switching control mode later.\n'
+                    return
+            except SelectedSocketError, e:
+                command.state='complete'
+                command.reply='!ERROR: Coult not get slit motion status.\n'
+                return
+            #Made it this far, nothing is moving
+            command.state='complete'
+            command.reply='OK\n'
+            self.closed_loop='ON' in command.string
+    
+    def SLITS_ACTIVEHOLD_command_handler(self, command):
+        """ handle switching between motors on while idle and motors off"""
+        if '?' in command.string:
+            command.state='complete'
+            command.reply='On\n' if self.active_hold else 'Off\n'
         elif 'ON' in command.string:
             command.state='complete'
             command.reply='OK\n'
-            self.operating_mode='CLOSED_LOOP'
+            self.active_hold=True
+            self.shoeR_connection.sendMessage('ACTIVEHOLDON', responseCallback=onAcceptaceOfCommand)
+            self.shoeB_connection.sendMessage('ACTIVEHOLDON', responseCallback=onAcceptaceOfCommand)
         else:
             command.state='complete'
             command.reply='OK\n'
-            self.operating_mode='OPEN_LOOP'
-    
-    
-    def main(self):
-        """
-        Loop forever, acting on commands as received if on a port.
-        
-        Run once from command line if no port.
-        
-        """
-        if self.PORT is None:
-            self.logger.info('Command line commands not yet implemented.')
-            sys.exit(0)
-        while True:
-            self.do_select()
-
-            #log commands
-            for command in self.commands:
-                self.logger.debug(command)
+            self.active_hold=False
+            self.shoeR_connection.sendMessage('ACTIVEHOLDOFF', responseCallback=onAcceptaceOfCommand)
+            self.shoeB_connection.sendMessage('ACTIVEHOLDOFF', responseCallback=onAcceptaceOfCommand)
             
-            self.cull_dead_sockets_and_their_commands()
-            self.handle_completed_commands()
             
-
+    def SLITS_ACTIVEHOLD_command_handler(self, command):
+        """ handle switching between motors on while idle and motors off"""
+        if '?' in command.string:
+            command.state='complete'
+            command.reply='On\n' if self.active_hold else 'Off\n'
+        elif 'ON' in command.string:
+            command.state='complete'
+            command.reply='OK\n'
+            self.active_hold=True
+            self.shoeR_connection.sendMessage('ACTIVEHOLDON', responseCallback=onAcceptaceOfCommand)
+            self.shoeB_connection.sendMessage('ACTIVEHOLDON', responseCallback=onAcceptaceOfCommand)
+        else:
+            command.state='complete'
+            command.reply='OK\n'
+            self.active_hold=False
+            self.shoeR_connection.sendMessage('ACTIVEHOLDOFF', responseCallback=onAcceptaceOfCommand)
+            self.shoeB_connection.sendMessage('ACTIVEHOLDOFF', responseCallback=onAcceptaceOfCommand)
+    
 
 if __name__=='__main__':
     agent=ShoeAgent()

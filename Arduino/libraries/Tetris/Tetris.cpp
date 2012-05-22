@@ -111,7 +111,6 @@ void Tetris::motorOn() {
 
 bool Tetris::motorIsOn() {
   return digitalRead(_standby_pin);
-  
 }
 
 void Tetris::setBacklash(unsigned int b){

@@ -9,7 +9,6 @@ class ConnectError(IOError):
 
 class SelectedConnection(object):
     def __init__(self, logger=None,
-                default_message_recieved_callback=None,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):

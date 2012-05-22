@@ -7,7 +7,7 @@ class WriteError(IOError):
 class ConnectError(IOError):
     pass
 
-class SelectedConnection():
+class SelectedConnection(object):
     def __init__(self, logger=None,
                 default_message_recieved_callback=None,
                 default_message_received_callback=None,
@@ -163,7 +163,7 @@ class SelectedSerial(SelectedConnection):
         self.connection=None
         try:
             self.connect()
-        except serial.SerialException, err:
+        except ConnectError, err:
             self.connection=None
             self.logger.info('Could not connect to %s. %s' % 
                 (self.addr_str(),str(err)))
@@ -180,9 +180,10 @@ class SelectedSerial(SelectedConnection):
             return
         if message[-1]=='\n':
             message+='\n'
-        self.connection.flushInput()
-        self.connection.write(message)
-        self.connection.flush()
+        try:
+          self.connection.flushInput()
+          self.connection.write(message)
+          self.connection.flush()
         except serial.SerialException, e:
             self.handle_error(e)
             raise IOError
@@ -195,11 +196,11 @@ class SelectedSerial(SelectedConnection):
         saved_timeout=self.connection.timeout
         self.connection.timeout=timeout
         try:
-            if type(delim)==str:
-                response=self.connection.readline(eol=delim)
+            if nBytes==0:
+                response=self.connection.readline()
             else:
                 response=self.connection.read(nBytes)
-            response=trimNewlineFromString(response)
+            response=self.trimNewlineFromString(response)
         except serial.SerialException, e:
             self.handle_error(e)
             raise IOError

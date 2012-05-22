@@ -8,25 +8,36 @@ import atexit
 import sys
 import select
 from SelectedSocket import SelectedSocket
+from m2fsConfig import m2fsConfig
+
 SERVER_RETRY_TIME=10
 class Agent():
-    def __init__(self, name):
-        self.name=name
+class Agent(object):
+    def __init__(self, basename):
         self.sockets=[]
         self.devices=[]
         self.commands=[]
         self.max_clients=1
-        self.initialize_logger()
         self.initialize_cli_parser()
         self.args=self.cli_parser.parse_args()
+        if 'SIDE' in self.args:
+            self.name=basename+self.args.SIDE
+        else:
+            self.name=basename
+        self.initialize_logger()
         if self.args.DAEMONIZE:
             self.daemonize()
         if self.args.PORT:
             self.PORT=self.args.PORT
             self.initialize_socket_server(tries=5)
         else:
-            self.PORT=None
-            self.server_socket=None
+            port=m2fsConfig.getPort(self.name)
+            if port:
+                self.PORT=port
+                self.initialize_socket_server(tries=5)
+            else:
+                self.PORT=None
+                self.server_socket=None
 
         #register an exit function
         atexit.register(self.on_exit, self)

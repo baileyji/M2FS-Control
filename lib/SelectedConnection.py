@@ -15,7 +15,7 @@ class SelectedConnection():
                 default_message_error_callabck=None):
 
         self.logger=logger
-        self.defaultResponseCallback=default_message_recieved_callback
+        self.defaultResponseCallback=default_message_received_callback
         self.defaultSentCallback=default_message_sent_callback
         self.defaultErrorCallback=default_message_error_callabck
         self.responseCallback=self.defaultResponseCallback
@@ -107,7 +107,7 @@ class SelectedConnection():
             if count is not -1:
                 message_str=self.in_buffer[0:count+1]
                 self.in_buffer=self.in_buffer[count+1:]
-                self.logger.debug("Recieved message '%s' on %s" % 
+                self.logger.debug("received message '%s' on %s" % 
                     (message_str.replace('\n','\\n'), self))
                 if self.responseCallback:
                     callback=self.responseCallback
@@ -147,12 +147,12 @@ class SelectedConnection():
 import serial, termios
 class SelectedSerial(SelectedConnection):
     def __init__(self, port, baudrate, logger,
-                default_message_recieved_callback=None,
+                default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):
                 
         SelectedConnection.__init__(self, logger=logger,
-                default_message_recieved_callback=default_message_recieved_callback,
+                default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
                 default_message_error_callabck=default_message_error_callabck)
         self.port=port
@@ -167,10 +167,10 @@ class SelectedSerial(SelectedConnection):
             self.connection=None
             self.logger.info('Could not connect to %s. %s' % 
                 (self.addr_str(),str(err)))
-
+    
     def addr_str(self):
         return "%s@%s"%(self.port,self.baudrate)
-
+    
     def sendMessageBlocking(self, message):
         """ Send a string immediately, appends string terminator if needed"""
         if not self.isOpen():
@@ -186,8 +186,8 @@ class SelectedSerial(SelectedConnection):
         except serial.SerialException, e:
             self.handle_error(e)
             raise IOError
-            
-    def recieveMessageBlocking(self, nBytes=0, delim=None, timeout=.125):
+    
+    def receiveMessageBlocking(self, nBytes=0, timeout=.125):
         """Wait for a response, chops \r & \n off response if present"""
         if not self.isOpen():
             self.logger.error('Attempting to receive on %s' % str(self) )
@@ -227,7 +227,7 @@ class SelectedSerial(SelectedConnection):
             return data
         except serial.SerialException, err:
             raise ReadError(err)
-
+    
     def implementationSpecificWrite(self, data):
         """ Perform a device specific read, Raise WriteError if no data or any error """
         try:
@@ -248,11 +248,11 @@ class SelectedSerial(SelectedConnection):
 import socket
 class SelectedSocket(SelectedConnection):
     def __init__(self, host, port, logger, Live_Socket_To_Use=None,
-                default_message_recieved_callback=None,
+                default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):
         SelectedConnection.__init__(self, logger=logger,
-                default_message_recieved_callback=default_message_recieved_callback,
+                default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
                 default_message_error_callabck=default_message_error_callabck)
         self.host=host
@@ -296,8 +296,8 @@ class SelectedSocket(SelectedConnection):
         except socket.error,err:
             self.handle_error(str(err))
             raise IOError
-            
-    def recieveMessageBlocking(self, nBytes=1024, timeout=.125):
+    
+    def receiveMessageBlocking(self, nBytes=1024, timeout=.125):
         """Wait for a response, chops \r & \n off response if present"""
         if not self.isOpen():
             self.logger.error('Attempting to receive on %s' % str(self) )
@@ -318,7 +318,7 @@ class SelectedSocket(SelectedConnection):
             if self.connection !=None:
                 self.connection.settimeout(saved_timeout)
         return response
-
+    
     def connect(self):
         if self.connection is None:
             thesocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -336,7 +336,7 @@ class SelectedSocket(SelectedConnection):
             return data
         except socket.error, err:
             raise ReadError(err)
-
+    
     def implementationSpecificWrite(self, data):
         """ Perform a device specific read, Raise WriteError if no data or any error """
         try:

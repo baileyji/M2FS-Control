@@ -200,10 +200,10 @@ void saveMotorPositionsToEEPROM() {
 }
 
 void printCommandBufNfo(){
-  cout<<"Command Buffer Info"<<'\n';
-  cout<<"Buf ndx: "<<(unsigned int)command_buffer_ndx<<" Cmd len: "<<(unsigned int)command_length<<'\n';
+  cout<<"Command Buffer Info";Serial.write('\n');
+  cout<<"Buf ndx: "<<(unsigned int)command_buffer_ndx<<" Cmd len: "<<(unsigned int)command_length;Serial.write('\n');
   cout<<"Contents:";Serial.write((const uint8_t*)command_buffer,command_buffer_ndx);
-  cout<<'\n';
+  Serial.write('\n');
 }
 
 bool parseCommand() {
@@ -300,7 +300,7 @@ bool SGcommand() {
       else cout<<"INTERMEDIATE";
     }
   }
-  cout<<'\n';
+  Serial.write('\n');
   
   
   return true;
@@ -322,7 +322,7 @@ bool SDcommand() {
   else {
     tetris[axis-1].tellSlitPosition(slit);
   }
-  cout<<'\n';
+  Serial.write('\n');
   return true;
 }
 
@@ -333,7 +333,8 @@ bool TScommand() {
   for (int i=0;i<8;i++) statusBytes[0]|=(tetris[i].moving()<<i);
   for (int i=0;i<8;i++) statusBytes[1]|=(tetris[i].motorIsOn()<<i);
   statusBytes[2]=(tetrisShieldIsR()<<1)|tetrisShieldIsPowered();
-  cout<<statusBytes[2]<<" "<<statusBytes[1]<<" "<<statusBytes[0]<<'\n';
+  cout<<statusBytes[2]<<" "<<statusBytes[1]<<" "<<statusBytes[0];
+  Serial.write('\n');
   return true;
 }
 
@@ -371,7 +372,7 @@ bool TDcommand(){
     else
       tetris[axis-1].tellPosition();
   }
-  cout<<'\n';
+  Serial.write('\n');
   return true;
 }
 
@@ -497,13 +498,14 @@ bool PAcommand() {
 
 //Report the version string
 bool PVcommand() {
-  cout<<VERSION_STRING<<'\n';
+  cout<<VERSION_STRING;
+  Serial.write('\n');
   return true;
 }
 
 //Report the last temp reading
 bool TEcommand() {
-  cout<<lastTempReading<<'\n';
+  cout<<lastTempReading;Serial.write('\n');
 }
 
 //Define the nominal position
@@ -566,23 +568,23 @@ bool DHcommand() {
 
 //Print the commands
 bool PCcommand() {
-  cout<<"#PC   Print Commands - Print the list of commands"<<'\n';
-  cout<<"#VO   Voltage Off - Power down the tetris motors"<<'\n';
-  cout<<"#VE   Voltage Enable - Power up the motor supply"<<'\n';
-  cout<<"#TS   Tell Status - Tell the status bytes"<<'\n';
+  cout<<"#PC   Print Commands - Print the list of commands";Serial.write('\n');
+  cout<<"#VO   Voltage Off - Power down the tetris motors";Serial.write('\n');
+  cout<<"#VE   Voltage Enable - Power up the motor supply";Serial.write('\n');
+  cout<<"#TS   Tell Status - Tell the status bytes";Serial.write('\n');
   
-  cout<<"#TDx  Tell Position - Tell position of tetris x in microsteps"<<'\n';
-  cout<<"#SHx  Servo Here - Turn on tetris x"<<'\n';
-  cout<<"#MOx  Motor Off - Turn off motor in tetris x"<<'\n';
-  cout<<"#STx  Stop - Stop motion of tetris x"<<'\n';
+  cout<<"#TDx  Tell Position - Tell position of tetris x in microsteps";Serial.write('\n');
+  cout<<"#SHx  Servo Here - Turn on tetris x";Serial.write('\n');
+  cout<<"#MOx  Motor Off - Turn off motor in tetris x";Serial.write('\n');
+  cout<<"#STx  Stop - Stop motion of tetris x";Serial.write('\n');
   
-  cout<<"#DPx# Define Position - Define the current position of tetris x to be #"<<'\n';
-  cout<<"#PAx# Position Absolute - Command tetris x to move to position #"<<'\n';
-  cout<<"#PRx# Position Relative - Command tetris x to move #"<<'\n';
-  cout<<"#SPx# Speed - Set the movement speed of tetris x to # (usteps/s)"<<'\n';
-  cout<<"#ACx# Acceleration - Set the acceleration rate of tetris x to # (usteps/s^2)"<<'\n';
-  cout<<"#SLx# Slit - Command tetris x to go to the position of slit #"<<'\n';
-  cout<<"#SDx# Slit Define - Set slit # for tetris x to be at the current position"<<'\n';
-  cout<<"#BLx# Backlash - Set the amount of backlash of tetris x to # (usteps)"<<'\n';
+  cout<<"#DPx# Define Position - Define the current position of tetris x to be #";Serial.write('\n');
+  cout<<"#PAx# Position Absolute - Command tetris x to move to position #";Serial.write('\n');
+  cout<<"#PRx# Position Relative - Command tetris x to move #";Serial.write('\n');
+  cout<<"#SPx# Speed - Set the movement speed of tetris x to # (usteps/s)";Serial.write('\n');
+  cout<<"#ACx# Acceleration - Set the acceleration rate of tetris x to # (usteps/s^2)";Serial.write('\n');
+  cout<<"#SLx# Slit - Command tetris x to go to the position of slit #";Serial.write('\n');
+  cout<<"#SDx# Slit Define - Set slit # for tetris x to be at the current position";Serial.write('\n');
+  cout<<"#BLx# Backlash - Set the amount of backlash of tetris x to # (usteps)";Serial.write('\n');
   return true;
 }

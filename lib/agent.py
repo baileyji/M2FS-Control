@@ -223,18 +223,15 @@ class Agent(object):
 
     def not_implemented_command_handler(self, command):
         """ Placeholder command handler """
-        command.state='complete'
-        command.reply='!ERROR: Command not implemented.\n'
+        command.setReply('!ERROR: Command not implemented.\n')
     
     def bad_command_handler(self, command):
         """ Handle an unrecognized command """
-        command.state='complete'
-        command.reply='!ERROR: Unrecognized command.\n'
+        command.setReply('!ERROR: Unrecognized command.\n')
         
     def version_request_command_handler(self,command):
         """ Handle a version request """ 
-        command.state='complete'
-        command.reply=self.get_version_string()+'\n'
+        command.setReply(self.get_version_string()+'\n')
 
 
     def do_select(self):

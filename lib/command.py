@@ -15,5 +15,5 @@ class Command:
                 
                 
     def setReply(self, reply):
-        command.state='complete'
-        command.reply=reply
+        self.state='complete'
+        self.reply=reply

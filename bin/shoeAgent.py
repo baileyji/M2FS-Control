@@ -1,5 +1,4 @@
 #!/opt/local/bin/python2.7
-#!/opt/local/bin/python2.7
 import time
 import argparse
 import socket
@@ -11,49 +10,53 @@ import serial
 import sys
 import select
 sys.path.append('../lib/')
-from SelectedConnection import SelectedSerial
+import SelectedConnection
 from agent import Agent
 from command import Command
 
 MAX_CLIENTS=2
 
-class ShoeFirmwareError(Exception):
+class ShoeFirmwareError(SelectedConnection.ConnectError):
     pass
 
-class ShoeSerial(SelectedSerial):
+class ShoeSerial(SelectedConnection.SelectedSerial):
     def connect(self):
         if self.connection is None:
             expected_version_string='Fibershoe v0.1'
-            critical_error_message=''
             try:
-                self.connection=serial.Serial(self.port, self.baudrate, timeout=.5)
+                self.connection=serial.Serial(self.port, self.baudrate, 
+                    timeout=self.timeout)
+                time.sleep(1)
                 self.sendMessageBlocking('PV\n')
-                response=self.receiveMessageBlocking(delim='\n')
+                response=self.receiveMessageBlocking()
                 #response=expected_version_string #DEBUGGING LINE OF CODE
                 if response != expected_version_string:
                     error_message=("Incompatible Firmware. Shoe reported '%s' , expected '%s'." %
                         (response,expected_version_string))
-                    self.serial.close()
+                    self.connection.close()
+                    self.connection=None
                     raise ShoeFirmwareError(error_message)
             except serial.SerialException,e:
-                error_message="Failed initialize serial link. Exception: %s"%str(e)
-            except IOError:
-                error_message="Shoe failed to handshake."
-            if error_message !='':
+                error_message="Failed initialize serial link. Exception: %s"% e 
                 self.logger.error(error_message)
-                self.serial.close()
-                raise ConnectError(error_message)
+                #self.connection.close()
+                self.connection=None
+                raise SelectedConnection.ConnectError(error_message)
+            except IOError,e :
+                if type(e)==type(ShoeFirmwareError):
+                  print 'type match'
+                  raise e
+                error_message="Shoe failed to handshake. %s"%e
+                self.logger.error(error_message)
+                #self.connection.close()
+                self.connection=None
+                raise SelectedConnection.ConnectError(error_message)
 
 class ShoeAgent(Agent):
     def __init__(self):
-        Agent.__init__(self,'Shoe Agent')
+        Agent.__init__(self,'ShoeAgent')
         #Initialize the shoe
-        try:
-            self.shoe=ShoeSerial(self.args.DEVICE, 115200, self.logger)
-        except ShoeFirmwareError:
-            pass #TODO add logging
-        except ConnectError:
-            pass  #TODO add logging
+        self.shoe=ShoeSerial(self.args.DEVICE, 115200, self.logger, timeout=.5)
         self.devices.append(self.shoe)
     
     def listenOn(self):
@@ -78,6 +81,10 @@ class ShoeAgent(Agent):
                                 action='store', required=False, type=str,
                                 help='the device to control',
                                 default='/dev/shoeR')
+        cli_parser.add_argument('--side', dest='SIDE',
+                                action='store', required=False, type=str,
+                                help='R or B',
+                                default='R')
         cli_parser.add_argument('-p','--port', dest='PORT',
                                 action='store', required=False, type=int,
                                 help='the port on which to listen')
@@ -88,24 +95,25 @@ class ShoeAgent(Agent):
     def get_version_string(self):
         return 'Shoe Agent Version 0.2'
     
-    def socket_message_recieved_callback(self, source, message_str):
+    def socket_message_received_callback(self, source, message_str):
         """Create and execute a Command from the message"""
         """Dispatch message to from the appropriate handler"""
         command_handlers={
-            'SLITS':SLITS_comand_handler,
-            'SLITS_SLITPOS':SLITPOS_command_handler,
-            'SLITS_CURRENTPOS':CURRENTPOS_command_handler,
-            'ACTIVEHOLDON':ACTIVEHOLD_command_handler,
-            'ACTIVEHOLDOFF':ACTIVEHOLD_command_handler,
-            'SLITS_TEMP':TEMP_command_handler,
-            'SLITS_MOVSTEPS':MOVESTEPS_command_handler,
-            'SLITS_HARDSTOP':HARDSTOP_command_handler,
+            'SLITS':self.SLITS_command_handler,
+            'SLITS_SLITPOS':self.SLITPOS_command_handler,
+            'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
+            'ACTIVEHOLDON':self.ACTIVEHOLD_command_handler,
+            'ACTIVEHOLDOFF':self.ACTIVEHOLD_command_handler,
+            'SLITS_TEMP':self.TEMP_command_handler,
+            'SLITS_MOVSTEPS':self.MOVESTEPS_command_handler,
+            'SLITS_HARDSTOP':self.HARDSTOP_command_handler,
             'SLITS_STATUS':self.status_command_handler,
             'SLITS_VERSION':self.version_request_command_handler}
         command_name=message_str.partition(' ')[0]
         command=Command(source, message_str)
-        if filter(lambda x: x.source==source, self.commands):
-            self.logger.warning('Command %s recieved before command %s finished.' %
+        existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
+        if existing_commands_from_source:
+            self.logger.warning('Command %s received before command %s finished.' %
                 (message_str, existing_commands_from_source[0].string))
         else:
             self.commands.append(command)
@@ -117,7 +125,7 @@ class ShoeAgent(Agent):
         try:
             self.shoe.connect()
             self.shoe.sendMessageBlocking(msg)
-            response=self.shoe.recieveMessageBlocking(nBytes=1)
+            response=self.shoe.receiveMessageBlocking(nBytes=1)
             if response == ':':
                 command.setReply('OK\n')
             else:
@@ -131,7 +139,7 @@ class ShoeAgent(Agent):
         try:
             self.shoe.connect()
             self.shoe.sendMessageBlocking(msg)
-            response=self.shoe.recieveMessageBlocking(delim='\n')
+            response=self.shoe.receiveMessageBlocking()
             if ':' in response:
                 command.setReply(response.replace(':','\n'))
             else:
@@ -162,10 +170,10 @@ class ShoeAgent(Agent):
                 len(command_parts[6])==1 and command_parts[6] in '1234567' and
                 len(command_parts[7])==1 and command_parts[7] in '1234567' and
                 len(command_parts[8])==1 and command_parts[8] in '1234567'):
+                self.simpleSend('SL'+''.join(command_parts[1:])+'\n', command)
             else:
                 command.setReply('!ERROR: Improperly formatted command.\n')
                 return
-            self.simpleSend('SL'+''.join(command_parts[1:])+'\n', command)
     
     def SLITPOS_command_handler(self, command):
         """ Handle geting/setting the nominal slit position in steps """

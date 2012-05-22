@@ -187,13 +187,19 @@ class SelectedSerial(SelectedConnection):
             self.handle_error(e)
             raise IOError
     
-    def receiveMessageBlocking(self, nBytes=0, timeout=.125):
+    def receiveMessageBlocking(self, nBytes=0, timeout=None):
         """Wait for a response, chops \r & \n off response if present"""
         if not self.isOpen():
             self.logger.error('Attempting to receive on %s' % str(self) )
             raise IOError
-        saved_timeout=self.connection.timeout
-        self.connection.timeout=timeout
+        if type(timeout) in (int,float,long) and timeout>0:
+            saved_timeout=self.connection.timeout
+            self.connection.timeout=timeout
+        elif not self.connection.timeout:
+            self.connection.timeout=0.125
+            saved_timeout=None
+        else:
+          saved_timeout=self.connection.timeout
         try:
             if nBytes==0:
                 response=self.connection.readline()
@@ -227,6 +233,8 @@ class SelectedSerial(SelectedConnection):
             return data
         except serial.SerialException, err:
             raise ReadError(err)
+        except IOError, err:
+            raise ReadError(err)
     
     def implementationSpecificWrite(self, data):
         """ Perform a device specific read, Raise WriteError if no data or any error """
@@ -238,9 +246,13 @@ class SelectedSerial(SelectedConnection):
     
     def implementationSpecificDisconnect(self):
         """disconnection specific to serial"""
-        self.connection.flushOutput()
-        self.connection.flushInput()
-        self.connection.close()
+        try:
+            self.connection.flushOutput()
+            self.connection.flushInput()
+            self.connection.close()
+        except termios.error:
+          pass
+
     
     def isOpen(self):
         return self.connection is not None and self.connection.isOpen()

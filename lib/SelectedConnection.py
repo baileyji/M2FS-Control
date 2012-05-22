@@ -106,7 +106,7 @@ class SelectedConnection(object):
             if count is not -1:
                 message_str=self.in_buffer[0:count+1]
                 self.in_buffer=self.in_buffer[count+1:]
-                self.logger.debug("received message '%s' on %s" % 
+                self.logger.debug("Received message '%s' on %s" % 
                     (message_str.replace('\n','\\n'), self))
                 if self.responseCallback:
                     callback=self.responseCallback

@@ -7,7 +7,7 @@ import logging.handlers
 import atexit
 import sys
 import select
-from SelectedSocket import SelectedSocket
+from SelectedConnection import SelectedSocket
 from m2fsConfig import m2fsConfig
 
 SERVER_RETRY_TIME=10

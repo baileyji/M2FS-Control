@@ -152,6 +152,7 @@ void loop() {
     //printCommandBufNfo();
     bool commandGood=parseCommand();
     cout<<(commandGood ? ':':'?');
+    Serial.write('\n');
     have_command_to_parse=false;
     command_buffer_ndx=0;
   }
@@ -300,7 +301,7 @@ bool SGcommand() {
       else cout<<"INTERMEDIATE";
     }
   }
-  Serial.write('\n');
+  
   
   
   return true;
@@ -322,7 +323,7 @@ bool SDcommand() {
   else {
     tetris[axis-1].tellSlitPosition(slit);
   }
-  Serial.write('\n');
+  
   return true;
 }
 
@@ -334,7 +335,7 @@ bool TScommand() {
   for (int i=0;i<8;i++) statusBytes[1]|=(tetris[i].motorIsOn()<<i);
   statusBytes[2]=(tetrisShieldIsR()<<1)|tetrisShieldIsPowered();
   cout<<statusBytes[2]<<" "<<statusBytes[1]<<" "<<statusBytes[0];
-  Serial.write('\n');
+  
   return true;
 }
 
@@ -372,7 +373,7 @@ bool TDcommand(){
     else
       tetris[axis-1].tellPosition();
   }
-  Serial.write('\n');
+  
   return true;
 }
 
@@ -499,13 +500,13 @@ bool PAcommand() {
 //Report the version string
 bool PVcommand() {
   cout<<VERSION_STRING;
-  Serial.write('\n');
   return true;
 }
 
 //Report the last temp reading
 bool TEcommand() {
-  cout<<lastTempReading;Serial.write('\n');
+  cout<<lastTempReading;
+  return true;
 }
 
 //Define the nominal position

@@ -149,7 +149,7 @@ class SelectedSerial(SelectedConnection):
     def __init__(self, port, baudrate, logger,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
-                default_message_error_callabck=None):
+                default_message_error_callabck=None,timeout=None):
                 
         SelectedConnection.__init__(self, logger=logger,
                 default_message_received_callback=default_message_received_callback,
@@ -157,7 +157,7 @@ class SelectedSerial(SelectedConnection):
                 default_message_error_callabck=default_message_error_callabck)
         self.port=port
         self.baudrate=baudrate
-        self.timeout=None
+        self.timeout=timeout
         creation_message='Creating SelectedSerial: '+self.addr_str()
         self.logger.debug(creation_message)
         self.connection=None

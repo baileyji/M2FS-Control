@@ -11,7 +11,6 @@ from SelectedSocket import SelectedSocket
 from m2fsConfig import m2fsConfig
 
 SERVER_RETRY_TIME=10
-class Agent():
 class Agent(object):
     def __init__(self, basename):
         self.sockets=[]
@@ -142,7 +141,7 @@ class Agent(object):
         """ Implemented by subclass """
         pass
     
-    def socket_message_recieved_callback(self, source, message):
+    def socket_message_received_callback(self, source, message):
         """ Implemented by subclass """
         pass
         
@@ -169,7 +168,7 @@ class Agent(object):
             connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             soc = SelectedSocket(addr[0],addr[1], self.logger,
                 Live_Socket_To_Use=connection,
-                default_message_recieved_callback=self.socket_message_recieved_callback)
+                default_message_received_callback=self.socket_message_received_callback)
             self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
             self.sockets.append(soc)
         else:

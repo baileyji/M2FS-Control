@@ -31,6 +31,7 @@ class Tetris
     bool motorIsOn();
     void motorOn();
     void tellPosition();
+    int32_t currentPosition();
     void tellSlitPosition(uint8_t slit);
     void stop();
     bool moving();

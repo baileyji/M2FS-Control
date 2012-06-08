@@ -121,6 +121,10 @@ void Tetris::tellPosition() {
   Serial.print(_motor.currentPosition());
 }
 
+int32_t Tetris::currentPosition() {
+  return _motor.currentPosition();
+}
+
 void Tetris::tellSlitPosition(uint8_t slit) {
   if (slit <7)
     Serial.print(_slitPositions[slit]);
@@ -136,6 +140,8 @@ bool Tetris::moving(){
 }
 
 void Tetris::definePosition(long p) {
+  _calibrated=true;
+  _calibration_in_progress=0;
   _motor.setCurrentPosition(p);
 }
 
@@ -169,6 +175,7 @@ void Tetris::positionRelativeMove(long d){
 }
 
 void Tetris::positionAbsoluteMove(long p){
+  if (p == _motor.currentPosition()) return;
   //Handle backlash
   if (_lastDir<0 && (p>_motor.currentPosition()))
   {
@@ -181,6 +188,7 @@ void Tetris::positionAbsoluteMove(long p){
       _lastDir=-1;
   }
   //Move
+  motorOn();
   _motor.moveTo(p);
 }
 
@@ -190,6 +198,6 @@ void Tetris::positionAbsoluteMove(long p){
 void Tetris::calibrateToHardStop(){
   _calibrated=false;
   _motor.setCurrentPosition(0);
-  _motor.moveTo(1500);
+  _motor.moveTo(1500*16);
   _calibration_in_progress=2; //First stage
 }

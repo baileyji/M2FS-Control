@@ -56,7 +56,8 @@ unknown=4
 lores=5
 hires=6
 settle=7
-filterp1=8
+lrswap=8
+filterp1=9
 'rest of filter position enums are set automatically
 filterp2=filterp1+1;filterp3=filterp1+2;filterp4=filterp1+3;filterp5=filterp1+4
 filterp6=filterp1+5;filterp7=filterp1+6;filterp8=filterp1+7;filterld=filterp1+8
@@ -232,6 +233,8 @@ geshrp=7400;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
 geslrp=265000;'(steps) Position of LoRes mode from calibrated 0 TODO: finalize
 geslrep=3798; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
 geshrep=285; 'GES HR encoder nominal position TODO: finalize
+gesgsp=0;' GES Grating Swap position relative to calibrated 0 TODO: determine
+gesgsep=0;' GES Grating Swap encoder nominal position TODO: determine
 'GES encoder nominal position tolerance 
 gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
 
@@ -246,6 +249,7 @@ lrtinpt=2 ;'  Digital in corresponding to the LoRes origin sensor
 lrtinhx=$2
 lrtathm=1 ;'  value of origin sensor (via @IN) when at home
 lrhomng=false
+lrswapp=32000;' step position for lr grating swap
 
 'Filter related defines
 nfilt=8 ;' Number of filter slots
@@ -262,7 +266,7 @@ feselfp[6]=0
 feselfp[7]=0
 feselfp[8]=0
 'FES Elevator nominal filter position in encoder counts
-felencsp=324.24;'579"
+felencsp=324.24;'.579" filter spacing
 DM felencp[^a]
 felencp[0]=4050
 felencp[1]=felencp[0]-felencsp
@@ -295,9 +299,6 @@ SD ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
 'Set homing velocity defaults
 HV axdecel[0],axdecel[1],axdecel[2],axdecel[3]
 HV ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
-REM MT -2.5,-2,-2,-2,-2,-2,-2.5,-2.5;KS*=1;AG 3,1,3,1,1,0,0,0;AQ1,4;AQ3,4;AQ5,4;
-REM AQ7,4;AQ8,4;AF 1,,1,,1;YA 16,4,16,4,16,16,16,16;ER*=-1;CN 1,-1,,1,1
-REM YB 200,200,200,200,200,400,400,400;ER*=-1;YC 45,,102,,82
 
 EN
 
@@ -334,6 +335,7 @@ EN
 '***************************************************************************
 #AUTO
 HX1;HX2
+bootup1=1
 JS#M2FSCFG
 JS#INIT
 'Query the Filter elevator position to initialize nearfilt
@@ -609,9 +611,87 @@ IF(^h=moving);~a=^a;MG "GETGES: MOVING",_TP~a,_TD~a;ENDIF
 IF(^h=settle);~a=^a;MG "GETGES: SETTLING",gesanap,_TD~a;ENDIF
 IF(^h=lores);~a=^a;MG "GETGES: LORES",gesanap,_TD~a;ENDIF
 IF(^h=hires);~a=^a;MG "GETGES: HIRES",gesanap,_TD~a;ENDIF
+IF(^h=lrswap);~a=^a;MG "GETGES: SWAP",gesanap,_TD~a;ENDIF
 IF(^h=intermd);~a=^a;MG "GETGES: INTERMEDIATE",gesanap,_TD~a;ENDIF
 ENDIF
 EN
+
+
+'***************************************************************************
+' QUery GES Position (simple, ignore analog encoder)
+' returns hires, lores, unknown, intermd
+' TODO sort out behavior for case where motor and pot disagree
+'***************************************************************************
+#QUGESP
+^a=GESAX;~a=^a;^g=_TD~a
+~a=^a;IF (_TS~a & $80);^h=moving
+ELSE;IF(axiscal[^a]<>true);^h=unknown
+ELSE;IF (^g=geslrp);^h=lores
+ELSE;IF (^g=geshrp);^h=hires
+ELSE;IF (^g=gesgsp);^h=lrswap
+ELSE;^h=intermd
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' Get GES (simple, ignore analog encoder)
+' Return the GES position
+'***************************************************************************
+#GETGES
+^a=GESAX
+'Determine status
+~a=^a;IF (_TS~a & $80);^h=moving
+ELSE;IF(axiscal[^a]<>true);^h=unknown
+ELSE
+REM ^g step position
+~a=^a;^g=_TD~a
+IF (^g=geslrp);^h=lores
+ELSE;IF (^g=geshrp);^h=hires
+ELSE;IF (^g=gesgsp);^h=lrswap
+ELSE;^h=intermd
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+'Report status
+IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
+ELSE
+IF(^h=unknown);MG "GETGES: UNCALIBRATED";ENDIF
+IF(^h=moving);~a=^a;MG "GETGES: MOVING",_TP~a,_TD~a;ENDIF
+IF(^h=lores);~a=^a;MG "GETGES: LORES",gesanap,_TD~a;ENDIF
+IF(^h=hires);~a=^a;MG "GETGES: HIRES",gesanap,_TD~a;ENDIF
+IF(^h=lrswap);~a=^a;MG "GETGES: SWAP",gesanap,_TD~a;ENDIF
+IF(^h=intermd);~a=^a;MG "GETGES: INTERMEDIATE",gesanap,_TD~a;ENDIF
+ENDIF
+EN
+
+
+
+
+'***************************************************************************
+' LoRes grating swap
+'***************************************************************************
+#LRSWAP
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#LRSWAP;ELSE
+^h=ENONE;'      Hope for success
+^a=LRTLTAX
+'Calibrate if not
+IF (axiscal[^a]<>true);JS#CALLRT;^h=_JS;ENDIF
+'Calibrate if needed
+^a=GESAX
+IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=^h | _JS;ENDIF
+'If we are good to go, MOVE!
+IF(^h=0)
+JS#FANCYMV(LRTLTAX,lrswapp);JS#FANCYMV(GESAX,gesgsp)
+^a=LRTLTAX;~a=^a;MC~a;~a=^a;MO~a
+^a=GESAX;~a=^a;MC~a;~a=^a;MO~a
+'Verify we are in an acceptable position
+JS#QUGESP;IF (_JS<>lrswap);^h=EFAIL;ENDIF
+ENDIF
+'Store status
+axiserr[^a]=^h
+ENDIF
+EN
+
 
 
 '***************************************************************************

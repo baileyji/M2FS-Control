@@ -50,8 +50,9 @@ class SelectedConnection(object):
     
     def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
         if self.connection==None:
-            self.logger.error('Attempting to send %s on %s' % str(self) )
-            raise IOError
+            err='Attempting to send %s on %s' % str(self)
+            self.logger.error(err)
+            raise IOError(err)
         if message=='' or self.out_buffer!='':
             return
         if message[-1] !='\n':
@@ -101,6 +102,7 @@ class SelectedConnection(object):
         """Read callback for select"""
         try:
             data = self.implementationSpecificRead()
+            self.logger.debug("Handle_Read got: %s" % data.replace('\n','\\n'))
             self.in_buffer += data
             count=self.in_buffer.find('\n')
             if count is not -1:
@@ -173,8 +175,9 @@ class SelectedSerial(SelectedConnection):
     def sendMessageBlocking(self, message):
         """ Send a string immediately, appends string terminator if needed"""
         if not self.isOpen():
-            self.logger.error('Attempting to send %s on %s' % str(self) )
-            raise IOError
+            err="Attempting to send '%s' on '%s'" % str(self)
+            self.logger.error(err)
+            raise IOError(err)
         if not message:
             return
         if message[-1]=='\n':
@@ -185,13 +188,14 @@ class SelectedSerial(SelectedConnection):
           self.connection.flush()
         except serial.SerialException, e:
             self.handle_error(e)
-            raise IOError
+            raise IOError(str(e))
     
     def receiveMessageBlocking(self, nBytes=0, timeout=None):
         """Wait for a response, chops \r & \n off response if present"""
         if not self.isOpen():
-            self.logger.error('Attempting to receive on %s' % str(self) )
-            raise IOError
+            err='Attempting to receive on %s' % str(self)
+            self.logger.error(err)
+            raise IOError(err)
         if type(timeout) in (int,float,long) and timeout>0:
             saved_timeout=self.connection.timeout
             self.connection.timeout=timeout
@@ -205,10 +209,11 @@ class SelectedSerial(SelectedConnection):
                 response=self.connection.readline()
             else:
                 response=self.connection.read(nBytes)
+            self.logger.debug("BlockingReceive got: %s" % response.replace('\n','\\n'))
             response=self.trimReceivedString(response)
         except serial.SerialException, e:
             self.handle_error(e)
-            raise IOError
+            raise IOError(str(e))
         finally:
             if self.connection !=None:
                 self.connection.timeout=saved_timeout
@@ -290,8 +295,9 @@ class SelectedSocket(SelectedConnection):
     def sendMessageBlocking(self, message):
         """ Send a string immediately, appends string terminator if needed"""
         if not self.isOpen():
-            self.logger.error('Attempting to send %s on %s' % str(self) )
-            raise IOError
+            err="Attempting to send '%s' on '%s'" % str(self)
+            self.logger.error(err)
+            raise IOError(err)
         if not message:
             return
         if message[-1]!='\n':
@@ -306,14 +312,15 @@ class SelectedSocket(SelectedConnection):
             if count !=len(message):
                 raise socket.error('Could not send full message on blocking request.')
         except socket.error,err:
-            self.handle_error(str(err))
-            raise IOError
+            self.handle_error(err)
+            raise IOError(str(err))
     
     def receiveMessageBlocking(self, nBytes=1024, timeout=.125):
         """Wait for a response, chops \r & \n off response if present"""
         if not self.isOpen():
-            self.logger.error('Attempting to receive on %s' % str(self) )
-            raise IOError
+            err='Attempting to receive on %s' % str(self)
+            self.logger.error(err)
+            raise IOError(err)
         if nBytes==0:
             return ''
         saved_timeout=self.connection.gettimeout()
@@ -325,7 +332,7 @@ class SelectedSocket(SelectedConnection):
             return ''
         except socket.error, e:
             self.handle_error(e)
-            raise IOError
+            raise IOError(str(e))
         finally:
             if self.connection !=None:
                 self.connection.settimeout(saved_timeout)

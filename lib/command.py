@@ -10,9 +10,9 @@ class Command:
         self.reply=reply
         
     def __str__(self):
-        return ("Command '%s' from %s. State: %s. Reply '%s'."%
-                (self.string,str(self.source),self.state,self.reply))
-                
+        return ("Command '%s' from %s. State: %s. Reply '%s'." %
+                (self.string, str(self.source),
+                 self.state, self.reply.replace('\n','\\n') ))
                 
     def setReply(self, reply):
         self.state='complete'

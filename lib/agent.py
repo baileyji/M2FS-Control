@@ -142,8 +142,17 @@ class Agent(object):
         pass
     
     def socket_message_received_callback(self, source, message):
-        """ Implemented by subclass """
-        pass
+    def socket_message_recieved_callback(self, source, message_str):
+        """Create and execute a Command from the message"""
+        command_name=message_str.partition(' ')[0]
+        command=Command(source, message_str)
+        existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
+        if existing_commands_from_source:
+            self.logger.warning('Command %s received before command %s finished.' %
+                (message_str, existing_commands_from_source[0].string))
+        else:
+            self.commands.append(command)
+            self.command_handlers.get(command_name.upper(), self.bad_command_handler)(command)
         
     def get_version_string(self):
         return 'AGENT Base Class Version 0.1'

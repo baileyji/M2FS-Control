@@ -1,319 +1,384 @@
-import serial, termios
+#!/opt/local/bin/python2.7
+import time
+import argparse
+import socket
+import signal
+import logging
+import logging.handlers
+import atexit
+import serial
+import sys
+import select
+sys.path.append('./lib/')
+from agent import Agent
+from command import Command
 
-class GalilStartupException(Exception):
+
+class GalilThreadUpdateException(IOError):
     pass
 
-class GalilThreadUpdateException(Exception):
+class GalilCommandNotAcknowledgedError(Exception):
     pass
 
-class Galil(object):
+import termios
+class GalilSerial(SelectedConnection.SelectedSerial):
     """ Galil DMC-4183 Controller Class """
-    def __init__(self, portName, logger):
-        """open a threaded serial port connection with the controller
-        assert the controller is running the correct version of the code
-        initialize list of threads available for motion tasks
-        """
-        expected_version_string='CODEVER: m2fs.dmc v0.1'
-        self.logger=logger
+    def __init__(self, *args, **kwargs)
+        self.SIDE=kwargs['SIDE']
+        self.settingName_to_variableName_map={
+            'filter1step':'feselfp[0]','filter2step':'feselfp[1]',
+            'filter3step':'feselfp[2]','filter4step':'feselfp[3]',
+            'filter5step':'feselfp[4]','filter6step':'feselfp[5]',
+            'filter7step':'feselfp[6]','filter8step':'feselfp[7]',
+            'filter9step':'feselfp[8]', #NB LOAD position
+            'filter1encoder':'felencp[0]','filter2encoder':'felencp[1]',
+            'filter3encoder':'felencp[2]','filter4encoder':'felencp[3]',
+            'filter5encoder':'felencp[4]','filter6encoder':'felencp[5]',
+            'filter7encoder':'felencp[6]','filter8encoder':'felencp[7]',
+            'filter9encoder':'felencp[8]', #NB LOAD position
+            'filterInserted':'fesinsp','filterRemoved':'fesremp',
+            'filterTolerance':'feselrg',
+            'hiresStep':'geshrp','loresStep':'geslrp',
+            'hiresEncoder':'geshrep','loresEncoder':'geslrep',
+            'gesTolerance':'gesenct',
+            'flsimInserted':'flsinsp','flsimRemoved':'flsremp',
+            'loresSwapStep':'gesgsp','loresSwapEncoder':'gesgsep'}
+        self.settingNameCommandClasses={
+            'filter1step':'FILTER','filter2step':'FILTER',
+            'filter3step':'FILTER','filter4step':'FILTER',
+            'filter5step':'FILTER','filter6step':'FILTER',
+            'filter7step':'FILTER','filter8step':'FILTER',
+            'filter9step':'FILTER', #NB LOAD position
+            'filter1encoder':'FILTER','filter2encoder':'FILTER',
+            'filter3encoder':'FILTER','filter4encoder':'FILTER',
+            'filter5encoder':'FILTER','filter6encoder':'FILTER',
+            'filter7encoder':'FILTER','filter8encoder':'FILTER',
+            'filter9encoder':'FILTER', #NB LOAD position
+            'filterInserted':'FILTER','filterRemoved':'FILTER',
+            'filterTolerance':'FILTER',
+            'hiresStep':'GES','loresStep':'GES',
+            'hiresEncoder':'GES','loresEncoder':'GES',
+            'gesTolerance':'GES',
+            'flsimInserted':'FLSIM','flsimRemoved':'FLSIM',
+            'loresSwapStep':'GES','loresSwapEncoder':'GES'}
         self.thread_command_map={
-            '0':'#AUTO','1':'#ANAMAF','2':'#LOCKMON','3':None,
+            '0':'AUTO','1':'ANAMAF','2':'LOCKMON','3':None,
             '4':None,'5':None,'6':None,'7':None
             }
-        self.portName=portName
-        critical_error_message=''
+        SelectedConnection.SelectedSerial.__init__(self,*args,**kwargs)
+        self.initialize_galil()
+        self.config
+        
+    def connect(self):
+        if self.connection is not None:
+            return
+        expected_version_string='CODEVER: m2fs.dmc v0.1'
         try:
-            self.serial=serial.Serial(portName,115200,timeout=.5)
-        except serial.SerialException,e:
-            critical_error_message="Fatal error. Failed initialize serial link. Exception: %s"%str(e)
-        if self.serial.isOpen():
-            command_acknowledged=self.send_command_to_gail('XQ#CODEVER,7')
-            if not command_acknowledged:
-                critical_error_message="Fatal error. Failed to request galil software version."
-            response=self.get_response_from_galil()
-            #response=expected_version_string #TODO remove DEBUGGING LINE OF CODE
-            ver_pos=response.find('CODEVER:')
-            if ver_pos == -1:
-                critical_error_message="Fatal error. Galil did not respond to software version request."
-            response=response[ver_pos:]
-            if response != expected_version_string:
-                critical_error_message=("Fatal error. Galil reported '%s' , expected '%s'." %
-                    (response,expected_version_string))        
-        if critical_error_message !='':
-            self.logger.critical(critical_error_message)
-            self.serial.close()
-            raise GalilStartupException(critical_error_message)
-    
-    def close(self):
-        self.serial.flushOutput()
-        self.serial.close()
-    
-    def isOpen(self):
-        return self.serial.isOpen()
-        
-    def do_select_read(self):
-        return False
-    
-    def do_select_write(self):
-        return False
-    
-    def do_select_error(self):
-        return False
-    
-    def executeCommand(self,command, responseCallback, errorCallback):
-        """Execute the command on the galil.
-        
-        When the command is executed sucessfully the response callback will
-        be called.
-        
-        If the command fails, is already in progress, or there is not a free
-        thread on the Galil then the errorCallback will be called.
-        """
-        try:
-            if not self.command_is_valid(command):
-                message="Unknown or malformed command: %s" % command
-                self.logger.warning(message)
-                errorCallback(message)
+            #Open the serial connection
+            self.connection=serial.Serial(self.port, self.baudrate, 
+                timeout=self.timeout)
+            #Get the current threads
             self.update_executing_threads_and_commands()
-            if self.command_is_blocked(command):
-                message="Command %s is blocked. Try again later." % command
-                self.logger.info(message) 
-                errorCallback(message)
-                return
-            galil_thread_number=self.get_thread_for_command(command)
-            if galil_thread_number is None:
-                message="All available galil threads in use. Try again later"
-                self.logger.info(message)
-                errorCallback(message)
-                return
-            else:
-                galil_command_string=self.generate_command_string_from_command(command,galil_thread_number)
-                if galil_command_string == '':
-                    errorCallback('Invalid command.')
-                else:
-                    command_acknowledged=self.send_command_to_gail(galil_command_string)
-                    if command_acknowledged:
-                        self.add_command_to_executing_commands(command, galil_thread_number)
-                        if self.command_has_response(command):
-                            response=self.get_response_from_galil()
-                            if response is '':
-                                message="Command response expected from galil but not recieved. Consider retrying."
-                                self.logger.error(message)
-                                errorCallback(message)
-                            else:
-                                self.logger.info("Galil sent message %s" % response)
-                                responseCallback(response.partition(':')[2])
-                        else:
-                            responseCallback("OK")
-                    else:
-                        message="Galil did not acknowledge command."
-                        self.logger.error(message)
-                        errorCallback(message)
-                        return
-        except serial.SerialException, e:
-            message="Serial error: %s" % str(e)
-            self.logger.error(message)
-            errorCallback(message)
-        except termios.error, e:
-            message="Serial error: %s" % str(e)
-            self.logger.error(message)
-            errorCallback(message)
-        except GalilThreadUpdateException, e:
-            self.logger.error(str(e))
-            errorCallback(str(e))
-    
-    def command_is_valid(self, command):
-        """Check the command for validity. Returns true always"""
-        return True
-    
-    def update_executing_threads_and_commands(self):
-        """Retrieve and update the list of thread statuses from the galil""" 
-        #Ask galil for thread statuses
-        self.serial.flushInput()
-        self.serial.write('MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7\r')
-        self.serial.flush()
-        response=self.serial.read(62)
-        #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
-        if response[-1] == '?' or response[0:3] !='HX=':
-            message="Failed to request thread status from galil. Got: '%s'"%response
-            raise GalilThreadUpdateException(message)
-        response=response[4:response.find('\r')] #TODO add in error where not complete message is recieved
-        #Remove executing commands from list if respective threads are no longer running
-        for thread_number, thread_status in enumerate(response.split(' ')):
-            if '0.' in thread_status:
-                self.thread_command_map["%i"%thread_number]=None
-        return
-        
-    def get_thread_for_command(self, command):
-        """ Get ID of Galil thread to use for the command. None if none free""" 
-        if self.is_motion_command(command):
-            thread_id=None
-            for i in ['3','4','5','6']:
-                if self.thread_command_map[i]==None:
-                    thread_id=i
-                    break
-        else:
-            thread_id='7'
-        return thread_id
-            
-    def add_command_to_executing_commands(self, command, thread):
-        self.thread_command_map[thread]=command
-        return
-    
-    def get_response_from_galil(self):
-        """Wait for a response from the galil"""
-        response=self.serial.read(1024)
-        if len(response) >0 and response[-1] in '\r\n':
-            chop=1
-            if len(response) > 1 and response[-2] in '\r\n':
-                chop=2
-            response=response[:-chop]
-        return response
+            if self.thread_command_map['0']==None:
+                try:
+                    self.send_command_to_gail('XQ#AUTO,0')
+                except GalilCommandNotAcknowledgedError:
+                    error_message="Galil not programed"
+                raise SelectedConnection.ConnectError(error_message)
+            #Get the software version
+            self.send_command_to_gail('XQ#CODEVER,7')
+            response=self.receiveMessageBlocking(
+                nBytes=len(expected_version_string))
+            if response != expected_version_string:
+                error_message=("Incompatible Firmware, Galil reported '%s' , expected '%s'." %
+                    (response,expected_version_string))
+                raise SelectedConnection.ConnectError(error_message)
+        except serial.SerialException,e:
+            error_message="Connect to Galil failed. Exception: %s"% e 
+            self.logger.error(error_message)
+            #self.connection.close()
+            self.connection=None
+            raise SelectedConnection.ConnectError(error_message)
+        except IOError,e :
+            error_message="Connect to Galil failed. Exception: %s"% e 
+            self.logger.error(error_message)
+            #self.connection.close()
+            self.connection=None
+            raise SelectedConnection.ConnectError(error_message)
+                
+    def initialize_galil(self):
+        #Check to see if we are connecting to the Galil for the first time after boot
+        self.send_command_to_gail('MG booted1')
+        bootup1=self.receiveMessageBlocking(nBytes=3)
+        if bootup1=='0':
+            return
+        config=m2fsConfig.getGalilDefaults(self.SIDE)
+        #make sure all the settings are there
+        try:
+            if config=={}:
+                raise KeyError
+            for name in self.settingName_to_variableName_map.keys():
+                config[name]
+        except KeyError:
+            #The config file is corrupted, rebuild
+            self.logger.critical('Galil'+self.SIDE+' configFile corrupted.'+
+                'Rebuilding from hardcoded defaults.')
+            for settingName, variableName in settingName_to_variableName_map.items():
+                self.send_command_to_gail('MG '+variableName)
+                config[settingName]=self.receiveMessageBlocking(nBytes=20)
+            m2fsConfig.setGalilDefaults(self.SIDE, config)
+            self.config=config
+            config={}
+        #Send the config to the galil
+        if config:
+            try:
+                for settingName, value in config.items:
+                    variableName=self.settingName_to_variableName_map[settingName]
+                    self.send_command_to_gail('%s=%s' % (variableName, value))
+                self.config=config
+                self.send_command_to_gail('bootup1=0')
+            except IOError, e:
+                raise IOError("Can not set galil defaults.") 
     
     def send_command_to_gail(self, command_string):
         """
         Send a command string to the galil and wait for the : or ? responses
             
         If ? is in response or don't gen number of : expected for 
-        command string then fail. Else Succeed.
+        command string then raise GalilCommandNotAcknowledgedError
         """
-        if command_string:
-            out_string=command_string
-            if out_string[-1]==';':
-                out_string=[:-1]+'\r'
-            else:
-                out_string+='\r'
-            num_colons_expected=1+out_string.count(';')
-            self.serial.flushInput()
-            self.serial.write(out_string)
-            self.serial.flush()
-            response=self.serial.read(num_colons_expected)
-            self.logger.debug("Galil sent '%s', response '%s'" % (out_string[0:-1],response))
-            if '?' in response or response.count(':') != num_colons_expected:
-                return False
-        return True
-        
-    def is_status_command(self, command):
-        """ Return true iff the command is a status command """
-        return ('?' in command)
-        
-    def command_has_response(self, command):
-        """ Returns true iff the command will generate a response from the galil"""
-        return self.is_status_command(command)
-
-    def is_motion_command(self, command):
-        """ Return true iff the command is a motion command """
-        return not self.is_status_command(command)
-    
-    def command_is_blocked(self, command):
-        """ Determine if the command can be run. """
-        if '?' not in command:
-            command_name=command.split(' ')[0]
-            command_class=command_name.split('_')[0]
-            #Get executing command names from self.thread_command_map.items()
-            #import pdb;pdb.set_trace()
-            executing_command_names=map(lambda x:x[1].split()[0],
-                filter(lambda x: x[1] != None and x[0]!='7',
-                    self.thread_command_map.items()
-                    )
-                )
-            #Get executing command classes from executing_command_names
-            executing_command_classes=map(lambda x:x.split('_')[0], executing_command_names)
-            return (command_name in executing_command_names or
-                command_class in executing_command_classes)
-        else:
-            return False
-    
-    def generate_command_string_from_command(self, command, thread):
-        """Creates the command to send to the galil from the command
-
-           It is an error to call this routine with a command that is invalid
-           e.g. do your error checking elsewhere!
-        """
-        if command[0:3]=='RAW':
-            return command[3:]
-        subroutine_name=self.get_subroutine_name_from_command(command)
-        if not subroutine_name:
-            return ''
-            
-        command_string="XQ%s,%s" % (subroutine_name, thread)
-        subroutine_has_parameters={
-            '#PICKFIL':True, '#SETLRTL':True, '#SETHRTL':True,
-            '#SETHRAZ':True, '#SETFOC' :True,
-            '#GETLRTL':False, '#GETHRTL':False, '#GETHRAZ':False,
-            '#GETFOC' :False, '#GETFILT':False, '#GETGES' :False,
-            '#HIRES'  :False, '#LORES'  :False, '#INFLSIN':False,
-            '#RMFLSIN':False, '#CALFOCU':False, '#CALLRT' :False,
-            '#CALHRTL':False, '#CALHRAZ':False, '#CALGES' :False
-            }
-        if subroutine_has_parameters[subroutine_name]:
-            foo,bar,command_args=command.partition(' ')
-            packed_parameters=self.pack_parameters(command_args,thread)
-            command_string = packed_parameters + command_string
-            
+        if not command_string:
+            return
+        if command_string[-1]==';':
+            command_string=command_string[:-1]
+        self.sendMessageBlocking(command_string)
+        response=self.receiveMessageBlocking(nBytes=num_colons_expected)
         self.logger.debug(
-                "Galil command string %s generated from command %s." %
-                (command_string,command)
+            "Galil sent '%s', response '%s'" % (command_string[0:-1],response)
             )
-        return command_string
+        if '?' in response or 
+           response.count(':') != command_string.count(';')+1:
+        raise GalilCommandNotAcknowledgedError(
+            "Galil did not acknowledge command '%s'" % command_string )
+    
+    def sendMessageBlocking(self, message):
+        """ Send a string immediately, appends string terminator if needed"""
+        if not self.isOpen():
+            message='Attempting to send %s on %s' % str(self)
+            self.logger.error(message)
+            raise IOError(message)
+        if not message:
+            return
+        if message[-1]==';':
+            message=message[:-1]+'\r'
+        elif message[-1] != '\r':
+            message+='\r'
+        try:
+          self.connection.flushInput()
+          self.connection.write(message)
+          self.connection.flush()
+        except serial.SerialException, e:
+            self.handle_error(e)
+            raise IOError
+    
+    def update_executing_threads_and_commands(self):
+        """Retrieve and update the list of thread statuses from the galil"""
+        #Ask galil for thread statuses
+        self.send_command_to_gail('MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
+        response=self.receiveMessageBlocking(nBytes=62)
+        #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
+        if response[-1] == '?' or response[0:3] !='HX=':
+            raise GalilThreadUpdateException(message)
+        response=response[4:response.find('\r')] #TODO add in error where not complete message is recieved
+        #Update threads are no longer running
+        for thread_number, thread_status in enumerate(response.split(' ')):
+            if '0.' in thread_status:
+                self.thread_command_map["%i"%thread_number]=None
         
-    def pack_parameters(self, command_args, thread):
-        command_string_list=[]
-        if command_args and '?' not in command_args:
-            command_args=command_args.split(' ')
-            variable_names=['a','b','c','d','e','f','g','h']
-            for i, param in enumerate(command_args):
-                command_string_list.append(
-                    "%s[%s]=%s;" % (variable_names[i],thread,param) )
-        return ''.join(command_string_list)
+    def get_motion_thread(self):
+        """ Get ID of Galil thread to use for the command. None if none free""" 
+        for i in '3456':
+            if self.thread_command_map[i]==None:
+                return i
+        return None
+            
+    def add_galil_command_to_executing_commands(self, command, thread):
+        self.thread_command_map[thread]=command
+
+    def getDefault(self, settingName):
+        try:
+            variableName=self.settingName_to_variableName_map[settingName]
+        except KeyError:
+            return "!ERROR: %s not a valid setting" % settingName
+        try:
+            self.connect()
+            self.send_command_to_gail('MG '+variableName)
+            val=self.receiveMessageBlocking(nBytes=20)
+            if val=='':
+                val="ERROR: Galil failed to return value"
+            return val
+        except IOError, e:
+            return str(e)
+
+    def setDefault(self, settingName, value):
+        try:
+            variableName=self.settingName_to_variableName_map[settingName]
+        except KeyError:
+            return "!ERROR: %s not a valid setting" % settingName
+        try:
+            self.connect()
+            self.update_executing_threads_and_commands()
+            #Check to see if the command is blocked
+            if self.command_class_blocked(settingNameCommandClasses[settingName]):
+                return "ERROR: Command is blocked. Try again later."
+            self.send_command_to_gail('%=%s' % (variableName, value))
+            self.config[settingName]=value
+            m2fsConfig.setGalilDefaults(self.SIDE, config)
+            return 'OK'
+        except IOError, e:
+            return str(e)
+
+    def command_class_blocked(self, name):
+        return name in self.thread_command_map.items()
+    
+    def get_filter(self):
+        command_string="XQ#%s,%s" % ('GETFILT', '7')
+        return self.do_status_query(command_string)
+    
+    def get_loel(self):
+        command_string="XQ#%s,%s" % ('GETLRTL', '7')
+        return self.do_status_query(command_string)
         
-    def get_subroutine_name_from_command(self, command):
-        command_name,junk,command_args=command.partition(' ')
-        if command_name == 'FILTER':
-            if '?' in command: subroutine_name='#GETFILT'
-            else:              subroutine_name='#PICKFIL'
-        elif command_name == 'LREL':
-            if '?' in command:
-                subroutine_name='#GETLRTL'
-            else:
-                subroutine_name='#SETLRTL'
-        elif command_name == 'HREL':
-            if '?' in command:
-                subroutine_name='#GETHRTL'
-            else:
-                subroutine_name='#SETHRTL'
-        elif command_name == 'HRAZ':
-            if '?' in command:
-                subroutine_name='#GETHRAZ'
-            else:
-                subroutine_name='#SETHRAZ'
-        elif command_name == 'FOCUS':
-            if '?' in command:
-                subroutine_name='#GETFOC'
-            else:
-                subroutine_name='#SETFOC'
-        elif command_name == 'GES':
-            if '?' in command:
-                subroutine_name='#GETGES'
-            elif 'HIRES' in command:
-                subroutine_name='#HIRES'
-            elif 'LORES' in command:
-                subroutine_name='#LORES' 
-        elif command_name == 'FILTER_INSERT':
-            subroutine_name='#INFLSIN'
-        elif command_name == 'FILTER_REMOVE':
-            subroutine_name='#RMFLSIN'
-        elif command_name == 'FOCUS_CALIBRATE':
-            subroutine_name='#CALFOCU'
-        elif command_name == 'LREL_CALIBRATE':
-            subroutine_name='#CALLRT'
-        elif command_name == 'HREL_CALIBRATE':
-            subroutine_name='#CALHRTL'
-        elif command_name == 'HRAZ_CALIBRATE':
-            subroutine_name='#CALHRAZ'
-        elif command_name == 'GES_CALIBRATE':
-            subroutine_name='#CALGES'
-        else:
-            subroutine_name=''
-        return subroutine_name
+    def get_hrel(self):
+        command_string="XQ#%s,%s" % ('GETHRTL', '7')
+        return self.do_status_query(command_string)
+    
+    def get_hraz(self):
+        command_string="XQ#%s,%s" % ('GETHRAZ', '7')
+        return self.do_status_query(command_string)
+    
+    def get_foc(self):
+        command_string="XQ#%s,%s" % ('GETFOC', '7')
+        return self.do_status_query(command_string)
+    
+    def get_ges(self):
+        command_string="XQ#%s,%s" % ('GETGES', '7')
+        return self.do_status_query(command_string)
+    
+    def do_status_query(self, command_string):
+        try:
+            #Make sure we are connected
+            self.connect()
+            #Make sure galil is initialized
+            self.initialize_galil()
+            #Update galil thread statuses
+            self.update_executing_threads_and_commands()
+            #Send the command to the galil
+            self.send_command_to_gail(command_string)
+            self.add_command_to_executing_commands(command, thread_number)
+            response=self.receiveMessageBlocking(nBytes=80)
+            if response is '':
+                raise IOError('No response received from galil. Consider retrying.')
+            return response.partition(':')[2]
+        except IOError, e:
+            self.logger.error(str(e))
+            return "Error: "+e
+    
+    def set_filter(self, filter):
+        command_class='FILTER'
+        command_string="a[%s]=%s;XQ#%s,%s" % 
+            (thread_number, filter, 'PICKFIL', thread_number)
+        return self.do_motion_command(command_class, command_string)
 
+    def set_loel(self, position):
+        command_class='LREL'
+        command_string="a[%s]=%s;XQ#%s,%s" % 
+            (thread_number, position, 'SETLRTL', thread_number)
+        return self.do_motion_command(command_class, command_string)
+        
+    def set_hrel(self, position):
+        command_class='HREL'
+        command_string="a[%s]=%s;XQ#%s,%s" % 
+            (thread_number, position, 'SETHRTL', thread_number)
+        return self.do_motion_command(command_class, command_string)
+    
+    def set_hraz(self, position):
+        command_class='HRAZ'
+        command_string="a[%s]=%s;XQ#%s,%s" % 
+            (thread_number, position, 'SETHRAZ', thread_number)
+        return self.do_motion_command(command_class, command_string)
+    
+    def set_foc(self, position):
+        command_class='FOCUS'
+        command_string="a[%s]=%s;XQ#%s,%s" % ("%s", position, 'SETFOC', "%s")
+        return self.do_motion_command(command_class, command_string)
+    
+    def set_ges(self, position):
+        """Position should be either HIRES, LORES, or LRSWAP"""
+        command_class='GES'
+        command_string="XQ#%s,%s" % (position, '%s')
+        return self.do_motion_command(command_class, command_string)
+    
+    def insert_filter(self):
+        command_class='FILTER'
+        command_string="XQ#%s,%s" % ('INFESIN',  '%s')
+        return self.do_motion_command(command_class, command_string)
+    
+    def remove_filter(self):
+        command_class='FILTER'
+        command_string="XQ#%s,%s" % ('RMFESIN',  '%s')
+        return self.do_motion_command(command_class, command_string)
 
+    def insert_flsim(self):
+        command_class='FLSIM'
+        command_string="XQ#%s,%s" % ('INFLSIN',  '%s')
+        return self.do_motion_command(command_class, command_string)
+    
+    def remove_flsim(self):
+        command_class='FLSIM'
+        command_string="XQ#%s,%s" % ('RMFLSIN',  '%s')
+        return self.do_motion_command(command_class, command_string)
+    
+    def calibrate_lrel(self):
+        command_class='LREL'
+        command_string="XQ#%s,%s" % ('CALLRT',  '%s')
+        return self.do_motion_command(command_class, command_string)
+        
+    def calibrate_hrel(self):
+        command_class='HREL'
+        command_string="XQ#%s,%s" % ('CALHRTL',  '%s')
+        return self.do_motion_command(command_class, command_string)
+    
+    def calibrate_hraz(self):
+        command_class='HRAZ'
+        command_string="XQ#%s,%s" % ('CALHRAZ',  '%s')
+        return self.do_motion_command(command_class, command_string)
+    
+    def calibrate_ges(self):
+        command_class='GES'
+        command_string="XQ#%s,%s" % ('CALGES',  '%s')
+        return self.do_motion_command(command_class, command_string)
+    
+    def do_motion_command(self, command_class, command_string):
+        try:
+            #Make sure we are connected
+            self.connect()
+            #Make sure galil is initialized
+            self.initialize_galil()
+            #Update galil thread statuses
+            self.update_executing_threads_and_commands()
+            #Check to see if the command is blocked
+            if self.command_class_blocked(command_class):
+                return "ERROR: Command is blocked. Try again later." 
+            #Get a thread for the command
+            thread_number=self.get_motion_thread()
+            if thread_number is None:
+                return "ERROR: All available galil threads in use. Try again later"
+            #Send the command to the galil
+            self.send_command_to_gail(command_string % thread_number)
+            self.add_command_to_executing_commands(command_class, thread_number)
+            return 'OK'
+        except IOError, e:
+            self.logger.error(str(e))
+            return "Error: "+e
+    

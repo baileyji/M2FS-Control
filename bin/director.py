@@ -3,7 +3,7 @@ from agent import Agent
 import socket
 import time
 import select
-from SelectedSocket import SelectedSocket
+from SelectedConnection import SelectedSocket
 from command import Command
 from m2fsConfig import m2fsConfig
 

@@ -14,11 +14,7 @@ import SelectedConnection
 from agent import Agent
 from command import Command
 
-MAX_CLIENTS=2
-
-class ShoeFirmwareError(SelectedConnection.ConnectError):
-    pass
-
+import termios
 class ShoeSerial(SelectedConnection.SelectedSerial):
     def connect(self):
         if self.connection is None:
@@ -28,14 +24,14 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
                     timeout=self.timeout)
                 time.sleep(1)
                 self.sendMessageBlocking('PV\n')
-                response=self.receiveMessageBlocking()
+                response=self.receiveMessageBlocking().replace(':','')
                 #response=expected_version_string #DEBUGGING LINE OF CODE
                 if response != expected_version_string:
                     error_message=("Incompatible Firmware. Shoe reported '%s' , expected '%s'." %
                         (response,expected_version_string))
                     self.connection.close()
                     self.connection=None
-                    raise ShoeFirmwareError(error_message)
+                    raise SelectedConnection.ConnectError(error_message)
             except serial.SerialException,e:
                 error_message="Failed initialize serial link. Exception: %s"% e 
                 self.logger.error(error_message)
@@ -43,21 +39,31 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
                 self.connection=None
                 raise SelectedConnection.ConnectError(error_message)
             except IOError,e :
-                if type(e)==type(ShoeFirmwareError):
-                  print 'type match'
-                  raise e
-                error_message="Shoe failed to handshake. %s"%e
-                self.logger.error(error_message)
+                self.logger.error(str(e))
                 #self.connection.close()
                 self.connection=None
-                raise SelectedConnection.ConnectError(error_message)
+                raise
+    
+    def implementationSpecificDisconnect(self):
+        """disconnection specific to serial"""
+        try:
+            self.connection.write('DS\n')
+            time.sleep(.25) #just in case the shoe resets on close, 
+            #gives time to write to EEPROM
+            self.connection.flushOutput()
+            self.connection.flushInput()
+            self.connection.close()
+        except termios.error:
+          pass
+    
 
 class ShoeAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShoeAgent')
         #Initialize the shoe
-        self.shoe=ShoeSerial(self.args.DEVICE, 115200, self.logger, timeout=.5)
+        self.shoe=ShoeSerial(self.args.DEVICE, 115200, self.logger, timeout=1)
         self.devices.append(self.shoe)
+        self.max_clients=2
     
     def listenOn(self):
         return ('localhost', self.PORT)
@@ -99,13 +105,13 @@ class ShoeAgent(Agent):
         """Create and execute a Command from the message"""
         """Dispatch message to from the appropriate handler"""
         command_handlers={
+            'SLITSRAW':self.RAW_command_handler,
             'SLITS':self.SLITS_command_handler,
             'SLITS_SLITPOS':self.SLITPOS_command_handler,
             'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
-            'ACTIVEHOLDON':self.ACTIVEHOLD_command_handler,
-            'ACTIVEHOLDOFF':self.ACTIVEHOLD_command_handler,
+            'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
             'SLITS_TEMP':self.TEMP_command_handler,
-            'SLITS_MOVSTEPS':self.MOVESTEPS_command_handler,
+            'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
             'SLITS_HARDSTOP':self.HARDSTOP_command_handler,
             'SLITS_STATUS':self.status_command_handler,
             'SLITS_VERSION':self.version_request_command_handler}
@@ -125,15 +131,14 @@ class ShoeAgent(Agent):
         try:
             self.shoe.connect()
             self.shoe.sendMessageBlocking(msg)
-            response=self.shoe.receiveMessageBlocking(nBytes=1)
+            response=self.shoe.receiveMessageBlocking(nBytes=2)
+            self.logger.debug("SimpleSend got:'%s'"%response.replace('\n','\\n'))
             if response == ':':
                 command.setReply('OK\n')
             else:
                 command.setReply('!ERROR: Shoe did not acknowledge command.\n')
-        except IOError:
-            command.setReply('!ERROR: Shoe IOError. Was shoe unplugged?\n')
-        except ShoeFirmwareError:
-            command.setReply('!ERROR: Shoe has incorrect firmware.\n')
+        except IOError, e:
+            command.setReply('!ERROR: Shoe IOError. %s\n'%e)
             
     def simpleSendWithResponse(self, msg, command):
         try:
@@ -144,10 +149,25 @@ class ShoeAgent(Agent):
                 command.setReply(response.replace(':','\n'))
             else:
                 command.setReply('!ERROR: Shoe did not acknowledge command.\n')
-        except IOError:
-            command.setReply('!ERROR: Shoe IOError. Was shoe unplugged?\n')
-        except ShoeFirmwareError:
-            command.setReply('!ERROR: Shoe has incorrect firmware.\n')
+        except IOError, e:
+            command.setReply('!ERROR: Shoe IOError. %s\n'%e)
+    
+    def RAW_command_handler(self, command):
+        """ pass raw data along to the shoe and wait for a response"""
+        msg=command.string.partition(' ')
+        response=''
+        if len(msg)==3:
+            try:
+                self.shoe.connect()
+                self.shoe.sendMessageBlocking(msg[2]+'\n')
+                response=self.shoe.receiveMessageBlocking(nBytes=1024)
+            except IOError, e:
+                command.setReply('!ERROR: Shoe IOError. %s\n'%e)
+
+        if response:
+            command.setReply(response+'\n')
+        else:
+            command.setReply('No Response\n')
     
     def TEMP_command_handler(self, command):
         """ Handle requesting the temperature from the shoe """
@@ -177,24 +197,29 @@ class ShoeAgent(Agent):
     
     def SLITPOS_command_handler(self, command):
         """ Handle geting/setting the nominal slit position in steps """
+        def longTest(s):
+            try:
+                long(s)
+                return True
+            except ValueError:
+                return False
         command_parts=command.string.split(' ')
-        if (len(command_parts)>2 and 
+        if (len(command_parts)>3 and 
             len(command_parts[1])==1 and command_parts[1] in '12345678' and
             len(command_parts[2])==1 and command_parts[2] in '1234567' and 
-            ('?' in command.string or (len(command_parts)>3 and
-                                       command_parts[3].isdigit()))):
+            ('?' in command_parts[3] or  longTest(command_parts[3]))):
             tetrisID='ABCDEFGH'[int(command_parts[1])-1]
             slit=command_parts[2]
         else:
             command.setReply('!ERROR: Improperly formatted command.\n')
             return
-        if len(command_parts)>3:
+        if '?' in command.string:
+            """ Get the position """
+            self.simpleSendWithResponse('SD'+tetrisID+slit+'\n', command)
+        else:
             """ Set the position """
             pos=command_parts[3]
             self.simpleSend('SS'+tetrisID+slit+pos+'\n',command)
-        else:
-            """ Get the position """
-            self.simpleSendWithResponse('SD'+tetrisID+slit+'\n', command)
     
     def CURRENTPOS_command_handler(self, command):
         """ handle command to fetch the current step position of the tetris"""
@@ -211,9 +236,16 @@ class ShoeAgent(Agent):
 
     def ACTIVEHOLD_command_handler(self, command):
         """ handle switching between motors on while idle and motors off"""
-        msg='AH\n' if 'ON' in command.string else 'PH\n'
-        self.simpleSend(msg, command)
-     
+        if '?' in command.string:
+            self.simpleSendWithResponse('GH\n', command)
+        else:
+            if 'ON' in command.string and 'OFF' not in command.string:
+                self.simpleSend('AH\n', command)
+            elif 'OFF' in command.string and 'ON' not in command.string:
+                self.simpleSend('PH\n', command)
+            else:
+                command.setReply('!ERROR: Improperly formatted command.\n')
+    
     def HARDSTOP_command_handler(self, command):
         """ handle switching between motors on while idle and motors off"""
         command_parts=command.string.split(' ')
@@ -221,10 +253,9 @@ class ShoeAgent(Agent):
             len(command_parts[1])==1 and 
             command_parts[1] in '12345678'):
             tetrisID='ABCDEFGH'[int(command_parts[1])-1]
+            self.simpleSend('DH'+tetrisID+'\n', command)
         else:
             command.setReply('!ERROR: Improperly formatted command.\n')
-            return
-        self.simpleSend('DH'+tetrisID+'\n', command)
     
     def MOVESTEPS_command_handler(self, command):
         """ handle commanding a single tetris to move X steps"""

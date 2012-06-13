@@ -36,7 +36,7 @@ class SelectedConnection(object):
     def __getattr__(self, attr):
         return getattr(self.connection, attr)
 
-    def trimNewlineFromString(self, string):
+    def trimReceivedString(self, string):
         """ remove \r\n \r\r \n\n \n\r \n \r from end of string. """
         chop=0
         if len(string) >0 and string[-1] in '\r\n':
@@ -205,7 +205,7 @@ class SelectedSerial(SelectedConnection):
                 response=self.connection.readline()
             else:
                 response=self.connection.read(nBytes)
-            response=self.trimNewlineFromString(response)
+            response=self.trimReceivedString(response)
         except serial.SerialException, e:
             self.handle_error(e)
             raise IOError
@@ -320,7 +320,7 @@ class SelectedSocket(SelectedConnection):
         self.connection.settimeout(timeout)
         try:
             response=self.connection.recv(nBytes)
-            response=self.trimNewlineFromString(response)
+            response=self.trimReceivedString(response)
         except socket.timeout:
             return ''
         except socket.error, e:

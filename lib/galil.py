@@ -9,9 +9,7 @@ import atexit
 import serial
 import sys
 import select
-sys.path.append('./lib/')
-from agent import Agent
-from command import Command
+import SelectedConnection
 
 
 class GalilThreadUpdateException(IOError):
@@ -23,8 +21,8 @@ class GalilCommandNotAcknowledgedError(Exception):
 import termios
 class GalilSerial(SelectedConnection.SelectedSerial):
     """ Galil DMC-4183 Controller Class """
-    def __init__(self, *args, **kwargs)
-        self.SIDE=kwargs['SIDE']
+    def __init__(self, *args, **kwargs):
+        self.SIDE=kwargs.pop('SIDE')
         self.settingName_to_variableName_map={
             'filter1step':'feselfp[0]','filter2step':'feselfp[1]',
             'filter3step':'feselfp[2]','filter4step':'feselfp[3]',
@@ -66,8 +64,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             '4':None,'5':None,'6':None,'7':None
             }
         SelectedConnection.SelectedSerial.__init__(self,*args,**kwargs)
-        self.initialize_galil()
-        self.config
+        self.config={}
+        if self.isOpen():
+            self.initialize_galil()
         
     def connect(self):
         if self.connection is not None:
@@ -154,17 +153,15 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         self.sendMessageBlocking(command_string)
         response=self.receiveMessageBlocking(nBytes=num_colons_expected)
         self.logger.debug(
-            "Galil sent '%s', response '%s'" % (command_string[0:-1],response)
-            )
-        if '?' in response or 
-           response.count(':') != command_string.count(';')+1:
-        raise GalilCommandNotAcknowledgedError(
-            "Galil did not acknowledge command '%s'" % command_string )
+            "Galil sent '%s', response '%s'" % (command_string[0:-1],response))
+        if '?' in response or response.count(':') != command_string.count(';')+1:
+            raise GalilCommandNotAcknowledgedError(
+                "Galil did not acknowledge command '%s'" % command_string )
     
     def sendMessageBlocking(self, message):
         """ Send a string immediately, appends string terminator if needed"""
         if not self.isOpen():
-            message='Attempting to send %s on %s' % str(self)
+            message='Attempting to send %s on %s' % (message,self)
             self.logger.error(message)
             raise IOError(message)
         if not message:
@@ -286,77 +283,73 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     def set_filter(self, filter):
         command_class='FILTER'
-        command_string="a[%s]=%s;XQ#%s,%s" % 
-            (thread_number, filter, 'PICKFIL', thread_number)
+        command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
         return self.do_motion_command(command_class, command_string)
 
     def set_loel(self, position):
         command_class='LREL'
-        command_string="a[%s]=%s;XQ#%s,%s" % 
-            (thread_number, position, 'SETLRTL', thread_number)
+        command_string="a[<threadID>]=%s;XQ#SETLRTL,<threadID>" % position
         return self.do_motion_command(command_class, command_string)
         
     def set_hrel(self, position):
         command_class='HREL'
-        command_string="a[%s]=%s;XQ#%s,%s" % 
-            (thread_number, position, 'SETHRTL', thread_number)
+        command_string="a[<threadID>]=%s;XQ#SETHRTL,<threadID>" % position
         return self.do_motion_command(command_class, command_string)
     
     def set_hraz(self, position):
         command_class='HRAZ'
-        command_string="a[%s]=%s;XQ#%s,%s" % 
-            (thread_number, position, 'SETHRAZ', thread_number)
+        command_string="a[<threadID>]=%s;XQ#SETHRAZ,<threadID>" % position
         return self.do_motion_command(command_class, command_string)
     
     def set_foc(self, position):
         command_class='FOCUS'
-        command_string="a[%s]=%s;XQ#%s,%s" % ("%s", position, 'SETFOC', "%s")
+        command_string="a[<threadID>]=%s;XQ#SETFOC,<threadID>" % position
         return self.do_motion_command(command_class, command_string)
     
     def set_ges(self, position):
         """Position should be either HIRES, LORES, or LRSWAP"""
         command_class='GES'
-        command_string="XQ#%s,%s" % (position, '%s')
+        command_string="XQ#%s,<threadID>" % position
         return self.do_motion_command(command_class, command_string)
     
     def insert_filter(self):
         command_class='FILTER'
-        command_string="XQ#%s,%s" % ('INFESIN',  '%s')
+        command_string="XQ#INFESIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
     def remove_filter(self):
         command_class='FILTER'
-        command_string="XQ#%s,%s" % ('RMFESIN',  '%s')
+        command_string="XQ#RMFESIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
 
     def insert_flsim(self):
         command_class='FLSIM'
-        command_string="XQ#%s,%s" % ('INFLSIN',  '%s')
+        command_string="XQ#INFLSIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
     def remove_flsim(self):
         command_class='FLSIM'
-        command_string="XQ#%s,%s" % ('RMFLSIN',  '%s')
+        command_string="XQ#RMFLSIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
     def calibrate_lrel(self):
         command_class='LREL'
-        command_string="XQ#%s,%s" % ('CALLRT',  '%s')
+        command_string="XQ#CALLRT,<threadID>"
         return self.do_motion_command(command_class, command_string)
         
     def calibrate_hrel(self):
         command_class='HREL'
-        command_string="XQ#%s,%s" % ('CALHRTL',  '%s')
+        command_string="XQ#CALHRTL,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
     def calibrate_hraz(self):
         command_class='HRAZ'
-        command_string="XQ#%s,%s" % ('CALHRAZ',  '%s')
+        command_string="XQ#CALHRAZ,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
     def calibrate_ges(self):
         command_class='GES'
-        command_string="XQ#%s,%s" % ('CALGES',  '%s')
+        command_string="XQ#CALGES,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
     def do_motion_command(self, command_class, command_string):
@@ -375,7 +368,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             if thread_number is None:
                 return "ERROR: All available galil threads in use. Try again later"
             #Send the command to the galil
-            self.send_command_to_gail(command_string % thread_number)
+            self.send_command_to_gail(
+                command_string.replace('<thread_ID>', thread_number))
             self.add_command_to_executing_commands(command_class, thread_number)
             return 'OK'
         except IOError, e:

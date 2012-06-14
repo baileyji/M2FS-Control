@@ -7,6 +7,7 @@ import logging.handlers
 import atexit
 import sys
 import select
+from command import Command
 from SelectedConnection import SelectedSocket
 from m2fsConfig import m2fsConfig
 
@@ -141,8 +142,7 @@ class Agent(object):
         """ Implemented by subclass """
         pass
     
-    def socket_message_received_callback(self, source, message):
-    def socket_message_recieved_callback(self, source, message_str):
+    def socket_message_received_callback(self, source, message_str):
         """Create and execute a Command from the message"""
         command_name=message_str.partition(' ')[0]
         command=Command(source, message_str)

@@ -9,9 +9,10 @@ import atexit
 import serial
 import sys
 import select
-sys.path.append('./lib/')
+sys.path.append('../lib/')
 from agent import Agent
 from command import Command
+from galil import GalilSerial
 
 class GalilAgent(Agent):
     def __init__(self):
@@ -38,21 +39,22 @@ class GalilAgent(Agent):
             'GES_CALIBRATE':self.galil_command_handler,
             'GES_DEFHRP':self.defaults_command_handler,
             'GES_DEFLRP':self.defaults_command_handler,
-            'FILTER_DEFSTEP':defaults_command_handler,
-            'FILTER_DEFENC'defaults_command_handler
-            'FILTER_DEFINS':defaults_command_handler,
-            'FILTER_DEFREM':defaults_command_handler,
-            'FILTER_DEFTOL':defaults_command_handler,
-            'GES_DEFHRSTEP':defaults_command_handler,
-            'GES_DEFLRSTEP':defaults_command_handler,
-            'GES_DEFHRENC':defaults_command_handler,
-            'GES_DEFLRENC':defaults_command_handler,
-            'GES_DEFTOL':defaults_command_handler,
-            'FLSIM_DEFINS':defaults_command_handler,
-            'FLSIM_DEFREM':defaults_command_handler,
-            'GES_DEFSWPSTEP':defaults_command_handler,
-            'GES_DEFSWPENC':defaults_command_handler} 
-        self.galil=GalilSerial(self.args.DEVICE, 115200, self.logger, timeout=0.5)
+            'FILTER_DEFSTEP':self.defaults_command_handler,
+            'FILTER_DEFENC':self.defaults_command_handler,
+            'FILTER_DEFINS':self.defaults_command_handler,
+            'FILTER_DEFREM':self.defaults_command_handler,
+            'FILTER_DEFTOL':self.defaults_command_handler,
+            'GES_DEFHRSTEP':self.defaults_command_handler,
+            'GES_DEFLRSTEP':self.defaults_command_handler,
+            'GES_DEFHRENC':self.defaults_command_handler,
+            'GES_DEFLRENC':self.defaults_command_handler,
+            'GES_DEFTOL':self.defaults_command_handler,
+            'FLSIM_DEFINS':self.defaults_command_handler,
+            'FLSIM_DEFREM':self.defaults_command_handler,
+            'GES_DEFSWPSTEP':self.defaults_command_handler,
+            'GES_DEFSWPENC':self.defaults_command_handler} 
+        self.galil=GalilSerial(self.args.DEVICE, 115200, self.logger, 
+            timeout=0.5, SIDE=self.args.SIDE)
         self.devices.append(self.galil)
     
     def listenOn(self):
@@ -91,6 +93,9 @@ class GalilAgent(Agent):
     def get_version_string(self):
         return 'Galil Agent Version 0.2'
         
+    def STATUS_command_handler(self, command):
+        command.setReply("All is well because I didn't check!")
+    
     def defaults_command_handler(self, command):
         command_name,junk,args=command.string.partition(' ')
         if command_name in ['FILTER_DEFSTEP','FILTER_DEFENC']:
@@ -112,7 +117,7 @@ class GalilAgent(Agent):
             'GES_DEFHRSTEP':'hiresStep','GES_DEFLRSTEP':'loresStep',
             'GES_DEFHRENC':'hiresEncoder','GES_DEFLRENC':'loresEncoder',
             'GES_DEFTOL':'gesTolerance',
-            'FLSIM_DEFINS':'flsimInserted','FLSIM_DEFREM':'flsimRemoved'
+            'FLSIM_DEFINS':'flsimInserted','FLSIM_DEFREM':'flsimRemoved',
             'GES_DEFSWPSTEP':'loresSwapStep','GES_DEFSWPENC':'loresSwapEncoder'}
         if command_name not in command_settingName_map:
             command.setReply('!ERROR: Bad Command. %s' % command)
@@ -121,9 +126,9 @@ class GalilAgent(Agent):
         settingName=command_settingName_map[command_name]
         #Getting or Setting?
         if '?' in command.string:
-            command.setReply(self.galil.getDefault(settingName)
+            command.setReply(self.galil.getDefault(settingName))
         else:
-            command.setReply(self.galil.setDefault(settingName, args)
+            command.setReply(self.galil.setDefault(settingName, args))
     
     def galil_command_handler(self, command):
         """Execute the command on the galil and setReply"""
@@ -143,28 +148,26 @@ class GalilAgent(Agent):
             'HREL':self.galil.get_hrel,
             'HRAZ':self.galil.get_hraz,
             'FOCUS':self.galil.get_foc,
-            'GES':self.galil.get_ges
-            }
+            'GES':self.galil.get_ges}
         action_commands={
             'FILTER':self.galil.set_filter,
             'LREL':self.galil.set_loel,
             'HREL':self.galil.set_hrel,
             'HRAZ':self.galil.set_hraz,
             'FOCUS':self.galil.set_foc,
-            'GES':self.galil.set_ges
-            'FILTER_INSERT':self.galil.insert_filter
-            'FILTER_REMOVE':self.galil.remove_filter
-            'FLSIM_INSERT':self.galil.insert_flsim
-            'FLSIM_REMOVE':self.galil.remove_flsim
-            'LREL_CALIBRATE':self.galil.calibrate_lrel
-            'HREL_CALIBRATE':self.galil.calibrate_hrel
-            'HRAZ_CALIBRATE':self.galil.calibrate_hraz
-            'GES_CALIBRATE':self.galil.calibrate_ges
+            'GES':self.galil.set_ges,
+            'FILTER_INSERT':self.galil.insert_filter,
+            'FILTER_REMOVE':self.galil.remove_filter,
+            'FLSIM_INSERT':self.galil.insert_flsim,
+            'FLSIM_REMOVE':self.galil.remove_flsim,
+            'LREL_CALIBRATE':self.galil.calibrate_lrel,
+            'HREL_CALIBRATE':self.galil.calibrate_hrel,
+            'HRAZ_CALIBRATE':self.galil.calibrate_hraz,
+            'GES_CALIBRATE':self.galil.calibrate_ges}
         if query:
-            command.setReply(query_commands[command_name]()))
+            command.setReply(query_commands[command_name]())
         else:
-            action_commands[command_name](args)
-            command.setReply(TODO)
+            command.setReply(action_commands[command_name](args))
     
 
 if __name__=='__main__':

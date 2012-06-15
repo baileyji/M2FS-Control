@@ -10,9 +10,10 @@ class Command:
         self.reply=reply
         
     def __str__(self):
-        return ("Command '%s' from %s. State: %s. Reply '%s'." %
-                (self.string, str(self.source),
-                 self.state, self.reply.replace('\n','\\n') ))
+        string=("Command '%s' from %s. State: %s. Reply '%s'." %
+                (self.string, str(self.source), self.state, self.reply))
+        string=string.replace('\n','\\n').replace('\r','\\r')
+        return string
                 
     def setReply(self, *args):
         if len(args)==1:

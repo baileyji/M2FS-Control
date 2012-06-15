@@ -14,6 +14,10 @@ class Command:
                 (self.string, str(self.source),
                  self.state, self.reply.replace('\n','\\n') ))
                 
-    def setReply(self, reply):
-        self.state='complete'
+    def setReply(self, *args):
+        if len(args)==1:
+            reply=args[0]
+        else:
+            reply=args[1]
         self.reply=reply
+        self.state='complete'

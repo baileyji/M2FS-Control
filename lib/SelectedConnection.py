@@ -49,10 +49,14 @@ class SelectedConnection(object):
             return string
     
     def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
-        if self.connection==None:
-            err='Attempting to send %s on %s' % str(self)
-            self.logger.error(err)
-            raise IOError(err)
+        if not self.isOpen():
+            try:
+                self.connect()
+            except ConnectError, err:
+                self.connection=None
+                err="Attempting to send '%s' on '%s'" % (message, str(self))
+                self.logger.error(err)
+                raise IOError(err)
         if message=='' or self.out_buffer!='':
             return
         if message[-1] !='\n':
@@ -66,6 +70,51 @@ class SelectedConnection(object):
         if errorCallback is not None:
             self.errorCallback=errorCallback
     
+    def sendMessageBlocking(self, message):
+        """ Send a string immediately, appends string terminator if needed"""
+        if not self.isOpen():
+            try:
+                self.connect()
+            except ConnectError, err:
+                self.connection=None
+                err="Attempted to send '%s' to '%s' but coudn't connect." % (message, self.addr_str())
+                self.logger.error(err)
+                raise IOError(err)
+        if not message:
+            return
+        if message[-1]!='\n':
+            message+='\n'
+        try:
+            count=self.implementationSpecificBlockingSend(message)
+            self.logger.debug("Attempted write '%s', wrote '%s' to %s" %
+                    (message.replace('\n','\\n').replace('\r','\\r'),
+                     message[:count].replace('\n','\\n').replace('\r','\\r'),
+                     self.addr_str()))
+            if count !=len(message):
+                raise WriteError('Could not send complete message.')
+        except WriteError,err:
+            self.handle_error(err)
+            raise WriteError(str(err))
+    
+    def receiveMessageBlocking(self, nBytes=0, timeout=None):
+        """Wait for a response, chops \r & \n off response if present"""
+        if not self.isOpen():
+            try:
+                self.connect()
+            except ConnectError, err:
+                self.connection=None
+                err="Attempting to receive %s" % str(self)
+                self.logger.error(err)
+                raise IOError(err)
+        try:
+            response=self.implementationSpecificBlockingReceive(nBytes, timeout)
+            self.logger.debug("BlockingReceive got: %s" % 
+                response.replace('\n','\\n').replace('\r','\\r'))
+            return self.trimReceivedString(response)
+        except ReadError, e:
+            self.handle_error(e)
+            raise e
+    
     def handle_error(self, error=None):
         """ Connection fails"""
         self.logger.error("Error %s on %s." %(error, self.addr_str()))
@@ -78,17 +127,20 @@ class SelectedConnection(object):
             return
         self.logger.info("%s disconnecting." % self)
         self.out_buffer=''
-        self.implementationSpecificDisconnect()
+        try:
+            self.implementationSpecificDisconnect()
+        except Exception, e:
+            self.logger.debug('implementationSpecificDisconnect caused exception: %s'%str(e))
         self.connection = None
         self.sentCallback=self.defaultSentCallback
         if self.errorCallback !=None:
             callback=self.errorCallback
             self.errorCallback=self.defaultErrorCallback
-            callback(self,'Lost Connection.')
+            callback(self,'Lost Connection %s'%str(self))
         elif self.responseCallback != None:
             callback=self.responseCallback
             self.responseCallback=self.defaultResponseCallback
-            callback(self,'Lost Connection.')
+            callback(self,'Lost Connection %s'%str(self))
     
     def close(self):
         if self.isOpen():
@@ -172,62 +224,41 @@ class SelectedSerial(SelectedConnection):
     def addr_str(self):
         return "%s@%s"%(self.port,self.baudrate)
     
-    def sendMessageBlocking(self, message):
-        """ Send a string immediately, appends string terminator if needed"""
-        if not self.isOpen():
-            err="Attempting to send '%s' on '%s'" % str(self)
-            self.logger.error(err)
-            raise IOError(err)
-        if not message:
-            return
-        if message[-1]=='\n':
-            message+='\n'
+    def implementationSpecificBlockingSend(self, message):
         try:
-          self.connection.flushInput()
-          self.connection.write(message)
-          self.connection.flush()
+            self.connection.write(message)
+            self.connection.flush()
+            return len(message)
         except serial.SerialException, e:
-            self.handle_error(e)
-            raise IOError(str(e))
+            raise WriteError(str(e))
     
-    def receiveMessageBlocking(self, nBytes=0, timeout=None):
-        """Wait for a response, chops \r & \n off response if present"""
-        if not self.isOpen():
-            err='Attempting to receive on %s' % str(self)
-            self.logger.error(err)
-            raise IOError(err)
+    def implementationSpecificBlockingReceive(self, nBytes, timeout=None):
+        saved_timeout=self.connection.timeout
         if type(timeout) in (int,float,long) and timeout>0:
-            saved_timeout=self.connection.timeout
             self.connection.timeout=timeout
-        elif not self.connection.timeout:
+        elif saved_timeout==None:
             self.connection.timeout=0.125
-            saved_timeout=None
-        else:
-          saved_timeout=self.connection.timeout
         try:
             if nBytes==0:
                 response=self.connection.readline()
             else:
                 response=self.connection.read(nBytes)
-            self.logger.debug("BlockingReceive got: %s" % response.replace('\n','\\n'))
-            response=self.trimReceivedString(response)
         except serial.SerialException, e:
-            self.handle_error(e)
-            raise IOError(str(e))
+            raise ReadError(str(e))
         finally:
             if self.connection !=None:
                 self.connection.timeout=saved_timeout
         return response
     
     def connect(self):
-        if self.connection is None:
-            try:
-                self.connection=serial.Serial(self.port, baudrate=self.baudrate,
-                    timeout=self.timeout)
-            except Exception, e:
-                raise ConnectError(e)
-            finally:
-                self.connection=None
+        if self.connection is not None:
+            return
+        try:
+            self.connection=serial.Serial(self.port, baudrate=self.baudrate,
+                timeout=self.timeout)
+        except Exception, e:
+            self.connection=None
+            raise ConnectError(e)
     
     def implementationSpecificRead(self):
         """ Perform a device specific read, Rais ReadError if no data or any error """
@@ -284,7 +315,7 @@ class SelectedSocket(SelectedConnection):
             self.connection=None
             try:
                 self.connect()
-            except socket.error, err:
+            except ConnectError, err:
                 self.connection=None
                 self.logger.info('Could not connect to %s. %s' % 
                     (self.addr_str(),str(err)))
@@ -292,59 +323,45 @@ class SelectedSocket(SelectedConnection):
     def addr_str(self):
         return "%s:%s"%(self.host,self.port)
     
-    def sendMessageBlocking(self, message):
-        """ Send a string immediately, appends string terminator if needed"""
-        if not self.isOpen():
-            err="Attempting to send '%s' on '%s'" % str(self)
-            self.logger.error(err)
-            raise IOError(err)
-        if not message:
-            return
-        if message[-1]!='\n':
-            message+='\n'
+    def implementationSpecificBlockingSend(self, message):
         try:
-            count = self.connection.send(self.out_buffer)
-            self.logger.debug('Attempted write "%s", wrote "%s" on %s' %
-                    (message.replace('\n','\\n'),
-                     message[:count].replace('\n','\\n'),
-                     self.addr_str()))
-            # and remove the sent data from the buffer
-            if count !=len(message):
-                raise socket.error('Could not send full message on blocking request.')
+            count = self.connection.send(message)
+            return count
         except socket.error,err:
-            self.handle_error(err)
-            raise IOError(str(err))
+            raise WriteError(str(err))
     
-    def receiveMessageBlocking(self, nBytes=1024, timeout=.125):
-        """Wait for a response, chops \r & \n off response if present"""
-        if not self.isOpen():
-            err='Attempting to receive on %s' % str(self)
-            self.logger.error(err)
-            raise IOError(err)
-        if nBytes==0:
-            return ''
+    def implementationSpecificBlockingReceive(self, nBytes, timeout=None):
         saved_timeout=self.connection.gettimeout()
-        self.connection.settimeout(timeout)
+        if type(timeout) in (int,float,long) and timeout>0:
+            self.connection.settimeout(timeout)
+        elif saved_timeout==0.0:
+            self.connection.settimeout(.125)
         try:
+            if nBytes==0:
+                #Consider a line to be 1024 bytes
+                nBytes=1024
             response=self.connection.recv(nBytes)
-            response=self.trimReceivedString(response)
         except socket.timeout:
-            return ''
+            response=''
         except socket.error, e:
-            self.handle_error(e)
-            raise IOError(str(e))
+            raise ReadError(str(e))
         finally:
             if self.connection !=None:
                 self.connection.settimeout(saved_timeout)
         return response
     
     def connect(self):
-        if self.connection is None:
+        if self.connection is not None:
+            return
+        try:
             thesocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             thesocket.connect((self.host, self.port))
             thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             thesocket.setblocking(0)
             self.connection=thesocket
+        except Exception, e:
+            self.connection=None
+            raise ConnectError(str(e))
    
     def implementationSpecificRead(self):
         """ Perform a device specific read, Raise ReadError if no data or any error """
@@ -366,6 +383,7 @@ class SelectedSocket(SelectedConnection):
     
     def implementationSpecificDisconnect(self):
         """disconnection specific to socket"""
+        self.connection.shutdown(socket.SHUT_RDWR)
         self.connection.close()
     
     def isOpen(self):

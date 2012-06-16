@@ -17,32 +17,34 @@ from command import Command
 import termios
 class ShoeSerial(SelectedConnection.SelectedSerial):
     def connect(self):
-        if self.connection is None:
-            expected_version_string='Fibershoe v0.1'
-            try:
-                self.connection=serial.Serial(self.port, self.baudrate, 
-                    timeout=self.timeout)
-                time.sleep(1)
-                self.sendMessageBlocking('PV\n')
-                response=self.receiveMessageBlocking().replace(':','')
-                #response=expected_version_string #DEBUGGING LINE OF CODE
-                if response != expected_version_string:
-                    error_message=("Incompatible Firmware. Shoe reported '%s' , expected '%s'." %
-                        (response,expected_version_string))
-                    self.connection.close()
-                    self.connection=None
-                    raise SelectedConnection.ConnectError(error_message)
-            except serial.SerialException,e:
-                error_message="Failed initialize serial link. Exception: %s"% e 
-                self.logger.error(error_message)
-                #self.connection.close()
+        if self.connection is not None:
+            return
+        expected_version_string='Fibershoe v0.1'
+        try:
+            self.connection=serial.Serial(self.port, self.baudrate, 
+                timeout=self.timeout)
+            time.sleep(1)
+            self.sendMessageBlocking('PV\n')
+            response=self.receiveMessageBlocking().replace(':','')
+            #response=expected_version_string #DEBUGGING LINE OF CODE
+            if response != expected_version_string:
+                error_message=("Incompatible Firmware."+
+                    "Shoe reported '%s' , expected '%s'." %
+                    (response,expected_version_string))
+                self.connection.close()
                 self.connection=None
                 raise SelectedConnection.ConnectError(error_message)
-            except IOError,e :
-                self.logger.error(str(e))
-                #self.connection.close()
-                self.connection=None
-                raise
+        except serial.SerialException,e:
+            error_message="Failed initialize serial link. Exception: %s"% e 
+            self.logger.error(error_message)
+            self.close()
+            self.connection=None
+            raise SelectedConnection.ConnectError(error_message)
+        except IOError,e :
+            self.logger.error(str(e))
+            self.close()
+            self.connection=None
+            raise SelectedConnection.ConnectError(str(e))
     
     def implementationSpecificDisconnect(self):
         """disconnection specific to serial"""
@@ -53,17 +55,30 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
             self.connection.flushOutput()
             self.connection.flushInput()
             self.connection.close()
-        except termios.error:
-          pass
+        except Exception, e:
+            pass
     
 
 class ShoeAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShoeAgent')
         #Initialize the shoe
+        if not self.args.DEVICE:
+            self.args.DEVICE='/dev/shoe'+self.args.SIDE
         self.shoe=ShoeSerial(self.args.DEVICE, 115200, self.logger, timeout=1)
         self.devices.append(self.shoe)
         self.max_clients=2
+        self.command_handlers={
+            'SLITSRAW':self.RAW_command_handler,
+            'SLITS':self.SLITS_command_handler,
+            'SLITS_SLITPOS':self.SLITPOS_command_handler,
+            'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
+            'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
+            'SLITS_TEMP':self.TEMP_command_handler,
+            'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
+            'SLITS_HARDSTOP':self.HARDSTOP_command_handler,
+            'SLITS_STATUS':self.status_command_handler,
+            'SLITS_VERSION':self.version_request_command_handler}
     
     def listenOn(self):
         return ('localhost', self.PORT)
@@ -85,8 +100,7 @@ class ShoeAgent(Agent):
                                 help='Run agent as a daemon')
         cli_parser.add_argument('--device', dest='DEVICE',
                                 action='store', required=False, type=str,
-                                help='the device to control',
-                                default='/dev/shoeR')
+                                help='the device to control')
         cli_parser.add_argument('--side', dest='SIDE',
                                 action='store', required=False, type=str,
                                 help='R or B',
@@ -100,30 +114,6 @@ class ShoeAgent(Agent):
     
     def get_version_string(self):
         return 'Shoe Agent Version 0.2'
-    
-    def socket_message_received_callback(self, source, message_str):
-        """Create and execute a Command from the message"""
-        """Dispatch message to from the appropriate handler"""
-        command_handlers={
-            'SLITSRAW':self.RAW_command_handler,
-            'SLITS':self.SLITS_command_handler,
-            'SLITS_SLITPOS':self.SLITPOS_command_handler,
-            'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
-            'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
-            'SLITS_TEMP':self.TEMP_command_handler,
-            'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
-            'SLITS_HARDSTOP':self.HARDSTOP_command_handler,
-            'SLITS_STATUS':self.status_command_handler,
-            'SLITS_VERSION':self.version_request_command_handler}
-        command_name=message_str.partition(' ')[0]
-        command=Command(source, message_str)
-        existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
-        if existing_commands_from_source:
-            self.logger.warning('Command %s received before command %s finished.' %
-                (message_str, existing_commands_from_source[0].string))
-        else:
-            self.commands.append(command)
-            command_handlers.get(command_name.upper(), self.bad_command_handler)(command)
 
     def simpleSend(self, msg, command):
         """ Try sending msg to the shoe, close out command. 
@@ -138,7 +128,7 @@ class ShoeAgent(Agent):
             else:
                 command.setReply('!ERROR: Shoe did not acknowledge command.\n')
         except IOError, e:
-            command.setReply('!ERROR: Shoe IOError. %s\n'%e)
+            command.setReply('ERROR: Shoe%s Disconnected'%self.args.SIDE)
             
     def simpleSendWithResponse(self, msg, command):
         try:
@@ -148,9 +138,9 @@ class ShoeAgent(Agent):
             if ':' in response:
                 command.setReply(response.replace(':','\n'))
             else:
-                command.setReply('!ERROR: Shoe did not acknowledge command.\n')
+                command.setReply('ERROR: Shoe did not acknowledge command.\n')
         except IOError, e:
-            command.setReply('!ERROR: Shoe IOError. %s\n'%e)
+            command.setReply('ERROR: Shoe%s Disconnected'%self.args.SIDE)
     
     def RAW_command_handler(self, command):
         """ pass raw data along to the shoe and wait for a response"""
@@ -271,9 +261,18 @@ class ShoeAgent(Agent):
         self.simpleSend('PR'+tetrisID+steps+'\n', command)
 
     def status_command_handler(self, command):
-      """report status"""
-      self.simpleSendWithResponse('TS\n', command)
-      
+        """report status"""
+        """xxxxxx[shieldR][shieldOn] [t7on]...[t0on] [t7calib]...[t0calib] [t7moving]...[t0moving]"""
+        try:
+            self.shoe.connect()
+            self.shoe.sendMessageBlocking('TS\n')
+            response=self.shoe.receiveMessageBlocking()
+            if ':' in response:
+                command.setReply(response.replace(':','\n'))
+            else:
+                command.setReply('ERROR: Shoe did not acknowledge command.\n')
+        except IOError, e:
+            command.setReply('Disconnected')
 
 if __name__=='__main__':
     agent=ShoeAgent()

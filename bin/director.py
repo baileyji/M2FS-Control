@@ -1,4 +1,6 @@
 #!/opt/local/bin/python2.7
+import sys
+sys.path.append('../lib/')
 from agent import Agent
 import socket
 import time
@@ -9,38 +11,29 @@ from m2fsConfig import m2fsConfig
 
 class Director(Agent):
     def __init__(self):
-        Agent.__init__(self,'M2FS Interface')
+        Agent.__init__(self,'Director')
         self.max_clients=1
-        self.agent_ports=m2fsConfig.getAgentPorts()
+        agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
         self.galilAgentR_Connection=SelectedSocket('localhost',
-            agent_ports['galilR'], self.logger)
+            agent_ports['GalilAgentR'], self.logger)
         self.devices.append(self.galilAgentR_Connection)
         self.galilAgentB_Connection=SelectedSocket('localhost',
-            agent_ports['galilB'], self.logger)
+            agent_ports['GalilAgentB'], self.logger)
         self.devices.append(self.galilAgentB_Connection)
+        #Slit Subsytem Controller
+        self.slitController_Connection=SelectedSocket('localhost',
+            agent_ports['SlitController'], self.logger)
+        self.devices.append(self.slitController_Connection)
         #Datalogger Agent
         self.dataloggerAgent_Connection=SelectedSocket('localhost',
-            agent_ports['datalogger'], self.logger)
+            agent_ports['DataloggerAgent'], self.logger)
         self.devices.append(self.dataloggerAgent_Connection)
         #Shack-Hartman Agent
         self.shackhatmanAgent_Connection=SelectedSocket('localhost',
-            agent_ports['shackhatman'], self.logger)
+            agent_ports['ShackHartmanAgent'], self.logger)
         self.devices.append(self.shackhatmanAgent_Connection)
-        
-    
-    def listenOn(self):
-        if self.PORT:
-            return (socket.gethostname(), self.PORT)
-        else:
-            return (socket.gethostname(), m2fsConfig.getDirectorPort())
-            
-    def get_version_string(self):
-        return 'Director Version 0.1'    
-    
-    def socket_message_recieved_callback(self, source, message_str):
-        """Dispatch message to from the appropriate handler"""
-        command_handlers={
+        self.command_handlers={
             'RAWGALIL':self.galil_command_handler,
             'LREL':self.galil_command_handler,
             'HREL':self.galil_command_handler,
@@ -50,7 +43,19 @@ class Director(Agent):
             'FILTER':self.galil_command_handler,
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
-            'SLITS':self.not_implemented_command_handler,
+            'SLITS':self.SLITS_comand_handler,
+            'SLITS_CLOSEDLOOP':self.SLITS_comand_handler,
+            'SLITS_SLITPOS':self.SLITS_comand_handler,
+            'SLITS_CURRENTPOS':self.SLITS_comand_handler,
+            'SLITS_ILLUMPROF':self.SLITS_comand_handler,
+            'SLITS_ILLUMMEAS':self.SLITS_comand_handler,
+            'SLITS_ACTIVEHOLD':self.SLITS_comand_handler,
+            'SLITS_MOVSTEPS':self.SLITS_comand_handler,
+            'SLITS_HARDSTOP':self.SLITS_comand_handler,
+            'SLITS_IMAGSET':self.SLITS_comand_handler,
+            'SLITS_PROJSET':self.SLITS_comand_handler,
+            'SLITS_STATUS':self.SLITS_comand_handler,
+            'SLITS_VERSION':self.SLITS_comand_handler,
             'PLUGMODE':self.not_implemented_command_handler,
             'PLUGPOS':self.not_implemented_command_handler,
             'PLATELIST':self.plateConfig_command_handler,
@@ -59,40 +64,40 @@ class Director(Agent):
             'TEMPS':self.datalogger_command_handler,
             'STATUS':self.status_command_handler,
             'VERSION':self.version_request_command_handler}
-        command_class=message_str.partition(' ')[0].partition('_')[0]
-        command=Command(source,message_str)
-        if not filter(lambda x: x.source==source, self.commands):
-            self.commands.append(command)
-            command_handlers.get(command_class.upper(), self.bad_command_handler)(command)
     
+    def listenOn(self):
+        return (socket.gethostname(), self.PORT)
+    
+    def get_version_string(self):
+        return 'Director Version 0.1'    
+      
     def shackhartman_command_handler(self, command):
-        def onReply(source, reply):
-            command.state='complete'
-            command.reply=reply+'\n'
-        if not self.shackhatmanAgent_Connection.isOpen():
-            try:
-                self.shackhatmanAgent_Connection.connect()
-                self.shackhatmanAgent_Connection.sendMessage(command.string, responseCallback=onReply)
-            except socket.error, err:
-                command.state='complete'
-                command.reply='!ERROR: Could not establish a connection with the shackhartman agent.\n'
-
+        try:
+            self.shackhatmanAgent_Connection.connect()
+            self.shackhatmanAgent_Connection.sendMessage(command.string, responseCallback=command.setReply)
+        except socket.error, err:
+            command.setReply('ERROR: Could not establish a connection with the shackhartman agent.')
+    
+    def SLITS_comand_handler(self, command):
+        try:
+            self.slitController_Connection.connect()
+            self.slitController_Connection.sendMessage(command.string, responseCallback=command.setReply)
+        except socket.error, err:
+            command.setReply('ERROR: Could not establish a connection with the shackhartman agent.')
+    
     def datalogger_command_handler(self, command):
-        def onReply(source, reply):
-            command.state='complete'
-            command.reply=reply+'\n'
-        if not self.dataloggerAgent_Connection.isOpen():
-            try:
-                self.dataloggerAgent_Connection.connect()
-                self.dataloggerAgent_Connection.sendMessage(command.string, responseCallback=onReply)
-            except socket.error, err:
-                command.state='complete'
-                command.reply='!ERROR: Could not establish a connection with the datalogger agent.\n'
+        try:
+            self.dataloggerAgent_Connection.connect()
+            self.dataloggerAgent_Connection.sendMessage(command.string, responseCallback=command.setReply)
+        except socket.error, err:
+            command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
         
     def status_command_handler(self, command):
         #TODO Query each subsystem for status
-        command.state='complete'
-        command.reply='Doing just fine\n'
+        command.setReply('Doing just fine')
+    
+    def plateConfig_command_handler(self, command):
+        self.not_implemented_command_handler(command)
 
     def galil_command_handler(self, command):
         """ Galil command handler """
@@ -103,22 +108,15 @@ class Director(Agent):
         else:
             galil_command=command_name+' '+args
         if RorB =='R':
-            def onReply(source, reply):
-                command.state='complete'
-                command.reply=reply+'\n'
             if not self.galilAgentR_Connection.isOpen():
                 try:
                     self.galilAgentR_Connection.connect()
                 except socket.error, err:
-                    command.state='complete'
-                    command.reply='!ERROR: Could not establish a connection with the galil agent.\n'
+                    command.setReply('!ERROR: Could not establish a connection with the galil agent.')
             if self.galilAgentR_Connection.isOpen():
-                self.galilAgentR_Connection.sendMessage(galil_command, responseCallback=onReply)
+                self.galilAgentR_Connection.sendMessage(galil_command, responseCallback=command.setReply)
         elif RorB =='B':
-            def onReply(source, reply):
-                command.state='complete'
-                command.reply=reply+'\n'
-            self.galilAgentB_Connection.sendMessage(galil_command, responseCallback=onReply)
+            self.galilAgentB_Connection.sendMessage(galil_command, responseCallback=command.setReply)
         else:
             self.bad_command_handler(command)
 

@@ -132,16 +132,9 @@ class GalilAgent(Agent):
     
     def galil_command_handler(self, command):
         """Execute the command on the galil and setReply"""
-        command_name,junk,args=command.string.partition(' ')[0]
+        command_name,junk,args=command.string.partition(' ')
         query='?' in command.string
-        try:
-            self.galil.connect()
-            self.galil.initialize()
-            if not self.galil.ready():
-                command.setReply('ERROR: TODO')
-        except IOError,e:
-            command.setReply(e)
-        
+
         query_commands={
             'FILTER':self.galil.get_filter,
             'LREL':self.galil.get_loel,
@@ -150,6 +143,7 @@ class GalilAgent(Agent):
             'FOCUS':self.galil.get_foc,
             'GES':self.galil.get_ges}
         action_commands={
+            'GALILRAW':self.galil.raw,
             'FILTER':self.galil.set_filter,
             'LREL':self.galil.set_loel,
             'HREL':self.galil.set_hrel,

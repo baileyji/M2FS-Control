@@ -127,6 +127,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 config[settingName]=self.receiveMessageBlocking(nBytes=20)
             m2fsConfig.setGalilDefaults(self.SIDE, config)
             self.config=config
+            self.send_command_to_gail('bootup1=0')
             config={}
         #Send the config to the galil
         if config:
@@ -191,7 +192,15 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         for thread_number, thread_status in enumerate(response.split(' ')):
             if '0.' in thread_status:
                 self.thread_command_map["%i"%thread_number]=None
-        
+            elif self.thread_command_map["%i"%thread_number] != None:
+                #something is running and we aren't aware of it
+                if thread_number < 3:
+                    self.thread_command_map["%i"%thread_number]=(
+                        ['AUTO','ANAMAF','LOCKMON'][thread_number])
+                else:
+                    #Can't actually query what is running so block everything
+                    self.thread_command_map["%i"%thread_number]=(
+                        'FOCUS FILTER FLSIM LREL HREL HRAZ GES')
     def get_motion_thread(self):
         """ Get ID of Galil thread to use for the command. None if none free""" 
         for i in '3456':
@@ -236,7 +245,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return str(e)
 
     def command_class_blocked(self, name):
-        return name in self.thread_command_map.items()
+        blockingThreads=filter(lambda x: name in x,
+            self.thread_command_map.items())
+        return blockingThreads!=[]
     
     def get_filter(self):
         command_string="XQ#%s,%s" % ('GETFILT', '7')
@@ -278,7 +289,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 raise IOError('No response received from galil. Consider retrying.')
             return response.partition(':')[2]
         except IOError, e:
-            self.logger.error(str(e))
             return "Error: "+e
     
     def set_filter(self, filter):
@@ -373,6 +383,26 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.add_command_to_executing_commands(command_class, thread_number)
             return 'OK'
         except IOError, e:
+            return "Error: "+str(e)
+    
+    def raw(self, command_string):
+        try:
+            #Make sure we are connected
+            self.connect()
+            #Make sure galil is initialized
+            self.initialize_galil()
+            #Send the command to the galil
+            self.send_command_to_gail(command_string)
+            response=self.receiveMessageBlocking(nBytes=1024)
+            response=response.replace('\r','\\r').replace('\n','\\n')
+            #Update galil thread statuses
+            self.update_executing_threads_and_commands()
+
+            self.add_command_to_executing_commands(command, thread_number)
+            if response is '':
+                raise IOError('No response received from galil. Consider retrying.')
+            return response.partition(':')[2]
+        except IOError, e:
             self.logger.error(str(e))
-            return "Error: "+e
+            return "Error: "+str(e)
     

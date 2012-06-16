@@ -38,7 +38,6 @@ class Agent(object):
             else:
                 self.PORT=None
                 self.server_socket=None
-
         #register an exit function
         atexit.register(self.on_exit, self)
         #Register a terminate signal handler
@@ -78,7 +77,7 @@ class Agent(object):
                                 action='version',
                                 version=self.get_version_string())
         cli_parser.add_argument('-p','--port', dest='PORT',
-                                action='store', required=True, type=int,
+                                action='store', required=False, type=int,
                                 help='the port on which to listen')
         cli_parser.add_argument('-d','--daemon',dest='DAEMONIZE',
                                 action='store_true', default=False,
@@ -161,6 +160,7 @@ class Agent(object):
         """Prepare to exit"""
         self.logger.info("exiting %s" % arg)
         if self.server_socket:
+            self.connection.shutdown(socket.SHUT_WR)
             self.server_socket.close()
         for d in self.devices:
             d.close()

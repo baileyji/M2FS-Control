@@ -30,12 +30,22 @@ class m2fsConfig:
         config.readfp(open('../conf/m2fs_socket.conf','r'))
         port=config.getint('Ports',string)
         return port
+        
+    @staticmethod
+    def getAgentPorts():
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open('../conf/m2fs_socket.conf','r'))
+        return {x[0]:int(x[1]) for x in config.items('Ports')}
     
     @staticmethod
     def getGalilDefaults(side):
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        file='../conf/m2fs_galilB.conf' if side=='B' else '../conf/m2fs_galilR.conf'
+        if side=='B':
+            file='../conf/m2fs_galilB.conf'
+        else:
+            file='../conf/m2fs_galilR.conf'
         try:
             config.readfp(open(file,'r'))
         except Exception:
@@ -46,7 +56,10 @@ class m2fsConfig:
     def setGalilDefaults(side, defaults):
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        file='../conf/m2fs_galilB.conf' if side=='B' else '../conf/m2fs_galilR.conf'
+        if side=='B':
+            file='../conf/m2fs_galilB.conf'
+        else:
+            file='../conf/m2fs_galilR.conf'
         with open(file,'w') as configfile:
             for setting, value in defaults:
                 config.set('Defaults', setting, value)

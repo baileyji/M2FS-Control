@@ -18,7 +18,7 @@ WantedBy=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/director.py -p 51280 
+ExecStart=/M2FS-Control/bin/director.py
 RestartSec=100ms
 Restart=always
 KillMode=control-group

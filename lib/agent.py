@@ -160,7 +160,10 @@ class Agent(object):
         """Prepare to exit"""
         self.logger.info("exiting %s" % arg)
         if self.server_socket:
-            self.connection.shutdown(socket.SHUT_WR)
+            try:
+                self.server_socket.shutdown(socket.SHUT_WR)
+            except socket.error:
+                pass
             self.server_socket.close()
         for d in self.devices:
             d.close()

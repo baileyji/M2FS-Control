@@ -108,7 +108,7 @@ class SelectedConnection(object):
                 raise IOError(err)
         try:
             response=self.implementationSpecificBlockingReceive(nBytes, timeout)
-            self.logger.debug("BlockingReceive got: %s" % 
+            self.logger.debug("BlockingReceive got: '%s'" % 
                 response.replace('\n','\\n').replace('\r','\\r'))
             return self.trimReceivedString(response)
         except ReadError, e:
@@ -383,7 +383,10 @@ class SelectedSocket(SelectedConnection):
     
     def implementationSpecificDisconnect(self):
         """disconnection specific to socket"""
-        self.connection.shutdown(socket.SHUT_RDWR)
+        try:
+            self.connection.shutdown(socket.SHUT_RDWR)
+        except socket.error:
+            pass
         self.connection.close()
     
     def isOpen(self):

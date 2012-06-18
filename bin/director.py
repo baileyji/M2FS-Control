@@ -74,21 +74,24 @@ class Director(Agent):
     def shackhartman_command_handler(self, command):
         try:
             self.shackhatmanAgent_Connection.connect()
-            self.shackhatmanAgent_Connection.sendMessage(command.string, responseCallback=command.setReply)
+            self.shackhatmanAgent_Connection.sendMessage(command.string,
+            responseCallback=command.setReply)
         except socket.error, err:
             command.setReply('ERROR: Could not establish a connection with the shackhartman agent.')
     
     def SLITS_comand_handler(self, command):
         try:
             self.slitController_Connection.connect()
-            self.slitController_Connection.sendMessage(command.string, responseCallback=command.setReply)
+            self.slitController_Connection.sendMessage(command.string, 
+                responseCallback=command.setReply)
         except socket.error, err:
             command.setReply('ERROR: Could not establish a connection with the shackhartman agent.')
     
     def datalogger_command_handler(self, command):
         try:
             self.dataloggerAgent_Connection.connect()
-            self.dataloggerAgent_Connection.sendMessage(command.string, responseCallback=command.setReply)
+            self.dataloggerAgent_Connection.sendMessage(command.string, 
+                responseCallback=command.setReply)
         except socket.error, err:
             command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
         

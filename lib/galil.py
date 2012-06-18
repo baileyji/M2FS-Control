@@ -104,6 +104,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #self.connection.close()
             self.connection=None
             raise SelectedConnection.ConnectError(error_message)
+        except GalilCommandNotAcknowledgedError, e:
+            error_message="Connect to Galil failed. Exception: %s"% e 
+            self.logger.error(error_message)
+            self.connection.close()
+            self.connection=None
+            raise SelectedConnection.ConnectError(error_message)
                 
     def initialize_galil(self):
         #Check to see if we are connecting to the Galil for the first time after boot
@@ -152,10 +158,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         if command_string[-1]==';':
             command_string=command_string[:-1]
         self.sendMessageBlocking(command_string)
+        num_colons_expected=command_string.count(';')+1
         response=self.receiveMessageBlocking(nBytes=num_colons_expected)
         self.logger.debug(
             "Galil sent '%s', response '%s'" % (command_string[0:-1],response))
-        if '?' in response or response.count(':') != command_string.count(';')+1:
+        if '?' in response or response.count(':') !=num_colons_expected:
             raise GalilCommandNotAcknowledgedError(
                 "Galil did not acknowledge command '%s'" % command_string )
     
@@ -164,7 +171,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         if not self.isOpen():
             message='Attempting to send %s on %s' % (message,self)
             self.logger.error(message)
-            raise IOError(message)
+            raise SelectedConnection.WriteError(message)
         if not message:
             return
         if message[-1]==';':
@@ -172,12 +179,17 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         elif message[-1] != '\r':
             message+='\r'
         try:
-          self.connection.flushInput()
-          self.connection.write(message)
+          count=self.connection.write(message)
           self.connection.flush()
+          self.logger.debug("Attempted write '%s', wrote '%s' to %s" %
+                    (message.replace('\n','\\n').replace('\r','\\r'),
+                     message[:count].replace('\n','\\n').replace('\r','\\r'),
+                     self.addr_str()))
+          if count !=len(message):
+              raise SelectedConnection.WriteError('Could not send complete message.')
         except serial.SerialException, e:
             self.handle_error(e)
-            raise IOError
+            raise SelectedConnection.WriteError(str(e))
     
     def update_executing_threads_and_commands(self):
         """Retrieve and update the list of thread statuses from the galil"""
@@ -201,6 +213,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                     #Can't actually query what is running so block everything
                     self.thread_command_map["%i"%thread_number]=(
                         'FOCUS FILTER FLSIM LREL HREL HRAZ GES')
+    
     def get_motion_thread(self):
         """ Get ID of Galil thread to use for the command. None if none free""" 
         for i in '3456':

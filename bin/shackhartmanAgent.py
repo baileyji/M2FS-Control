@@ -16,49 +16,23 @@ from command import Command
 
 MAX_CLIENTS=1
 
-class ShoeFirmwareError(SelectedConnection.ConnectError):
-    pass
-
-import termios
-class ShackhartmanSerial(SelectedConnection.SelectedSerial):
-    def connect(self):
-        if self.connection is None:
-            expected_version_string='Sharck-Hartman v0.1'
-            try:
-                self.connection=serial.Serial(self.port, self.baudrate, 
-                    timeout=self.timeout)
-                time.sleep(1)
-                self.sendMessageBlocking('PV\n')
-                response=self.receiveMessageBlocking().replace(':','')
-                #response=expected_version_string #DEBUGGING LINE OF CODE
-                if response != expected_version_string:
-                    error_message=("Incompatible Firmware. Shack-Hartman controller reported '%s' , expected '%s'." %
-                        (response,expected_version_string))
-                    self.connection.close()
-                    self.connection=None
-                    raise ShoeFirmwareError(error_message)
-            except serial.SerialException,e:
-                error_message="Failed initialize serial link. Exception: %s"% e 
-                self.logger.error(error_message)
-                #self.connection.close()
-                self.connection=None
-                raise SelectedConnection.ConnectError(error_message)
-            except IOError,e :
-                if type(e)==type(ShoeFirmwareError):
-                  raise e
-                error_message="Shoe failed to handshake. %s"%e
-                self.logger.error(error_message)
-                #self.connection.close()
-                self.connection=None
-                raise SelectedConnection.ConnectError(error_message)
-
 class ShackhartmanAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShackHartmanAgent')
         #Initialize the shoe
-        self.shackhart=SHSerial(self.args.DEVICE, 115200, self.logger, timeout=1)
-        self.devices.append(self.shackhart)
+        
+        self.args=self.cli_parser.parse_args()
+        self.shled=SelectedConnection.SelectedSerial('/dev/SHled', 115200, self.logger)
+        #self.shlenslet=SelectedConnection.SelectedSerial('/dev/SHlenslet', 115200, self.logger, timeout=1)
+        self.devices.append(self.shlenslet)
+        self.devices.append(self.shled)
         self.max_clients=1
+        command_handlers={
+            'SLITSRAW':self.not_implemented_command_handler,
+            'SHLED':self.SHLED_command_handler,
+            'SHLENS':self.SHLENS_command_handler,
+            'SH_STATUS':self.status_command_handler,
+            'SH_VERSION':self.version_request_command_handler}
     
     def listenOn(self):
         return ('localhost', self.PORT)
@@ -66,91 +40,58 @@ class ShackhartmanAgent(Agent):
     def get_version_string(self):
         return 'Shack-Hartman Agent Version 0.1'
     
-    def socket_message_received_callback(self, source, message_str):
-        """Create and execute a Command from the message"""
-        """Dispatch message to from the appropriate handler"""
-        command_handlers={
-            'SLITSRAW':self.not_implemented_command_handler,
-            'SHLED':self.SHLED_command_handler,
-            'SHLENS':self.SHLENS_command_handler,
-            'SH_STATUS':self.status_command_handler,
-            'SH_VERSION':self.version_request_command_handler}
-        command_name=message_str.partition(' ')[0]
-        command=Command(source, message_str)
-        existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
-        if existing_commands_from_source:
-            self.logger.warning('Command %s received before command %s finished.' %
-                (message_str, existing_commands_from_source[0].string))
-        else:
-            self.commands.append(command)
-            command_handlers.get(command_name.upper(), self.bad_command_handler)(command)
-
-    def simpleSend(self, msg, command):
-        """ Try sending msg to the shoe, close out command. 
-            Good for commands which have a simple confirmation and nothing more"""
-        try:
-            self.shoe.connect()
-            self.shoe.sendMessageBlocking(msg)
-            response=self.shoe.receiveMessageBlocking(nBytes=2)
-            self.logger.debug("SimpleSend got:'%s'"%response.replace('\n','\\n'))
-            if response == ':':
-                command.setReply('OK\n')
-            else:
-                command.setReply('!ERROR: Shoe did not acknowledge command.\n')
-        except IOError:
-            command.setReply('!ERROR: Shoe IOError. Was shoe unplugged?\n')
-        except ShoeFirmwareError:
-            command.setReply('!ERROR: Shoe has incorrect firmware.\n')
-            
-    def simpleSendWithResponse(self, msg, command):
-        try:
-            self.shoe.connect()
-            self.shoe.sendMessageBlocking(msg)
-            response=self.shoe.receiveMessageBlocking()
-            if ':' in response:
-                command.setReply(response.replace(':','\n'))
-            else:
-                command.setReply('!ERROR: Shoe did not acknowledge command.\n')
-        except IOError:
-            command.setReply('!ERROR: Shoe IOError. Was shoe unplugged?\n')
-        except ShoeFirmwareError:
-            command.setReply('!ERROR: Shoe has incorrect firmware.\n')
-        
     def SHLED_command_handler(self, command):
         """ Handle geting/setting the LED illumination value """
         if '?' in command.string:
             """ retrieve the current slits """
-            self.simpleSendWithResponse('LG\n', command)
+            self.shled.sendMessage('?',responseCallback=command.setReply)
         else:
             """ Set the LED brightness 0-255 """
             command_parts=command.string.split(' ')
-            def intTest(s):
-                try:
-                    int(s)
-                    return True
-                except ValueError:
-                    return False
-            if (len(command_parts)==2 and intTest(command_parts[1])):
-                self.simpleSend('LS'+command_parts[1]+'\n', command)
-            else:
+            if len(command_parts) < 2:
+                command.setReply('!ERROR: Improperly formatted command.\n')
+            try:
+                int(command_parts[1])
+                self.shled.sendMessage(command_parts[1])
+                command.setReply('OK')
+            except ValueError:
                 command.setReply('!ERROR: Improperly formatted command.\n')
     
     def SHLENS_command_handler(self, command):
         """ Handle geting/setting the position of the lenslet inserter """
         if '?' in command.string:
-            self.simpleSendWithResponse('IG\n', command)
+            position=self.determineLensletPosition()
+            command.setReply(position)
         else:
+            #TODO add in command response
             if 'IN' in command.string and 'OUT' not in command.string:
-                self.simpleSend('II\n', command)
+                self.shlenslet.sendMessageBlocking('\x89\x7F')
             elif 'OUT' in command.string and 'IN' not in command.string:
-                self.simpleSend('IO\n', command)
+                self.shlenslet.sendMessageBlocking('\x8A\x7F')
             else:
                 command.setReply('!ERROR: Improperly formatted command.\n')
 
     def status_command_handler(self, command):
-      """report status"""
-      self.simpleSendWithResponse('TS\n', command)
-      
+        """report status"""
+        self.simpleSendWithResponse('TS\n', command)
+    
+    def determineLensletPosition(self):
+        self.shlenslet.sendMessageBlocking('\xA1\x21')
+        response=self.shlenslet.receiveMessageBlocking()
+        if response != 0:
+            return 'MOVING'
+        else:
+            self.shlenslet.sendMessageBlocking('\xA1\x12')
+            response=self.shlenslet.receiveMessageBlocking()
+            if response > 1024: #limit is NC with pullup on 12bit ADC 
+                return 'IN'
+            else:
+                self.shlenslet.sendMessageBlocking('\xA1\x16')
+                response=self.shlenslet.receiveMessageBlocking()
+                if response > 1024:
+                    return 'OUT'
+                else:
+                    return 'INTERMEDIATE'
 
 if __name__=='__main__':
     agent=ShackhartmanAgent()

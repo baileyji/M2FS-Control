@@ -1,0 +1,6 @@
+# Place in /etc/udev/rules.d/ 
+SUBSYSTEM=="tty", KERNELS=="1-2.5.1:1.0", SYMLINK+="shoeR"
+ATTRS{serial}=="FTULQ7ME", SYMLINK+="dataloggerC" 
+SUBSYSTEM=="tty", KERNELS=="1-2.5.4:1.0", SYMLINK+="shoeB"
+KERNELS=="1-2.5.5:1.0", ATTRS{serial}="saddad", SYMLINK+="shoesSwapped"
+

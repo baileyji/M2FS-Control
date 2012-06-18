@@ -1,6 +1,17 @@
-ATTRS{SHORTSERIAL}=="XXXXXX", NAME="datalogR"
-ATTRS{SHORTSERIAL}=="XXXXXX", NAME="datalogB"
-ATTRS{SHORTSERIAL}=="XXXXXX", NAME="datalogC"
+#Devices based on an attribute
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="dataloggerR"
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="dataloggerB"
+ATTRS{SHORTSERIAL}=="XXXXXX", NAME="dataloggerC"
+
+#Devices based on port
+DRIVERS=="ftdi-sio", KERNELS=="", NAME="galilR"
+DRIVERS=="ftdi-sio", KERNELS=="", NAME="galilB"
+
+DRIVERS=="ftdi-sio", KERNELS=="1-2.5.1", NAME="galilB"
+
+SUBSYSTEM=="tty",KERNELS="1-2.5.1:1.0", NAME="shoeR"
+
+
 perhaps these should be sahe as shoes?
 
 ATTRS{SHORTSERIAL}=="XXXXXX", NAME="plugIFace"

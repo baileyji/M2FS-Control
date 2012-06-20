@@ -622,7 +622,7 @@ EN
 ' returns hires, lores, unknown, intermd
 ' TODO sort out behavior for case where motor and pot disagree
 '***************************************************************************
-#QUGESP
+#QUGESP2
 ^a=GESAX;~a=^a;^g=_TD~a
 ~a=^a;IF (_TS~a & $80);^h=moving
 ELSE;IF(axiscal[^a]<>true);^h=unknown
@@ -638,7 +638,7 @@ EN,,^h
 ' Get GES (simple, ignore analog encoder)
 ' Return the GES position
 '***************************************************************************
-#GETGES
+#GETGES2
 ^a=GESAX
 'Determine status
 ~a=^a;IF (_TS~a & $80);^h=moving

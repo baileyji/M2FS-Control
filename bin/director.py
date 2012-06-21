@@ -5,7 +5,7 @@ from agent import Agent
 import socket
 import time
 import select
-from SelectedConnection import SelectedSocket
+import SelectedConnection
 from command import Command
 from m2fsConfig import m2fsConfig
 
@@ -15,22 +15,22 @@ class Director(Agent):
         self.max_clients=1
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
-        self.galilAgentR_Connection=SelectedSocket('localhost',
+        self.galilAgentR_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['GalilAgentR'], self.logger)
         self.devices.append(self.galilAgentR_Connection)
-        self.galilAgentB_Connection=SelectedSocket('localhost',
+        self.galilAgentB_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['GalilAgentB'], self.logger)
         self.devices.append(self.galilAgentB_Connection)
         #Slit Subsytem Controller
-        self.slitController_Connection=SelectedSocket('localhost',
+        self.slitController_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['SlitController'], self.logger)
         self.devices.append(self.slitController_Connection)
         #Datalogger Agent
-        self.dataloggerAgent_Connection=SelectedSocket('localhost',
+        self.dataloggerAgent_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['DataloggerAgent'], self.logger)
         self.devices.append(self.dataloggerAgent_Connection)
         #Shack-Hartman Agent
-        self.shackhatmanAgent_Connection=SelectedSocket('localhost',
+        self.shackhatmanAgent_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['ShackHartmanAgent'], self.logger)
         self.devices.append(self.shackhatmanAgent_Connection)
         self.command_handlers={
@@ -76,24 +76,30 @@ class Director(Agent):
             self.shackhatmanAgent_Connection.connect()
             self.shackhatmanAgent_Connection.sendMessage(command.string,
             responseCallback=command.setReply)
-        except socket.error, err:
+        except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the shackhartman agent.')
+        except SelectedConnection.WriteError, err:
+            command.setReply('ERROR: Could not send to ShackHartman agent.')
     
     def SLITS_comand_handler(self, command):
         try:
             self.slitController_Connection.connect()
             self.slitController_Connection.sendMessage(command.string, 
                 responseCallback=command.setReply)
-        except socket.error, err:
-            command.setReply('ERROR: Could not establish a connection with the shackhartman agent.')
+        except SelectedConnection.ConnectError, err:
+            command.setReply('ERROR: Could not establish a connection with the slit controller.')
+        except SelectedConnection.WriteError, err:
+            command.setReply('ERROR: Could not send to slit controller.')
     
     def datalogger_command_handler(self, command):
         try:
             self.dataloggerAgent_Connection.connect()
             self.dataloggerAgent_Connection.sendMessage(command.string, 
                 responseCallback=command.setReply)
-        except socket.error, err:
+        except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
+        except SelectedConnection.WriteError, err:
+            command.setReply('ERROR: Could not send to datalogger agent.')
         
     def status_command_handler(self, command):
         #TODO Query each subsystem for status

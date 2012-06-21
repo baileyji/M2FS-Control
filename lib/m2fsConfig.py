@@ -1,6 +1,7 @@
 import ConfigParser
-
+_CONFIG_DIRECTORY='./conf/'
 class m2fsConfig:
+    
     def __init__(self):
         pass
     
@@ -20,14 +21,14 @@ class m2fsConfig:
     def getPlateFileDirectory():
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        config.readfp(open('../conf/m2fs_paths.conf','r'))
+        config.readfp(open(_CONFIG_DIRECTORY+'m2fs_paths.conf','r'))
         return config.item('Director','plateFileDir')
     
     @staticmethod
     def getPort(string):
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        config.readfp(open('../conf/m2fs_socket.conf','r'))
+        config.readfp(open(_CONFIG_DIRECTORY+'m2fs_socket.conf','r'))
         port=config.getint('Ports',string)
         return port
         
@@ -35,7 +36,7 @@ class m2fsConfig:
     def getAgentPorts():
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        config.readfp(open('../conf/m2fs_socket.conf','r'))
+        config.readfp(open(_CONFIG_DIRECTORY+'m2fs_socket.conf','r'))
         return {x[0]:int(x[1]) for x in config.items('Ports')}
     
     @staticmethod
@@ -43,11 +44,11 @@ class m2fsConfig:
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         if side=='B':
-            file='../conf/m2fs_galilB.conf'
+            file='m2fs_galilB.conf'
         else:
-            file='../conf/m2fs_galilR.conf'
+            file='m2fs_galilR.conf'
         try:
-            config.readfp(open(file,'r'))
+            config.readfp(open(_CONFIG_DIRECTORY+file,'r'))
         except Exception:
             return {}
         return dict(config.items('Defaults'))
@@ -57,10 +58,10 @@ class m2fsConfig:
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         if side=='B':
-            file='../conf/m2fs_galilB.conf'
+            file='m2fs_galilB.conf'
         else:
-            file='../conf/m2fs_galilR.conf'
-        with open(file,'w') as configfile:
+            file='m2fs_galilR.conf'
+        with open(_CONFIG_DIRECTORY+file,'w') as configfile:
             for setting, value in defaults:
                 config.set('Defaults', setting, value)
                 config.write(configfile)

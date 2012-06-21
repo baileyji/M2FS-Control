@@ -1,28 +1,23 @@
 #!/opt/local/bin/python2.7
-import time
-import argparse
-import socket
+import sys, time
+sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
-import atexit
-import sys
-import select
-sys.path.append('../lib/')
+import SelectedConnection
 from agent import Agent
 from command import Command
 from m2fsConfig import m2fsConfig
-from SelectedConnection import SelectedSocket
 
 class SlitController(Agent):
     def __init__(self):
         Agent.__init__(self,'SlitController')
         #Connect to the shoes
         agent_ports=m2fsConfig.getAgentPorts()
-        self.shoeAgentR_Connection=SelectedSocket('localhost',
-            agent_ports['ShoeAgentR'], self.logger)
+        self.shoeAgentR_Connection=SelectedConnection.SelectedSocket(
+            'localhost', agent_ports['ShoeAgentR'], self.logger)
         self.devices.append(self.shoeAgentR_Connection)
-        self.shoeAgentB_Connection=SelectedSocket('localhost',
-            agent_ports['ShoeAgentB'], self.logger)
+        self.shoeAgentB_Connection=SelectedConnection.SelectedSocket(
+            'localhost', agent_ports['ShoeAgentB'], self.logger)
         self.devices.append(self.shoeAgentB_Connection)
         #No closed oop 
         self.closed_loop=0

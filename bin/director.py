@@ -1,10 +1,7 @@
 #!/opt/local/bin/python2.7
-import sys
-sys.path.append('../lib/')
+import sys, time, socket
+sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
-import socket
-import time
-import select
 import SelectedConnection
 from command import Command
 from m2fsConfig import m2fsConfig

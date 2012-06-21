@@ -1,14 +1,9 @@
 #!/opt/local/bin/python2.7
-import time
-import argparse
-import socket
-import signal
+import sys, time
+sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
 import atexit
-import sys
-import select
-sys.path.append('../lib/')
 from agent import Agent
 from command import Command
 import sqlite3

@@ -1,7 +1,5 @@
 #!/usr/bin/python
-import serial
-import io
-import time
+import serial,io,
 from optparse import OptionParser
 
 

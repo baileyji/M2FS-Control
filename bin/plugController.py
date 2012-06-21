@@ -1,23 +1,15 @@
 #!/opt/local/bin/python2.7
-#!/opt/local/bin/python2.7
-import time
-import argparse
-import socket
+import sys, time
+sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
-import atexit
-import sys
-import select
-sys.path.append('./lib/')
-import shoe
 from agent import Agent
 from command import Command
 
 
-class ShoeAgent(Agent):
+class PlugController(Agent):
     def __init__(self):
         Agent.__init__(self,'PlugController')
-        #Connect to the shoes
         self.agent_ports=m2fsConfig.getAgentPorts()
         self.command_handlers={
             'PLATELIST':PLATELIST_command_handler,
@@ -38,7 +30,7 @@ class ShoeAgent(Agent):
         return ('localhost', self.PORT)
     
     def get_version_string(self):
-        return 'Slit Controller Version 0.1'
+        return 'Plugging Controller Version 0.1'
     
 
                     
@@ -94,5 +86,5 @@ class ShoeAgent(Agent):
 
 
 if __name__=='__main__':
-    agent=ShoeAgent()
+    agent=PlugController()
     agent.main()

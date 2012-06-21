@@ -50,6 +50,7 @@ class SelectedConnection(object):
     
     def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
         if not self.isOpen():
+            self.logger.debug("Send %s to %s. Attempting open"%(message, self)) 
             try:
                 self.connect()
             except ConnectError, err:

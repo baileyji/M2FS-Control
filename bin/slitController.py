@@ -74,6 +74,8 @@ class SlitController(Agent):
             elif 'B' in command.string:
                 self.shoeAgentB_Connection.sendMessage('SLITS ?', 
                     responseCallback=command.setReply, errorCallback=command.setReply)
+            else:
+                self.bad_command_handler(command)
         else:
             """Command should be in form SLITS [R|B] #,#,#,#,#,#,#,# """
             if not self.closed_loop:
@@ -85,6 +87,8 @@ class SlitController(Agent):
                     shoe_command='SLITS'+command.string.partition('B')[2]
                     self.shoeAgentB_Connection.sendMessage(shoe_command,
                         responseCallback=command.setReply, errorCallback=command.setReply)
+                else:
+                    self.bad_command_handler(command)
             else:
                 """ We are operating closed loop, way more work to do folks"""
                 command.setReply('ERROR: Closed loop control not yet implemented.')

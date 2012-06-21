@@ -56,8 +56,11 @@ class SelectedConnection(object):
             except ConnectError, err:
                 self.connection=None
                 err="Attempting to send '%s' on '%s'" % (message, str(self))
-                self.logger.error(err)
-                raise IOError(err)
+                if not errorCallback:
+                    self.logger.error(err)
+                    raise IOError(err)
+                else:
+                    errorCallback(err)
         if message=='' or self.out_buffer!='':
             return
         if message[-1] !='\n':

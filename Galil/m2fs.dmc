@@ -847,18 +847,17 @@ EN
 ' INsert FES INserter arm
 '***************************************************************************
 #INFESIN
-^h=0;'          Hope for success
-^a=FESINAX
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#INFESIN(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+^h=0;^a=FESINAX;'          Hope for success
 'Make sure the FESEL is in a safe position to insert filter
 JS#FESELSF;^h=_JS
 'Make sure we are calibrated
 IF((^h=0)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
 'Insert FESIN if all is well
-IF(^h=0)
-JS#FANCYMV(^a,fesinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+IF(^h=0);JS#FANCYMV(^a,fesinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a;ENDIF
+axiserr[^a]=^h
 ENDIF
-'Handle status reporting, could be better
-IF (^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
 EN,,^h
 
 
@@ -866,18 +865,21 @@ EN,,^h
 ' ReMove FES INserter arm
 '***************************************************************************
 #RMFESIN
-^h=0;'          Hope for success
-^a=FESINAX
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#RMFESIN(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+^h=0;^a=FESINAX;'          Hope for success
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 'Make sure we are calibrated
 IF((^h=0)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
-'Insert FESIN if all is well
-IF(^h=0)
-JS#FANCYMV(^a,fesremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+'Remove the FESIN if all is well
+JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axspd[^a]);^h=_JS
+'Move to the removed idle position
+IF(^h=0);JS#FANCYMV(^a,fesremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;
+~a=^a;MO~a
 ENDIF
-'Handle status reporting, could be better
-IF (^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
+axiserr[^a]=^h
+ENDIF
 EN,,^h
 
 
@@ -896,6 +898,8 @@ EN,,^h
 ' position
 '***************************************************************************
 #FESELSF
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#FESELSF(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^a=FESELAX
 'Hope for success
 ^h=0
@@ -927,7 +931,7 @@ JS#QUFELP
 'If we still aren't in a safe spot fail
 IF( ((_JS>=filterp1) & (_JS<=filter8)) | felanap>allsafep );^h=0
 ELSE;^h=1;axiserr[^a]=EFLTUNSF
-ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 
 

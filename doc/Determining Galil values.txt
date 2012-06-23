@@ -1,0 +1,8 @@
+Finding the LoRes grating swap position:
+XQ#AUTO,0 if needed
+XQ#CALLRT,3
+wait
+SHF;SPF=10000;PRF=-64000;BGF and repeat until near position
+then repeat with smaller PRF=  (position relative moves) untill in position
+TDF
+set lrswapp= number reported

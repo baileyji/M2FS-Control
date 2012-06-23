@@ -1,9 +1,7 @@
 REM ISR routines (e.g. ININT) always interrupt thread 0.
 REM If a limit caused deceleration at SD rate and a ST 
 REM   is issued the deceleration rate is not changed.
-
 REM ST changes the stop code even if an axis is already stopped.
-
 REM It appears that ^a, etc only get pushed onto the stack from the 2nd level down
 REM also, it does not appear there is a way to use introspection to determine 
 REM what stack depth a function is at
@@ -34,6 +32,7 @@ EGESPMM=8;'GESPotMotorMismatch
 EFAIL=9
 ECRAZY=11;'A passed parameter is outside of all sane bounds
 ELIMOST=12;' Over shot the limitswitch
+EFLTUNSF=13
 
 'Array of threaded execution parameters
 DM a[8],b[8],c[8],d[8],e[8],f[8],g[8],h[8],ret[8]
@@ -114,9 +113,9 @@ REM NB The PI actuators advise no greater than 10% max speed
 REM    when approaching limits.
 DM axlmspd[8];'limit speed (speed used when intentionally moving to a limit)
 axlmspd[GESAX]=6400
-axlmspd[FLSINAX]=6400
+axlmspd[FLSINAX]=1024
 axlmspd[FOCAX]=6400;'unused
-axlmspd[FESINAX]=6400
+axlmspd[FESINAX]=1024
 axlmspd[FESELAX]=6400
 axlmspd[LRTLTAX]=6400;'unused
 axlmspd[HRTLTAX]=6400
@@ -134,10 +133,10 @@ axhmspd[HRTLTAX]=256
 axhmspd[HRAZAX]=256
 DM axspd[8];'Generic travel speed
 axspd[GESAX]=7000;'16215;'seems ok
-axspd[FLSINAX]=0
+axspd[FLSINAX]=1024
 axspd[FOCAX]=7000;'15000;'seems ok
 axspd[FESINAX]=1024
-axspd[FESELAX]=1024
+axspd[FESELAX]=7000
 axspd[LRTLTAX]=10000;'seems ok (w/o grating) Max per DS: 30091
 axspd[HRTLTAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
@@ -145,7 +144,7 @@ DM axmaxp[8];'Max possible position (steps, 16x microstepping)
 axmaxp[GESAX]=288112;'Actual value slightly greater if overshooting limits
 axmaxp[FLSINAX]=0
 axmaxp[FOCAX]=16*200*180;'Infinite, about 1 revolution
-axmaxp[FESINAX]=0
+axmaxp[FESINAX]=0;'about 10k
 axmaxp[FESELAX]=0
 axmaxp[LRTLTAX]=1126400; '1 revolution
 axmaxp[HRTLTAX]=128205/2;'10mm
@@ -165,6 +164,25 @@ DM ldelta[8]
 ldelta[GESAX]=0;ldelta[FLSINAX]=0;ldelta[FOCAX]=0;ldelta[FESINAX]=0
 ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
 
+
+DM bcklsh[8];'backlash in steps, for reference
+bcklsh[GESAX]=77;'76.2 microns
+bcklsh[FLSINAX]=0
+bcklsh[FOCAX]=18;'880 microradians (estimate based on LRTLT stage)
+bcklsh[FESINAX]=55;' ABOUT 52-58
+bcklsh[FESELAX]=0
+bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
+bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
+bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
+DM mininc[8];'minimum incremental motion
+mininc[GESAX]=0
+mininc[FLSINAX]=0
+mininc[FOCAX]=0
+mininc[FESINAX]=0
+mininc[FESELAX]=0;'<20 by touch
+mininc[LRTLTAX]=4;'Per DS: 21 microradians = 3.62 us => 4 usteps = 23.2 urad
+mininc[HRTLTAX]=13;'microsteps, 1 micron
+mininc[HRAZAX]=13;'microsteps, 1 micron
 'Unused, comented as short of array space
 'DM dperus[8];'delta per microstep
 'dperus[GESAX]=.992;'microns per microstep
@@ -175,25 +193,6 @@ ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
 'dperus[LRTLTAX]=5.8;'microradians per microstep
 'dperus[HRTLTAX]=0.078;'microns per microstep
 'dperus[HRAZAX]=0.078;'microns per microstep
-DM bcklsh[8];'backlash in steps, for reference
-bcklsh[GESAX]=77;'76.2 microns
-bcklsh[FLSINAX]=0
-bcklsh[FOCAX]=18;'880 microradians (estimate based on LRTLT stage)
-bcklsh[FESINAX]=0
-bcklsh[FESELAX]=0
-bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
-bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
-bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
-DM mininc[8];'minimum incremental motion
-mininc[GESAX]=0
-mininc[FLSINAX]=0
-mininc[FOCAX]=0
-mininc[FESINAX]=0
-mininc[FESELAX]=0
-mininc[LRTLTAX]=4;'Per DS: 21 microradians = 3.62 us => 4 usteps = 23.2 urad
-mininc[HRTLTAX]=13;'microsteps, 1 micron
-mininc[HRAZAX]=13;'microsteps, 1 micron
-
 
 'Encoder value near a limit, unused on unencoded
 DM encnlim[8]
@@ -233,8 +232,8 @@ geshrp=7400;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
 geslrp=265000;'(steps) Position of LoRes mode from calibrated 0 TODO: finalize
 geslrep=3798; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
 geshrep=285; 'GES HR encoder nominal position TODO: finalize
-gesgsp=0;' GES Grating Swap position relative to calibrated 0 TODO: determine
-gesgsep=0;' GES Grating Swap encoder nominal position TODO: determine
+gesgsp=1393;' GES Grating Swap position relative to calibrated 0 TODO: finalize
+gesgsep=1397;' GES Grating Swap encoder nominal position TODO: finalize
 'GES encoder nominal position tolerance 
 gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
 
@@ -245,43 +244,45 @@ LCKVOLT=2 ;'Determined empirically, > => locked
 'LoRes Tilt defines
 lrthmos=6400;' Amount to overshoot home before creeping back 
 ' (ROUGH STAB TODO:refine)
-lrtinpt=2 ;'  Digital in corresponding to the LoRes origin sensor
-lrtinhx=$2
+lrtinpt=9 ;'  Digital in corresponding to the LoRes origin sensor
+lrtinhx=$9
 lrtathm=1 ;'  value of origin sensor (via @IN) when at home
 lrhomng=false
-lrswapp=32000;' step position for lr grating swap
+lrswapp=-423000;' step position for lr grating swap
 
 'Filter related defines
 nfilt=8 ;' Number of filter slots
 ^a=nfilt+1;'Can't have expression within subscripts
 'FES Elevator nominal filter position in steps
+felstpsp=16*200*5;'.1" per rev
 DM feselfp[^a]
-feselfp[0]=0
-feselfp[1]=0
-feselfp[2]=0
-feselfp[3]=0
-feselfp[4]=0
-feselfp[5]=0
-feselfp[6]=0
-feselfp[7]=0
-feselfp[8]=0
+feselfp[0]=1500
+feselfp[1]=feselfp[0]+felstpsp
+feselfp[2]=feselfp[1]+felstpsp
+feselfp[3]=feselfp[2]+felstpsp
+feselfp[4]=feselfp[3]+felstpsp
+feselfp[5]=feselfp[4]+felstpsp
+feselfp[6]=feselfp[5]+felstpsp
+feselfp[7]=feselfp[6]+felstpsp
+feselfp[8]=feselfp[7]+16*200*28.5
 'FES Elevator nominal filter position in encoder counts
-felencsp=324.24;'.579" filter spacing
+felencsp=317;'.5" filter spacing, 317 counts measured ?? nominal
 DM felencp[^a]
-felencp[0]=4050
-felencp[1]=felencp[0]-felencsp
-felencp[2]=felencp[1]-felencsp
-felencp[3]=felencp[2]-felencsp
-felencp[4]=felencp[3]-felencsp
-felencp[5]=felencp[4]-felencsp
-felencp[6]=felencp[5]-felencsp
-felencp[7]=felencp[6]-felencsp
-felencp[8]=felencp[7]-2172;'Load position is an additional 3.572" further
+felencp[0]=4.2803
+felencp[1]=felencp[0]+felencsp
+felencp[2]=felencp[1]+felencsp
+felencp[3]=felencp[2]+felencsp
+felencp[4]=felencp[3]+felencsp
+felencp[5]=felencp[4]+felencsp
+felencp[6]=felencp[5]+felencsp
+felencp[7]=felencp[6]+felencsp
+felencp[8]=felencp[7]+1732;'Load position is an additional 2.85" further
 'Allowable range (+/-) in encoder counts around nominal filter position
 feselrg=2 ;'about 0.003"
 fesinsp=0 ;'The inserted position in steps of the FESIN arm
 fesremp=0 ;'The removed position in steps of the FESIN arm
-nearfilt=0
+nearfilt=0;' nearest filter to current position, determined by QUFEL
+allsafep=2746;'Encoder pos above which it is always safe to move the inserter
 
 'FLS related defines
 flsremp=0;'The removed position in steps of the FLSIN arm
@@ -316,10 +317,11 @@ AQ1,4;AQ3,4;AQ5,4;AQ7,4;AQ8,4;'  GES,FOC,FESEL,HRTLT,HRAZ analog inputs: 0-10V
 AF 1,,1,,1;'		Configure GES, FES, & FOC for analog feedback
 YA 16,16,16,16,16,16,16,16;'Set stepping mode resolutions
 YB 200,200,200,200,200,400,400,400;'Set stepper motor steps/revolution
+LDE=3;'No limits on filter elevator
 'Encoder resolution counts/rev (APPROXIMATE VALUES!)
 'GES Nominally 44.7. GER R measured to be about 42.3
-'FESEL measured to be 608 counts per inch
-YC 42,,26,,56 
+'FESEL measured to be 607.6 counts per inch on B side
+YC 42,,26,,61 
 'No built-in position error detection for steppers 	
 ER*=-1			
 'Configure: Limits active high, Home high -> go backward (retract)
@@ -719,7 +721,7 @@ EN
 '***************************************************************************
 #LORES
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#HIRES;ELSE
+JS#ZS;IF (_JS<1);JS#LORES;ELSE
 ^a=GESAX;^h=ENONE;'      Hope for success
 'Calibrate if needed
 IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
@@ -732,6 +734,7 @@ ENDIF
 axiserr[^a]=^h
 ENDIF
 EN
+
 
 '***************************************************************************
 ' Get Focus Position
@@ -833,38 +836,12 @@ EN
 ' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
 '***************************************************************************
 #GETFESI
-JS#QUFESIN
+JS#QUINPOS(FESINAX,fesinsp,fesremp)
 IF (_JS=out);MG "GETFLSI: OUT";ENDIF
 IF (_JS=in);MG "GETFLSI: IN";ENDIF
 IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
 IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
 EN
-
-
-'***************************************************************************
-' QUery FES INserter position status
-' returns
-' out, in, intermediate, unknown, moving
-'***************************************************************************
-#QUFESIN
-^a=FESINAX
-'Uncalibrated
-IF (axiscal[^a]<>true);^h=unknown
-ELSE
-'Stopped, out position
-~a=^a;IF ((_SC~a=1) & (_TP~a=fesremp));^h=out
-ELSE
-'Stopped, in position
-~a=^a;IF ((_SC~a=1) & (_TP~a=fesinsp));^h=in
-ELSE
-'Stopped, somewhere else
-~a=^a;IF (_SC~a<>0);^h=intermd
-ELSE
-'Moving
-^h=moving
-ENDIF;ENDIF;ENDIF;ENDIF
-EN,,^h
-
 
 '***************************************************************************
 ' INsert FES INserter arm
@@ -875,7 +852,7 @@ EN,,^h
 'Make sure the FESEL is in a safe position to insert filter
 JS#FESELSF;^h=_JS
 'Make sure we are calibrated
-IF((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
+IF((^h=0)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
 'Insert FESIN if all is well
 IF(^h=0)
 JS#FANCYMV(^a,fesinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
@@ -904,97 +881,17 @@ IF (^h<>0);JS#ERRMSG(^a,EFAIL);ENDIF
 EN,,^h
 
 
-#CALINAX;'(axis)
-'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALINAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
-IF (^h=0)
-~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
-ENDIF
-'Store status
-axiserr[^a]=^h
-ENDIF
-EN ,,^h
-
-
-'***************************************************************************
-' GET FLS Iserter status
-' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
-'***************************************************************************
-#GETFLSI
-JS#QUFLSIN
-IF (_JS=out);MG "GETFLSI: OUT";ENDIF
-IF (_JS=in);MG "GETFLSI: IN";ENDIF
-IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
-IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
-EN
-
-
-'***************************************************************************
-' QUery FLS INserter position status
-' returns
-' out, in, intermediate, or unknown
-'***************************************************************************
-#QUFLSIN
-^a=FLSINAX
-'Uncalibrated
-IF (axiscal[^a]<>true);^h=unknown
-ELSE
-'Stopped, out position
-~a=^a;IF ((_SC~a=1) & (_TP~a=fesremp));^h=out
-ELSE
-'Stopped, in position
-~a=^a;IF ((_SC~a=1) & (_TP~a=fesinsp));^h=in
-ELSE
-'Stopped, somewhere else
-~a=^a;IF (_SC~a<>0);^h=intermd
-ELSE
-'Moving
-^h=intermd
-ENDIF;ENDIF;ENDIF;ENDIF
-EN,,^h
-
-
-'***************************************************************************
-' INsert FLS INserter arm
-'***************************************************************************
-#INFLSIN
-^h=0;'          Hope for success
-^a=FLSINAX
-'Make sure we are calibrated
-IF(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
-'Insert FLSIN if all is well
-IF(^h=0)
-JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
-ENDIF
-'Handle status reporting, could be better
-IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
-EN,,^h
-
-
-'***************************************************************************
-' ReMove FLS INserter arm
-' NB it is always safe to remove
-'***************************************************************************
-#RMFLSIN
-^h=0;'          Hope for success
-^a=FLSINAX
-'Make sure we are calibrated
-IF(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
-'Remove FLSIN if all is wellIF(^h=0)
-JS#FANCYMV(^a,flsremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
-ENDIF
-'Handle status reporting, could be better
-IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
-EN,,^h
-
-
-'IN TESTING WE MUST MAKE SURE THAT WE CANT BECOME CLOSER TO AN ADJCENT FILTER
-'  POS THAN THE CURRENT ONE WHILE THE INSERTER ARM IS IN
 '***************************************************************************
 ' FES ELevator SaFe
 ' Returns 0 if the elevator is in a safe position for the 
 '  FESIN arm to move
+' Cases:
+'   caddy is above inserter or within tolerance of a filter position: return 0
+'   caddy is in front of inserter, but not within tolerance of filter position
+'    if the inserter position is == fesremp
+'      nudge to the nearest filter
+'      if within tolerance return true
+'    fail
 ' If the elevator isn't is a safe position it attempts to move it to a safe
 ' position
 '***************************************************************************
@@ -1002,31 +899,35 @@ EN,,^h
 ^a=FESELAX
 'Hope for success
 ^h=0
-'Get current filter elevator position
-JS#QUFELP
-'If not in one of the alowed positions
-IF( (_JS<filterp1) | (_JS>filterld) )
+JS#WAITAMF(^a)
+'Case 1: caddy is above inserter return 0
+IF(felanap>allsafep);^h=0;
+ELSE
+'Check if position is within tolerance of a filter position
+JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filter8) );^h=0
+ELSE
 'We are in a position that needs fine tuning before it is safe to 
-' move the FESIN arm
+' move the FESIN arm, but it is only safe to tweak the position if the
+' inserter position is known
+JS#QUINPOS(FESINAX,fesinsp,fesremp)
+IF (_JS<>out); ^h=1;axiserr[^a]=EFLTUNSF
+ELSE
 'Try to nudge elevator toward nearest valid position
 'Compute number of steps between current encoder position and nominal 
 ' encoder position filter
-'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
-^b=nearfilt-filterp1
-^b=felencp[^b]-felanap
+^b=nearfilt-filterp1;'NB nearfilt is defermined by QUFELP
+^b=felencp[^b]-felanap;'encoder distance to nearest filter pos
 JS#ENC2STP(FESELAX,^b)
 'Compute new desired position
 ~a=^a;^b=_TD~a+_JS
-'TODO WARNING: if mininc is too large then the backing off and moving procedure
-' could cause a collision with the rack of the FESIN arm if it isn't stowed
-' THIS NEEDS TO BE SORTED OUT IN TESTING
 JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a
 'Check the position again
 JS#QUFELP
 'If we still aren't in a safe spot fail
-IF( (_JS<filterp1) | (_JS>filterld) );^h=1;JS#ERRMSG(FESELAX,EFESELS);ENDIF
-ENDIF
+IF( ((_JS>=filterp1) & (_JS<=filter8)) | felanap>allsafep );^h=0
+ELSE;^h=1;axiserr[^a]=EFLTUNSF
+ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 
 
@@ -1070,20 +971,23 @@ EN,,^h
 '  Filter 1-8 In, Out?????TODO, None, Load, Moving, Intermediate
 '***************************************************************************
 #GETFILT
-JS#QUFESIN;^a=_JS
+JS#QUINPOS(FESINAX,fesinsp,fesremp);^a=_JS
 JS#QUFELP;^b=_JS
-IF(_JS=filterp1);MG "GETFILT: Filter 1";ENDIF
-IF(_JS=filterp2);MG "GETFILT: Filter 2";ENDIF
-IF(_JS=filterp3);MG "GETFILT: Filter 3";ENDIF
-IF(_JS=filterp4);MG "GETFILT: Filter 4";ENDIF
-IF(_JS=filterp5);MG "GETFILT: Filter 5";ENDIF
-IF(_JS=filterp6);MG "GETFILT: Filter 6";ENDIF
-IF(_JS=filterp7);MG "GETFILT: Filter 7";ENDIF
-IF(_JS=filterp8);MG "GETFILT: Filter 8";ENDIF
-IF(^a=out);MG "GETFILT: None";ENDIF
-IF(_JS=filterld);MG "GETFILT: Load";ENDIF
-IF(_JS=moving);MG "GETFILT: Moving";ENDIF
-IF(_JS=intermd);MG "GETFILT: Intermediate";ENDIF
+IF((^a=moving)|^b=moving);MG "GETFILT: Moving"
+ELSE;IF(^b=filterld);MG "GETFILT: Load"
+ELSE;IF(^a=unknown);MG "GETFILT: UNKNOWN"
+ELSE;IF(^a=out);MG "GETFILT: None"
+ELSE;IF((^a=intermd)|(^b=intermd);MG "GETFILT: Intermediate"
+ELSE;'One will match
+IF(^b=filterp1);MG "GETFILT: 1";ENDIF
+IF(^b=filterp2);MG "GETFILT: 2";ENDIF
+IF(^b=filterp3);MG "GETFILT: 3";ENDIF
+IF(^b=filterp4);MG "GETFILT: 4";ENDIF
+IF(^b=filterp5);MG "GETFILT: 5";ENDIF
+IF(^b=filterp6);MG "GETFILT: 6";ENDIF
+IF(^b=filterp7);MG "GETFILT: 7";ENDIF
+IF(^b=filterp8);MG "GETFILT: 8";ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 EN
 
 
@@ -1096,43 +1000,121 @@ EN
 ' Forces filternum to be integer
 '***************************************************************************
 #PICKFIL
-'  Hope for success
-^h=0
-'Force filternum to an integer
-^a=@INT[^a]
-'Make sure the arguments are valid
-IF ((^a<1)|(^a>10));^h=1;JS#ERRMSG(FESELAX,EBADFP,^a)
-'If argument is a valid position
-ELSE
-'Get current state of elevator and inserter
-JS#QUFELP;^b=_JS
-JS#QUFESIN;^c=_JS
-'If the desired position is the same as the current position we are done
-IF( ((^a=10)&(^c=out)) | ((^c=in)&(^b=(^a+filterp1-1))) );^h=0
-'Else figure out and do what needs doing
-ELSE
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+'Hope for success, force filternum to an integer
+^h=0;^a=@INT[^a]-1
+'Check for invalid filter id
+IF ((^a<0)|(^a>9));^h=EBADFP;axiserr[FESELAX]=EBADFP
+ELSE;'ID valid, get current state of elevator (^b) and inserter (^c)
+JS#QUFELP;^b=_JS-filterp1;
+JS#QUINPOS(FESINAX,fesinsp,fesremp);^c=_JS
+'If the desired position = current position we are done
+IF( ((^a=9)&(^c=out))|(((^c=in)|(^a=8))&(^b=^a)) );^h=0;axiserr[FESELAX]=ENONE
+ELSE;'We are not in position
 'Stow the FESIN arm, note REFESIN ensures safe to move 
-JS#RMFESIN;^h=_JS
-'If No Filter requested we're done
-IF (^a<>10)
-'If all is well...
-IF (^h=0)
-'move to the desired filter
-^d=^a-1;' No math in array subscripts, stupid language
-JS#FANCYMV(FESELAX,feselfp[^d]);MC~a;MO~a
+JS#RMFESIN;^h=_JS;axiserr[FESELAX]=^h
+IF ((^h=0)&(^a<>9));'Arm retracted, desired filter != none
+'Move to the desired filter
+JS#FANCYMV(FESELAX,feselfp[^a]);~a=FESELAX;MC~a;~a=FESELAX;MO~a
 'Get current state of elevator
 JS#QUFELP;^b=_JS
-'If we are where we should be...
-IF(^b=(^a+filterp1-1))
-'...and we need to insert a filter, insert it
-IF(^b<>filterld);JS#INFESIN;^h=_JS;ENDIF
-'else we are not where we should be
-ELSE
-^h=1
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
-'check for errors
-IF (^h=1);JS#ERRMSG(FESELAX,EFAIL);ENDIF
+IF( ((^b-filterp1)=^a) & (^b<>intermd) );'If we are where we should be...
+'Insert the filter if needed
+IF(^b<>filterld);JS#INFESIN;^h=_JS;axiserr[FESELAX]=^h
+ELSE;axiserr[FESELAX]=ENONE;ENDIF
+ELSE;^h=EFLTUNSF;axiserr[FESELAX]=^h
+ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF
 EN,,^h
+
+
+
+'***************************************************************************
+' GET FLS Iserter status
+' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
+'***************************************************************************
+#GETFLSI
+JS#QUINPOS(FLSINAX,flsinsp,flsremp)
+IF (_JS=out);MG "GETFLSI: OUT";ENDIF
+IF (_JS=in);MG "GETFLSI: IN";ENDIF
+IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
+IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
+EN
+
+
+'***************************************************************************
+' INsert FLS INserter arm
+'***************************************************************************
+#INFLSIN
+^h=0;'          Hope for success
+^a=FLSINAX
+'Make sure we are calibrated
+IF(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
+'Insert FLSIN if all is well
+IF(^h=0)
+JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+ENDIF
+'Handle status reporting, could be better
+IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' ReMove FLS INserter arm
+' NB it is always safe to remove
+'***************************************************************************
+#RMFLSIN
+^h=0;'          Hope for success
+^a=FLSINAX
+'Make sure we are calibrated
+IF(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
+'Remove FLSIN if all is wellIF(^h=0)
+JS#FANCYMV(^a,flsremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+ENDIF
+'Handle status reporting, could be better
+IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
+EN,,^h
+
+
+'***************************************************************************
+' CALibrate INserter AXis
+'***************************************************************************
+#CALINAX;'(axis)
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALINAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
+IF (^h=0)
+~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
+ENDIF
+'Store status
+axiserr[^a]=^h
+ENDIF
+EN ,,^h
+
+
+'***************************************************************************
+' QUery INserter POSition status (AXIS, inserted step pos, removed step pos)
+' returns: out, in, intermediate, or unknown (if uncalibrated)
+'***************************************************************************
+#QUINPOS;'(axis,insertedpos,removedpos)
+'Uncalibrated
+IF (axiscal[^a]<>true);^h=unknown
+ELSE
+'Stopped, out position
+~a=^a;IF ((_SC~a=1) & (_TP~a=^c));^h=out
+ELSE
+'Stopped, in position
+~a=^a;IF ((_SC~a=1) & (_TP~a=^b));^h=in
+ELSE
+'Stopped, somewhere else
+~a=^a;IF (_SC~a<>0);^h=intermd
+ELSE
+'Moving
+^h=moving
+ENDIF;ENDIF;ENDIF;ENDIF
+EN,,^h
+
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1676,8 +1658,9 @@ ELSE;IF (^b=EHMERR);MG "!FESEL: Homing failure. Switch did not toggle."
 ELSE;IF (^b=EBADFP);MG "!FESEL: ",^c," is not a valid filter position."
 ELSE;IF (^b=ECRAZY);MG "!FESEL: Requested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FESEL: Unspecified error."
+ELSE;IF (^b=EFLTUNSF);MG "!FESEL: Filter changer unsafe state. Fix Manually."
 ELSE;MG "!FESEL: Unknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 axiserr[^a]=ENONE
 EN
@@ -1688,11 +1671,11 @@ EN
 '***************************************************************************
 #TELLTA
 ^a=_TA0
-IF (^a & $10);MG "Over Current (E-H Axes)";ENDIF;
-IF (^a & $1);MG "Over Current (A-D Axes)";ENDIF;
+IF (^a & $10);MG "Over Current (E-H Axes)";ENDIF
+IF (^a & $1);MG "Over Current (A-D Axes)";ENDIF
 ^a=_TA3
-IF (^a & $2);MG "ELO Active (E-H Axes)";ENDIF;
-IF (^a & $1);MG "ELO Active (A-D Axes)";ENDIF;
+IF (^a & $2);MG "ELO Active (E-H Axes)";ENDIF
+IF (^a & $1);MG "ELO Active (A-D Axes)";ENDIF
 EN
 
 
@@ -1710,8 +1693,10 @@ EN
 ' Code Version
 ' Run to report code version
 '***************************************************************************
-#CODEVER;MG "CODEVER: m2fs.dmc v0.1";EN;
+#CODEVER;MG "CODEVER: m2fs.dmc v0.1";EN
 
+
+#RUNNIN;MG "Active Threads",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7;EN
 
 '***************************************************************************
 ' ZS

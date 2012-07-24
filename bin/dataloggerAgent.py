@@ -26,10 +26,6 @@ class DataloggerAgent(Agent):
                     'TEMPS':self.TEMPS_command_handler,
                     'VERSION':self.version_request_command_handler,
                     'STATUS':self.status_command_handler}
-        #self.temp_database_file=m2fsConfig.getTempDatafile()
-        #open the logging database TODO
-        #self.database=sqlite3.connect(self.database_file)
-        #self.initialize_database()
     
     def initialize_database(self):
         dataloggerR_temp_column_names='HiRes R, LoRes R, Prism R'
@@ -82,14 +78,14 @@ class DataloggerAgent(Agent):
     
     def run(self):
         """ execute once per loop, after select has run & before command closeout """
-        
         #Temp handling
         if self.dataloggerR.have_unfetched_temps():
             timestamps,temps=self.dataloggerR.fetch_temps()
             if timestamps[0]>self.most_current_dataloggerR_timestamp:
                 self.most_current_dataloggerR_timestamp=timestamps[0]
                 self.currentTemps['R']=temps
-            self.insert_dataloggerR_temps_in_database(timestamps[0],temps)
+            cPickle.dump(data, tempsRfile, -1)
+        
         if self.dataloggerC.have_unfetched_temps():
             timestamps,temps=self.dataloggerC.fetch_temps()
             if timestamps[0]>self.most_current_dataloggerC_timestamp:
@@ -97,49 +93,45 @@ class DataloggerAgent(Agent):
                 self.currentTemps['C']=temps
             self.logger.debug("TempsC: %s:%s" % 
                 (time.asctime(time.localtime(long(timestamps[0]))), temps))
-            #self.insert_dataloggerC_temps_in_database(timestamps[0],temps)
+            cPickle.dump(data, tempsCfile, -1)
+        
         if self.dataloggerB.have_unfetched_temps():
             timestamps,temps=self.dataloggerB.fetch_temps()
             if timestamps[0]>self.most_current_dataloggerB_timestamp:
                 self.most_current_dataloggerB_timestamp=timestamps[0]
                 self.currentTemps['B']=temps
-            self.insert_dataloggerB_temps_in_database(timestamps[0],temps)
-        #once per minute start a query to the shoes for temps
-        if False:
-            self.shoeR.sendMessage('TEMP', 
-                responseCallback=self.recieveFromRShoe,
-                errorCallback=self.recieveFromRShoe)
-            self.shoeB.sendMessage('TEMP',
-                responseCallback=self.recieveFromBShoe,
-                errorCallback=self.recieveFromBShoe)
-            #reset time to query shoe
+            cPickle.dump(data, tempsBfile, -1)
         
         #Accelerometer handling
         if self.dataloggerC.have_unfetched_accels():
-            timestamps,accels=self.dataloggerC.fetch_accels()
+            data=self.dataloggerC.fetch_accels()
+            timestamps,accels=data
             self.logger.debug("AccelsC: %s:%s" % 
                 (time.asctime(time.localtime(long(timestamps[0]))), len(accels)))
+            cPickle.dump(data, accelsCfile,-1)
         
         #check that the dataloggers are online
-        #TODO
-        
-        
-        
-
-    def recieveFromBShoe(self, message):
+        if not self.dataloggerR.isOpen():
+            cPickle.dump(data, tempsCfile, -1)
+    
+    def queryShoeTemps(self):
+        self.shoeR.sendMessageBlocking('TEMP')
+        self.shoeB.sendMessageBlocking('TEMP')
+        messageR=self.shoeR.receiveMessageBlocking()
+        messageB=self.shoeB.receiveMessageBlocking()
         try:
-            self.currentTemps['shoeB']=float(message)
+            self.currentTemps['shoeB']=float(messageB)
             self.most_current_shoeB_timestamp=time.time()
         except ValueError:
             pass
-
-    def recieveFromRShoe(self, message):
         try:
-            self.currentTemps['shoeR']=float(message)
+            self.currentTemps['shoeR']=float(messageR)
             self.most_current_shoeR_timestamp=time.time()
         except ValueError:
-            pass         
-
+            pass
+        self.queryShoesTimer=Timer(60.0, self.queryShoeTemps)
+        self.queryShoesTimer.start()
+    
     def runSetup(self):
         """ execute before main loop """
         self.most_current_dataloggerR_timestamp=0
@@ -147,7 +139,8 @@ class DataloggerAgent(Agent):
         self.most_current_dataloggerB_timestamp=0
         self.most_current_shoeR_timestamp=0
         self.most_current_shoeB_timestamp=0
-    
+        self.queryShoesTimer=Timer(60.0, self.queryShoeTemps)
+        self.queryShoesTimer.start()
 
 if __name__=='__main__':
     agent=DataloggerAgent()

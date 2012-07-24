@@ -293,6 +293,80 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return 'OK'
         except IOError, e:
             return str(e)
+    
+    def do_motion_command(self, command_class, command_string):
+        try:
+            #Make sure we are connected
+            self.connect()
+            #Make sure galil is initialized
+            self.initialize_galil()
+            #Update galil thread statuses
+            self.update_executing_threads_and_commands()
+            #Check to see if the command is blocked
+            if self.command_class_blocked(command_class):
+                return "ERROR: Command is blocked. Try again later."
+            #Check for Abort or ELO
+            if self.check_abort_switch():
+                return "ERROR: Abort switch engaged."
+            if self.check_elo_switch():
+                return "ERROR: ELO switch engaged."
+            #Get a thread for the command
+            thread_number=self.get_motion_thread()
+            if thread_number is None:
+                return "ERROR: All available galil threads in use. Try again later"
+            #Send the command to the galil
+            self.send_command_to_gail(
+                command_string.replace('<thread_ID>', thread_number))
+            self.add_command_to_executing_commands(command_class, thread_number)
+            return 'OK'
+        except IOError, e:
+            return "Error: "+str(e)
+            
+    def check_abort_switch(self):
+        """ Return True if abort switch engaged """
+        val=int(self.send_command_to_gail('MG _AB'))
+        return val != 1
+    
+    def check_elo_switch(self):
+        """ Return True if elo switch engaged """
+        val=int(self.send_command_to_gail('MG _TA3'))
+        return val != 0
+    
+    def raw(self, command_string):
+        try:
+            #Make sure we are connected
+            self.connect()
+            #Make sure galil is initialized
+            self.initialize_galil()
+            #Send the command to the galil
+            self.sendMessageBlocking(command_string)
+            response=self.receiveMessageBlocking(nBytes=1024)
+            response=response.replace('\r','\\r').replace('\n','\\n')
+            #Update galil thread statuses
+            self.update_executing_threads_and_commands()
+            return response
+        except IOError, e:
+            self.logger.error(str(e))
+            return "Error: "+str(e)
+    
+    def do_status_query(self, command_string):
+        try:
+            #Make sure we are connected
+            self.connect()
+            #Make sure galil is initialized
+            self.initialize_galil()
+            #Update galil thread statuses
+            self.update_executing_threads_and_commands()
+            #Send the command to the galil
+            self.send_command_to_gail(command_string)
+            self.add_command_to_executing_commands(command, thread_number)
+            response=self.receiveMessageBlocking(nBytes=80)
+            if response is '':
+                raise IOError('No response received from galil. Consider retrying.')
+            return response.partition(':')[2]
+        except IOError, e:
+            return "Error: "+e
+
 
     def command_class_blocked(self, name):
         blockingThreads=filter(lambda x: name in x,
@@ -322,25 +396,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def get_ges(self):
         command_string="XQ#%s,%s" % ('GETGES', '7')
         return self.do_status_query(command_string)
-    
-    def do_status_query(self, command_string):
-        try:
-            #Make sure we are connected
-            self.connect()
-            #Make sure galil is initialized
-            self.initialize_galil()
-            #Update galil thread statuses
-            self.update_executing_threads_and_commands()
-            #Send the command to the galil
-            self.send_command_to_gail(command_string)
-            self.add_command_to_executing_commands(command, thread_number)
-            response=self.receiveMessageBlocking(nBytes=80)
-            if response is '':
-                raise IOError('No response received from galil. Consider retrying.')
-            return response.partition(':')[2]
-        except IOError, e:
-            return "Error: "+e
-    
         
     def get_flsim(self):
         command_string="XQ#%s,%s" % ('GETFLSI', '7')
@@ -416,48 +471,4 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         command_class='GES'
         command_string="XQ#CALGES,<threadID>"
         return self.do_motion_command(command_class, command_string)
-    
-    def do_motion_command(self, command_class, command_string):
-        try:
-            #Make sure we are connected
-            self.connect()
-            #Make sure galil is initialized
-            self.initialize_galil()
-            #Update galil thread statuses
-            self.update_executing_threads_and_commands()
-            #Check to see if the command is blocked
-            if self.command_class_blocked(command_class):
-                return "ERROR: Command is blocked. Try again later." 
-            #Get a thread for the command
-            thread_number=self.get_motion_thread()
-            if thread_number is None:
-                return "ERROR: All available galil threads in use. Try again later"
-            #Send the command to the galil
-            self.send_command_to_gail(
-                command_string.replace('<thread_ID>', thread_number))
-            self.add_command_to_executing_commands(command_class, thread_number)
-            return 'OK'
-        except IOError, e:
-            return "Error: "+str(e)
-    
-    def raw(self, command_string):
-        try:
-            #Make sure we are connected
-            self.connect()
-            #Make sure galil is initialized
-            self.initialize_galil()
-            #Send the command to the galil
-            self.send_command_to_gail(command_string)
-            response=self.receiveMessageBlocking(nBytes=1024)
-            response=response.replace('\r','\\r').replace('\n','\\n')
-            #Update galil thread statuses
-            self.update_executing_threads_and_commands()
-
-            self.add_command_to_executing_commands(command, thread_number)
-            if response is '':
-                raise IOError('No response received from galil. Consider retrying.')
-            return response.partition(':')[2]
-        except IOError, e:
-            self.logger.error(str(e))
-            return "Error: "+str(e)
     

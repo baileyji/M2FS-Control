@@ -1,0 +1,15 @@
+[Unit]
+Description=M2FS Datalogger
+
+[Install]
+WantedBy=multi-user.target
+#Also=
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/dataloggerAgant.py
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

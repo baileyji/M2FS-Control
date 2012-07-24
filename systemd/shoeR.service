@@ -1,0 +1,15 @@
+[Unit]
+Description=M2FS Shoe R 
+
+[Install]
+WantedBy=slitController.service
+#Also=
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/shoeAgent.py -R 
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

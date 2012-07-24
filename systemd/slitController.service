@@ -1,0 +1,18 @@
+[Unit]
+Description=M2FS Slit Controller
+Wants=shoeR.service
+Wants=shoeB.service
+Wants=projector.service
+
+[Install]
+WantedBy=director.service
+#Also=
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/slitController.py
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

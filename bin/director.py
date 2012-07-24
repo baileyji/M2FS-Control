@@ -31,33 +31,34 @@ class Director(Agent):
             agent_ports['ShackHartmanAgent'], self.logger)
         self.devices.append(self.shackhatmanAgent_Connection)
         self.command_handlers={
-            'RAWGALIL':self.galil_command_handler,
+
+            #Galil Agent Commands
+            'GES':self.galil_command_handler,
+            'GALILRAW':self.galil_command_handler,
             'LREL':self.galil_command_handler,
             'HREL':self.galil_command_handler,
             'HRAZ':self.galil_command_handler,
             'FOCUS':self.galil_command_handler,
-            'GES':self.galil_command_handler,
             'FILTER':self.galil_command_handler,
+            'FLSIM':self.galil_command_handler,
+            #Shack Hartman Commands
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
+            #Slit commands
             'SLITS':self.SLITS_comand_handler,
             'SLITS_CLOSEDLOOP':self.SLITS_comand_handler,
             'SLITS_SLITPOS':self.SLITS_comand_handler,
             'SLITS_CURRENTPOS':self.SLITS_comand_handler,
-            'SLITS_ILLUMPROF':self.SLITS_comand_handler,
-            'SLITS_ILLUMMEAS':self.SLITS_comand_handler,
             'SLITS_ACTIVEHOLD':self.SLITS_comand_handler,
             'SLITS_MOVSTEPS':self.SLITS_comand_handler,
             'SLITS_HARDSTOP':self.SLITS_comand_handler,
-            'SLITS_IMAGSET':self.SLITS_comand_handler,
-            'SLITS_PROJSET':self.SLITS_comand_handler,
-            'SLITS_STATUS':self.SLITS_comand_handler,
-            'SLITS_VERSION':self.SLITS_comand_handler,
+            #Plugging commands
             'PLUGMODE':self.not_implemented_command_handler,
             'PLUGPOS':self.not_implemented_command_handler,
             'PLATELIST':self.plateConfig_command_handler,
             'PLATE':self.plateConfig_command_handler,
             'PLATESETUP':self.plateConfig_command_handler,
+            
             'TEMPS':self.datalogger_command_handler,
             'STATUS':self.status_command_handler,
             'VERSION':self.version_request_command_handler}

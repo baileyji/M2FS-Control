@@ -1,9 +1,17 @@
 import ConfigParser
+import os
 _CONFIG_DIRECTORY='./conf/'
 class m2fsConfig:
     
     def __init__(self):
         pass
+    
+    @staticmethod
+    def getConfDir():
+        if os.path.isdir('./conf'):
+            return './conf/'
+        else:
+            return '../conf/'
     
     @staticmethod
     def writePositionDefault(positionName, value):
@@ -21,14 +29,14 @@ class m2fsConfig:
     def getPlateFileDirectory():
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        config.readfp(open(_CONFIG_DIRECTORY+'m2fs_paths.conf','r'))
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
         return config.item('Director','plateFileDir')
     
     @staticmethod
     def getPort(string):
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        config.readfp(open(_CONFIG_DIRECTORY+'m2fs_socket.conf','r'))
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_socket.conf','r'))
         port=config.getint('Ports',string)
         return port
         
@@ -36,7 +44,7 @@ class m2fsConfig:
     def getAgentPorts():
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
-        config.readfp(open(_CONFIG_DIRECTORY+'m2fs_socket.conf','r'))
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_socket.conf','r'))
         return {x[0]:int(x[1]) for x in config.items('Ports')}
     
     @staticmethod
@@ -48,7 +56,7 @@ class m2fsConfig:
         else:
             file='m2fs_galilR.conf'
         try:
-            config.readfp(open(_CONFIG_DIRECTORY+file,'r'))
+            config.readfp(open(m2fsConfig.getConfDir()+file,'r'))
         except Exception:
             return {}
         return dict(config.items('Defaults'))
@@ -61,7 +69,7 @@ class m2fsConfig:
             file='m2fs_galilB.conf'
         else:
             file='m2fs_galilR.conf'
-        with open(_CONFIG_DIRECTORY+file,'w') as configfile:
+        with open(m2fsConfig.getConfDir()+file,'w') as configfile:
             for setting, value in defaults:
                 config.set('Defaults', setting, value)
                 config.write(configfile)

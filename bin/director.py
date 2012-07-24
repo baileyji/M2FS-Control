@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/python
 import sys, time, socket
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent

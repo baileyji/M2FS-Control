@@ -10,7 +10,7 @@ import serial
 import sys
 import select
 import SelectedConnection
-
+from m2fsConfig import m2fsConfig
 
 class GalilThreadUpdateException(IOError):
     pass

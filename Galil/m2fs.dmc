@@ -336,6 +336,7 @@ EN
 ' Starutp Routine
 '***************************************************************************
 #AUTO
+m2fsver=.1
 HX1;HX2
 bootup1=1
 JS#M2FSCFG
@@ -1691,13 +1692,6 @@ EN
 MG "Threads active:",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7
 MG "!CMDERR (thread",_ED1," line",_ED,"):";TC1
 EN
-
-
-'***************************************************************************
-' Code Version
-' Run to report code version
-'***************************************************************************
-#CODEVER;MG "CODEVER: m2fs.dmc v0.1";EN
 
 
 #RUNNIN;MG "Active Threads",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7;EN

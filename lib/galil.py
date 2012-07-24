@@ -113,7 +113,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 
     def initialize_galil(self):
         #Check to see if we are connecting to the Galil for the first time after boot
-        self.send_command_to_gail('MG booted1')
+        self.send_command_to_gail('MG bootup1')
         bootup1=self.receiveMessageBlocking(nBytes=3)
         if bootup1=='0':
             return

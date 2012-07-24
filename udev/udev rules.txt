@@ -22,3 +22,11 @@ path based attr, NAME="galilR", RUN+="/m2fs-control/gallAgent.py -red --daemon"
 path based attr, NAME="galilB", RUN+="/m2fs-control/gallAgent.py -blue --daemon"
 vendor of mega, path based attr, NAME="shoeR", RUN+="/m2fs-control/shoeAgent.py -red --daemon"
 vendor of mega, path based attr, NAME="shoeB", RUN+="/m2fs-control/shoeAgent.py -blue --daemon"
+
+
+
+dataloggerB? @ USB1 1-2.2.3.1 DRIVERS=="ftdi_sio" ATTRS{product}=="TTL232RG-VREG3V3" ATTRS{serial}=="FTULNI5D"
+	dataloggerB? @ USB2 1-2.2.3.2 DRIVERS=="ftdi_sio" ATTRS{product}=="TTL232RG-VREG3V3" ATTRS{serial}=="FTULQCGO"
+	galilB		 @ USB3 1-2.2.5 DRIVERS=="ftdi_sio" ATTRS{interface}=="DMC-41x3" ATTRS{product}=="DMC-41x3"
+	galilR		 @ USB4 1-2.2.4 DRIVERS=="ftdi_sio" ATTRS{interface}=="DMC-41x3" ATTRS{product}=="DMC-41x3"
+	shoeX		 @ ACM0 1-2/1-2.2/1-2.2.3/1-2.2.3.4/1-2.2.3.4:1.0 DRIVERS=="cdc_acm" ATTRS{serial}=="7493430303035121A172"

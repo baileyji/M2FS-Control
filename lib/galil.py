@@ -341,6 +341,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except IOError, e:
             return "Error: "+e
     
+        
+    def get_flsim(self):
+        command_string="XQ#%s,%s" % ('GETFLSI', '7')
+        return self.do_status_query(command_string)
+        
     def set_filter(self, filter):
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter

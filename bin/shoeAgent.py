@@ -23,9 +23,12 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
             response=self.receiveMessageBlocking().replace(':','')
             #response=expected_version_string #DEBUGGING LINE OF CODE
             if response != expected_version_string:
-                error_message=("Incompatible Firmware."+
-                    "Shoe reported '%s' , expected '%s'." %
-                    (response,expected_version_string))
+                if 'Powered Down' in response:
+                    error_message="Shoe locking nut disengaged"
+                else:
+                    error_message=("Incompatible Firmware."+
+                        "Shoe reported '%s' , expected '%s'." %
+                        (response,expected_version_string))
                 self.connection.close()
                 self.connection=None
                 raise SelectedConnection.ConnectError(error_message)

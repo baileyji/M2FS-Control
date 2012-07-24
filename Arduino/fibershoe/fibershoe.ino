@@ -151,36 +151,18 @@ void setup() {
   
   loadMotorPositionsFromEEPROM();
   
+  // Turn on the shield
+  powerUpTetrisShield();
+  
   // Start serial connection
   Serial.begin(115200);
-  
-  //Boot assuming locking nut is disengaged
-  boolean locking_screw_disengaged=true;
-    
 }
 
 void loop() {
 
-  // If the locking screw reads as disengaged...
-  if (digitalRead(DISCONNECT_SHOE_PIN)){ 
-    //and this is a state change... 
-    if (!locking_screw_disengaged)
-      // power down (NB DScommand() sets locking_screw_disengaged=true)
-      DScommand();
-  }
-  else { //the screw reads as engaged
-    //If this would be a state change...
-    if (locking_screw_disengaged) P
-      //debounce switch
-      uint8_t i=200;
-      while (!digitalRead(DISCONNECT_SHOE_PIN) && (i-- > 0) ) 
-        delay(1);
-      //If the locking screw is engaged power up and accept commands
-      if (i==0) {
-        locking_screw_disengaged=false;
-        powerUpTetrisShield();
-        delay(20); //Wait a short time for the vreg to stabilize
-      }
+  // Check for removal switch and power down
+  if (digitalRead(DISCONNECT_SHOE_PIN)) {
+    DScommand();
   }
   
   // Request and fetch the temperature regularly
@@ -201,14 +183,9 @@ void loop() {
     #ifdef DEBUG
       printCommandBufNfo();
     #endif
-    if (locking_screw_disengaged) {
-      Serial.write("#Powered Down:\n");
-    }
-    else {
-      bool commandGood=parseAndExecuteCommand();
-      if (commandGood) Serial.write(":\n");
-      else Serial.write("?\n");
-    }
+    bool commandGood=parseAndExecuteCommand();
+    if (commandGood) Serial.write(":\n");
+    else Serial.write("?\n");
     have_command_to_parse=false;
     command_buffer_ndx=0;
   }
@@ -222,7 +199,6 @@ void loop() {
     uint32_t t1=micros();
     if(t%5 ==0) cout<<"Run took "<<t1-t<<" us.\n";
   #endif
-  
   //Do we leave the motors on while idle?
   if (!leave_tetris_on_when_idle) {
     for (unsigned char i=0; i<8; i++) 
@@ -259,8 +235,8 @@ bool DScommand() {
     uint32_t t1=millis();
     cout<<"Save to EEPROM took "<<t1-t<<" ms.\n";
   #endif
-  locking_screw_disengaged=true;
-  return true;
+  Serial.write("OK\n");
+  while(1){Serial.print("#Powered Down\n");delay(2500);}
 } 
 
 void EEPROMwrite32bitval(uint16_t addr, uint32_t val) {

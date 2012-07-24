@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import serial,io,
+import serial,io
 from optparse import OptionParser
 
 

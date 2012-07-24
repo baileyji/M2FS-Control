@@ -1,13 +1,13 @@
 [Unit]
-Description=M2FS Shoe B
+Description=M2FS Galil B
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=director.service
 #Also=
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/shoeAgent.py -B -p 42000 
+ExecStart=/M2FS-Control/galilAgent.py -B
 RestartSec=100ms
 Restart=always
 KillMode=control-group

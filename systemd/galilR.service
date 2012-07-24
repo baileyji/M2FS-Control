@@ -1,13 +1,13 @@
 [Unit]
-Description=M2FS Galil B
+Description=M2FS Galil R
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=director.service
 #Also=
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/galilAgent.py -B -p 45000 
+ExecStart=/M2FS-Control/galilAgent.py -R
 RestartSec=100ms
 Restart=always
 KillMode=control-group

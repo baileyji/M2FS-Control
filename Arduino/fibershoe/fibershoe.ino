@@ -164,6 +164,7 @@ void loop() {
   if (digitalRead(DISCONNECT_SHOE_PIN)) {
     DScommand();
   }
+  
   // Request and fetch the temperature regularly
   if (time_since_last_temp_request > TEMP_UPDATE_INTERVAL_MS) {
     tempSensor.requestTemperatures();
@@ -176,6 +177,7 @@ void loop() {
     lastTempReading=tempSensor.getTempCByIndex(0);
     tempRetrieved=true;
   }
+  
   // Handle command parsing
   if (have_command_to_parse) {
     #ifdef DEBUG
@@ -187,6 +189,7 @@ void loop() {
     have_command_to_parse=false;
     command_buffer_ndx=0;
   }
+  
   // Call run on each tetris
   #ifdef DEBUG
     uint32_t t=micros();
@@ -487,6 +490,9 @@ bool SLcommand() {
     else cont=tetris[axis-1].isCalibrated();
     if (!cont) return false;
 
+    if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+    else if (tetris[axis-1].moving()) return false;
+
     if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit);
     else tetris[axis-1].dumbMoveToSlit(slit);
   }
@@ -501,6 +507,8 @@ bool SLcommand() {
     bool cont=true;
     for(int i=0;i<8;i++) cont&=tetris[i].isCalibrated();
     if (!cont) return false;
+    
+    for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
 
     for (unsigned char i=0;i<8;i++)
       tetris[i].dumbMoveToSlit(slit[i]);  
@@ -549,6 +557,8 @@ bool PRcommand() {
        command_buffer[4] >='0' && command_buffer[4]<='9' ))) return false;  
   long param=atol(command_buffer+3);
 
+  if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+  else if (tetris[axis-1].moving()) return false;
 
   if(axis==0) for(int i=0;i<8;i++) tetris[i].positionRelativeMove(param);
   else tetris[axis-1].positionRelativeMove(param);
@@ -570,6 +580,9 @@ bool PAcommand() {
   if(axis==0) for(int i=0;i<8;i++) cont&=tetris[i].isCalibrated();
   else cont=tetris[axis-1].isCalibrated();
   if (!cont) return false;
+  
+  if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+  else if (tetris[axis-1].moving()) return false;
 
   if(axis==0) for(int i=0;i<8;i++) tetris[i].positionAbsoluteMove(param);
   else tetris[axis-1].positionAbsoluteMove(param);
@@ -641,7 +654,10 @@ bool ACcommand() {
 bool DHcommand() {
   unsigned char axis = getAxisForCommand();
   if ( axis >8 ) return false;
- 
+  
+  if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+  else if (tetris[axis-1].moving()) return false;
+  
   if(axis==0) for(int i=0;i<8;i++) tetris[i].calibrateToHardStop();
   else tetris[axis-1].calibrateToHardStop();
 

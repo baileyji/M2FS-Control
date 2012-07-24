@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/python
 import sys, time
 sys.path.append(sys.path[0]+'/../lib/')
 import argparse
@@ -24,8 +24,7 @@ class GalilAgent(Agent):
             'GES':self.galil_command_handler,
             'FILTER_INSERT':self.galil_command_handler,
             'FILTER_REMOVE':self.galil_command_handler,
-            'FLSIM_INSERT':self.galil_command_handler,
-            'FLSIM_REMOVE':self.galil_command_handler,
+            'FLSIM':self.galil_command_handler,
             'FOCUS_CALIBRATE':self.galil_command_handler,
             'LREL_CALIBRATE':self.galil_command_handler,
             'HREL_CALIBRATE':self.galil_command_handler,
@@ -128,14 +127,26 @@ class GalilAgent(Agent):
         """Execute the command on the galil and setReply"""
         command_name,junk,args=command.string.partition(' ')
         query='?' in command.string
-
+        
+        if command_name=='FLSIM':
+            if args=='IN':
+                command_name='FLSIM_INSERT'
+            elif args=='OUT':
+                command_name='FLSIM_REMOVE'
+        elif command_name=='FILTER':
+            if args=='IN':
+                command_name='FLSIM_INSERT'
+            elif args=='OUT':
+                command_name='FLSIM_REMOVE'
+        
         query_commands={
             'FILTER':self.galil.get_filter,
             'LREL':self.galil.get_loel,
             'HREL':self.galil.get_hrel,
             'HRAZ':self.galil.get_hraz,
             'FOCUS':self.galil.get_foc,
-            'GES':self.galil.get_ges}
+            'GES':self.galil.get_ges,
+            'FLSIM':self.galil.get_flsim}
         action_commands={
             'GALILRAW':self.galil.raw,
             'FILTER':self.galil.set_filter,

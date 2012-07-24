@@ -138,7 +138,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Send the config to the galil
         if config:
             try:
-                for settingName, value in config.items:
+                for settingName, value in config.items():
                     variableName=self.settingName_to_variableName_map[settingName]
                     self.send_command_to_gail('%s=%s' % (variableName, value))
                 self.config=config

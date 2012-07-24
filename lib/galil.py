@@ -86,7 +86,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 raise SelectedConnection.ConnectError(error_message)
             #Get the software version
             self.send_command_to_gail('XQ#CODEVER,7')
-            response=self.receiveMessageBlocking(
                 nBytes=len(expected_version_string))
             if response != expected_version_string:
                 error_message=("Incompatible Firmware, Galil reported '%s' , expected '%s'." %
@@ -234,12 +233,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def update_executing_threads_and_commands(self):
         """Retrieve and update the list of thread statuses from the galil"""
         #Ask galil for thread statuses
-        self.send_command_to_gail('MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
-        response=self.receiveMessageBlocking(nBytes=62)
+        response=self.send_command_to_gail('MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
         #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
         if response[-1] == '?' or response[0:3] !='HX=':
             raise GalilThreadUpdateException(message)
-        response=response[4:response.find('\r')] #TODO add in error where not complete message is recieved
+        response=response[4:response.find('\r')]
         #Update threads are no longer running
         for thread_number, thread_status in enumerate(response.split(' ')):
             if '0.' in thread_status:

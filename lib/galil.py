@@ -71,7 +71,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def connect(self):
         if self.connection is not None:
             return
-        expected_version_string='CODEVER: m2fs.dmc v0.1'
+        expected_version='0.1000'
         try:
             #Open the serial connection
             self.connection=serial.Serial(self.port, self.baudrate, 
@@ -85,11 +85,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                     error_message="Galil not programed"
                 raise SelectedConnection.ConnectError(error_message)
             #Get the software version
-            self.send_command_to_gail('XQ#CODEVER,7')
-                nBytes=len(expected_version_string))
-            if response != expected_version_string:
+            response=self.send_command_to_gail('MG m2fsver')
+            if response != expected_version:
                 error_message=("Incompatible Firmware, Galil reported '%s' , expected '%s'." %
-                    (response,expected_version_string))
+                    (response,expected_version))
                 raise SelectedConnection.ConnectError(error_message)
         except serial.SerialException,e:
             error_message="Connect to Galil failed. Exception: %s"% e 

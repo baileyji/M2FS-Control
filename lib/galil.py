@@ -149,22 +149,62 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def send_command_to_gail(self, command_string):
         """
         Send a command string to the galil and wait for the : or ? responses
-            
+        
+        send multiple commands in one string at your own peril!
         If ? is in response or don't gen number of : expected for 
         command string then raise GalilCommandNotAcknowledgedError
         """
+        #No command, return
         if not command_string:
-            return
+            return ''
+        #Make sure no unnecessary ;
         if command_string[-1]==';':
             command_string=command_string[:-1]
-        self.sendMessageBlocking(command_string)
+        #Count the number of commands
         num_colons_expected=command_string.count(';')+1
-        response=self.receiveMessageBlocking(nBytes=num_colons_expected)
-        self.logger.debug(
-            "Galil sent '%s', response '%s'" % (command_string[0:-1],response))
-        if '?' in response or response.count(':') !=num_colons_expected:
-            raise GalilCommandNotAcknowledgedError(
-                "Galil did not acknowledge command '%s'" % command_string )
+        #Send the command
+        self.sendMessageBlocking(command_string)
+        #Deal with the response
+        if num_colons_expected>1:
+            #More than 1 command, assume the commands only result in : or ?
+            #not always the case so warn about unsupported conditions
+            self.logger.wanring("sending multiple commands to %s at once"%self.addr_str())
+            response=self.receiveMessageBlocking(nBytes=num_colons_expected)
+            #This error may be in error if commands didn't all elicit simple : or ?
+            if '?' in response or response.count(':') !=num_colons_expected:
+                raise GalilCommandNotAcknowledgedError(
+                    "Galil did not acknowledge command '%s'" % command_string )
+            response=''
+        #Command is XQ get either : or ?
+        elif command_string[:2]=='XQ':
+            if ':' != self.receiveMessageBlocking(nBytes=1):
+                raise GalilCommandNotAcknowledgedError(
+                    "Galil did not acknowledge command '%s'" % command_string )
+            response=''
+        #MG command
+        elif command_string[:2]=='MG':
+            #we should get something, followed by a line ending, then just a ':'
+            # if command is bad we may get some stuff and finally get a '?'
+            response=self.receiveMessageBlocking()
+            if ':' not in response:
+                self.receiveMessageBlocking(nBytes=1)
+        #All other commands
+        else:
+            #Check for a ?
+            response=self.receiveMessageBlocking(nBytes=1)
+            if response ==':':
+                #command complete fine
+                response=''
+            elif response =='?':
+                #command failed
+                raise GalilCommandNotAcknowledgedError(
+                    "Galil did not acknowledge command '%s'" % command_string )
+            else:
+                #there is more to the response
+                response=response+self.receiveMessageBlocking()
+                if response[-1]!=':':
+                    self.receiveMessageBlocking(nBytes=1)
+        return response.strip()
     
     def sendMessageBlocking(self, message):
         """ Send a string immediately, appends string terminator if needed"""

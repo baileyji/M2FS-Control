@@ -169,6 +169,7 @@ class Agent(object):
             d.close()
         for s in self.sockets:
             s.close()
+        time.sleep(1)
     
     def handle_connect(self):
         """Server socket gets a connection"""

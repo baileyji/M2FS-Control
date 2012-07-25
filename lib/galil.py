@@ -111,10 +111,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 
     def initialize_galil(self):
         #Check to see if we are connecting to the Galil for the first time after boot
-        self.send_command_to_gail('MG bootup1')
-        bootup1=self.receiveMessageBlocking(nBytes=3)
-        if bootup1=='0':
+        bootup1=int(self.send_command_to_gail('MG bootup1'))
+        if bootup1==0:
             return
+        self.logger.info("Programming galil defaults.")
         config=m2fsConfig.getGalilDefaults(self.SIDE)
         #make sure all the settings are there
         try:
@@ -293,7 +293,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         try:
             #Make sure we are connected
             self.connect()
-            #Make sure galil is initialized
+            #Make sure galil is initialized, e.g all parameters are set
             self.initialize_galil()
             #Update galil thread statuses
             self.update_executing_threads_and_commands()
@@ -315,16 +315,22 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.add_command_to_executing_commands(command_class, thread_number)
             return 'OK'
         except IOError, e:
-            return "Error: "+str(e)
+            return "ERROR: "+str(e)
             
     def check_abort_switch(self):
         """ Return True if abort switch engaged """
-        val=int(self.send_command_to_gail('MG _AB'))
+        try:
+            val=int(float(self.send_command_to_gail('MG _AB')))
+        except ValueError,e:
+                raise IOError(str(e))
         return val != 1
     
     def check_elo_switch(self):
         """ Return True if elo switch engaged """
-        val=int(self.send_command_to_gail('MG _TA3'))
+        try:
+            val=int(float(self.send_command_to_gail('MG _TA3')))
+        except ValueError,e:
+            raise IOError(str(e))
         return val != 0
     
     def raw(self, command_string):
@@ -342,7 +348,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return response
         except IOError, e:
             self.logger.error(str(e))
-            return "Error: "+str(e)
+            return "ERROR: "+str(e)
     
     def do_status_query(self, command_string):
         try:
@@ -351,7 +357,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #Make sure galil is initialized
             self.initialize_galil()
             #Update galil thread statuses
-            self.update_executing_threads_and_commands()
+            try:
+                self.update_executing_threads_and_commands()
+            except AttributeError:
+                import pdb; pdb.set_trace()
             #Send the command to the galil
             self.send_command_to_gail(command_string)
             self.add_command_to_executing_commands(command, thread_number)
@@ -360,7 +369,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 raise IOError('No response received from galil. Consider retrying.')
             return response.partition(':')[2]
         except IOError, e:
-            return "Error: "+str(e)
+            return "ERROR: "+str(e)
 
 
     def command_class_blocked(self, name):

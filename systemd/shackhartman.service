@@ -7,7 +7,7 @@ WantedBy=director.service
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/shackHartmanAgent.py
+ExecStart=/M2FS-Control/bin/shackHartmanAgent.py
 WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always

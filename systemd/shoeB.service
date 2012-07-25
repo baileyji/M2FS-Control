@@ -7,7 +7,7 @@ WantedBy=slitController.service
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/shoeAgent.py -B
+ExecStart=/M2FS-Control/bin/shoeAgent.py -B
 WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always

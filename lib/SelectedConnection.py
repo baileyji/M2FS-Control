@@ -60,7 +60,7 @@ class SelectedConnection(object):
                     self.logger.error(err)
                     raise IOError(err)
                 else:
-                    errorCallback('ERROR'+err)
+                    errorCallback('ERROR: '+err)
         if message=='' or self.out_buffer!='':
             return
         if message[-1] !='\n':

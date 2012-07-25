@@ -10,8 +10,10 @@ from galil import GalilSerial
 
 class GalilAgent(Agent):
     def __init__(self):
-        Agent.__init__(self,'GalilAgent')    
+        Agent.__init__(self,'GalilAgent')
         #Initialize the Galil
+        if not self.args.DEVICE:
+            self.args.DEVICE='/dev/galil'+self.args.SIDE
         self.command_handlers={
             'STATUS':self.STATUS_command_handler,
             'VERSION':self.version_request_command_handler,
@@ -70,8 +72,7 @@ class GalilAgent(Agent):
                                 help='Run agent as a daemon')
         cli_parser.add_argument('--device', dest='DEVICE',
                                 action='store', required=False, type=str,
-                                help='the device to control',
-                                default='/dev/galilR')
+                                help='the device to control')
         cli_parser.add_argument('--side', dest='SIDE',
                                 action='store', required=False, type=str,
                                 help='R or B',

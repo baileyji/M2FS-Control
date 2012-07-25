@@ -232,7 +232,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def update_executing_threads_and_commands(self):
         """Retrieve and update the list of thread statuses from the galil"""
         #Ask galil for thread statuses
-        response=self.send_command_to_gail('MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
+        response=self.send_command_to_gail(
+            'MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
         #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
         if response[-1] == '?' or response[0:3] !='HX=':
             raise GalilThreadUpdateException(message)

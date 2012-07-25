@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/python
 import sys, time
 sys.path.append(sys.path[0]+'/../lib/')
 import argparse

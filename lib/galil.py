@@ -230,7 +230,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
         #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
         if response[-1] == '?' or response[0:3] !='HX=':
-            raise GalilThreadUpdateException(message)
+            raise GalilThreadUpdateException("Could not update galil threads.")
         response=response[4:response.find('\r')]
         #Update threads are no longer running
         for thread_number, thread_status in enumerate(response.split(' ')):

@@ -111,8 +111,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 
     def initialize_galil(self):
         #Check to see if we are connecting to the Galil for the first time after boot
-        bootup1=int(self.send_command_to_gail('MG bootup1'))
-        if bootup1==0:
+        bootup1=self.send_command_to_gail('MG bootup1')
+        if bootup1=='0.0000:
             return
         self.logger.info("Programming galil defaults.")
         config=m2fsConfig.getGalilDefaults(self.SIDE)

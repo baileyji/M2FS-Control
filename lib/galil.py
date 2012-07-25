@@ -365,7 +365,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 raise IOError('No response received from galil. Consider retrying.')
             return response.partition(':')[2]
         except IOError, e:
-            return "Error: "+e
+            return "Error: "+str(e)
 
 
     def command_class_blocked(self, name):

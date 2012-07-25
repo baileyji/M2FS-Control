@@ -8,6 +8,7 @@ WantedBy=multi-user.target
 [Service]
 Type=simple
 ExecStart=/M2FS-Control/projectorAgent.py
+WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always
 KillMode=control-group

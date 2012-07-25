@@ -11,6 +11,7 @@ WantedBy=director.service
 [Service]
 Type=simple
 ExecStart=/M2FS-Control/slitController.py
+WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always
 KillMode=control-group

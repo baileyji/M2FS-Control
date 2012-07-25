@@ -126,13 +126,18 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #The config file is corrupted, rebuild
             self.logger.critical('Galil'+self.SIDE+' configFile corrupted.'+
                 'Rebuilding from hardcoded defaults.')
-            for settingName, variableName in settingName_to_variableName_map.items():
-                self.send_command_to_gail('MG '+variableName)
-                config[settingName]=self.receiveMessageBlocking(nBytes=20)
-            m2fsConfig.setGalilDefaults(self.SIDE, config)
-            self.config=config
-            self.send_command_to_gail('bootup1=0')
-            config={}
+            doRebuild=True
+        if doRebuild:
+            try:
+                for settingName, variableName in self.settingName_to_variableName_map.items():
+                    config[settingName]=self.send_command_to_gail('MG '+variableName)
+                m2fsConfig.setGalilDefaults(self.SIDE, config)
+                self.config=config
+                self.send_command_to_gail('bootup1=0')
+                config={}
+                return
+            except IOError,e:
+                raise IOError("Failure during rebuild of defaults file.")
         #Send the config to the galil
         if config:
             try:

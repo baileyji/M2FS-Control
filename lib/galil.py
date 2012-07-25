@@ -219,12 +219,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         try:
           count=self.connection.write(message)
           self.connection.flush()
-          self.logger.debug("Attempted write '%s', wrote '%s' to %s" %
-                    (message.replace('\n','\\n').replace('\r','\\r'),
-                     message[:count].replace('\n','\\n').replace('\r','\\r'),
-                     self.addr_str()))
-          if count !=len(message):
-              raise SelectedConnection.WriteError('Could not send complete message.')
         except serial.SerialException, e:
             self.handle_error(e)
             raise SelectedConnection.WriteError(str(e))

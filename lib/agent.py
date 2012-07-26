@@ -50,8 +50,7 @@ class Agent(object):
         self.logger=logging.getLogger(self.name)
         self.logger.setLevel(logging.DEBUG)
         # create formatter
-        formatter = logging.Formatter(
-            '%(asctime)s:%(name)s:%(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')
         # create console handler and set level to debug
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)

@@ -1130,6 +1130,7 @@ JS#WAITAMF(^a)
 'Overestimate distance to -limit
 JS#ENC2STP(^a,analogp[^a]);^b=2*_JS
 'Now start a move to past the -limit
+'MG "Overest dist to -lim and start a move to past limit",-^b
 ~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axlmspd[^a];PR~a=-^b;SH~a;BG~a
 'Wait until stopped
 #CALENA1;WT500;~a=^a;JP#CALENA1, (_SC~a=0);~a=^a;MC~a

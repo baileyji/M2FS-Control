@@ -1,19 +1,19 @@
 #!/usr/bin/python
-import sys, time
+import sys, time, threading
 sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
 import atexit
 from agent import Agent
 from command import Command
-import sqlite3
+import cPickle
 import datalogger
-import m2fsConfig
+from m2fsConfig import m2fsConfig
+import SelectedConnection
 
 class DataloggerAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'DataloggerAgent')
-        
         #Initialize the dataloggers
         self.dataloggerR=datalogger.Datalogger('/dev/dataloggerR', 115200, self.logger)
         self.dataloggerB=datalogger.Datalogger('/dev/dataloggerB', 115200, self.logger)
@@ -21,6 +21,13 @@ class DataloggerAgent(Agent):
         self.devices.append(self.dataloggerR)
         self.devices.append(self.dataloggerB)
         self.devices.append(self.dataloggerC)
+        agent_ports=m2fsConfig.getAgentPorts()
+        self.shoeR=SelectedConnection.SelectedSocket('localhost', 
+            agent_ports['ShoeAgentR'], self.logger)
+        self.shoeB=SelectedConnection.SelectedSocket('localhost', 
+            agent_ports['ShoeAgentB'], self.logger)
+        self.devices.append(self.shoeR)
+        self.devices.append(self.shoeB)
         self.currentTemps={}
         self.command_handlers={
                     'TEMPS':self.TEMPS_command_handler,
@@ -58,7 +65,8 @@ class DataloggerAgent(Agent):
     
     def TEMPS_command_handler(self, command):
         """ report the current temperatures """
-        #gather current temps, expiring any older than XXX
+        #gather current temps
+        temps=self.currentTemps.values()
         command.setReply(''.join((len(temps)*"%f ")%temps))
     
     def status_command_handler(self, command):
@@ -66,28 +74,24 @@ class DataloggerAgent(Agent):
         #TODO: compile status info
         command.setReply('TODO: current state of the dataloggers.')
     
-    def insert_dataloggerR_temps_in_database(self, timestamp, temps):
-        try:
-            with self.database:
-                self.database.execute("INSERT OR IGNORE INTO Temps(Time, "+dataloggerR_temp_column_names+" VALUES(?, ?, ?, ?)",
-                    timestamp_IN_MINUTES.join(temps))
-                self.database.execute("UPDATE Temps SET ?=?, ?=?, ?=? WHERE changes()=0 AND Time=?" ,
-                    thread(dataloggerR_temp_column_names, temps).append(timestamp.IN_MINUTES))
-        except sqlite3.IntegrityError:
-            pass
-    
     def run(self):
         """ execute once per loop, after select has run & before command closeout """
         #Temp handling
         if self.dataloggerR.have_unfetched_temps():
-            timestamps,temps=self.dataloggerR.fetch_temps()
+            data=self.dataloggerR.fetch_temps()
+            self.currentTemps['dataloggerR']=data
+            timestamps,temps=data
             if timestamps[0]>self.most_current_dataloggerR_timestamp:
                 self.most_current_dataloggerR_timestamp=timestamps[0]
                 self.currentTemps['R']=temps
+            self.logger.debug("TempsR: %s:%s" % 
+                (time.asctime(time.localtime(long(timestamps[0]))), temps))
             cPickle.dump(data, tempsRfile, -1)
         
         if self.dataloggerC.have_unfetched_temps():
-            timestamps,temps=self.dataloggerC.fetch_temps()
+            data=self.dataloggerC.fetch_temps()
+            self.currentTemps['dataloggerC']=data
+            timestamps,temps=data
             if timestamps[0]>self.most_current_dataloggerC_timestamp:
                 self.most_current_dataloggerC_timestamp=timestamps[0]
                 self.currentTemps['C']=temps
@@ -96,10 +100,14 @@ class DataloggerAgent(Agent):
             cPickle.dump(data, tempsCfile, -1)
         
         if self.dataloggerB.have_unfetched_temps():
-            timestamps,temps=self.dataloggerB.fetch_temps()
+            data=self.dataloggerB.fetch_temps()
+            self.currentTemps['dataloggerB']=data
+            timestamps,temps=data
             if timestamps[0]>self.most_current_dataloggerB_timestamp:
                 self.most_current_dataloggerB_timestamp=timestamps[0]
                 self.currentTemps['B']=temps
+            self.logger.debug("TempsB: %s:%s" % 
+                (time.asctime(time.localtime(long(timestamps[0]))), temps))
             cPickle.dump(data, tempsBfile, -1)
         
         #Accelerometer handling
@@ -111,8 +119,12 @@ class DataloggerAgent(Agent):
             cPickle.dump(data, accelsCfile,-1)
         
         #check that the dataloggers are online
-        if not self.dataloggerR.isOpen():
-            cPickle.dump(data, tempsCfile, -1)
+        try:
+            self.dataloggerR.connect()
+            self.dataloggerB.connect()
+            self.dataloggerC.connect()
+        except IOError:
+            pass
     
     def queryShoeTemps(self):
         self.shoeR.sendMessageBlocking('TEMP')
@@ -129,7 +141,7 @@ class DataloggerAgent(Agent):
             self.most_current_shoeR_timestamp=time.time()
         except ValueError:
             pass
-        self.queryShoesTimer=Timer(60.0, self.queryShoeTemps)
+        self.queryShoesTimer=threading.Timer(60.0, self.queryShoeTemps)
         self.queryShoesTimer.start()
     
     def runSetup(self):
@@ -139,7 +151,7 @@ class DataloggerAgent(Agent):
         self.most_current_dataloggerB_timestamp=0
         self.most_current_shoeR_timestamp=0
         self.most_current_shoeB_timestamp=0
-        self.queryShoesTimer=Timer(60.0, self.queryShoeTemps)
+        self.queryShoesTimer=threading.Timer(60.0, self.queryShoeTemps)
         self.queryShoesTimer.start()
 
 if __name__=='__main__':

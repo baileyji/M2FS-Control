@@ -81,6 +81,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             if self.thread_command_map['0']==None:
                 try:
                     self.send_command_to_gail('XQ#AUTO,0')
+                    self.logger.warning("Executing #AUTO manually")
+                    self.update_executing_threads_and_commands()
                 except GalilCommandNotAcknowledgedError:
                     error_message="Galil not programed"
                     raise SelectedConnection.ConnectError(error_message)

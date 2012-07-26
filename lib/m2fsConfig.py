@@ -65,6 +65,7 @@ class m2fsConfig:
     def setGalilDefaults(side, defaults):
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
+        config.add_section('Defaults')
         if side=='B':
             file='m2fs_galilB.conf'
         else:

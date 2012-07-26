@@ -73,6 +73,6 @@ class m2fsConfig:
         with open(m2fsConfig.getConfDir()+file,'w') as configfile:
             for setting, value in defaults.items():
                 config.set('Defaults', setting, value)
-                config.write(configfile)
-                configfile.close()
+            config.write(configfile)
+            configfile.close()
     

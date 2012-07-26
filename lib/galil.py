@@ -83,7 +83,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                     self.send_command_to_gail('XQ#AUTO,0')
                 except GalilCommandNotAcknowledgedError:
                     error_message="Galil not programed"
-                raise SelectedConnection.ConnectError(error_message)
+                    raise SelectedConnection.ConnectError(error_message)
             #Get the software version
             response=self.send_command_to_gail('MG m2fsver')
             if response != expected_version:

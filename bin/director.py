@@ -33,14 +33,22 @@ class Director(Agent):
         self.command_handlers={
 
             #Galil Agent Commands
-            'GES':self.galil_command_handler,
             'GALILRAW':self.galil_command_handler,
+            'GES':self.galil_command_handler,
+            'GES_CALIBRATE':self.galil_command_handler,
             'LREL':self.galil_command_handler,
+            'LREL_CALIBRATE':self.galil_command_handler,
             'HREL':self.galil_command_handler,
+            'HREL_CALIBRATE':self.galil_command_handler,
             'HRAZ':self.galil_command_handler,
+            'HRAZ_CALIBRATE':self.galil_command_handler,
             'FOCUS':self.galil_command_handler,
             'FILTER':self.galil_command_handler,
+            'FILTER_INSERT':self.galil_command_handler,
+            'FILTER_REMOVE':self.galil_command_handler,
             'FLSIM':self.galil_command_handler,
+            'FLSIM_INSERT':self.galil_command_handler,
+            'FLSIM_REMOVE':self.galil_command_handler,
             #Shack Hartman Commands
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,

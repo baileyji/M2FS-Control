@@ -345,12 +345,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             if val != 0:
                 self.sendMessageBlocking('MO*;SHA;MOA;MG _TA3')
                 try:
-                    val=int(float(receiveMessageBlocking().split()[-2]))
+                    val=int(float(self.receiveMessageBlocking().split()[-2]))
                     return val != 0
                 except IndexError, e:
                     raise IOError(str(e))
                 #Discard the last :
-                receiveMessageBlocking(nBytes=1)
+                self.receiveMessageBlocking(nBytes=1)
         except ValueError,e:
             raise IOError(str(e))
         return val != 0

@@ -79,47 +79,7 @@ class Agent(object):
         cli_parser.add_argument('-p','--port', dest='PORT',
                                 action='store', required=False, type=int,
                                 help='the port on which to listen')
-        cli_parser.add_argument('-d','--daemon',dest='DAEMONIZE',
-                                action='store_true', default=False,
-                                help='Run agent as a daemon')
         self.cli_parser=cli_parser
-    
-    def daemonize(self):
-        """Daemonize the process"""
-        import pwd,os
-        # do the UNIX double-fork magic, see Stevens' "Advanced
-        # Programming in the UNIX Environment" for details (ISBN 0201563177)
-        try:
-            pid = os.fork()
-            if pid > 0:
-                # exit first parent
-                sys.exit(0)
-        except OSError, e:
-            self.logger.error("fork #1 failed: %d (%s)\n" % 
-                              (e.errno, e.strerror))
-            sys.exit(1)
-        # decouple from parent environment
-        os.chdir("/")   # don't prevent unmounting....
-        os.setsid()
-        os.umask(0)
-        # do second fork
-        try:
-            pid = os.fork()
-            if pid > 0:
-                # exit from second parent, print eventual PID before
-                # print "Daemon PID %d" % pid
-                if options.pid_file is not None:
-                    open(options.pid_file,'w').write("%d"%pid)
-                sys.exit(0)
-        except OSError, e:
-            self.logger.error("fork #2 failed: %d (%s)\n" % 
-                              (e.errno, e.strerror))
-            sys.exit(1)
-        # ensure the that the daemon runs a normal user, if run as root
-        if os.getuid() == 0:
-                name, passwd, uid, gid, desc, home, shell = pwd.getpwnam('someuser')
-                os.setgid(gid)     # set group first
-                os.setuid(uid)     # set user
             
     def initialize_socket_server(self, tries=0):
         """ Start listening for socket connections """

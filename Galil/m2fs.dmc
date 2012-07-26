@@ -747,56 +747,7 @@ EN
 
 
 '***************************************************************************
-' Calibrate FOCus
-'TODO make sure the typical moves in this routine are not less than the mininc
-'for the axis, also make sure that they are larg enough to overcome backlash
-'***************************************************************************
-#CALFOCU
-^a=FOCAX
-'First move to near the pot transition
-'Wait for filtered analog position to be clean
-JS#WAITAMF(^a)
-^b=encnlim[^a]-focanap
-JS#ENC2STP(^a,^b)
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=_JS;SH~a;BG~a;MC~a
-'Wait for filtered analog position to be clean
-JS#WAITAMF(^a)
-^b=focanap
-'If the pot doesn't read within the tolerance of the desired value, fail
-IF(@ABS[^b-encnlim[^a]]>focentol);^h=1
-ELSE
-'Figure out how far we need to move to pass the edge
-^b=(4096-^b)+200;JS#ENC2STP(^a,^b)
-'Now move further until the pot wraps around
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=_JS;SH~a;BG~a
-#CALFOC1;WT 50;~a=^a;JP#CALFOC1,(_TP~a>2048);IF(_SC~a=0);ST~a;ENDIF;MC~a
-'If not stopped by the stop command the pot has failed
-~a=^a;IF(_SC~a<>4);^h=1
-ELSE
-'Move slowly back until the pot rolls over 0-to-4096
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];PR~a=-_JS;SH~a;BG~a
-#CALFOC2;WT 50;~a=^a;JP#CALFOC2,(_TP~a<2048);IF(_SC~a=0);ST~a;ENDIF;MC~a
-'If not stopped by the stop command the pot has failed
-~a=^a;IF(_SC~a<>4);^h=1
-ELSE
-'Define this position to correspond with 4096 encoder counts
-'TODO consider using focanap instead of 4096, also consider that 4096 may not
-'  correspond to one full revolution with the pot is configured correctly
-'  since there is a dead region
-JS#ENC2STP(^a,4096)
-~a=^a;DP~a=_JS
-axiscal[^a]=true
-ldelta[^a]=-bcklsh[^a]
-ENDIF;ENDIF;ENDIF
-'Report status
-IF(^h=1);JS#ERRMSG(^a,EFAIL)
-ELSE;TODO REPORT STATUS MESSAGE, focanap & _TD~a
-EN,,^h
-
-
-'***************************************************************************
 ' Set FOC Position(Encoder position)
-' ¿TODO? ADD in check for pot failure
 '***************************************************************************
 #SETFOC
 'Stack and XQ fancy footwork

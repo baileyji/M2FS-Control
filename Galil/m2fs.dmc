@@ -9,6 +9,7 @@ REM what stack depth a function is at
 ' Initial Configuration
 '***************************************************************************
 #INIT
+ST;MC;MO*
 REM Defines
 GESAX=0
 FLSINAX=1
@@ -308,7 +309,7 @@ EN
 ' Galil hardware config
 '***************************************************************************
 #M2FSCFG
-MO*
+ST;MC;MO*
 'Set motor type, must be -2 or -2.5 per manual
 MT -2.5,-2,-2.5,-2.5,-2,-2,-2.5,-2.5
 KS*=1;'       Set step smoothing to Galil-recommended value, see AN#2446
@@ -336,6 +337,7 @@ EN
 ' Starutp Routine
 '***************************************************************************
 #AUTO
+ST;MC;MO*
 m2fsver=.1
 HX1;HX2
 bootup1=1

@@ -280,14 +280,14 @@ felencp[7]=felencp[6]+felencsp
 felencp[8]=felencp[7]+1732;'Load position is an additional 2.85" further
 'Allowable range (+/-) in encoder counts around nominal filter position
 feselrg=2 ;'about 0.003"
-fesinsp=0 ;'The inserted position in steps of the FESIN arm
+fesinsp=64000 ;'The inserted position in steps of the FESIN arm
 fesremp=0 ;'The removed position in steps of the FESIN arm
 nearfilt=0;' nearest filter to current position, determined by QUFEL
 allsafep=2746;'Encoder pos above which it is always safe to move the inserter
 
 'FLS related defines
 flsremp=0;'The removed position in steps of the FLSIN arm
-flsinsp=0;'The inserted position in steps of the FLSIN arm
+flsinsp=64000;'The inserted position in steps of the FLSIN arm
 
 'Set acceleration defaults
 AC axaccel[0],axaccel[1],axaccel[2],axaccel[3]

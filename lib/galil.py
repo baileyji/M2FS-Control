@@ -309,7 +309,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #Check for Abort or ELO
             if self.check_abort_switch():
                 return "ERROR: Abort switch engaged."
-            if self.check_elo_switch():
+            if False and self.check_elo_switch():
                 return "ERROR: ELO switch engaged."
             #Get a thread for the command
             thread_number=self.get_motion_thread()

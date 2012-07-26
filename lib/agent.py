@@ -55,15 +55,9 @@ class Agent(object):
         # create console handler and set level to debug
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)
-        # create syslog handler and set level to debug
-        sh = logging.handlers.SysLogHandler(
-            facility=logging.handlers.SysLogHandler.LOG_USER)
-        sh.setLevel(logging.DEBUG)
         # add formatter to handlers
         ch.setFormatter(formatter)
-        sh.setFormatter(formatter)
         # add handlers to logger
-        #self.logger.addHandler(sh)
         self.logger.addHandler(ch)
 
     def initialize_cli_parser(self):

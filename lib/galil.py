@@ -318,7 +318,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #Send the command to the galil
             self.send_command_to_gail(
                 command_string.replace('<thread_ID>', thread_number))
-            self.add_command_to_executing_commands(command_class, thread_number)
+            self.add_galil_command_to_executing_commands(command_class, thread_number)
             return 'OK'
         except IOError, e:
             return "ERROR: "+str(e)
@@ -363,19 +363,17 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #Make sure galil is initialized
             self.initialize_galil()
             #Update galil thread statuses
-            try:
-                self.update_executing_threads_and_commands()
-            except AttributeError:
-                import pdb; pdb.set_trace()
+            self.update_executing_threads_and_commands()
             #Send the command to the galil
             self.send_command_to_gail(command_string)
-            self.add_command_to_executing_commands(command, thread_number)
             response=self.receiveMessageBlocking(nBytes=80)
             if response is '':
                 raise IOError('No response received from galil. Consider retrying.')
             return response.partition(':')[2]
         except IOError, e:
             return "ERROR: "+str(e)
+        except AttributeError:
+            import pdb; pdb.set_trace()
 
 
     def command_class_blocked(self, name):

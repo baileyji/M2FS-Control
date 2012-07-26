@@ -170,8 +170,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Deal with the response
         if num_colons_expected>1:
             #More than 1 command, assume the commands only result in : or ?
-            #not always the case so warn about unsupported conditions
-            self.logger.wanring("sending multiple commands to %s at once"%self.addr_str())
+            #not always the case
             response=self.receiveMessageBlocking(nBytes=num_colons_expected)
             #This error may be in error if commands didn't all elicit simple : or ?
             if '?' in response or response.count(':') !=num_colons_expected:

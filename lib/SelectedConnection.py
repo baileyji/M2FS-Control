@@ -140,11 +140,11 @@ class SelectedConnection(object):
         if self.errorCallback !=None:
             callback=self.errorCallback
             self.errorCallback=self.defaultErrorCallback
-            callback(self,'Lost Connection %s'%str(self))
+            callback(self,'ERROR: Lost Connection %s'%self.addr_str())
         elif self.responseCallback != None:
             callback=self.responseCallback
             self.responseCallback=self.defaultResponseCallback
-            callback(self,'Lost Connection %s'%str(self))
+            callback(self,'ERROR (not response): Lost Connection %s'%self.addr_str())
     
     def close(self):
         if self.isOpen():

@@ -98,18 +98,8 @@ axdecel[FOCAX]=100000
 axdecel[FESINAX]=256000
 axdecel[FESELAX]=256000
 axdecel[LRTLTAX]=190000
-axdecel[HRTLTAX]=160000
-axdecel[HRAZAX]=160000
-'Short on arrays, make axlgdcl=axdecel
-'DM axlgdcl[8];'Rapid Deceleration rate
-'axlgdcl[GESAX]=256000
-'axlgdcl[FLSINAX]=256000
-'axlgdcl[FOCAX]=256000
-'axlgdcl[FESINAX]=256000
-'axlgdcl[FESELAX]=256000
-'axlgdcl[LRTLTAX]=190000;'In my notes from somewhere
-'axlgdcl[HRTLTAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
-'axlgdcl[HRAZAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
+axdecel[HRTLTAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
+axdecel[HRAZAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
 REM NB The PI actuators advise no greater than 10% max speed
 REM    when approaching limits.
 DM axlmspd[8];'limit speed (speed used when intentionally moving to a limit)

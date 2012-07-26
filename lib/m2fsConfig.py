@@ -57,9 +57,9 @@ class m2fsConfig:
             file='m2fs_galilR.conf'
         try:
             config.readfp(open(m2fsConfig.getConfDir()+file,'r'))
+            return dict(config.items('Defaults'))
         except Exception:
             return {}
-        return dict(config.items('Defaults'))
     
     @staticmethod
     def setGalilDefaults(side, defaults):
@@ -70,7 +70,7 @@ class m2fsConfig:
         else:
             file='m2fs_galilR.conf'
         with open(m2fsConfig.getConfDir()+file,'w') as configfile:
-            for setting, value in defaults:
+            for setting, value in defaults.items():
                 config.set('Defaults', setting, value)
                 config.write(configfile)
                 configfile.close()

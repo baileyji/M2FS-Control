@@ -126,8 +126,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #The config file is corrupted, rebuild
             self.logger.critical('Galil'+self.SIDE+' configFile corrupted.'+
                 'Rebuilding from hardcoded defaults.')
-            doRebuild=True
-        if doRebuild:
             try:
                 for settingName, variableName in self.settingName_to_variableName_map.items():
                     config[settingName]=self.send_command_to_gail('MG '+variableName)
@@ -135,6 +133,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 self.config=config
                 self.send_command_to_gail('bootup1=0')
                 config={}
+                self.logger.critical('Galil'+self.SIDE+' configFile rebuilt.')
                 return
             except IOError,e:
                 raise IOError("Failure during rebuild of defaults file.")
@@ -212,7 +211,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def sendMessageBlocking(self, message):
         """ Send a string immediately, appends string terminator if needed"""
         if not self.isOpen():
-            message='Attempting to send %s on %s' % (message,self)
+            message="BlockingSend fail: '%s' to %s" % (message,self)
             self.logger.error(message)
             raise SelectedConnection.WriteError(message)
         if not message:
@@ -222,8 +221,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         elif message[-1] != '\r':
             message+='\r'
         try:
-          count=self.connection.write(message)
-          self.connection.flush()
+            count=self.connection.write(message)
+            self.connection.flush()
+            self.logger.debug("BlockingSend sent: %s" % 
+                message.replace('\r','\\r').replace('\n','\\n'))
         except serial.SerialException, e:
             self.handle_error(e)
             raise SelectedConnection.WriteError(str(e))

@@ -7,7 +7,7 @@ WantedBy=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/bin/dataloggerAgant.py
+ExecStart=/M2FS-Control/bin/dataloggerAgent.py
 WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always

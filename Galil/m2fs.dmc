@@ -1113,7 +1113,7 @@ EN ,,^h
 #CALENAX
 'Hope for success
 ^h=0
-MG "Wait"
+'MG "#Wait"
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
 'If pot reads close to the negative limit move positive by a little
@@ -1121,60 +1121,59 @@ JS#WAITAMF(^a)
 IF(^b < encnlim[^a])
 ^b=1024;'5*(encnlim[^a]-^b)
 JS#ENC2STP(^a,^b);~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axspd[^a]
-MG "Pot reads close to the negative limit move positive by a little", ^b,_JS
+'MG "Pot reads close to the negative limit move positive by a little", ^b,_JS
 ~a=^a;PR~a=_JS;SH~a;BG~a;MC~a
 ENDIF
-MG "Wait"
+'MG "Wait"
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
 'Overestimate distance to -limit
 JS#ENC2STP(^a,analogp[^a]);^b=2*_JS
 'Now start a move to past the -limit
-MG "Overest dist to -lim and start a move to past limit",-^b
 ~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axlmspd[^a];PR~a=-^b;SH~a;BG~a
 'Wait until stopped
 #CALENA1;WT500;~a=^a;JP#CALENA1, (_SC~a=0);~a=^a;MC~a
 'If we weren't stopped by the -limit, fail
 ~a=^a;IF(_SC~a<>3);^h=ELIMSWF
-MG"Not stopped by -limit,fail."
+'MG"Not stopped by -limit,fail."
 ELSE
 'If we somehow overshot limit move forward slowly until on limit
 ~a=^a;IF(_LR~a=1)
 'Try to move back onto the limit
-MG "Wait"
+'MG "Wait"
 JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
-MG "overshot limit move forward slowly until on limit",^b
+'MG "overshot limit move forward slowly until on limit",^b
 ~a=^a;SP~a=axhmspd[^a];PR~a=^b;BG~a
 #CALENA2;WT 50;~a=^a;JP#CALENA2, (_LR~a=1);ST~a;MC~a
 'If negative movement is allowed then the switch failed 
 '  or we managed to overshoot twice it either way this is a fail
 ~a=^a;IF(_LR~a=1);^h=ELIMOST
-MG "STILL NOT ON LIMIT, fail"
+'MG "STILL NOT ON LIMIT, fail"
 ENDIF
 ENDIF
 'If all is well
 IF(^h=0)
 'Get number of steps to position near limit and use it
 '  to estimate steps needed to move totally off the negative limit
-MG "wait"
+'MG "wait"
 JS#WAITAMF(^a);^b=encnlim[^a]-analogp[^a];JS#ENC2STP(^a,^b);^b=1.1*_JS
 'Move off limit slowly and stop
-MG "Move off limit slowly",^b
+'MG "Move off limit slowly",^b
 ~a=^a;PR~a=^b;BG~a
 #CALENA3;WT 50;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a
 'If we didn't get off the limit, fail
 ~a=^a;IF(_LR~a=0);^h=ELIMSWF
-MG "STILL ON LIMIT, fail"
+'MG "STILL ON LIMIT, fail"
 ENDIF
 ENDIF
 ENDIF
 'If success, make this the reference position
 IF (^h=0)
-MG "Calibrated axis",^a
+'MG "Calibrated axis",^a
 JS#ZERSTP(^a);axiscal[^a]=true;ldelta[^a]=10*bcklsh[^a]
 'TODO consider defining position based on pots value
 ELSE
-MG "Failed to calibrate axis",^a
+'MG "Failed to calibrate axis",^a
 ~a=^a;MC~a;~a=^a;MO~a
 ENDIF
 'Store status
@@ -1192,10 +1191,10 @@ EN,,^h
 ^b=@RND[^b]
 ~a=^a;^c=^b-_TD~a
 IF(^c<>0)
-~a=^a;MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
+~a=^a;'MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
 'If required move is too small
 IF(@ABS[^c]<mininc[^a])
-MG "FANCYMV: Move is less than the minimum increment of",mininc[^a]
+'MG "FANCYMV: Move is less than the minimum increment of",mininc[^a]
 'First move mininc[^a]+@ABS[^c] in direction we last headed
 IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
 ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
@@ -1244,7 +1243,7 @@ REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
 'If we are at the limit then we are done!
 ^h=ENONE;'Hope success
 ~a=^a;^f=(((_LR~a<>0)|(^d>0))&((_LF~a<>0)|(^d<0)))
-~a=^a;MG ^a,^f,^d,_LR~a,_LF~a
+~a=^a;'MG ^a,^f,^d,_LR~a,_LF~a
 IF(^f)
 ' when calibrated, we could tighten the move distance estimate
 ^e=(axmaxp[^a]-axminp[^a])*1.1
@@ -1391,9 +1390,9 @@ EN
 '***************************************************************************
 #WAITAMF
 IF (anapcln[^a]<>-1)
-MG "Waiting...";^b=TIME
+REM MG "Waiting...";^b=TIME
 #WAITAM1;WT200;JP#WAITAM1,(anapcln[^a]<>-1)
-^c=TIME-^b;MG ^c," ms."
+REM ^c=TIME-^b;MG ^c," ms."
 ENDIF
 EN
 
@@ -1460,9 +1459,9 @@ EN
 ' ENCoder counts to STePs(axis, counts) 
 '***************************************************************************
 #ENC2STP
-MG "Counts: ",^b
+'MG "Counts: ",^b
 ~a=^a;^h=(^b*_YA~a*_YB~a)/_YC~a
-MG "To Steps: ",^h
+'MG "To Steps: ",^h
 EN,,^h
 
 
@@ -1479,8 +1478,8 @@ EN,,^h
 ' Compute the time travel would theoretically take in units of the RTC
 '***************************************************************************
 #MOVTIME
-REMa=^a;b=^b;c=^c;d=^d
-REMMG "Move Time:",^a,^b,^c,^d
+REM a=^a;b=^b;c=^c;d=^d
+REM MG "Move Time:",^a,^b,^c,^d
 EN,,(@ABS[^a/^b]+(0.5*@ABS[(^b/^c)+(^b/^d)]))*(1000000/_TM)
 
 

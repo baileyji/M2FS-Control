@@ -319,7 +319,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 return "ERROR: All available galil threads in use. Try again later"
             #Send the command to the galil
             self.send_command_to_gail(
-                command_string.replace('<thread_ID>', thread_number))
+                command_string.replace('<threadID>', thread_number))
             self.add_galil_command_to_executing_commands(command_class, thread_number)
             return 'OK'
         except IOError, e:
@@ -337,6 +337,21 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """ Return True if elo switch engaged """
         try:
             val=int(float(self.send_command_to_gail('MG _TA3')))
+            #Galil doesn't reset the ELO status automatically, need to do
+            #MO*;SHA;MOA;MG _TA3 to confirm the reading
+            # This means that we may also return false negatives, but there is
+            # no good way to check you need to turn an axis on to make the bit
+            # update and that carries all the extra logic required to pick which
+            # axis you want to toggle 
+            if val != 0:
+                self.sendMessageBlocking('MO*;SHA;MOA;MG _TA3')
+                try:
+                    val=int(float(receiveMessageBlocking().split()[-2]))
+                    return val != 0
+                except IndexError, e:
+                    raise IOError(str(e))
+                #Discard the last :
+                receiveMessageBlocking(nBytes=1)
         except ValueError,e:
             raise IOError(str(e))
         return val != 0

@@ -221,9 +221,9 @@ focentol=5;' Encoder tolerance of a desired pot position TODO: DETERMINE
 'GES Related Defines
 geshrp=7400;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
 geslrp=265000;'(steps) Position of LoRes mode from calibrated 0 TODO: finalize
-geslrep=3798; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
-geshrep=285; 'GES HR encoder nominal position TODO: finalize
 gesgsp=1393;' GES Grating Swap position relative to calibrated 0 TODO: finalize
+geshrep=285; 'GES HR encoder nominal position TODO: finalize
+geslrep=3798; 'GES LR encoder nominal position ROUGH GUESS TODO: finalize
 gesgsep=1397;' GES Grating Swap encoder nominal position TODO: finalize
 'GES encoder nominal position tolerance 
 gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
@@ -245,7 +245,8 @@ lrswapp=-423000;' step position for lr grating swap
 nfilt=8 ;' Number of filter slots
 ^a=nfilt+1;'Can't have expression within subscripts
 'FES Elevator nominal filter position in steps
-felstpsp=16*200*5;'.1" per rev
+'.1" per rev 
+felstpsp=16*200*5;'steps  worth of space between filters
 DM feselfp[^a]
 feselfp[0]=1500
 feselfp[1]=feselfp[0]+felstpsp

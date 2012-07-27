@@ -758,11 +758,24 @@ JS#ZS;IF(_JS<1);ed4=_ED4;JS#SETFOC(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 MG "Requested p:",^b 
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
-^b=^b-focanap
-'MG "Counts to convert:",^b
-JS#ENC2STP(^a,^b);~a=^a;^b=_TD~a+_JS
+^c=^b-focanap
+'MG "Counts to convert:",^c
+JS#ENC2STP(^a,^c);~a=^a;^c=_TD~a+_JS
 'MG "Moving to:",^b
-~a=^a;JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a
+~a=^a;JS#FANCYMV(^a,^c);~a=^a;MC~a;~a=^a;MO~a
+'Rince lather repeat x1 a few times, PID loop would be "proper"
+JS#WAITAMF(^a)
+^c=^b-focanap
+IF(@ABS[^c]>focentol)
+JS#ENC2STP(^a,^c);~a=^a;^c=_TD~a+_JS
+~a=^a;JS#FANCYMV(^a,^c);~a=^a;MC~a;~a=^a;MO~a
+'Rince lather repeat x2
+JS#WAITAMF(^a)
+^c=^b-focanap
+IF(@ABS[^c]>focentol)
+JS#ENC2STP(^a,^c);~a=^a;^c=_TD~a+_JS
+~a=^a;JS#FANCYMV(^a,^c);~a=^a;MC~a;~a=^a;MO~a
+ENDIF;ENDIF
 ENDIF
 EN
 

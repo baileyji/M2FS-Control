@@ -25,8 +25,6 @@ class Agent(object):
         else:
             self.name=basename
         self.initialize_logger()
-        if self.args.DAEMONIZE:
-            self.daemonize()
         if self.args.PORT:
             self.PORT=self.args.PORT
             self.initialize_socket_server(tries=5)

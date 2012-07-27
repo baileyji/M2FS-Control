@@ -417,7 +417,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         return self.do_status_query(command_string)
     
     def get_ges(self):
-        command_string="XQ#%s,%s" % ('GETGES', '7')
+        command_string="XQ#%s,%s" % ('GETGES2', '7')
         return self.do_status_query(command_string)
         
     def get_flsim(self):
@@ -455,42 +455,42 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         command_string="XQ#%s,<threadID>" % position
         return self.do_motion_command(command_class, command_string)
     
-    def insert_filter(self):
+    def insert_filter(self, *args):
         command_class='FILTER'
         command_string="XQ#INFESIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
-    def remove_filter(self):
+    def remove_filter(self, *args):
         command_class='FILTER'
         command_string="XQ#RMFESIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
 
-    def insert_flsim(self):
+    def insert_flsim(self, *args):
         command_class='FLSIM'
         command_string="XQ#INFLSIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
-    def remove_flsim(self):
+    def remove_flsim(self, *args):
         command_class='FLSIM'
         command_string="XQ#RMFLSIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
-    def calibrate_lrel(self):
+    def calibrate_lrel(self, *args):
         command_class='LREL'
         command_string="XQ#CALLRT,<threadID>"
         return self.do_motion_command(command_class, command_string)
         
-    def calibrate_hrel(self):
+    def calibrate_hrel(self, *args):
         command_class='HREL'
         command_string="XQ#CALHRTL,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
-    def calibrate_hraz(self):
+    def calibrate_hraz(self, *args):
         command_class='HRAZ'
         command_string="XQ#CALHRAZ,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
-    def calibrate_ges(self):
+    def calibrate_ges(self, *args):
         command_class='GES'
         command_string="XQ#CALGES,<threadID>"
         return self.do_motion_command(command_class, command_string)

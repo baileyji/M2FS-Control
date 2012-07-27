@@ -638,6 +638,7 @@ EN,,^h
 ^a=GESAX
 'Determine status
 ~a=^a;IF (_TS~a & $80);^h=moving
+ELSE;IF(anapcln[^a]<>-1);^h=moving;'settle
 ELSE;IF(axiscal[^a]<>true);^h=unknown
 ELSE
 REM ^g step position
@@ -646,7 +647,7 @@ IF (^g=geslrp);^h=lores
 ELSE;IF (^g=geshrp);^h=hires
 ELSE;IF (^g=gesgsp);^h=lrswap
 ELSE;^h=intermd
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 'Report status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE

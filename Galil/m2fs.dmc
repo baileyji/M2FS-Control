@@ -739,7 +739,7 @@ EN
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 'Move in progress
-ELSE; ~a=^a;IF(_TS~a & $80);MG "GETFOC: MOVING"
+ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1));MG "GETFOC: MOVING"
 'Report position
 ELSE; ~a=^a; MG "GETFOC:",focanap,_TD~a
 ENDIF;ENDIF

@@ -581,8 +581,8 @@ EN,,^h
 ^a=GESAX
 'Determine status
 ~a=^a;IF (_TS~a & $80);^h=moving
-ELSE;IF(axiscal[^a]<>true);^h=unknown
 ELSE;IF(anapcln[^a]<>-1);^h=moving;'settle
+ELSE;IF(axiscal[^a]<>true);^h=unknown
 ELSE
 REM ^g step position
 REM ^b encoder position

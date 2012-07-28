@@ -1528,80 +1528,79 @@ EN
 #ERRMSG
 IF (^a=GESAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=EPOTJAM);MG "!GES: Pot not changing with steps."
-ELSE;IF (^b=ELIMSWF);MG "!GES: Limit switch failure."
+ELSE;IF (^b=EPOTJAM);MG "!GES:ERRPot not changing with steps."
+ELSE;IF (^b=ELIMSWF);MG "!GES:ERRLimit switch failure."
 ELSE;IF (^b=EGESPMM)
-MG "!GES: Encoder & stepper mismatch. Try recalibrating.",gesanap,_TDA
-ELSE;IF (^b=EFAIL)
-MG "!GES: Unspecified error. GES Pos:",gesanap," counts,",_TDA," steps"
-ELSE;IF (^b=ECRAZY);MG "!GES: Requested value out of allowed range."
-ELSE;IF (^b=ELIMOST);MG "!GES: Overshot limit switch."
-ELSE;MG "!GES: Unknown error code",^b,". This is a software bug."
+MG "!GES:ERREncoder & stepper mismatch. Try recalibrating.",gesanap,_TDA
+ELSE;IF (^b=EFAIL);MG "!GES:ERRUnspecified error."
+ELSE;IF (^b=ECRAZY);MG "!GES:ERRRequested value out of allowed range."
+ELSE;IF (^b=ELIMOST);MG "!GES:ERROvershot limit switch."
+ELSE;MG "!GES:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRTLTAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=EHMERR);MG "!HRTLT: Homing failure. Switch did not toggle."
-ELSE;IF (^b=ELIMSWF);MG "!HRTLT: Limit switch failure."
-ELSE;IF (^b=ELCKERR);MG "!HRTLT: Locked. You must loosen the locking nut."
-ELSE;IF (^b=ECRAZY);MG "!HRTLT: Requested value out of allowed range."
-ELSE;IF (^b=EFAIL);MG "!HRTLT: Unspecified error."
-ELSE;MG "!HRTLT: Unknown error code",^b,". This is a software bug."
+ELSE;IF (^b=EHMERR);MG "!HRTLT:ERRHoming failure. Switch did not toggle."
+ELSE;IF (^b=ELIMSWF);MG "!HRTLT:ERRLimit switch failure."
+ELSE;IF (^b=ELCKERR);MG "!HRTLT:ERRLocked. You must loosen the locking nut."
+ELSE;IF (^b=ECRAZY);MG "!HRTLT:ERRRequested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!HRTLT:ERRUnspecified error."
+ELSE;MG "!HRTLT:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRAZAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=EHMERR);MG "!HRAZ: Homing failure. Switch did not toggle."
-ELSE;IF (^b=ELIMSWF);MG "!HRAZ: Limit switch failure."
-ELSE;IF (^b=ELCKERR);MG "!HRAZ: Locked. You must loosen the locking nut."
-ELSE;IF (^b=ECRAZY);MG "!HRAZ: Requested value out of allowed range."
-ELSE;IF (^b=EFAIL);MG "!HRAZ: Unspecified error."
+ELSE;IF (^b=EHMERR);MG "!HRAZ:ERRHoming failure. Switch did not toggle."
+ELSE;IF (^b=ELIMSWF);MG "!HRAZ:ERRLimit switch failure."
+ELSE;IF (^b=ELCKERR);MG "!HRAZ:ERRLocked. You must loosen the locking nut."
+ELSE;IF (^b=ECRAZY);MG "!HRAZ:ERRRequested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!HRAZ:ERRUnspecified error."
 ELSE;MG "!HRAZ: Unknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=LRTLTAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=EHMERR);MG "!LRTLT: Homing failure. Switch did not toggle."
-ELSE;IF (^b=ECRAZY);MG "!LRTLT: Requested value out of allowed range."
-ELSE;IF (^b=EFAIL);MG "!LRTLT: Unspecified error."
-ELSE;MG "!LRTLT: Unknown error code",^b,". This is a software bug."
+ELSE;IF (^b=EHMERR);MG "!LRTLT:ERRHoming failure. Switch did not toggle."
+ELSE;IF (^b=ECRAZY);MG "!LRTLT:ERRRequested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!LRTLT:ERRUnspecified error."
+ELSE;MG "!LRTLT:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FOCAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=ECRAZY);MG "!FOC: Requested value out of allowed range."
-ELSE;IF (^b=EFAIL);MG "!FOC: Unspecified error."
-ELSE;MG "!FOC: Unknown error code",^b,". This is a software bug."
+ELSE;IF (^b=ECRAZY);MG "!FOC:ERRRequested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FOC:ERRUnspecified error."
+ELSE;MG "!FOC:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FLSINAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=ELIMSWF);MG "!FLSIN: Limit switch failure."
-ELSE;IF (^b=EHMERR);MG "!FLSIN: Homing failure. Switch did not toggle."
-ELSE;IF (^b=ECRAZY);MG "!FLSIN: Requested value out of allowed range."
-ELSE;IF (^b=EFAIL);MG "!FLSIN: Unspecified error."
-ELSE;MG "!FLSIN: Unknown error code",^b,". This is a software bug."
+ELSE;IF (^b=ELIMSWF);MG "!FLSIN:ERRLimit switch failure."
+ELSE;IF (^b=EHMERR);MG "!FLSIN:ERRHoming failure. Switch did not toggle."
+ELSE;IF (^b=ECRAZY);MG "!FLSIN:ERRRequested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FLSIN:ERRUnspecified error."
+ELSE;MG "!FLSIN:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESINAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=ELIMSWF);MG "!FESIN: Limit switch failure."
-ELSE;IF (^b=EHMERR);MG "!FESIN: Homing failure. Switch did not toggle."
-ELSE;IF (^b=ECRAZY);MG "!FESIN: Requested value out of allowed range."
-ELSE;IF (^b=EFAIL);MG "!FESIN: Unspecified error."
-ELSE;MG "!FESIN: Unknown error code",^b,". This is a software bug."
+ELSE;IF (^b=ELIMSWF);MG "!FESIN:ERRLimit switch failure."
+ELSE;IF (^b=EHMERR);MG "!FESIN:ERRHoming failure. Switch did not toggle."
+ELSE;IF (^b=ECRAZY);MG "!FESIN:ERRRequested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FESIN:ERRUnspecified error."
+ELSE;MG "!FESIN:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESELAX)
 IF (^b=ENONE);MG "OK"
-ELSE;IF (^b=EPOTJAM);MG "!FESEL: Pot not changing with steps."
-ELSE;IF (^b=ELIMSWF);MG "!FESEL: Limit switch failure."
-ELSE;IF (^b=EHMERR);MG "!FESEL: Homing failure. Switch did not toggle."
-ELSE;IF (^b=EBADFP);MG "!FESEL: ",^c," is not a valid filter position."
-ELSE;IF (^b=ECRAZY);MG "!FESEL: Requested value out of allowed range."
-ELSE;IF (^b=EFAIL);MG "!FESEL: Unspecified error."
-ELSE;IF (^b=EFLTUNSF);MG "!FESEL: Filter changer unsafe state. Fix Manually."
-ELSE;MG "!FESEL: Unknown error code",^b,". This is a software bug."
+ELSE;IF (^b=EPOTJAM);MG "!FESEL: ERRPot not changing with steps."
+ELSE;IF (^b=ELIMSWF);MG "!FESEL:ERR Limit switch failure."
+ELSE;IF (^b=EHMERR);MG "!FESEL: ERRHoming failure. Switch did not toggle."
+ELSE;IF (^b=EBADFP);MG "!FESEL: ERR",^c {Z2.0}," is not a valid filter position."
+ELSE;IF (^b=ECRAZY);MG "!FESEL: ERRRequested value out of allowed range."
+ELSE;IF (^b=EFAIL);MG "!FESEL: ERRUnspecified error."
+ELSE;IF (^b=EFLTUNSF);MG "!FESEL:ERRFilter changer unsafe state. Fix Manually."
+ELSE;MG "!FESEL:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 axiserr[^a]=ENONE

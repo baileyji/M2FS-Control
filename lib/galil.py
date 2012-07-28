@@ -384,7 +384,15 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             response=self.receiveMessageBlocking(nBytes=80)
             if response is '':
                 raise IOError('No response received from galil. Consider retrying.')
-            return response.partition(':')[2]
+            try:
+                response=response.partition(':')[2]
+                if response[:3]=='ERR'
+                    return "ERROR: "+response[3:]
+                else:
+                    return response
+            except IndexError:
+                #Non-standard response, just return it
+                return response
         except IOError, e:
             return "ERROR: "+str(e)
         except AttributeError:

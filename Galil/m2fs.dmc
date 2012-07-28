@@ -682,7 +682,7 @@ JS#FANCYMV(LRTLTAX,lrswapp);JS#FANCYMV(GESAX,gesgsp)
 ^a=LRTLTAX;~a=^a;MC~a;~a=^a;MO~a
 ^a=GESAX;~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
-JS#QUGESP;IF (_JS<>lrswap);^h=EFAIL;ENDIF
+JS#QUGESP2;IF (_JS<>lrswap);^h=EFAIL;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -703,7 +703,7 @@ IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
 IF(^h=0);JS#FANCYMV(^a,geshrp);~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
-JS#QUGESP;IF (_JS<>hires);^h=EFAIL;ENDIF
+JS#QUGESP2;IF (_JS<>hires);^h=EFAIL;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -723,7 +723,7 @@ IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
 IF(^h=0);JS#FANCYMV(^a,geslrp);~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
-JS#QUGESP;IF (_JS<>lores);^h=EFAIL;ENDIF
+JS#QUGESP2;IF (_JS<>lores);^h=EFAIL;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -740,8 +740,8 @@ EN
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 'Move in progress
-ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1));
-MG "GETFOC: MOVING",focanap,_TD~a
+ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1))
+~a=^a;MG "GETFOC: MOVING",focanap,_TD~a
 'Report position
 ELSE; ~a=^a; MG "GETFOC:",focanap,_TD~a
 ENDIF;ENDIF

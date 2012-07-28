@@ -135,8 +135,8 @@ DM axmaxp[8];'Max possible position (steps, 16x microstepping)
 axmaxp[GESAX]=288112;'Actual value slightly greater if overshooting limits
 axmaxp[FLSINAX]=0
 axmaxp[FOCAX]=16*200*180;'Infinite, about 1 revolution
-axmaxp[FESINAX]=0;'about 10k
-axmaxp[FESELAX]=0
+axmaxp[FESINAX]=9413;'Determined experimentally, B Side
+axmaxp[FESELAX]=210000;'Determined experimentally, B Side
 axmaxp[LRTLTAX]=1126400; '1 revolution
 axmaxp[HRTLTAX]=128205/2;'10mm
 axmaxp[HRAZAX]=128205/2;'10mm
@@ -272,7 +272,7 @@ felencp[8]=felencp[7]+1732;'Load position is an additional 2.85" further
 'Allowable range (+/-) in encoder counts around nominal filter position
 feselrg=2 ;'about 0.003"
 fesinsp=64000 ;'The inserted position in steps of the FESIN arm
-fesremp=0 ;'The removed position in steps of the FESIN arm
+fesremp=200;'The removed position in steps of the FESIN arm, det. 4 B side
 nearfilt=0;' nearest filter to current position, determined by QUFEL
 allsafep=2746;'Encoder pos above which it is always safe to move the inserter
 

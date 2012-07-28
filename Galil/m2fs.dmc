@@ -858,7 +858,7 @@ JS#WAITAMF(^a)
 IF(felanap>allsafep);^h=0;
 ELSE
 'Check if position is within tolerance of a filter position
-JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filter8) );^h=0
+JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filterp8) );^h=0
 ELSE
 'We are in a position that needs fine tuning before it is safe to 
 ' move the FESIN arm, but it is only safe to tweak the position if the

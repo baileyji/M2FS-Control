@@ -655,7 +655,7 @@ IF(^h=unknown);MG "GETGES: UNCALIBRATED";ENDIF
 IF(^h=moving);~a=^a;MG "GETGES: MOVING",_TP~a,_TD~a;ENDIF
 IF(^h=lores);~a=^a;MG "GETGES: LORES",gesanap,_TD~a;ENDIF
 IF(^h=hires);~a=^a;MG "GETGES: HIRES",gesanap,_TD~a;ENDIF
-IF(^h=lrswap);~a=^a;MG "GETGES: SWAP",gesanap,_TD~a;ENDIF
+IF(^h=lrswap);~a=^a;MG "GETGES: LRSWAP",gesanap,_TD~a;ENDIF
 IF(^h=intermd);~a=^a;MG "GETGES: INTERMEDIATE",gesanap,_TD~a;ENDIF
 ENDIF
 EN
@@ -740,7 +740,8 @@ EN
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 'Move in progress
-ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1));MG "GETFOC: MOVING"
+ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1));
+MG "GETFOC: MOVING",focanap,_TD~a
 'Report position
 ELSE; ~a=^a; MG "GETFOC:",focanap,_TD~a
 ENDIF;ENDIF

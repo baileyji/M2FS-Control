@@ -855,7 +855,7 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#FESELSF(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=0
 JS#WAITAMF(^a)
 'Case 1: caddy is above inserter return 0
-IF(felanap>allsafep);^h=0;
+IF(felanap>allsafep);^h=0
 ELSE
 'Check if position is within tolerance of a filter position
 JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filterp8) );^h=0

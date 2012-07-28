@@ -381,7 +381,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.update_executing_threads_and_commands()
             #Send the command to the galil
             self.send_command_to_gail(command_string)
-            response=self.receiveMessageBlocking(nBytes=80)
+            response=self.receiveMessageBlocking()
             if response is '':
                 raise IOError('No response received from galil. Consider retrying.')
             try:

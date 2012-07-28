@@ -821,12 +821,26 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#RMFESIN(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 'Make sure we are calibrated
-IF((^h=0)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
+IF(^h=0)
+MG "FESELSF reports safe"
+REM IF (axiscal[^a]<>true)
+REM MG"Calibrating inserter"
+REMJS#CALINAX(^a);^h=_JS
+REM ENDIF
 'Remove the FESIN if all is well
+MG"Removing inserter"
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axspd[^a]);^h=_JS
 'Move to the removed idle position
-IF(^h=0);JS#FANCYMV(^a,fesremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;
+
+IF(^h=0)
+~a=^a;DP~a=0
+MG"Moving to keyway spot"
+JS#FANCYMV(^a,fesremp);~a=^a;MC~a
+IF(_SC~a<>1);^h=1;MG "FANCYMV failed.";ENDIF
 ~a=^a;MO~a
+ELSE;MG "MOVE2LIM failed."
+ENDIF
+ELSE;MG"FESELSF Reports unsafe"
 ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -856,15 +870,18 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#FESELSF(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 JS#WAITAMF(^a)
 'Case 1: caddy is above inserter return 0
 IF(felanap>allsafep);^h=0
+MG "Caddy above inserter. Safe."
 ELSE
 'Check if position is within tolerance of a filter position
 JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filterp8) );^h=0
+MG "Caddy at a filter. Safe."
 ELSE
 'We are in a position that needs fine tuning before it is safe to 
 ' move the FESIN arm, but it is only safe to tweak the position if the
 ' inserter position is known
 JS#QUINPOS(FESINAX,fesinsp,fesremp)
 IF (_JS<>out); ^h=1;axiserr[^a]=EFLTUNSF
+MG "Caddy needs to move. Inserter not out. Unsafe."
 ELSE
 'Try to nudge elevator toward nearest valid position
 'Compute number of steps between current encoder position and nominal 
@@ -880,7 +897,9 @@ JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a
 JS#QUFELP
 'If we still aren't in a safe spot fail
 IF( ((_JS>=filterp1) & (_JS<=filter8)) | felanap>allsafep );^h=0
+MG "Caddy position adjusted and arm is clear to move. Safe."
 ELSE;^h=1;axiserr[^a]=EFLTUNSF
+MG "Could not manage to get caddy in safe position. Unsafe."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 

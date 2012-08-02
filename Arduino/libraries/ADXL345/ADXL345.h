@@ -2,8 +2,13 @@
 #define __ADXL345_H__
 //Add the SPI library so we can communicate with the ADXL345 sensor
 #include <SPI.h>
-#include <WProgram.h>
 #include <Wiring.h>
+#if ARDUINO < 100
+#include <WProgram.h>
+#else  // ARDUINO
+#include <Arduino.h>
+#endif  // ARDUINO
+
 
 
 //Default Chip select pin

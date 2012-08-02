@@ -4,7 +4,11 @@
 #include <Wire.h>
 #include <avr/pgmspace.h>
 #include <RTC_DS1337.h>
+#if ARDUINO < 100
 #include <WProgram.h>
+#else  // ARDUINO
+#include <Arduino.h>
+#endif  // ARDUINO
 
 
 #define DS1337_ADDRESS 0x68
@@ -128,66 +132,66 @@ static uint8_t bin2bcd (uint8_t val) { return val + 6 * (val / 10); }
 uint8_t RTC_DS1337::begin(void) {
   //1337
   Wire.beginTransmission(DS1337_ADDRESS);
-  Wire.send(0x0E); //Control Register
-  Wire.send(0x07); //Disable Square wave output, enable alarm interrupts
+  Wire.write(0x0E); //Control Register
+  Wire.write(0x07); //Disable Square wave output, enable alarm interrupts
   Wire.endTransmission();
 
   Wire.beginTransmission(DS1337_ADDRESS);
-  Wire.send(0x0F); //Status register
-  Wire.send(0x00); //Clear the osc. stop flag
+  Wire.write(0x0F); //Status register
+  Wire.write((byte)0x00); //Clear the osc. stop flag
   Wire.endTransmission(); 
   return 1;
 }
 
 uint8_t RTC_DS1337::isrunning(void) {
   Wire.beginTransmission(DS1337_ADDRESS);
-  Wire.send(0x0F); //??	
+  Wire.write(0x0F); //??	
   Wire.endTransmission();
 
   Wire.requestFrom(DS1337_ADDRESS, 1);
   uint8_t ss = 0; 
-  ss=Wire.receive();
+  ss=Wire.read();
   return !(ss>>7);
 }
 
 
 void RTC_DS1337::setAlarm(const DateTime& dt) {
   Wire.beginTransmission(DS1337_ADDRESS);
-  Wire.send(0x07);
-  Wire.send(bin2bcd(dt.second()));
-  Wire.send(bin2bcd(dt.minute()) | 0x80);
-  Wire.send(bin2bcd(dt.hour())   | 0x80);
-  Wire.send(bin2bcd(dt.day())    | 0x80);
+  Wire.write(0x07);
+  Wire.write(bin2bcd(dt.second()));
+  Wire.write(bin2bcd(dt.minute()) | 0x80);
+  Wire.write(bin2bcd(dt.hour())   | 0x80);
+  Wire.write(bin2bcd(dt.day())    | 0x80);
   Wire.endTransmission();
 }
 
 
 void RTC_DS1337::adjust(const DateTime& dt) {
     Wire.beginTransmission(DS1337_ADDRESS);
-    Wire.send(0);
-    Wire.send(bin2bcd(dt.second()));
-    Wire.send(bin2bcd(dt.minute()));
-    Wire.send(bin2bcd(dt.hour()));
-    Wire.send(bin2bcd(0));
-    Wire.send(bin2bcd(dt.day()));
-    Wire.send(bin2bcd(dt.month()));
-    Wire.send(bin2bcd(dt.year() - 2000));
+    Wire.write((byte)0x00);
+    Wire.write(bin2bcd(dt.second()));
+    Wire.write(bin2bcd(dt.minute()));
+    Wire.write(bin2bcd(dt.hour()));
+    Wire.write(bin2bcd(0));
+    Wire.write(bin2bcd(dt.day()));
+    Wire.write(bin2bcd(dt.month()));
+    Wire.write(bin2bcd(dt.year() - 2000));
     Wire.endTransmission();
 }
 
 DateTime RTC_DS1337::now() {
   Wire.beginTransmission(DS1337_ADDRESS);
-  Wire.send(0);	
+  Wire.write((byte)0x00);
   Wire.endTransmission();
   
   Wire.requestFrom(DS1337_ADDRESS, 7);
-  uint8_t ss = bcd2bin(Wire.receive() & 0x7F);
-  uint8_t mm = bcd2bin(Wire.receive());
-  uint8_t hh = bcd2bin(Wire.receive());
-  Wire.receive();
-  uint8_t d = bcd2bin(Wire.receive());
-  uint8_t m = bcd2bin(Wire.receive());
-  uint16_t y = bcd2bin(Wire.receive()) + 2000;
+  uint8_t ss = bcd2bin(Wire.read() & 0x7F);
+  uint8_t mm = bcd2bin(Wire.read());
+  uint8_t hh = bcd2bin(Wire.read());
+  Wire.read();
+  uint8_t d = bcd2bin(Wire.read());
+  uint8_t m = bcd2bin(Wire.read());
+  uint16_t y = bcd2bin(Wire.read()) + 2000;
   
   return DateTime (y, m, d, hh, mm, ss);
 }

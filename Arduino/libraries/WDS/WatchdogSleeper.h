@@ -13,7 +13,12 @@
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
+#include <Wiring.h>
+#if ARDUINO < 100
 #include <WProgram.h>
+#else  // ARDUINO
+#include <Arduino.h>
+#endif  // ARDUINO
 
 // WDTON fuse must not be programmed
 // WDE bit needs to be 0 in WDTCSR

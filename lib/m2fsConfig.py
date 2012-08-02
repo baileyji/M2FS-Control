@@ -75,4 +75,15 @@ class m2fsConfig:
                 config.set('Defaults', setting, value)
             config.write(configfile)
             configfile.close()
-    
+
+    @staticmethod
+    def getDataloggerLogfileNames():
+        """
+        Return tuple of temp logfile and acceleration logfile
+        
+        
+        Logfiles returned should exist and have r/w permissions for the 
+        process.
+        """
+        #return ('/var/log/tempLogfile.pickle','/var/log/accelLogfile.pickle')
+        return ('/Users/one/Desktop/tempLogfile.pickle','/Users/one/Desktop/accelLogfile.pickle')

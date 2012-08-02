@@ -34,15 +34,16 @@ FUSES:
 #define N_TEMP_SENSORS           5
 #define MAX_LOGFILE_SIZE_BYTES   0x38400000   //~900MB
 #define START_POWERED		 true
-#define ID "M2FS Datalogger test version"
-#define ID_SIZE 28
+#define ID "v0.1"
+#define ID_SIZE 4
 
-//#define DEBUG
+//#define DEBUG_STARTUP //Passes
+#define DEBUG_PROTOCOL
 //#define DEBUG_STAY_POWERED
 //#define DEBUG_ACCEL
 //#define DEBUG_FAKE_SLEEP
 //#define DEBUG_SLEEP
-#define DEBUG_LOGFILE
+//#define DEBUG_LOGFILE
 
 //#############################
 //             Pins
@@ -70,7 +71,7 @@ FUSES:
 #define MESSAGE_TIMER     'M'
 #define BATTERY_TIMER     'B'
 #define MSTIMER2_DELTA                       2	      // should be less than smallest timeout interval
-#define MESSAGE_CONFIRMATION_TIMEOUT_MS      100      //MUST be less than the ADXL FIFO period
+#define MESSAGE_CONFIRMATION_TIMEOUT_MS      250      //MUST be less than the ADXL FIFO period
 #define BATTERY_TEST_INTERVAL_MS             3600000  //Once per hour
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define ADXL_FIFO_RATE                       1280     //ADXL_CONVERSION_RATE*32
@@ -370,8 +371,10 @@ void setup(void)
   WDT.off();
   WDT.calibrate();
   WDT.registerCallback(timerUpdater);
-  #ifdef DEBUG
-    cout<<pstr("#WDT clock: ")<<WDT.clockRatekHz()<<pstr(" kHz")<<endl;
+  #ifdef DEBUG_STARTUP
+    Serial.print(F("#WDT clock: "));
+    Serial.print(WDT.clockRatekHz());
+    Serial.println(F(" kHz"));
   #endif
   
   // Initialize timers
@@ -379,10 +382,9 @@ void setup(void)
   updateTempsTimer.start();
   updateRTCTimer.start();
 
-
   // Initialize Accelerometer
-  #ifdef DEBUG
-    cout<<pstr("#Init ADXL...");
+  #ifdef DEBUG_STARTUP
+    Serial.print(F("#Init ADXL..."));
   #endif
   ADXL345.init(ACCELEROMETER_CS);
   attachInterrupt(ACCELEROMETER_INTERRUPT, accelerometerISR, FALLING);
@@ -390,42 +392,40 @@ void setup(void)
     accelerometerISR();
   }
   systemStatus|=SYS_ADXL_OK;
-  #ifdef DEBUG
-    cout<<pstr("initialized.\n");
+  #ifdef DEBUG_STARTUP
+    Serial.println(F("done"));
   #endif
   
   // Initialize the temp sensors
-  #ifdef DEBUG
-    cout<<pstr("#Init Temp...");
+  #ifdef DEBUG_STARTUP
+    Serial.print(F("#Init temp..."));
   #endif
   dallasSensors.begin();
   dallasSensors.setResolution(10);  //configure for 10bit, conversions take 187.5 ms max
   dallasSensors.setWaitForConversion(false);
   systemStatus|=SYS_TEMP_OK;
-  #ifdef DEBUG
-    cout<<pstr("initialized.\n");
+  #ifdef DEBUG_STARTUP
+    Serial.println(F("done"));
   #endif
   
   // Initialize RTC
-  #ifdef DEBUG
+  #ifdef DEBUG_STARTUP
     cout<<pstr("#Init RTC...");
   #endif
   if (! RTC.isrunning()) {
-    #ifdef DEBUG
-      cout<<pstr("RTC start\n");
+    #ifdef DEBUG_STARTUP
+      Serial.println(F("begin..."));
     #endif
     RTC.adjust(DateTime(__DATE__, __TIME__));
     RTC.begin();
   }
   if ( !RTC.isrunning()) {
-    #ifdef DEBUG
-      cout<<pstr("#RTC fail\n");
+    #ifdef DEBUG_STARTUP
+      Serial.println(F("fail"));
     #endif
   }
   else {
-    #ifdef DEBUG
-      cout<<pstr("RTC init'd.\n");
-    #endif
+
     systemStatus|=SYS_RTC_OK;
 
     // Set date time callback function
@@ -437,12 +437,16 @@ void setup(void)
     cli();
     timer0_millis=(now.unixtime()%86400)*1000;
     sei();
+    
+    #ifdef DEBUG_STARTUP
+      Serial.println(F("done"));
+    #endif
   }
 
   // Initialize SD card
   char name[] = "LOG.CSV";
 
-  #ifdef DEBUG_LOGFILE
+  #ifdef DEBUG_STARTUP
     cout<<pstr("#Init SD...");
   #endif  
   if (!SD.init(SPI_FULL_SPEED, SD_CS)) {
@@ -471,18 +475,18 @@ void setup(void)
     logfile.read((void*)&Logfile_End,sizeof(Logfile_End));
     
     #ifdef DEBUG_LOGFILE
-      cout<<pstr("#Log Opened.\n");
-      cout<<pstr("# Header size=")<<header_size<<endl;
-      cout<<pstr("# Write ptr=")<<writePos<<endl;
-      cout<<pstr("# Read ptr=")<<readPos<<endl;
-      cout<<pstr("# File end=")<<Logfile_End<<endl;
+      Serial.println(F("#Log Opened"));
+      Serial.print(F("# Header size="));Serial.println(header_size);
+      Serial.print(F("# Wptr="));Serial.println(writePos);
+      Serial.print(F("# Rptr="));Serial.println(readPos);
+      Serial.print(F("# EOF="));Serial.println(Logfile_End);
     #endif
     
     //Sanity check
     if (writePos > MAX_LOGFILE_SIZE_BYTES ||
       readPos > MAX_LOGFILE_SIZE_BYTES ||
       Logfile_End > MAX_LOGFILE_SIZE_BYTES) {
-      cout<<pstr("#Log header corrupt");
+      cout<<pstr("#Bad Header");
       logfile.close();
     }
     else {
@@ -511,8 +515,8 @@ void setup(void)
     
     systemStatus|=SYS_HEADER_NEW;
   }
-  #ifdef DEBUG_LOGFILE
-    cout<<pstr("initialized. Logging to: ")<<name<<endl;
+  #ifdef DEBUG_STARTUP
+    cout<<pstr("done. File:")<<name<<endl;
   #endif
 
   // Initialize power mode
@@ -525,11 +529,11 @@ void setup(void)
     setTimerUpdateSourceToMsTimer2();
   }
 
-  #ifdef DEBUG
+  #ifdef DEBUG_STARTUP
     cout<<pstr("#Free RAM: ")<<FreeRam()<<endl;
   #endif
   
-  cout<<pstr("#Startup: ");Serial.print(systemStatus,HEX);
+  cout<<pstr("#Startup: ");Serial.println(systemStatus,HEX);
   
 }
 
@@ -558,44 +562,39 @@ void loop(void){
   // Any and all responses should be in the buffer
   // possible responses: '!', '#', '#t'uint32_t, & 't'uint32_t
   if(Serial.available()) {
-    uint8_t temp=Serial.peek();
-    #ifdef DEBUG
-      cout<<pstr("#Byte In:")<<temp<<".\n";
+    #ifdef DEBUG_PROTOCOL
+      uint8_t temp=Serial.peek();
+      Serial.print(F("#Byte In: '"));
+      Serial.print((uint16_t)temp);Serial.println("'");
+      if (!messageConfTimer.expired()){
+        Serial.print(F("#Conf mID "));Serial.println(msgID);
+      }
     #endif
+
+    messageConfTimer.stop();
+    messageConfTimer.reset();
     switch (Serial.read()) {
 	
       case '!': //We've got Power!!
         powerUp();
-        messageConfTimer.stop();
-        messageConfTimer.reset();
         break;
 
       case '#': //Message sucessfully sent, may also have a time update pending
-        #ifdef DEBUG
-          cout<<pstr("#Msg Conf for ID ")<<msgID<<endl;
-        #endif
         bufferRewind();
-        messageConfTimer.stop();
-        messageConfTimer.reset();
-        if (Serial.read()!='t')
+        if (Serial.peek()!='t')
           break;
+        else
+          Serial.read();
 
       case 't': //timeupdate
         updateRTCTimer.reset();
         updateRTCTimer.start();
         updateRTCPending=false;
-        messageConfTimer.stop();
-        messageConfTimer.reset();
         setRTCFromSerial();
         break;
 
       default:
-        #ifdef DEBUG
-          cout<<pstr("#Msg Conf for ID ")<<msgID<<endl;
-        #endif
-        bufferRewind();
-        messageConfTimer.stop();
-        messageConfTimer.reset();
+        bufferRewind(); //Why is this here???
         break;
     }
 
@@ -604,14 +603,14 @@ void loop(void){
     
   }
   else if (messageConfTimer.expired())  {
-    #ifdef DEBUG
-      cout<<pstr("#Msg. Tm. Exp. ID: ")<<msgID<<endl;
+    #ifdef DEBUG_PROTOCOL
+      Serial.print(F("#T/O mID "));Serial.println(msgID);
     #endif
     messageConfTimer.stop();
     messageConfTimer.reset();
     #ifdef DEBUG_STAY_POWERED
       bufferRewind();
-      cout<<pstr("Powerdown skipped.\n");
+      Serial.println(F("#Skipping PD"));
     #else
       powerDown();
     #endif
@@ -622,7 +621,7 @@ void loop(void){
     delay(500);
     if (!digitalRead(EJECT_PIN)) {
       logfile.close();
-      cout<<pstr("#Safe to remove SD card.\n");
+      Serial.println(F("#Safe to remove SD card"));
       while(1);
     }
   }
@@ -645,7 +644,7 @@ void loop(void){
 
   // Periodically check for a connection while unpowered
   if (!powered && pollForPowerTimer.expired()) {
-    cout<<"?";
+    cout<<"?";msgID++;
     messageConfTimer.reset();
     messageConfTimer.start();
     pollForPowerTimer.reset();
@@ -777,7 +776,7 @@ void loop(void){
   //   NB timer is started by logData()
   if (logSyncTimer.expired()) {
     #ifdef DEBUG_LOGFILE
-      cout<<pstr("#Logfile sync\n");
+      Serial.println(F("#Logfile sync"));
     #endif
     logfile.sync();
     logSyncTimer.stop();
@@ -791,7 +790,7 @@ void loop(void){
   if (powered) {
     if (!updateRTCPending) {
       if (updateRTCTimer.expired()) {
-        cout<<"t";
+        cout<<"t";msgID++;
         updateRTCPending=true;
         messageConfTimer.reset();
         messageConfTimer.start();
@@ -993,8 +992,11 @@ void sendData() {
     return;	//Nothing to log
   }
   msgID++;
-  #ifdef DEBUG
-    cout<<"#Send Message: "<<msgID<<pstr(". Length: ")<<(uint16_t)bufferGetRecordSize()<<endl;
+  #ifdef DEBUG_PROTOCOL
+    Serial.print(F("#Send mID "));
+    Serial.print(msgID);
+    Serial.print(F(", length "));
+    Serial.println((uint16_t)bufferGetRecordSize());
   #endif
   
   Serial.write('L');
@@ -1063,7 +1065,7 @@ void goSleep(uint32_t duration_ms, SleepMode mode) {
 //=============================
 void powerUp(void ) {
   if(!powered){
-    #ifdef DEBUG
+    #ifdef DEBUG_PROTOCOL | DEBUG_SLEEP
       cout<<pstr("#PU\n");
     #endif
     powered=true;
@@ -1081,7 +1083,7 @@ void powerUp(void ) {
 //=============================
 void powerDown(void) {
   if (powered) {
-    #ifdef DEBUG
+    #ifdef DEBUG_PROTOCOL | DEBUG_SLEEP
       cout<<pstr("#PD\n");
     #endif
     powered=false;

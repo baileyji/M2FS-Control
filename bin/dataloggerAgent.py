@@ -26,31 +26,20 @@ class DataloggerAgent(Agent):
             agent_ports['ShoeAgentR'], self.logger)
         self.shoeB=SelectedConnection.SelectedSocket('localhost', 
             agent_ports['ShoeAgentB'], self.logger)
-        self.devices.append(self.shoeR)
-        self.devices.append(self.shoeB)
+        #self.devices.append(self.shoeR)
+        #self.devices.append(self.shoeB)
+        self.setupLoggerFiles()
         self.currentTemps={}
         self.command_handlers={
                     'TEMPS':self.TEMPS_command_handler,
                     'VERSION':self.version_request_command_handler,
                     'STATUS':self.status_command_handler}
-    
-    def initialize_database(self):
-        dataloggerR_temp_column_names='HiRes R, LoRes R, Prism R'
-        dataloggerC_temp_column_names='CaF R, Triplet R, Ambient R, Triplet B, CaF B, Ambient B'
-        dataloggerB_temp_column_names='HiRes B, LoRes B, Prism B'
-        shoeB_temp_column_name='Shoe B'
-        shoeR_temp_column_name='Shoe R'
-        temps_table_definition=(
-            "Temps(Time timestamp primary key, " +
-                (''.join(map(lambda x: "Temp %i real, " % x,
-                range(self.num_temps))))[:-2])
-        accel_table_definition=(
-            "Accels(Time timestamp primary key, " +
-            "Rx int, Ry int, Rz int, "+
-            "Cx int, Cy int, Cz int, "+
-            "Bx int, By int, Bz int")
-        #self.database.execute("create table if not exists "+temps_table_definition)
-        #self.database.execute("create table if not exists "+accel_table_definition)
+
+    def setupLoggerFiles(self):
+        tempLog,accelLog=m2fsConfig.getDataloggerLogfileNames()
+        self.tempsFile=open(tempLog,'a')
+        self.accelsFile=open(accelLog,'a')
+
     
     def listenOn(self):
         return ('localhost', self.PORT)
@@ -58,7 +47,10 @@ class DataloggerAgent(Agent):
     def on_exit(self, arg):
         """Prepare to exit"""
         #TODO close and save data file
+        self.tempsFile.close()
+        self.accelsFile.close()
         Agent.on_exit(self, arg)
+
     
     def get_version_string(self):
         return 'Datalogger Agent Version 0.1'
@@ -86,7 +78,7 @@ class DataloggerAgent(Agent):
                 self.currentTemps['R']=temps
             self.logger.debug("TempsR: %s:%s" % 
                 (time.asctime(time.localtime(long(timestamps[0]))), temps))
-            cPickle.dump(data, tempsRfile, -1)
+            cPickle.dump(('R',data), self.tempsFile, -1)
         
         if self.dataloggerC.have_unfetched_temps():
             data=self.dataloggerC.fetch_temps()
@@ -97,7 +89,7 @@ class DataloggerAgent(Agent):
                 self.currentTemps['C']=temps
             self.logger.debug("TempsC: %s:%s" % 
                 (time.asctime(time.localtime(long(timestamps[0]))), temps))
-            cPickle.dump(data, tempsCfile, -1)
+            cPickle.dump(('C',data), self.tempsFile, -1)
         
         if self.dataloggerB.have_unfetched_temps():
             data=self.dataloggerB.fetch_temps()
@@ -108,7 +100,7 @@ class DataloggerAgent(Agent):
                 self.currentTemps['B']=temps
             self.logger.debug("TempsB: %s:%s" % 
                 (time.asctime(time.localtime(long(timestamps[0]))), temps))
-            cPickle.dump(data, tempsBfile, -1)
+            cPickle.dump(('B',data), self.tempsFile, -1)
         
         #Accelerometer handling
         if self.dataloggerC.have_unfetched_accels():
@@ -116,7 +108,20 @@ class DataloggerAgent(Agent):
             timestamps,accels=data
             self.logger.debug("AccelsC: %s:%s" % 
                 (time.asctime(time.localtime(long(timestamps[0]))), len(accels)))
-            cPickle.dump(data, accelsCfile,-1)
+            cPickle.dump(('C',data), self.accelsFile,-1)
+            
+        if self.dataloggerR.have_unfetched_accels():
+            data=self.dataloggerR.fetch_accels()
+            timestamps,accels=data
+            self.logger.debug("AccelsR: %s:%s" %
+                              (time.asctime(time.localtime(long(timestamps[0]))), len(accels)))
+            cPickle.dump(('R',data), self.accelsFile,-1)
+        if self.dataloggerB.have_unfetched_accels():
+            data=self.dataloggerB.fetch_accels()
+            timestamps,accels=data
+            self.logger.debug("AccelsB: %s:%s" %
+                              (time.asctime(time.localtime(long(timestamps[0]))), len(accels)))
+            cPickle.dump(('B',data), self.accelsFile,-1)
         
         #check that the dataloggers are online
         try:
@@ -127,21 +132,26 @@ class DataloggerAgent(Agent):
             pass
     
     def queryShoeTemps(self):
-        self.shoeR.sendMessageBlocking('TEMP')
-        self.shoeB.sendMessageBlocking('TEMP')
-        messageR=self.shoeR.receiveMessageBlocking()
-        messageB=self.shoeB.receiveMessageBlocking()
         try:
-            self.currentTemps['shoeB']=float(messageB)
-            self.most_current_shoeB_timestamp=time.time()
+            self.shoeR.sendMessageBlocking('SLITS_TEMP')
+            messageR=self.shoeR.receiveMessageBlocking()
+            self.currentTemps['shoeR']=float(messageR)
+            self.most_current_shoeR_timestamp=time.time()
+        except IOError:
+            self.logger.info("Failed to poll shoeR for temp")
         except ValueError:
             pass
         try:
-            self.currentTemps['shoeR']=float(messageR)
-            self.most_current_shoeR_timestamp=time.time()
+            self.shoeB.sendMessageBlocking('SLITS_TEMP')
+            messageB=self.shoeB.receiveMessageBlocking()
+            self.currentTemps['shoeB']=float(messageB)
+            self.most_current_shoeB_timestamp=time.time()
+        except IOError:
+            self.logger.info("Failed to poll shoeR for temp")
         except ValueError:
             pass
         self.queryShoesTimer=threading.Timer(60.0, self.queryShoeTemps)
+        self.queryShoesTimer.daemon=True
         self.queryShoesTimer.start()
     
     def runSetup(self):
@@ -152,7 +162,8 @@ class DataloggerAgent(Agent):
         self.most_current_shoeR_timestamp=0
         self.most_current_shoeB_timestamp=0
         self.queryShoesTimer=threading.Timer(60.0, self.queryShoeTemps)
-        self.queryShoesTimer.start()
+        self.queryShoesTimer.daemon=True
+        #self.queryShoesTimer.start()
 
 if __name__=='__main__':
     agent=DataloggerAgent()

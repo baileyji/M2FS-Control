@@ -29,20 +29,22 @@ class Datalogger(SelectedConnection.SelectedSerial):
                 byteIn=self.in_buffer[0]
                 self.in_buffer=self.in_buffer[1:]
                 if byteIn not in 't?BE#L':
-                    self.logger.debug("Out of sync")
+                    self.logger.debug("Out of sync (%s) ..."%ord(byteIn))
                     matchobject=re.search('[t?BE#L]', self.in_buffer)
                     if matchobject:
                         byteIn=self.in_buffer[matchobject.start(0)]
                         self.in_buffer=self.in_buffer[matchobject.start(0)+1:]
+                        self.logger.debug(" found %s in buffer."%byteIn)
                     else:
+                        self.logger.debug(" flushing buffer.")
                         self.in_buffer=''
                         byteIn=''
                 if  byteIn == 't':
                     #self.logger.debug("Telling time to %s"% self)
                     self.send_time_to_datalogger()
                 elif byteIn == '?':
-                    self.logger.debug("Ping...pong %s" % self.addr_str())
                     self.connection.write('!')
+                    self.logger.debug("Ping...pong %s" % self.addr_str())
                 elif byteIn == 'B':
                     self.logger.debug("Battery status incomming on %s"% self)
                     self.length_of_incomming_message=X #TODO
@@ -111,6 +113,7 @@ class Datalogger(SelectedConnection.SelectedSerial):
         
     def receiveLogData(self, data):
         """ Convert logger data into a nice neat form and sit on it"""
+        self.connection.write('#')
         Acceleration_Record_Length=8+6*32
         Temp_Record_Length=8+4*self.n_temp_sensors
         Combined_Record_Length=Acceleration_Record_Length+4*self.n_temp_sensors
@@ -146,7 +149,6 @@ class Datalogger(SelectedConnection.SelectedSerial):
         #NB: to convert accels to Gs and numpy array do:
         # 0.00390625*numpy.array(accels).reshape([32,3])
         #time.strftime("%a, %d %b %Y %H:%M:%S +0000",time.localtime(data.unixtime))
-        self.connection.write('#')
         
     def receiveDebugMessage(self, message):
         """ Process a debugging message from the datalogger"""

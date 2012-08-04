@@ -30,7 +30,7 @@ class Director(Agent):
         self.shackhatmanAgent_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['ShackHartmanAgent'], self.logger)
         self.devices.append(self.shackhatmanAgent_Connection)
-        self.command_handlers={
+        self.command_handlers.update({
 
             #Galil Agent Commands
             'GALILRAW':self.galil_command_handler,
@@ -52,7 +52,7 @@ class Director(Agent):
             #Shack Hartman Commands
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
-            #Slit commands
+            #Slit Commands
             'SLITS':self.SLITS_comand_handler,
             'SLITS_CLOSEDLOOP':self.SLITS_comand_handler,
             'SLITS_SLITPOS':self.SLITS_comand_handler,
@@ -66,10 +66,8 @@ class Director(Agent):
             'PLATELIST':self.plateConfig_command_handler,
             'PLATE':self.plateConfig_command_handler,
             'PLATESETUP':self.plateConfig_command_handler,
-            
-            'TEMPS':self.datalogger_command_handler,
-            'STATUS':self.status_command_handler,
-            'VERSION':self.version_request_command_handler}
+            #Other Commands
+            'TEMPS':self.datalogger_command_handler})
     
     def listenOn(self):
         return (socket.gethostname(), self.PORT)
@@ -109,7 +107,15 @@ class Director(Agent):
         
     def status_command_handler(self, command):
         #TODO Query each subsystem for status
-        command.setReply('Doing just fine')
+        reply=self.cookie+' '
+        for d in self.devices:
+            try:
+                d.sendMessageBlocking('STATUS')
+                statusmsg=d.receiveMessageBlocking()
+                reply=reply+statusmsg
+            except IOError:
+                reply=reply+('%s:UNKNOWN' % d.prettyname)
+        command.setReply(reply)
     
     def plateConfig_command_handler(self, command):
         self.not_implemented_command_handler(command)

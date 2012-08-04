@@ -18,6 +18,7 @@ class Agent(object):
         self.devices=[]
         self.commands=[]
         self.max_clients=1
+        self.cookie=time.time().__str__()
         self.initialize_cli_parser()
         self.args=self.cli_parser.parse_args()
         if 'SIDE' in self.args:
@@ -41,6 +42,9 @@ class Agent(object):
         #Register a terminate signal handler
         signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(1))
         signal.signal(signal.SIGINT, lambda signum, stack_frame: exit(1))
+        self.command_handlers={
+            'STATUS':self.status_command_handler,
+            'VERSION':self.version_request_command_handler}
     
     def initialize_logger(self):
         """Configure logging"""
@@ -197,6 +201,9 @@ class Agent(object):
         """ Handle a version request """ 
         command.setReply(self.get_version_string()+'\n')
 
+    def status_command_handler(self,command):
+        """ Handle a status request, reply with cookie"""
+        command.setReply(self.cookie+'\n')
 
     def do_select(self):
         """ Perform the select operation on all devices and sockets whcih require it """

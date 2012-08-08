@@ -328,23 +328,22 @@ EN
 ' Starutp Routine
 '***************************************************************************
 #AUTO
-ST;MC;MO*
-m2fsver=.1
-HX1;HX2
-bootup1=1
+HX1;HX2;ST;MC;MO*
+m2fsver=.1;bootup1=1
 JS#M2FSCFG
 JS#INIT
 'Query the Filter elevator position to initialize nearfilt
 JS#QUFELP
-'Start monitor for pot jamming on GES and FESEL axes
+REM 'Start monitor for pot jamming on GES and FESEL axes
 REM ^a=GESAX;XQ#POTMON,1
 REM ^a=FESELAX;XQ#POTMON,2
-'Start the HIRes lock monitor
+'Start the analog filter
 XQ #ANAMAF,1
+'Start the HIRes lock monitor
 XQ #LOCKMON,2
+'Idle forever
 #IDLE;WT 10000;JP#IDLE
 EN
-
 
 
 '***************************************************************************
@@ -393,6 +392,8 @@ ENDIF
 II 0,,,;axiserr[^a]=^h
 ENDIF
 EN ,,^h
+
+
 '***************************************************************************
 ' INput change INTerrupt
 ' If LoRes Tilt is homing and the input is triggered then halt the motion and
@@ -437,7 +438,7 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#SETLRTL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Calibrate if not
 IF (axiscal[^a]<>true);JS#CALLRT;^h=_JS;ENDIF
 'If we are good to go, MOVE!
-IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
+IF(^h=ENONE);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
 'Store status
 axiserr[^a]=^h
 ENDIF
@@ -467,18 +468,18 @@ EN
 '***************************************************************************
 #SETHRTL
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);ed4=_ED4;JS#SETHRTL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#SETHRTL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^b=^a
 ^a=HRTLTAX
 ^h=0;'Hope success
 'Make sure the axis isn't locked
 IF(HRTLTLK=true);^h=ELCKERR;ENDIF
 'If we are good to go, make sure commanded position is sane
-IF(^h=0);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
+IF(^h=ENONE);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 'If we are good to go, but not calibrated, calibrate
-IF ((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
+IF ((^h=ENONE)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
-IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
+IF(^h=ENONE);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -489,7 +490,7 @@ EN,,^h
 '***************************************************************************
 ' Calibrate HiRes Azimuth position
 '***************************************************************************
-#CALHRAZ;JS#CALHMAX(HRAZAX);EN
+#CALHRAZ;JS#CALHMAX(HRAZAX);ed4=_ED4;ret[ed4]=_JS;EN
 
 
 '***************************************************************************
@@ -515,7 +516,7 @@ EN
 '***************************************************************************
 #SETHRAZ
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);ed4=_ED4;JS#SETHRAZ(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#SETHRAZ(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^b=^a
 ^a=HRAZAX
 ^h=0;'Hope success
@@ -538,9 +539,7 @@ EN,,^h
 ' Calibrate the GES Stage
 ' return value is in ret
 '***************************************************************************
-#CALGES
-JS#CALENAX(GESAX);ed4=_ED4;ret[ed4]=_JS
-EN
+#CALGES;JS#CALENAX(GESAX);ed4=_ED4;ret[ed4]=_JS;EN
 
 
 '***************************************************************************
@@ -668,26 +667,25 @@ EN
 '***************************************************************************
 #LRSWAP
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#LRSWAP;ELSE
+JS#ZS;IF (_JS<1);JS#LRSWAP;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;'      Hope for success
 ^a=LRTLTAX
 'Calibrate if not
 IF (axiscal[^a]<>true);JS#CALLRT;^h=_JS;ENDIF
 'Calibrate if needed
 ^a=GESAX
-IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=^h | _JS;ENDIF
+IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=(^h | _JS);ENDIF
 'If we are good to go, MOVE!
-IF(^h=0)
+IF(^h=ENONE)
 JS#FANCYMV(LRTLTAX,lrswapp);JS#FANCYMV(GESAX,gesgsp)
 ^a=LRTLTAX;~a=^a;MC~a;~a=^a;MO~a
 ^a=GESAX;~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
 JS#QUGESP2;IF (_JS<>lrswap);^h=EFAIL;ENDIF
 ENDIF
-'Store status
-axiserr[^a]=^h
+axiserr[^a]=^h;'Store status
 ENDIF
-EN
+EN,,^h
 
 
 
@@ -696,7 +694,7 @@ EN
 '***************************************************************************
 #HIRES
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#HIRES;ELSE
+JS#ZS;IF (_JS<1);JS#HIRES;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^a=GESAX;^h=ENONE;'      Hope for success
 'Calibrate if needed
 IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
@@ -705,10 +703,9 @@ IF(^h=0);JS#FANCYMV(^a,geshrp);~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
 JS#QUGESP2;IF (_JS<>hires);^h=EFAIL;ENDIF
 ENDIF
-'Store status
-axiserr[^a]=^h
+axiserr[^a]=^h;'Store status
 ENDIF
-EN
+EN,,^h
 
 
 '***************************************************************************
@@ -716,19 +713,18 @@ EN
 '***************************************************************************
 #LORES
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#LORES;ELSE
+JS#ZS;IF (_JS<1);JS#LORES;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^a=GESAX;^h=ENONE;'      Hope for success
 'Calibrate if needed
 IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
-IF(^h=0);JS#FANCYMV(^a,geslrp);~a=^a;MC~a;~a=^a;MO~a
+IF(^h=ENONE);JS#FANCYMV(^a,geslrp);~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
 JS#QUGESP2;IF (_JS<>lores);^h=EFAIL;ENDIF
 ENDIF
-'Store status
-axiserr[^a]=^h
+axiserr[^a]=^h;'Store status
 ENDIF
-EN
+EN,,^h
 
 
 '***************************************************************************
@@ -798,14 +794,15 @@ EN
 '***************************************************************************
 #INFESIN
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);ed4=_ED4;JS#INFESIN(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#ZS;IF (_JS<1);JS#INFESIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=0;^a=FESINAX;'          Hope for success
 'Make sure the FESEL is in a safe position to insert filter
 JS#FESELSF;^h=_JS
 'Make sure we are calibrated
-IF((^h=0)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
+IF((^h=ENONE)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
 'Insert FESIN if all is well
-IF(^h=0);JS#FANCYMV(^a,fesinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a;ENDIF
+IF(^h=ENONE);JS#FANCYMV(^a,fesinsp);~a=^a;MC~a
+~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;MO~a;ENDIF
 axiserr[^a]=^h
 ENDIF
 EN,,^h
@@ -816,23 +813,22 @@ EN,,^h
 '***************************************************************************
 #RMFESIN
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);ed4=_ED4;JS#RMFESIN(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-^h=0;^a=FESINAX;'          Hope for success
+JS#ZS;IF (_JS<1);JS#RMFESIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+^h=ENONE;^a=FESINAX;'          Hope for success
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 'Make sure we are calibrated
-IF(^h=0)
+IF(^h=ENONE)
 MG "FESELSF reports safe"
 REM IF (axiscal[^a]<>true)
 REM MG"Calibrating inserter"
-REMJS#CALINAX(^a);^h=_JS
+REM JS#CALINAX(^a);^h=_JS
 REM ENDIF
 'Remove the FESIN if all is well
 MG"Removing inserter"
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axspd[^a]);^h=_JS
 'Move to the removed idle position
-
-IF(^h=0)
+IF(^h=ENONE)
 ~a=^a;DP~a=0
 MG"Moving to keyway spot"
 JS#FANCYMV(^a,fesremp);~a=^a;MC~a
@@ -866,21 +862,21 @@ EN,,^h
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#FESELSF(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^a=FESELAX
 'Hope for success
-^h=0
+^h=ENONE
 JS#WAITAMF(^a)
 'Case 1: caddy is above inserter return 0
-IF(felanap>allsafep);^h=0
+IF(felanap>allsafep);^h=ENONE
 MG "Caddy above inserter. Safe."
 ELSE
 'Check if position is within tolerance of a filter position
-JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filterp8) );^h=0
+JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filterp8) );^h=ENONE
 MG "Caddy at a filter. Safe."
 ELSE
 'We are in a position that needs fine tuning before it is safe to 
 ' move the FESIN arm, but it is only safe to tweak the position if the
 ' inserter position is known
 JS#QUINPOS(FESINAX,fesinsp,fesremp)
-IF (_JS<>out); ^h=1;axiserr[^a]=EFLTUNSF
+IF (_JS<>out); ^h=EFLTUNSF
 MG "Caddy needs to move. Inserter not out. Unsafe."
 ELSE
 'Try to nudge elevator toward nearest valid position
@@ -892,15 +888,17 @@ JS#WAITAMF(^a)
 JS#ENC2STP(FESELAX,^b)
 'Compute new desired position
 ~a=^a;^b=_TD~a+_JS
-JS#FANCYMV(^a,^b);~a=^a;MC~a;MO~a
+JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a
 'Check the position again
 JS#QUFELP
 'If we still aren't in a safe spot fail
-IF( ((_JS>=filterp1) & (_JS<=filter8)) | felanap>allsafep );^h=0
+IF( ((_JS>=filterp1) & (_JS<=filter8)) | felanap>allsafep );^h=ENONE
 MG "Caddy position adjusted and arm is clear to move. Safe."
-ELSE;^h=1;axiserr[^a]=EFLTUNSF
+ELSE;^h= EFLTUNSF;axiserr[^a]=EFLTUNSF
 MG "Could not manage to get caddy in safe position. Unsafe."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF
+axiserr[^a]=^h
+ENDIF
 EN,,^h
 
 
@@ -918,8 +916,10 @@ JS#WAITAMF(^a)
 'Determine which filter is nearest current position 
 'Compute abs(feselfp[i]-position)
 ^f=felanap
-^d=@ABS[felencp[0]-^f];^e=0;^b=1
-'find minumum ^e=iue of minimumndex of minimum ^d=val
+^d=@ABS[(felencp[0]-^f)];^e=0;^b=1
+'find minumum 
+'^e=i of nearest filter
+'^d=encoder dist to filter
 #QUFELP1
 ^c=@ABS[felencp[^b]-^f]
 IF (^c<^d);^d=^c;^e=^b;ENDIF;^b=^b+1
@@ -946,10 +946,10 @@ EN,,^h
 #GETFILT
 JS#QUINPOS(FESINAX,fesinsp,fesremp);^a=_JS
 JS#QUFELP;^b=_JS
-IF((^a=moving)|^b=moving);MG "GETFILT: Moving"
-ELSE;IF(^b=filterld);MG "GETFILT: Load"
+IF((^a=moving)|(^b=moving));MG "GETFILT: MOVING"
+ELSE;IF(^b=filterld);MG "GETFILT: LOAD"
 ELSE;IF(^a=unknown);MG "GETFILT: UNKNOWN"
-ELSE;IF(^a=out);MG "GETFILT: None"
+ELSE;IF(^a=out);MG "GETFILT: NONE"
 ELSE;IF((^a=intermd)|(^b=intermd);MG "GETFILT: Intermediate"
 ELSE;'One will match
 IF(^b=filterp1);MG "GETFILT: 1";ENDIF
@@ -976,35 +976,36 @@ EN
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Hope for success, force filternum to an integer
-^h=0;^a=@INT[^a]-1
+^h=ENONE;^a=@INT[^a]-1
 'Check for invalid filter id
-IF ((^a<0)|(^a>9));^h=EBADFP;axiserr[FESELAX]=EBADFP
+IF ((^a<0)|(^a>9));^h=EBADFP
 ELSE;'ID valid, get current state of elevator (^b) and inserter (^c)
-JS#QUFELP;^b=_JS-filterp1;
+JS#QUFELP;^b=_JS-filterp1
 JS#QUINPOS(FESINAX,fesinsp,fesremp);^c=_JS
 'If the desired position = current position we are done
-IF( ((^a=9)&(^c=out))|(((^c=in)|(^a=8))&(^b=^a)) );^h=0;axiserr[FESELAX]=ENONE
+IF( ((^a=9)&(^c=out)) | ( ((^c=in)|(^a=8)) & (^b=^a) ) );^h=ENONE
 ELSE;'We are not in position
 'Stow the FESIN arm, note REFESIN ensures safe to move 
-JS#RMFESIN;^h=_JS;axiserr[FESELAX]=^h
-IF ((^h=0)&(^a<>9));'Arm retracted, desired filter != none
+JS#RMFESIN;^h=_JS
+IF ((^h=ENONE)&(^a<>9));'Arm retracted, desired filter != none
 'Move to the desired filter
 JS#FANCYMV(FESELAX,feselfp[^a]);~a=FESELAX;MC~a;~a=FESELAX;MO~a
 'Get current state of elevator
 JS#QUFELP;^b=_JS
 IF( ((^b-filterp1)=^a) & (^b<>intermd) );'If we are where we should be...
 'Insert the filter if needed
-IF(^b<>filterld);JS#INFESIN;^h=_JS;axiserr[FESELAX]=^h
-ELSE;axiserr[FESELAX]=ENONE;ENDIF
-ELSE;^h=EFLTUNSF;axiserr[FESELAX]=^h
-ENDIF;ENDIF;ENDIF;ENDIF
+IF(^b<>filterld);JS#INFESIN;^h=_JS
+ELSE;^h=ENONE;ENDIF
+ELSE;^h=EFLTUNSF
+ENDIF
+ENDIF;ENDIF;ENDIF
+axiserr[FESELAX]=^h
 ENDIF
 EN,,^h
 
 
-
 '***************************************************************************
-' GET FLS Iserter status
+' GET FLS Inserter status
 ' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
 '***************************************************************************
 #GETFLSI
@@ -1020,16 +1021,17 @@ EN
 ' INsert FLS INserter arm
 '***************************************************************************
 #INFLSIN
-^h=0;'          Hope for success
-^a=FLSINAX
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#INFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+^h=ENONE;^a=FLSINAX
 'Make sure we are calibrated
 IF(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
 'Insert FLSIN if all is well
-IF(^h=0)
-JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+IF(^h=ENONE)
+JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
 ENDIF
-'Handle status reporting, could be better
-IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
+axiserr[^a]=^h
+ENDIF
 EN,,^h
 
 
@@ -1038,15 +1040,17 @@ EN,,^h
 ' NB it is always safe to remove
 '***************************************************************************
 #RMFLSIN
-^h=0;'          Hope for success
-^a=FLSINAX
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#RMFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+^h=ENONE;^a=FLSINAX
 'Make sure we are calibrated
 IF(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
-'Remove FLSIN if all is wellIF(^h=0)
-JS#FANCYMV(^a,flsremp);~a=^a;MC~a;IF(_SC~a<>1);^h=1;ENDIF;MO~a
+'Remove FLSIN if all is well
+IF(^h=ENONE)
+JS#FANCYMV(^a,flsremp);~a=^a;MC~a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
 ENDIF
-'Handle status reporting, could be better
-IF (^h=1);JS#ERRMSG(FLSINAX,EFAIL);ENDIF
+axiserr[^a]=^h;'Store status
+ENDIF
 EN,,^h
 
 
@@ -1056,12 +1060,13 @@ EN,,^h
 #CALINAX;'(axis)
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALINAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+IF((^a<>FESINAX) & (^a<>FLSINAX));^h=EFAIL
+ELSE
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
-IF (^h=0)
+IF (^h=ENONE)
 ~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
-ENDIF
-'Store status
-axiserr[^a]=^h
+ENDIF;ENDIF
+axiserr[^a]=^h;'Store status
 ENDIF
 EN ,,^h
 
@@ -1072,6 +1077,7 @@ EN ,,^h
 '***************************************************************************
 #QUINPOS;'(axis,insertedpos,removedpos)
 'Uncalibrated
+^h=unknown;'Default
 IF (axiscal[^a]<>true);^h=unknown
 ELSE
 'Stopped, out position
@@ -1094,23 +1100,24 @@ EN,,^h
 ' Calibrate an axis that has a home switch but no encoder
 ' If home switch fails then sends EHMERR
 ' Does not turn axis off if sucessful, 
-' For use on axes w/o pot & with a Home switch (HRTLT,HRAZ,FLSIN?,FESIN?)
+' For use on axes w/o pot & with a Home switch (HRTLT,HRAZ)
 ' Returns 0 iff sucessful
 '***************************************************************************
 #CALHMAX;'(axis)
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#CALHMAX(^a);^h=_JS;ELSE
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALHMAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+IF ((^a<>HRTLTAX)&(^a<>HRAZAX));^h=EFAIL
+ELSE
+^h=ENONE
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
-IF (^h=0)
+IF (^h=ENONE)
 ~a=^a;HV~a=axhmspd[^a];SP~a=axspd[^a];DC~a=axdecel[^a];SH~a;HM~a;BG~a
 ~a=^a;MC~a
 'If we didn't stop because of homing then the home switch broke.
 ~a=^a;IF(_SC~a<>10);ST~a;MC~a;~a=^a;MO~a;^h=EHMERR
 ELSE;'Define the new position as home
 ~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
-ENDIF
-ENDIF
-'Store status
+ENDIF;ENDIF;ENDIF
 axiserr[^a]=^h
 ENDIF
 EN ,,^h
@@ -1120,31 +1127,29 @@ EN ,,^h
 ' CALibrate ENcoded AXis(axis)
 ' Calibrate an axis that has an analog encoder
 ' Does not turn axis off if sucessful, 
-' For use on axes w/o pot & with a Home switch (GES, ¿FESEL?)
+' For use on axes w/o pot & with a Home switch (GES)
 ' Returns 0 iff sucessful
 '***************************************************************************
 #CALENAX
+IF(^a<>GESAX);^h=EFAIL
+ELSE
 'Hope for success
-^h=0
+^h=ENONE
 'MG "#Wait"
 'Wait for filtered analog position to be clean
-JS#WAITAMF(^a)
+JS#WAITAMF(^a);^b=analogp[^a]
 'If pot reads close to the negative limit move positive by a little
-^b=analogp[^a]
 IF(^b < encnlim[^a])
 ^b=1024;'5*(encnlim[^a]-^b)
 JS#ENC2STP(^a,^b);~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axspd[^a]
-'MG "Pot reads close to the negative limit move positive by a little", ^b,_JS
+'MG "Pot reads close to the -limit move positive a little", ^b,_JS
 ~a=^a;PR~a=_JS;SH~a;BG~a;MC~a
 ENDIF
 'MG "Wait"
-'Wait for filtered analog position to be clean
-JS#WAITAMF(^a)
-'Overestimate distance to -limit
-JS#ENC2STP(^a,analogp[^a]);^b=2*_JS
-'Now start a move to past the -limit
+'Wait for clean analog position and Overestimate distance to -limit
+JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=2*_JS
 'MG "Overest dist to -lim and start a move to past limit",-^b
-~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axlmspd[^a];PR~a=-^b;SH~a;BG~a
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a];PR~a=-^b;SH~a;BG~a
 'Wait until stopped
 #CALENA1;WT500;~a=^a;JP#CALENA1, (_SC~a=0);~a=^a;MC~a
 'If we weren't stopped by the -limit, fail
@@ -1161,12 +1166,10 @@ JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
 #CALENA2;WT 50;~a=^a;JP#CALENA2, (_LR~a=1);ST~a;MC~a
 'If negative movement is allowed then the switch failed 
 '  or we managed to overshoot twice it either way this is a fail
-~a=^a;IF(_LR~a=1);^h=ELIMOST
-'MG "STILL NOT ON LIMIT, fail"
-ENDIF
+~a=^a;IF(_LR~a=1);^h=ELIMOST;'MG "STILL NOT ON LIMIT, fail";ENDIF
 ENDIF
 'If all is well
-IF(^h=0)
+IF(^h=ENONE)
 'Get number of steps to position near limit and use it
 '  to estimate steps needed to move totally off the negative limit
 'MG "wait"
@@ -1182,16 +1185,15 @@ ENDIF
 ENDIF
 ENDIF
 'If success, make this the reference position
-IF (^h=0)
+IF (^h=ENONE)
 'MG "Calibrated axis",^a
 JS#ZERSTP(^a);axiscal[^a]=true;ldelta[^a]=10*bcklsh[^a]
-'TODO consider defining position based on pots value
 ELSE
 'MG "Failed to calibrate axis",^a
 ~a=^a;MC~a;~a=^a;MO~a
 ENDIF
-'Store status
-axiserr[^a]=^h
+ENDIF
+axiserr[^a]=^h;'Store status
 EN,,^h
 
 
@@ -1205,7 +1207,7 @@ EN,,^h
 ^b=@RND[^b]
 ~a=^a;^c=^b-_TD~a
 IF(^c<>0)
-~a=^a;'MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
+REM ~a=^a;MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
 'If required move is too small
 IF(@ABS[^c]<mininc[^a])
 'MG "FANCYMV: Move is less than the minimum increment of",mininc[^a]
@@ -1240,8 +1242,7 @@ EN
 
 '***************************************************************************
 ' Move to limit (axis, acceleration, deceleration, velocity)
-' Checks for stall by figuing the travel time for the entire extent of the axis
-' If limit doesn't hit in allowed time the sends ELIMSWF
+' If limit doesn't engage sends ELIMSWF
 ' velocity must not be 0
 ' Intended for uncalibrated use
 '***************************************************************************
@@ -1254,10 +1255,11 @@ REM   move away from the limit we want be just a bit so account for having
 REM   potentially overshot it.
 REM IF(^d>0);^e=-axlmos[^a];^f=3;ELSE;^e=axlmos[^a];^f=2;ENDIF;
 REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
-'If we are at the limit then we are done!
+
 ^h=ENONE;'Hope success
+'If we are at the limit then we are done!
 ~a=^a;^f=(((_LR~a<>0)|(^d>0))&((_LF~a<>0)|(^d<0)))
-~a=^a;'MG ^a,^f,^d,_LR~a,_LF~a
+REM ~a=^a;'MG ^a,^f,^d,_LR~a,_LF~a
 IF(^f)
 ' when calibrated, we could tighten the move distance estimate
 ^e=(axmaxp[^a]-axminp[^a])*1.1
@@ -1270,8 +1272,7 @@ IF(^d>0);ldelta[^a]=^e;^f=2;ELSE;ldelta[^a]=-^e;^f=3;ENDIF
 'If the stop code is not that for the expected limit switch we failed
 ~a=^a;IF (_SC~a<>^f);MO~a;^h=ELIMSWF;ENDIF
 ENDIF
-'Store status
-axiserr[^a]=^h
+axiserr[^a]=^h;'Store status
 EN ,,^h
 
 
@@ -1326,8 +1327,7 @@ EN,,((^b>=axminp[^a]) & (^b<=axmaxp[^a]))
 '            FOC axes are meaningful
 '***************************************************************************
 #ANAMAF
-JS#ZS
-IF (_JS<1);JS#ANAMAF
+JS#ZS;IF (_JS<1);JS#ANAMAF
 ELSE
 ^b=ANAMAFSZ;^c=^b-1
 ~a=GESAX;gesanap=_TP~a
@@ -1356,7 +1356,7 @@ JP#ANAMAF1,^a<^b
 ~a=GESAX;gespacu[^a]=_TP~a
 ~a=FESELAX;felpacu[^a]=_TP~a
 ~a=FOCAX;focpacu[^a]=_TP~a
-'sum in current value and subract oldest value
+'sum in current value and subtract oldest value
 ^g=^a+1
 ^d=^d-gespacu[^g]+gespacu[^a]
 ^e=^e-felpacu[^g]+felpacu[^a]
@@ -1441,7 +1441,9 @@ EN,,@SQR[^e/^c]
 ' Tell Switch status
 '***************************************************************************
 #TELLTS;
-^b=_TS~a;MG "Axis ",~a
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#TELLTS(a[ed4]);ret[ed4]=ENONE;ELSE
+~a=^a;^b=_TS~a;MG "Axis ",~a
 IF (^b & $80);MG "In motion";ELSE;MG "Stopped";ENDIF
 IF (^b & $40);MG "Axis error exceeds error limit";ENDIF
 IF (^b & $20);MG "Motor Off";ELSE;MG "Motor On";ENDIF
@@ -1449,7 +1451,7 @@ IF (^b & $08);NO;ELSE;MG "Forward Limit Tripped";ENDIF
 IF (^b & $04);NO;ELSE;MG "Reverse Limit Tripped";ENDIF
 IF (^b & $02);MG "Home 1";ELSE;MG "Home 0";ENDIF
 IF (^b & $01);MG "Axis Latched";ENDIF
-IF (@IN[~a-60]) ;MG "Axis Abort 1";ELSE;MG "Axis Abort 0";ENDIF
+~a=^a;IF (@IN[~a-60]) ;MG "Axis Abort 1";ELSE;MG "Axis Abort 0";ENDIF
 EN
 
 
@@ -1534,7 +1536,7 @@ ENDIF
 ^g=^e - ^c
 ^c=^e; ^b=^d
 ~a=^a;^f=@ABS[^h*(_YB*_YA~a)/_YC~a-^g]
-IF(^f>error);DC~a=axdecel[^a];ST~a;MC~a;MO~a;potStat[^a]=potjam
+~a=^a;IF(^f>error);DC~a=axdecel[^a];ST~a;MC~a;~a=^a;MO~a;potStat[^a]=potjam
 JS#ERRMSG(^a,EPOTJAM,dpot,dstep,error)
 ENDIF;
 AT-250;JP #POTCHK1;'        Check again in a few ms

@@ -1,0 +1,13 @@
+/dev/tty.usbserial-000014FD, DMC4183 Rev 1.1a1, 556	Galil B
+/dev/tty.usbserial-000016FD, DMC4183 Rev 1.1a1, 429	Galil R
+/dev/tty.usbserial-FTULTLUU				Serial2Fiber
+/dev/tty.usbserial-FTULNI5D				Datalogger B
+/dev/tty.usbserial-FTULQCGO				Datalogger R
+/dev/tty.usbmodemfd14741, Uno in lab
+/dev/tty.usbmodemfd14711, Mega2560 #1 in lab
+/dev/tty.usbserial-A9007Pp8, Duemillanove in lab
+/dev/tty.usbserial-FTULQ7ME, datalogger in lab
+/dev/tty.usbserial-FTEZU88I, spare FTDI cable in lab
+/dev/tty.usbserial-007514FD, Galil in lab
+
+b8:8d:12:55:cd:7e Apple USB ethernet in Hoffman puls 192.91.178.251 on my laptop

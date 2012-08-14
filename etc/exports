@@ -1,0 +1,2 @@
+/m2fs/plates *(ro,sync)
+/m2fs/dropbox *(wo,sync)

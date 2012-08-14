@@ -1,0 +1,10 @@
+The Michigan/Magellan Fiber System Spectrograph Readme Extraordinaire!
+
+look in doc for more info
+
+Contents of ./etc should be added/appended to /etc
+ 
+
+
+Copy files to /etc/systemd/system/
+then "systemctl enable director.service"

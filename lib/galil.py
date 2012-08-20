@@ -386,7 +386,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 raise IOError('No response received from galil. Consider retrying.')
             try:
                 response=response.partition(':')[2]
-                if response[:3]=='ERR'
+                if response[:3]=='ERR':
                     return "ERROR: "+response[3:]
                 else:
                     return response

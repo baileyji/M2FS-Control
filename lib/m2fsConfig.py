@@ -26,11 +26,11 @@ class m2fsConfig:
             configfile.close()
     
     @staticmethod    
-    def getPlateFileDirectory():
+    def getPlateDirectory():
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
-        return config.item('Director','plateFileDir')
+        return config.get('Director','plateFileDir')
     
     @staticmethod
     def getPort(string):

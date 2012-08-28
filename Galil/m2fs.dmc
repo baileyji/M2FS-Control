@@ -801,14 +801,21 @@ EN
 
 '***************************************************************************
 ' GET FES Iserter status
-' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
+' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE", "MOVING"
 '***************************************************************************
 #GETFESI
-JS#QUINPOS(FESINAX,fesinsp,fesremp)
-IF (_JS=out);MG "GETFLSI: OUT";ENDIF
-IF (_JS=in);MG "GETFLSI: IN";ENDIF
-IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
-IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
+^a=FESINAX
+'Error status
+IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
+ELSE
+'Report position
+JS#QUINPOS(^a,fesinsp,fesremp)
+IF (_JS=out);MG "GETFESI: OUT";ENDIF
+IF (_JS=moving);MG "GETFESI: MOVING";ENDIF
+IF (_JS=in);MG "GETFESI: IN";ENDIF
+IF (_JS=intermd);MG "GETFESI: INTERMEDIATE";ENDIF
+IF (_JS=unknown);MG "GETFESI: UNKNOWN";ENDIF
+ENDIF
 EN
 
 '***************************************************************************
@@ -1028,14 +1035,21 @@ EN,,^h
 
 '***************************************************************************
 ' GET FLS Inserter status
-' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE"
+' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE" "MOVING"
 '***************************************************************************
 #GETFLSI
-JS#QUINPOS(FLSINAX,flsinsp,flsremp)
+^a=FLSINAX
+'Error status
+IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
+ELSE
+'Report position
+JS#QUINPOS(^a,flsinsp,flsremp)
 IF (_JS=out);MG "GETFLSI: OUT";ENDIF
+IF (_JS=moving);MG "GETFLSI: MOVING";ENDIF
 IF (_JS=in);MG "GETFLSI: IN";ENDIF
 IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
 IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
+ENDIF
 EN
 
 

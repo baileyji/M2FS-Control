@@ -159,10 +159,10 @@ ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
 
 DM bcklsh[8];'backlash in steps, for reference
 bcklsh[GESAX]=77;'76.2 microns
-bcklsh[FLSINAX]=20
+bcklsh[FLSINAX]=15;'Determined experimentally
 bcklsh[FOCAX]=18;'880 microradians (estimate based on LRTLT stage)
 bcklsh[FESINAX]=55;' ABOUT 52-58
-bcklsh[FESELAX]=20;'Determined experimentally
+bcklsh[FESELAX]=15;'Determined experimentally
 bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
 bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
 bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
@@ -261,6 +261,7 @@ feselfp[8]=feselfp[7]+16*200*28.5
 'FES Elevator nominal filter position in encoder counts
 felencsp=317;'.5" filter spacing, 317 counts measured ?? nominal
 DM felencp[^a]
+;'Blue side 8/28/12
 felencp[0]=79;'4.2803
 felencp[1]=378;'felencp[0]+felencsp
 felencp[2]=670;'felencp[1]+felencsp
@@ -270,6 +271,18 @@ felencp[5]=1529;'felencp[4]+felencsp
 felencp[6]=1812;'felencp[5]+felencsp
 felencp[7]=2096;'felencp[6]+felencsp
 felencp[8]=3848;'felencp[7]+1732;'Load position is an additional 2.85" further
+
+;'Red side 8/28/12
+felencp[0]=116.7;'4.2803
+felencp[1]=413;'felencp[0]+felencsp
+felencp[2]=705;'felencp[1]+felencsp
+felencp[3]=992;'felencp[2]+felencsp
+felencp[4]=1276;'felencp[3]+felencsp
+felencp[5]=1559;'felencp[4]+felencsp
+felencp[6]=1842.7;'felencp[5]+felencsp
+felencp[7]=2128;'felencp[6]+felencsp
+felencp[8]=3837;'felencp[7]+1732;'Load position is an additional 2.85" further
+
 'Allowable range (+/-) in encoder counts around nominal filter position
 feselrg=2 ;'about 0.003"
 nearfilt=0;' nearest filter to current position, determined by QUFEL
@@ -280,8 +293,8 @@ fesinsp=9000 ;'The inserted position in steps of the FESIN arm
 fesremp=1;'The removed position in steps of the FESIN arm, must be >0
 
 'FLS related defines
-flsremp=50;'The removed position in steps of the FLSIN arm
-flsinsp=6200;'The inserted position in steps of the FLSIN arm
+flsremp=0;'The removed position in steps of the FLSIN arm
+flsinsp=5323;'The inserted position in steps of the FLSIN arm
 
 'Set acceleration defaults
 AC axaccel[0],axaccel[1],axaccel[2],axaccel[3]
@@ -305,7 +318,7 @@ EN
 #M2FSCFG
 ST;MC;MO*
 'Set motor type, must be -2 or -2.5 per manual
-MT -2.5,-2,-2.5,-2,-2,-2,-2.5,-2.5
+MT -2.5,-2.5,-2.5,-2,-2,-2,-2.5,-2.5
 KS*=1;'       Set step smoothing to Galil-recommended value, see AN#2446
 AG 3,1,3,1,3,0,0,0;'              Set motor gain values
 AQ1,4;AQ3,4;AQ5,4;AQ7,4;AQ8,4;'  GES,FOC,FESEL,HRTLT,HRAZ analog inputs: 0-10V
@@ -346,6 +359,17 @@ XQ #ANAMAF,1
 XQ #LOCKMON,2
 'Idle forever
 #IDLE;WT 10000;JP#IDLE
+EN
+
+
+'***************************************************************************
+' Shutdown Routine
+'***************************************************************************
+#SHTDWN
+ST*;HX3;HX4;HX5;HX6;MC;MO*
+a[3]=9;XQ#PICKFIL,3
+a[4]=0;XQ#SETLRTL,4
+JP#IDLE
 EN
 
 
@@ -809,14 +833,18 @@ EN
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE
 'Report position
-JS#QUINPOS(^a,fesinsp,fesremp)
-IF (_JS=out);MG "GETFESI: OUT";ENDIF
-IF (_JS=moving);MG "GETFESI: MOVING";ENDIF
-IF (_JS=in);MG "GETFESI: IN";ENDIF
-IF (_JS=intermd);MG "GETFESI: INTERMEDIATE";ENDIF
-IF (_JS=unknown);MG "GETFESI: UNKNOWN";ENDIF
+^a=unknown
+IF ((_LFD=0)&(_LRD=1));^a=in;ENDIF
+IF ((_LFD=1)&(_LRD=0));^a=out;ENDIF
+IF (_TSD & $80); ^a=moving;ENDIF
+IF (^a=out);MG "GETFESI: OUT";ENDIF
+IF (^a=moving);MG "GETFESI: MOVING";ENDIF
+IF (^a=in);MG "GETFESI: IN";ENDIF
+IF (^a=intermd);MG "GETFESI: INTERMEDIATE";ENDIF
+IF (^a=unknown);MG "GETFESI: UNKNOWN";ENDIF
 ENDIF
 EN
+
 
 '***************************************************************************
 ' INsert FES INserter arm
@@ -824,14 +852,26 @@ EN
 #INFESIN
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#INFESIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-^h=0;^a=FESINAX;'          Hope for success
-'Make sure the FESEL is in a safe position to insert filter
+^h=ENONE;^a=FESINAX;'          Hope for success
+IF(_LFD=1);' If not inserted
+'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
-'Make sure we are calibrated
-IF((^h=ENONE)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
-'Insert FESIN if all is well
-IF(^h=ENONE)
-JS#FANCYMV(^a,fesinsp);~a=^a;MC~a;~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
+IF(^h=ENONE);'insert the FESIN if all is well
+MG "FESELSF reports safe, inserting"
+JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], axlmspd[^a]);^h=_JS
+REM Check error cases
+IF (^h=ENONE)
+IF ((_LFD=1)|(_LRD=0));^h=ELIMSWF;MG "Insert failed";ENDIF
+ELSE
+MG "MOVE2LIM failed."
+ENDIF
+~a=^a;MC~a;~a=^a;MO~a
+ELSE
+MG"FESELSF Reports unsafe"
+ENDIF
+ELSE
+IF(_LRD=0);^h=ELIMSWF;MG "Both Limits tripped. fail"
+ELSE; MG "Already In";ENDIF
 ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -845,28 +885,28 @@ EN,,^h
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#RMFESIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FESINAX;'          Hope for success
+IF(_LRD=1);' If not retracted
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
-'Make sure we are calibrated
-IF(^h=ENONE)
-MG "FESELSF reports safe"
-REM IF (axiscal[^a]<>true)
-REM MG"Calibrating inserter"
-REM JS#CALINAX(^a);^h=_JS
-REM ENDIF
-'Remove the FESIN if all is well
-MG"Removing inserter"
-JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axspd[^a]);^h=_JS
+IF(^h=ENONE);'Remove the FESIN if all is well
+MG "FESELSF reports safe, removing inserter"
+JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
+IF ((_LFD=1)&(_LRD=0)&(^h=ENONE))
 'Move to the removed idle position
-IF(^h=ENONE)
-~a=^a;DP~a=0
 MG"Moving to keyway spot"
-JS#FANCYMV(^a,fesremp);~a=^a;MC~a
-~a=^a;IF(_SC~a<>1);^h=1;MG "FANCYMV failed. SC=",_SC~a;ENDIF
+~a=^a;DP~a=0;JS#FANCYMV(^a,fesremp);~a=^a;MC~a
+~a=^a;IF(_SC~a<>1);^h=EFAIL;MG "FANCYMV failed. SC=",_SC~a;ENDIF
 ~a=^a;MO~a
-ELSE;MG "MOVE2LIM failed."
+ELSE
+^h=ELIMSWF;~a=^a;MC~a;~a=^a;MO~a
+MG "MOVE2LIM failed."
 ENDIF
-ELSE;MG"FESELSF Reports unsafe"
+ELSE
+MG"FESELSF Reports unsafe"
+ENDIF
+ELSE
+IF(_LFD=0);^h=ELIMSWF;MG "Both Limits tripped. fail"
+ELSE; MG "Already out";ENDIF
 ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -981,8 +1021,8 @@ JS#ZS;IF (_JS<1);JS#GETFILT;ed4=_ED4;ret[ed4]=0;ELSE
 IF(axiserr[FESELAX]<>ENONE);JS#ERRMSG(FESELAX,axiserr[FESELAX])
 ELSE
 ^a=unknown
-IF ((_LFD=1)&(_LRD<>1));^a=in;ENDIF
-IF ((_LFD<>1)&(_LRD=1));^a=out;ENDIF
+IF ((_LFD=0)&(_LRD=1));^a=in;ENDIF
+IF ((_LFD=1)&(_LRD=0));^a=out;ENDIF
 IF (_TSD & $80); ^a=moving;ENDIF
 JS#QUFELP;^b=_JS
 IF((^a=moving)|(^b=moving));MG "GETFILT: MOVING"
@@ -1022,8 +1062,8 @@ IF ((^a<0)|(^a>9));^h=EBADFP
 ELSE;'ID valid, get current state of elevator (^b) and inserter (^c)
 JS#QUFELP;^b=_JS-filterp1
 ^c=unknown
-IF ((_LFD=1)&(_LRD<>1));^c=in;ENDIF
-IF ((_LFD<>1)&(_LRD=1));^c=out;ENDIF
+IF ((_LFD=0)&(_LRD=1));^c=in;ENDIF
+IF ((_LFD=1)&(_LRD=0));^c=out;ENDIF
 IF (_TSD & $80); ^c=moving;ENDIF
 IF (^c=in); MG "Inserter is in.";ENDIF
 IF (^c=moving); MG "Inserter is moving.";ENDIF
@@ -1035,7 +1075,7 @@ ELSE;'We are not in position
 'Stow the FESIN arm, note REFESIN ensures safe to move
 JS#RMFESIN;^h=_JS
 'If arm retracted, desired filter != none
-IF ((^h=ENONE)&(_LRD=1)&(_LFD<>1)&(^a<>9))
+IF ((^h=ENONE)&(_LRD=0)&(_LFD=1)&(^a<>9))
 'Move to the desired filter
 
 JS#WAITAMF(FESELAX)
@@ -1083,9 +1123,9 @@ JS#ZS;IF (_JS<1);JS#GETFLSI;ELSE
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE
 ^h=unknown
-IF ((_LFD=1)&(_LRD<>1));^h=in;ENDIF
-IF ((_LFD<>1)&(_LRD=1));^h=out;ENDIF
-IF (_TSD & $80); ^h=moving;ENDIF
+IF ((_LFB=1)&(_LRB=0));^h=out;ENDIF
+IF ((_LFB=0)&(_LRB=1));^h=in;ENDIF
+IF (_TSB & $80); ^h=moving;ENDIF
 IF (^h=out);MG "GETFLSI: OUT";ENDIF
 IF (^h=moving);MG "GETFLSI: MOVING";ENDIF
 IF (^h=in);MG "GETFLSI: IN";ENDIF
@@ -1101,8 +1141,10 @@ EN
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#INFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FLSINAX
-IF(_LFD<>1);JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], axlmspd[^a]);^h=_JS;ENDIF
-IF ((_LFD<>1) | (_LRD=1)); ^h=ELIMSWF;ENDIF
+IF(_LFB=1);JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], axlmspd[^a]);^h=_JS;ENDIF
+IF(^h=ENONE);^b=(_TDB-25);JS#FANCYMV(^a,^b);ENDIF
+~a=^a;MC~a;~a=^a;MO~a
+IF ((_LFB=1) | (_LRB=0)); ^h=ELIMSWF;ENDIF
 axiserr[^a]=^h
 ENDIF
 EN,,^h
@@ -1116,32 +1158,14 @@ EN,,^h
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#RMFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FLSINAX
-IF(_LRD<>1)
+IF(_LRB=1)
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
-IF (^h=ENONE);~a=^a;MC~a;ldelta[^a]=-10*bcklsh[^a];JS#FANCYMV(^a,flsremp);ENDIF
 ~a=^a;MC~a;~a=^a;MO~a
 ENDIF
-IF ((_LRD<>1)|(_LFD=1));^h=ELIMSWF;ENDIF
+IF ((_LFB=0)|(_LRB=1));^h=ELIMSWF;ENDIF
 axiserr[^a]=^h;'Store status
 ENDIF
 EN,,^h
-
-
-'***************************************************************************
-' CALibrate INserter AXis
-'***************************************************************************
-#CALINAX;'(axis)
-'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALINAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-IF (^a<>FLSINAX);^h=EFAIL
-ELSE
-JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
-IF (^h=ENONE)
-~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
-ENDIF;ENDIF
-axiserr[^a]=^h;'Store status
-ENDIF
-EN ,,^h
 
 
 '***************************************************************************

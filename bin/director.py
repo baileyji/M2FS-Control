@@ -30,6 +30,10 @@ class Director(Agent):
         self.shackhatmanAgent_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['ShackHartmanAgent'], self.logger)
         self.devices.append(self.shackhatmanAgent_Connection)
+        #Plugging Controller
+        self.plugController_Connection=SelectedConnection.SelectedSocket('localhost',
+            agent_ports['PlugController'], self.logger)
+        self.devices.append(self.plugController_Connection)
         self.command_handlers.update({
 
             #Galil Agent Commands
@@ -61,12 +65,12 @@ class Director(Agent):
             'SLITS_MOVSTEPS':self.SLITS_comand_handler,
             'SLITS_HARDSTOP':self.SLITS_comand_handler,
             #Plugging commands
-            'PLUGMODE':self.not_implemented_command_handler,
-            'PLUGPOS':self.not_implemented_command_handler,
-            'PLATELIST':self.plateConfig_command_handler,
-            'PLATE':self.plateConfig_command_handler,
-            'PLATESETUP':self.plateConfig_command_handler,
-            #Other Commands
+            'PLATELIST': self.PLATELIST_command_handler,
+            'PLATE': self.PLATE_command_handler,
+            'PLATESETUP': self.PLATESETUP_command_handler,
+            'PLUGPOS': self.PLUGPOS_command_handler,
+            'PLUGMODE': self.PLUGMODE_command_handler,
+            #Datalogger Commands
             'TEMPS':self.datalogger_command_handler})
     
     def listenOn(self):
@@ -104,7 +108,26 @@ class Director(Agent):
             command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
         except SelectedConnection.WriteError, err:
             command.setReply('ERROR: Could not send to datalogger agent.')
-        
+    
+    def PLUGGING_command_handler(self, command):
+        """ Pass Plugging related commands along and coordinate multi-system
+           actions """
+        command_name,_,args=command.string.partition(' ')
+        if command_name in ['PLATELIST', 'PLATE','PLATESETUP','PLUGPOS']
+            try:
+                self.plugController_Connection.connect()
+                self.plugController_Connection.sendMessage(command.string, 
+                    responseCallback=command.setReply)
+            except SelectedConnection.ConnectError, err:
+                command.setReply('ERROR: Could not establish a connection with the plug controller.')
+            except SelectedConnection.WriteError, err:
+                command.setReply('ERROR: Could not send to plug controller.')
+        elif command_name =='PLUGMODE':
+            self.not_implemented_command_handler(command)
+        else:
+            command.setReply(
+                "ERROR: PLUGGING_command_handler should not have been called for '%s'" % command.string)
+    
     def status_command_handler(self, command):
         #TODO Query each subsystem for status
         reply=self.cookie+' '
@@ -117,9 +140,6 @@ class Director(Agent):
                 reply=reply+('%s:UNKNOWN' % d.prettyname)
         command.setReply(reply)
     
-    def plateConfig_command_handler(self, command):
-        self.not_implemented_command_handler(command)
-
     def galil_command_handler(self, command):
         """ Galil command handler """
         command_name,junk,args=command.string.partition(' ')

@@ -24,6 +24,7 @@ HRAZAX=7
 true=1;false=0
 
 ENONE=0;'All is well
+ETIME=1;
 EHMERR=3;'HoMeingERRor
 EPOTJAM=4;'POTJAMmed
 ELIMSWF=5;'LIMitSWitchFail
@@ -345,6 +346,25 @@ XQ #LOCKMON,2
 #IDLE;WT 10000;JP#IDLE
 EN
 
+
+'***************************************************************************
+' Motion Complete Timeout Routine
+'TODO test with ultrishort timeout & long move, see if ST is needed b4 MO
+'ST resets the stopcode
+'***************************************************************************
+#MCTIME
+MG "MCTIME CALLED"
+SCABCDEFGH
+IF(_SCA=99);MOA;axiserr[0]=ETIME;STA;ENDIF
+IF(_SCB=99);MOB;axiserr[1]=ETIME;STB;ENDIF
+IF(_SCC=99);MOC;axiserr[2]=ETIME;STC;ENDIF
+IF(_SCD=99);MOD;axiserr[3]=ETIME;STD;ENDIF
+IF(_SCE=99);MOE;axiserr[4]=ETIME;STE;ENDIF
+IF(_SCF=99);MOF;axiserr[5]=ETIME;STG;ENDIF
+IF(_SCG=99);MOG;axiserr[6]=ETIME;STG;ENDIF
+IF(_SCH=99);MOH;axiserr[7]=ETIME;STH;ENDIF
+SCABCDEFGH
+EN 1
 
 '***************************************************************************
 ' CALibrate LoRes Tilt
@@ -1235,9 +1255,13 @@ ENDIF
 'Handle backlash
 JS#BACKLSH(^a,^c)
 'Start move to position
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a];PA~a=^b;SH~a;BG~a;
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a]
+'NB setting TW to value larger than max is ok
+~a=^a;PA~a=^b;SH~a
+~a=^a;TW~a=(@ABS[(1100*((^b-_TD~a)/_SP~a))]+100);BG~a
+REM ~a=^a;MG "TW=",_TW~a
 ENDIF
-EN
+EN 1
 
 
 '***************************************************************************

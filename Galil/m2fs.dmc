@@ -1498,6 +1498,7 @@ IF (^b & $04);NO;ELSE;MG "Reverse Limit Tripped";ENDIF
 IF (^b & $02);MG "Home 1";ELSE;MG "Home 0";ENDIF
 IF (^b & $01);MG "Axis Latched";ENDIF
 ~a=^a;IF (@IN[~a-60]) ;MG "Axis Abort 1";ELSE;MG "Axis Abort 0";ENDIF
+ENDIF
 EN
 
 

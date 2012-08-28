@@ -8,7 +8,7 @@ Wants=pluggingFeedback.service
 Wants=guider.service
 Wants=projector.service
 Wants=shackhartman.service
-Wants=plateManager.service
+Wants=plugController.service
 
 [Install]
 WantedBy=multi-user.target

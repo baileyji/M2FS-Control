@@ -1115,24 +1115,18 @@ EN ,,^h
 
 '***************************************************************************
 ' QUery INserter POSition status (AXIS, inserted step pos, removed step pos)
-' returns: out, in, intermediate, or unknown (if uncalibrated)
+' returns: out, in, intermediate, unknown (if uncalibrated), or moving
 '***************************************************************************
 #QUINPOS;'(axis,insertedpos,removedpos)
-'Uncalibrated
-^h=unknown;'Default
-IF (axiscal[^a]<>true);^h=unknown
-ELSE
+^h=unknown;'Default uncalibrated
+~a=^a;IF(_TS~a & $80); ^h=moving
+ELSE; IF (axiscal[^a]=true)
 'Stopped, out position
-~a=^a;IF ((_SC~a=1) & (_TP~a=^c));^h=out
-ELSE
+~a=^a;IF ((_SC~a=1) & (_TD~a=^c));^h=out
 'Stopped, in position
-~a=^a;IF ((_SC~a=1) & (_TP~a=^b));^h=in
-ELSE
+~a=^a;ELSE;IF ((_SC~a=1) & (_TD~a=^b));^h=in
 'Stopped, somewhere else
-~a=^a;IF (_SC~a<>0);^h=intermd
-ELSE
-'Moving
-^h=moving
+ELSE;^h=intermd
 ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 

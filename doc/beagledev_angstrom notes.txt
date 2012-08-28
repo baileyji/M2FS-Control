@@ -1,0 +1,39 @@
+After opkg upgrade got:
+Collected errors:
+ * pkg_get_installed_files: Failed to open //var/lib/opkg/info/perl-module-build.pm.list: No such file or directory.
+ * pkg_get_installed_files: Failed to open //var/lib/opkg/info/perl-module-load.pm.list: No such file or directoryroot@beaglebone:/home# 
+Resolved by:
+I recently had the same issue.  As it turns out, there are files named perl-module-build.list and perl-module-load.list in /var/lib/opkg/info.  While it feels like a hack solution, I simply created symbolic links to those files, i.e.,
+$: ln -s /var/lib/opkg/info/perl-module-build.list /var/lib/opkg/info/perl-module-build.pm.list
+$: ln -s /var/lib/opkg/info/perl-module-load.list /var/lib/opkg/info/perl-module-load.pm.list
+Also:
+error with update-alternatives and "watch" fixed by manually editing (e.g. vim)  /var/lib/opkg/alternatives/watch to point to /usr/bin/watch instead of /bin/watch.
+
+
+
+depmod fixed "could not load … modules.dep"
+
+Get pip via:
+curl -Ok https://raw.github.com/pypa/pip/master/contrib/get-pip.py
+chmod +x get-pip.py
+./get-pip.py
+
+pyttsx text-to-speech needs espeak, which is in the 2011.03 feed, but not the 2012.05 feed
+
+date -s "YYYY-MM-DD hh:mm"
+hwclock --systohc
+
+
+git apply -v --check ~/galemin-patches/kernel-patches/linux-0005-Put-the-IVA2-DPLL-in-stop-mode-before-un-reset-IVA2.patch
+
+
+bitbake xxx -f -c cleansstate
+bitbake xxx -f configure
+
+do stuff, patching changes, etc
+
+bitbake xxx -f -c build
+
+
+cd /media/Angstrom/;sudo rm -rf ./*
+sudo tar -xj -C /media/Angstrom -f ~/setup-scripts/build/tmp-ang

@@ -1,0 +1,175 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1038\cocoasubrtf360
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\froman\fcharset0 Times-Roman;\f2\fnil\fcharset0 LucidaGrande;
+\f3\fmodern\fcharset0 Courier;\f4\fmodern\fcharset0 Courier-Bold;\f5\fnil\fcharset0 Verdana;
+}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue241;\red0\green0\blue0;\red0\green128\blue128;
+}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid1\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid1}
+{\list\listtemplateid2\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid101\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{circle\}}{\leveltext\leveltemplateid102\'01\uc0\u9702 ;}{\levelnumbers;}\fi-360\li1440\lin1440 }{\listname ;}\listid2}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}{\listoverride\listid2\listoverridecount0\ls2}}
+\margl1440\margr1440\vieww13980\viewh13140\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\f0\fs36 \cf0 Beagledev notes
+\fs24  (started 6/27/11)\
+\
+All is using Ubuntu 10.04 LTS release\
+Started by following steps here:\
+http://www.electronsonradio.com/2011/04/building-angstrom-for-the-beagleboard-using-openembedded/\
+e.g.\
+\pard\pardeftab720\ql\qnatural
+
+\f1 \cf0 1. Install required packages ({\field{\*\fldinst{HYPERLINK "http://openembedded.org/index.php/OEandYourDistro"}}{\fldrslt \cf2 \ul \ulc2 http://openembedded.org/index.php/OEandYourDistro}}).\
+2. Follow building \'c5ngstr\'f6m steps ({\field{\*\fldinst{HYPERLINK "http://www.angstrom-distribution.org/building-angstrom"}}{\fldrslt \cf2 \ul \ulc2 http://www.angstrom-distribution.org/building-angstrom}}).
+\f0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+\cf0 \
+PICK NO for using dash instead of bash\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\fs32 \cf0 Note re ubuntu and Openembedded (the build toolchain)
+\fs24 \
+http://openembedded.org/index.php/OEandYourDistro#Ubuntu\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\ql\qnatural
+\ls1\ilvl0
+\f1 \cf0 {\listtext	\'95	}there are known {\field{\*\fldinst{HYPERLINK "http://openembedded.org/index.php/Gcc_issues_in_Intrepid_and_later"}}{\fldrslt \cf2 \ul \ulc2 gcc issues in Intrepid and later}} when cross-compiling with OE\
+\pard\pardeftab720\ql\qnatural
+\cf0 [SOLVED - update 2010-05]\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\ql\qnatural
+\ls2\ilvl0\cf0 {\listtext	\'95	}qemu-arm fails whilst building locales (Ubuntu 10.04 LTS and possibly other releases). This is due to a kernel setting which restricts memory mapping to low addresses. To work around this you can either:\
+\pard\tx940\tx1440\pardeftab720\li1440\fi-1440\ql\qnatural
+\ls2\ilvl1\cf0 {\listtext	
+\f2 \uc0\u9702 
+\f1 	}a) Enter 'echo 128 > /proc/sys/vm/mmap_min_addr' prior to running bitbake.\
+{\listtext	
+\f2 \uc0\u9702 
+\f1 	}b) Set permanent parameter 'sudo sysctl -w vm.mmap_min_addr=128'.\
+\pard\pardeftab720\ql\qnatural
+\cf0 With current qemu in OE mmap_min_addr tricks are not needed at all. So now it should work on every system with readable /proc/sys/vm/mmap_min_addr or /proc/sys/vm/mmap_min_addr <= 65536.\
+\pard\pardeftab720\ql\qnatural
+
+\fs36 \cf0 my thoughts-> not an issue as cat /proc/sys/vm/mmap_min_addr gives 65536\
+\
+
+\fs28 I ran sudo apt-get 
+\f3\fs24 install sed wget cvs subversion git-core \\ coreutils unzip texi2html texinfo docbook-utils \\ gawk python-pysqlite2 diffstat help2man make gcc build-essential g++ \\ desktop-file-utils chrpath\
+Then sudo apt-get install libxml2-utils xmlto python-psyco apr\
+couldn't find apr so reran w/o apr\
+\
+Gave up on setup-scripts step on http://www.angstrom-distribution.org/building-angstrom\
+\
+going off of http://wiki.openembedded.org/index.php/Getting_Started\
+\
+how have beagleboard/oe\
+-bitbake\
+-build\
+--conf\
+-openembedded <- cloned with git above\
+\
+now\
+$ cd /stuff/\
+$ cp openembedded/conf/local.conf.sample build/conf/local.conf\
+$ vi build/conf/local.conf\
+\
+\
+\pard\pardeftab720\ql\qnatural
+
+\fs30 \cf0 Ugh, this is nasty. While compiling I'm exploring\
+\
+\
+http://elinux.org/BeagleBoardBeginners
+\fs24  good overview of creating the SD card\
+\
+and http://www.slimlogic.co.uk/2011/05/openembeddedangstrom-kernel-workflow/ \
+\
+\
+Got another image from Narcissus (M2FS_2_...) and put it on SD card. Taking forever to boot (promising) not display activity yet\'85\
+\
+bitable virtual/kernel finished!! now what\'85.?\
+\
+finished booting is serial term! no display though.\
+\
+Day 2\
+\
+noticed last night didn't get rebase errors on home my machine.\
+deleted folders and tried again today at work and\
+oebb.sh config beagleboard step works but i had to use sudo and it creates the bitbake and openembedded directories in /\
+\
+day 3\
+\
+closed terminal reopened tried again after rm -rf ~/.oe and all other previously created dirs\
+seems to work\
+onto bitbake virtual/kernel all seems good\
+\
+\
+day 4\
+boot.scr is deprecated in favor of uEnv.txt\
+\
+make uEnv.txt on boot partition with contents\
+\pard\pardeftab720\ql\qnatural
+
+\f4\b \cf0 mpurate=1000\
+\
+dvimode="hd720 omapfb.vram=0:8M,1:4M,2:4M" 
+\f3\b0 or 
+\f4\b dvimode=\cf3 "omap-dss.def_disp=lcd omapfb.video_mode=640x480MR-16@60" 
+\f3\b0 #if kernel newer than 2.6.27
+\f4\b \cf0 \
+vram=16M\
+optargs="consoleblank=0 psplash=false"\
+console="tty0 console=ttyS2,115200n8"
+\f3\b0 \
+ipaddr="10.211.198.213:10.211.198.1:10.211.198.1:255.255.255.0:beaglexM:usb0:off"\
+\cf4 (aside: or try omap-dss.def_disp=lcd omapfb.video_mode=640x480MR-16@60 if angstrom kernel is newer than 2.6.27 as DSS is replacing omapfb with better feature support)\cf0 \
+\
+instead of making a boot.scr from boot_cmds with the command\
+\
+
+\f4\b mkimage -A arm -O linux -T script -C none -a 0 -e 0 -n "Beagleboard-xM boot script" -d boot_script boot.scr\
+
+\f3\b0 \
+and the contents\
+\
+\pard\pardeftab720\ql\qnatural
+
+\f4\b \cf0 setenv bootargs 'console=ttyS2,115200n8 omapfb.mode=dvi:1360x768MR-16@60 root=/dev/mmcblk0p2 rootfstype=ext3 rootwait'\
+mmc init\
+fatload mmc 0 0x80300000 uImage\
+bootm 0x80300000\
+\
+\
+Getting Netowking running:\
+(no patches, mac still random)\
+\pard\pardeftab720\ql\qnatural
+
+\f1\b0 \cf0 \
+in /etc/network/interfaces\
+iface usb0 inet static\
+address 10.211.198.213\
+netmask 255.255.255.0\
+gateway 10.211.198.1\
+\pard\pardeftab720\ql\qnatural
+\cf0 broadcast 10.211.198.255\
+\pard\pardeftab720\ql\qnatural
+\cf0 network 10.211.198.0\
+hwaddress ether 
+\f5\fs20 C2:3A:23:9E:F3:CA
+\f1\fs24  #note this param doesn't seem to work (probably requires patch)
+\f4\b \
+\
+\pard\pardeftab720\ql\qnatural
+
+\f3\b0 \cf0 in /etc/resolv.conf\
+\pard\pardeftab720\ql\qnatural
+
+\f1 \cf0 search astro.lsa.umich.edu\
+nameserver 141.211.144.17\
+nameserver 141.211.125.17
+\f4\b \
+\pard\pardeftab720\ql\qnatural
+\cf0 \
+/etc/init.d/networking restart\
+\
+\
+}

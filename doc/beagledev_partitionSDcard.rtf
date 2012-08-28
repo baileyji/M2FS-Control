@@ -1,0 +1,65 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1038\cocoasubrtf350
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww9000\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\f0\fs32 \cf0 Successfully Making the sdcard format...
+\fs24 \
+baileyji@ubuntu:~$ df -h\
+baileyji@ubuntu:~$ umount /media/FC30-3DA9 \
+baileyji@ubuntu:~$ sudo fdisk /dev/sdb\
+Command (m for help): p\
+Disk /dev/sdb: 4035 MB, 4035969024 bytes\
+68 heads, 3 sectors/track, 38640 cylinders\
+Command (m for help): d\
+Selected partition 1\
+Command (m for help): x\
+Expert command (m for help): h\
+Number of heads (1-256, default 68): 255\
+Expert command (m for help): s\
+Number of sectors (1-63, default 3): 63\
+Expert command (m for help): c\
+Number of cylinders (1-1048576, default 38640): 490 #floor(4035969024/255/63/512)\
+Expert command (m for help): r\
+Command (m for help): p\
+Command (m for help): n\
+Command action\
+   e   extended\
+   p   primary partition (1-4)\
+p\
+Partition number (1-4): 1\
+First cylinder (1-490, default 1): 1\
+Last cylinder, +cylinders or +size\{K,M,G\} (1-490, default 490): 9\
+Command (m for help): a\
+Partition number (1-4): 1\
+Command (m for help): t\
+Selected partition 1\
+Hex code (type L to list codes): c\
+Changed system type of partition 1 to c (W95 FAT32 (LBA))\
+Command (m for help): p\
+Command (m for help): n\
+Command action\
+   e   extended\
+   p   primary partition (1-4)\
+p\
+Partition number (1-4): 2\
+First cylinder (10-490, default 10): \
+Using default value 10\
+Last cylinder, +cylinders or +size\{K,M,G\} (10-490, default 490): \
+Using default value 490\
+Command (m for help): p\
+   Device Boot      Start         End      Blocks   Id  System\
+/dev/sdb1   *           1           9       72261    c  W95 FAT32 (LBA)\
+/dev/sdb2              10         490     3863632+  83  Linux\
+\
+Command (m for help): w\
+baileyji@ubuntu:~$ sudo mkfs.msdos -F 32 /dev/sdb1 -n boot\
+baileyji@ubuntu:~$ sudo mkfs.ext3 -L Angstrom /dev/sdb2\
+\
+\
+
+\fs36 OR\
+\
+
+\fs30 zcat beagleimagefile.img.gz | dd of=/dev/your/sd/card bs=8225280 }

@@ -42,8 +42,8 @@ class Agent(object):
     
     def initialize_logger(self):
         """Configure logging"""
-        #create the logger
-        self.logger=logging.getLogger(self.name)
+        #Configure the root logger
+        self.logger=logging.getLogger(
         self.logger.setLevel(logging.DEBUG)
         # create formatter
         formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')
@@ -54,6 +54,8 @@ class Agent(object):
         ch.setFormatter(formatter)
         # add handlers to logger
         self.logger.addHandler(ch)
+        #Get a logger for the agent
+        self.logger=logging.getLogger(self.name)
 
     def initialize_cli_parser(self):
         """Configure the command line interface"""

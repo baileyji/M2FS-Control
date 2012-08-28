@@ -980,7 +980,10 @@ JS#ZS;IF (_JS<1);JS#GETFILT;ed4=_ED4;ret[ed4]=0;ELSE
 'Error status
 IF(axiserr[FESELAX]<>ENONE);JS#ERRMSG(FESELAX,axiserr[FESELAX])
 ELSE
-JS#QUINPOS(FESINAX,fesinsp,fesremp);^a=_JS
+^a=unknown
+IF ((_LFD=1)&(_LRD<>1));^a=in;ENDIF
+IF ((_LFD<>1)&(_LRD=1));^a=out;ENDIF
+IF (_TSD & $80); ^a=moving;ENDIF
 JS#QUFELP;^b=_JS
 IF((^a=moving)|(^b=moving));MG "GETFILT: MOVING"
 ELSE;IF(^b=filterld);MG "GETFILT: LOAD"
@@ -1018,13 +1021,21 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 IF ((^a<0)|(^a>9));^h=EBADFP
 ELSE;'ID valid, get current state of elevator (^b) and inserter (^c)
 JS#QUFELP;^b=_JS-filterp1
-JS#QUINPOS(FESINAX,fesinsp,fesremp);^c=_JS
+^c=unknown
+IF ((_LFD=1)&(_LRD<>1));^c=in;ENDIF
+IF ((_LFD<>1)&(_LRD=1));^c=out;ENDIF
+IF (_TSD & $80); ^c=moving;ENDIF
+IF (^c=in); MG "Inserter is in.";ENDIF
+IF (^c=moving); MG "Inserter is moving.";ENDIF
+IF (^c=out); MG "Inserter is out.";ENDIF
+IF (^c=unknown); MG "Inserter is unknown.";ENDIF
 'If the desired position = current position we are done
 IF( ((^a=9)&(^c=out)) | ( ((^c=in)|(^a=8)) & (^b=^a) ) );^h=ENONE
 ELSE;'We are not in position
-'Stow the FESIN arm, note REFESIN ensures safe to move 
+'Stow the FESIN arm, note REFESIN ensures safe to move
 JS#RMFESIN;^h=_JS
-IF ((^h=ENONE)&(^a<>9));'Arm retracted, desired filter != none
+'If arm retracted, desired filter != none
+IF ((^h=ENONE)&(_LRD=1)&(_LFD<>1)&(^a<>9))
 'Move to the desired filter
 
 JS#WAITAMF(FESELAX)
@@ -1065,18 +1076,21 @@ EN,,^h
 ' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE" "MOVING"
 '***************************************************************************
 #GETFLSI
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#GETFLSI;ELSE
 ^a=FLSINAX
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE
-'Report position
-JS#QUINPOS(^a,flsinsp,flsremp)
-IF (_JS=out);MG "GETFLSI: OUT";ENDIF
-IF (_JS=moving);MG "GETFLSI: MOVING";ENDIF
-IF (_JS=in);MG "GETFLSI: IN";ENDIF
-IF (_JS=intermd);MG "GETFLSI: INTERMEDIATE";ENDIF
-IF (_JS=unknown);MG "GETFLSI: UNKNOWN";ENDIF
-ENDIF
+^h=unknown
+IF ((_LFD=1)&(_LRD<>1));^h=in;ENDIF
+IF ((_LFD<>1)&(_LRD=1));^h=out;ENDIF
+IF (_TSD & $80); ^h=moving;ENDIF
+IF (^h=out);MG "GETFLSI: OUT";ENDIF
+IF (^h=moving);MG "GETFLSI: MOVING";ENDIF
+IF (^h=in);MG "GETFLSI: IN";ENDIF
+IF (^h=unknown);MG "GETFLSI: UNKNOWN";ENDIF
+ENDIF;ENDIF
 EN
 
 
@@ -1087,12 +1101,8 @@ EN
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#INFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FLSINAX
-'Make sure we are calibrated
-IF(axiscal[^a]<>true);JS#CALINAX(^a);^h=_JS;ENDIF
-'Insert FLSIN if all is well
-IF(^h=ENONE)
-JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
-ENDIF
+IF(_LFD<>1);JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], axlmspd[^a]);^h=_JS;ENDIF
+IF ((_LFD<>1) | (_LRD=1)); ^h=ELIMSWF;ENDIF
 axiserr[^a]=^h
 ENDIF
 EN,,^h
@@ -1106,12 +1116,12 @@ EN,,^h
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#RMFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FLSINAX
-'Make sure we are calibrated
-IF(axiscal[^a]<>true);JS#CALINAX(^a);^h=_JS;ENDIF
-'Remove FLSIN if all is well
-IF(^h=ENONE)
-JS#FANCYMV(^a,flsremp);~a=^a;MC~a;~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
+IF(_LRD<>1)
+JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
+IF (^h=ENONE);~a=^a;MC~a;ldelta[^a]=-10*bcklsh[^a];JS#FANCYMV(^a,flsremp);ENDIF
+~a=^a;MC~a;~a=^a;MO~a
 ENDIF
+IF ((_LRD<>1)|(_LFD=1));^h=ELIMSWF;ENDIF
 axiserr[^a]=^h;'Store status
 ENDIF
 EN,,^h
@@ -1123,7 +1133,7 @@ EN,,^h
 #CALINAX;'(axis)
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALINAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-IF((^a<>FESINAX) & (^a<>FLSINAX));^h=EFAIL
+IF (^a<>FLSINAX);^h=EFAIL
 ELSE
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
 IF (^h=ENONE)

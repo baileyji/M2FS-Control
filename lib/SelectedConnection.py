@@ -7,13 +7,15 @@ class WriteError(IOError):
 class ConnectError(IOError):
     pass
 
+import logging
+import sys
 class SelectedConnection(object):
     def __init__(self, logger=None,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):
 
-        self.logger=logger
+        self.logger=logging.getLogger('SelectedCon')
         self.defaultResponseCallback=default_message_received_callback
         self.defaultSentCallback=default_message_sent_callback
         self.defaultErrorCallback=default_message_error_callabck

@@ -888,7 +888,7 @@ EN,,^h
 '***************************************************************************
 #FESELSF
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);ed4=_ED4;JS#FESELSF(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#FESELSF;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^a=FESELAX
 'Hope for success
 ^h=ENONE
@@ -921,7 +921,7 @@ JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a
 'Check the position again
 JS#QUFELP
 'If we still aren't in a safe spot fail
-IF( ((_JS>=filterp1) & (_JS<=filter8)) | felanap>allsafep );^h=ENONE
+IF( ((_JS>=filterp1) & (_JS<=filterp8)) | (felanap>allsafep) );^h=ENONE
 MG "Caddy position adjusted and arm is clear to move. Safe."
 ELSE;^h= EFLTUNSF;axiserr[^a]=EFLTUNSF
 MG "Could not manage to get caddy in safe position. Unsafe."
@@ -1067,10 +1067,10 @@ EN
 JS#ZS;IF (_JS<1);JS#INFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FLSINAX
 'Make sure we are calibrated
-IF(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
+IF(axiscal[^a]<>true);JS#CALINAX(^a);^h=_JS;ENDIF
 'Insert FLSIN if all is well
 IF(^h=ENONE)
-JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
+JS#FANCYMV(^a,flsinsp);~a=^a;MC~a;~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
 ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -1086,10 +1086,10 @@ EN,,^h
 JS#ZS;IF (_JS<1);JS#RMFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FLSINAX
 'Make sure we are calibrated
-IF(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
+IF(axiscal[^a]<>true);JS#CALINAX(^a);^h=_JS;ENDIF
 'Remove FLSIN if all is well
 IF(^h=ENONE)
-JS#FANCYMV(^a,flsremp);~a=^a;MC~a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
+JS#FANCYMV(^a,flsremp);~a=^a;MC~a;~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
 ENDIF
 axiserr[^a]=^h;'Store status
 ENDIF
@@ -1664,7 +1664,8 @@ IF (^b=ENONE);MG "OK"
 ELSE;IF (^b=EPOTJAM);MG "!FESEL: ERRPot not changing with steps."
 ELSE;IF (^b=ELIMSWF);MG "!FESEL:ERR Limit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FESEL: ERRHoming failure. Switch did not toggle."
-ELSE;IF (^b=EBADFP);MG "!FESEL: ERR",^c {Z2.0}," is not a valid filter position."
+ELSE;IF (^b=EBADFP)
+MG "!FESEL: ERR",^c {Z2.0}," is not a valid filter position."
 ELSE;IF (^b=ECRAZY);MG "!FESEL: ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FESEL: ERRUnspecified error."
 ELSE;IF (^b=EFLTUNSF);MG "!FESEL:ERRFilter changer unsafe state. Fix Manually."
@@ -1699,6 +1700,7 @@ EN
 
 
 #RUNNIN;MG "Active Threads",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7;EN
+
 
 '***************************************************************************
 ' ZS

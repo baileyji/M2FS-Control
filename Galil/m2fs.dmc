@@ -134,7 +134,7 @@ axspd[HRTLTAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 DM axmaxp[8];'Max possible position (steps, 16x microstepping)
 axmaxp[GESAX]=288112;'Actual value slightly greater if overshooting limits
-axmaxp[FLSINAX]=0
+axmaxp[FLSINAX]=6447;'Determined experimentally
 axmaxp[FOCAX]=16*200*180;'Infinite, about 1 revolution
 axmaxp[FESINAX]=9413;'Determined experimentally, B Side
 axmaxp[FESELAX]=210000;'Determined experimentally, B Side
@@ -159,10 +159,10 @@ ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
 
 DM bcklsh[8];'backlash in steps, for reference
 bcklsh[GESAX]=77;'76.2 microns
-bcklsh[FLSINAX]=0
+bcklsh[FLSINAX]=20
 bcklsh[FOCAX]=18;'880 microradians (estimate based on LRTLT stage)
 bcklsh[FESINAX]=55;' ABOUT 52-58
-bcklsh[FESELAX]=0
+bcklsh[FESELAX]=20;'Determined experimentally
 bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
 bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
 bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
@@ -261,25 +261,27 @@ feselfp[8]=feselfp[7]+16*200*28.5
 'FES Elevator nominal filter position in encoder counts
 felencsp=317;'.5" filter spacing, 317 counts measured ?? nominal
 DM felencp[^a]
-felencp[0]=4.2803
-felencp[1]=felencp[0]+felencsp
-felencp[2]=felencp[1]+felencsp
-felencp[3]=felencp[2]+felencsp
-felencp[4]=felencp[3]+felencsp
-felencp[5]=felencp[4]+felencsp
-felencp[6]=felencp[5]+felencsp
-felencp[7]=felencp[6]+felencsp
-felencp[8]=felencp[7]+1732;'Load position is an additional 2.85" further
+felencp[0]=79;'4.2803
+felencp[1]=378;'felencp[0]+felencsp
+felencp[2]=670;'felencp[1]+felencsp
+felencp[3]=961.2;'felencp[2]+felencsp
+felencp[4]=1256;'felencp[3]+felencsp
+felencp[5]=1529;'felencp[4]+felencsp
+felencp[6]=1812;'felencp[5]+felencsp
+felencp[7]=2096;'felencp[6]+felencsp
+felencp[8]=3848;'felencp[7]+1732;'Load position is an additional 2.85" further
 'Allowable range (+/-) in encoder counts around nominal filter position
 feselrg=2 ;'about 0.003"
-fesinsp=64000 ;'The inserted position in steps of the FESIN arm
-fesremp=200;'The removed position in steps of the FESIN arm, det. 4 B side
 nearfilt=0;' nearest filter to current position, determined by QUFEL
 allsafep=2746;'Encoder pos above which it is always safe to move the inserter
 
+'FESIN related defines
+fesinsp=9000 ;'The inserted position in steps of the FESIN arm
+fesremp=1;'The removed position in steps of the FESIN arm, must be >0
+
 'FLS related defines
-flsremp=0;'The removed position in steps of the FLSIN arm
-flsinsp=64000;'The inserted position in steps of the FLSIN arm
+flsremp=50;'The removed position in steps of the FLSIN arm
+flsinsp=6200;'The inserted position in steps of the FLSIN arm
 
 'Set acceleration defaults
 AC axaccel[0],axaccel[1],axaccel[2],axaccel[3]

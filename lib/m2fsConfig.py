@@ -33,6 +33,27 @@ class m2fsConfig:
         return config.get('Director','plateFileDir')
     
     @staticmethod
+    def getRejectDirectory():
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        return config.get('Director','plateRejectDir')
+    
+    @staticmethod
+    def getMisplugAudioFilename():
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        return config.get('Director','misplugSound')
+    
+    @staticmethod    
+    def getUploadDirectory():
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        return config.get('Director','uploadDir')
+    
+    @staticmethod
     def getPort(string):
         config=ConfigParser.RawConfigParser()
         config.optionxform=str

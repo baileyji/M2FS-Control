@@ -973,6 +973,11 @@ EN,,^h
 '  Filter 1-8 In, Out?????TODO, None, Load, Moving, Intermediate
 '***************************************************************************
 #GETFILT
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#GETFILT;ed4=_ED4;ret[ed4]=0;ELSE
+'Error status
+IF(axiserr[FESELAX]<>ENONE);JS#ERRMSG(FESELAX,axiserr[FESELAX])
+ELSE
 JS#QUINPOS(FESINAX,fesinsp,fesremp);^a=_JS
 JS#QUFELP;^b=_JS
 IF((^a=moving)|(^b=moving));MG "GETFILT: MOVING"
@@ -989,7 +994,8 @@ IF(^b=filterp5);MG "GETFILT: 5";ENDIF
 IF(^b=filterp6);MG "GETFILT: 6";ENDIF
 IF(^b=filterp7);MG "GETFILT: 7";ENDIF
 IF(^b=filterp8);MG "GETFILT: 8";ENDIF
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF
 EN
 
 

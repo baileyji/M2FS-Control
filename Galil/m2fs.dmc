@@ -830,8 +830,9 @@ JS#FESELSF;^h=_JS
 'Make sure we are calibrated
 IF((^h=ENONE)&(axiscal[^a]<>true));JS#CALINAX(^a);^h=_JS;ENDIF
 'Insert FESIN if all is well
-IF(^h=ENONE);JS#FANCYMV(^a,fesinsp);~a=^a;MC~a
-~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;MO~a;ENDIF
+IF(^h=ENONE)
+JS#FANCYMV(^a,fesinsp);~a=^a;MC~a;~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF;~a=^a;MO~a
+ENDIF
 axiserr[^a]=^h
 ENDIF
 EN,,^h
@@ -861,7 +862,7 @@ IF(^h=ENONE)
 ~a=^a;DP~a=0
 MG"Moving to keyway spot"
 JS#FANCYMV(^a,fesremp);~a=^a;MC~a
-IF(_SC~a<>1);^h=1;MG "FANCYMV failed.";ENDIF
+~a=^a;IF(_SC~a<>1);^h=1;MG "FANCYMV failed. SC=",_SC~a;ENDIF
 ~a=^a;MO~a
 ELSE;MG "MOVE2LIM failed."
 ENDIF

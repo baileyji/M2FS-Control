@@ -60,7 +60,7 @@ def main():
         if args.auto:
             ser.write('XQ#AUTO,0\r')
             ser.flush()
-            if ser.read(1) ==':'
+            if ser.read(1) ==':':
                 print "#AUTO started"
             else:
                 print "XQ#AUTO,0 failed"

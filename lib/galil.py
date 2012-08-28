@@ -2,8 +2,6 @@ import time
 import argparse
 import socket
 import signal
-import logging
-import logging.handlers
 import atexit
 import serial
 import sys

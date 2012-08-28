@@ -1,12 +1,6 @@
-import time
-import argparse
+import time, argparse, signal, atexit, sys, select
 import socket
-import signal
-import logging
-import logging.handlers
-import atexit
-import sys
-import select
+import logging, logging.handlers
 from command import Command
 from SelectedConnection import SelectedSocket
 from m2fsConfig import m2fsConfig

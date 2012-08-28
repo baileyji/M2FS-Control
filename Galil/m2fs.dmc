@@ -305,9 +305,9 @@ EN
 #M2FSCFG
 ST;MC;MO*
 'Set motor type, must be -2 or -2.5 per manual
-MT -2.5,-2,-2.5,-2.5,-2,-2,-2.5,-2.5
+MT -2.5,-2,-2.5,-2,-2,-2,-2.5,-2.5
 KS*=1;'       Set step smoothing to Galil-recommended value, see AN#2446
-AG 3,2,3,2,3,0,0,0;'              Set motor gain values
+AG 3,1,3,1,3,0,0,0;'              Set motor gain values
 AQ1,4;AQ3,4;AQ5,4;AQ7,4;AQ8,4;'  GES,FOC,FESEL,HRTLT,HRAZ analog inputs: 0-10V
 AF 1,,1,,1;'		Configure GES, FES, & FOC for analog feedback
 YA 16,16,16,16,16,16,16,16;'Set stepping mode resolutions

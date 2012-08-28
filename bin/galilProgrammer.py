@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import serial,io
+import serial,io, time
 from optparse import OptionParser
 
 
@@ -11,7 +11,9 @@ def main():
     parser.add_option("-f", "--file", help="file to send",
                       dest="file", metavar="FILE")
     parser.add_option("-d", "--device", help="The galil to program",
-                      dest="device") 
+                      dest="device")
+    parser.add_option("--auto", help="Run #AUTO after programming",
+                      dest="auto", action="store_true", default=False) 
                       
     (args, args_leftover)=parser.parse_args()
     bitrate=115200
@@ -43,10 +45,11 @@ def main():
     ser.flushInput()
     ser.write('\\;EO0;HX0;HX1;HX2;HX3;HX4;HX5;HX6;HX7;ST*;DA*;DA*[0];DL\r')
     resp=ser.read(25)
-    print "Begin programming command response: "+resp
+    print "Begin programming command response: %s " %resp
     for line in data:
         ser.write(line)
-    
+        time.sleep(.010)
+	
     ser.write('\r\\;\\\r')
     ser.flush()
     #import pdb; pdb.set_trace()
@@ -54,6 +57,13 @@ def main():
 
     if resp == ':::':
         print "Complete: "+resp
+        if args.auto:
+            ser.write('XQ#AUTO,0\r')
+            ser.flush()
+            if ser.read(1) ==':'
+                print "#AUTO started"
+            else:
+                print "XQ#AUTO,0 failed"
     else:
         print "Upload failed:"+resp
     ser.close()

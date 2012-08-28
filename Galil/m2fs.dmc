@@ -965,6 +965,7 @@ ELSE
 ^h=intermd
 ENDIF
 ENDIF
+MG "QUFELP: ",^h
 EN,,^h
 
 
@@ -1025,14 +1026,33 @@ ELSE;'We are not in position
 JS#RMFESIN;^h=_JS
 IF ((^h=ENONE)&(^a<>9));'Arm retracted, desired filter != none
 'Move to the desired filter
-JS#FANCYMV(FESELAX,feselfp[^a]);~a=FESELAX;MC~a;~a=FESELAX;MO~a
+
+JS#WAITAMF(FESELAX)
+^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
+MG "Arm out. Moving to filter",^a," at",felencp[^a]," move",_JS," steps"
+JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
+
+JS#WAITAMF(FESELAX)
+^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
+MG "Arm out. Moving to filter",^a," at",felencp[^a]," move",_JS," steps"
+JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
+
+JS#WAITAMF(FESELAX)
+^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
+MG "Arm out. Moving to filter",^a," at",felencp[^a]," move",_JS," steps"
+JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
+
+MG "Done moving, getting position"
 'Get current state of elevator
 JS#QUFELP;^b=_JS
+MG "QEFELP reports",^b
 IF( ((^b-filterp1)=^a) & (^b<>intermd) );'If we are where we should be...
 'Insert the filter if needed
-IF(^b<>filterld);JS#INFESIN;^h=_JS
+IF(^b<>filterld);MG "Inserting";JS#INFESIN;^h=_JS
+MG "#INFESIN returned",^h
 ELSE;^h=ENONE;ENDIF
 ELSE;^h=EFLTUNSF
+MG "PICKFIL: EFLTUNSF"
 ENDIF
 ENDIF;ENDIF;ENDIF
 axiserr[FESELAX]=^h
@@ -1129,6 +1149,7 @@ ELSE; IF (axiscal[^a]=true)
 'Stopped, somewhere else
 ELSE;^h=intermd
 ENDIF;ENDIF;ENDIF;ENDIF
+MG "QUINPOS",^a, ^h
 EN,,^h
 
 

@@ -113,7 +113,7 @@ class Director(Agent):
         """ Pass Plugging related commands along and coordinate multi-system
            actions """
         command_name,_,args=command.string.partition(' ')
-        if command_name in ['PLATELIST', 'PLATE','PLATESETUP','PLUGPOS']
+        if command_name in ['PLATELIST', 'PLATE','PLATESETUP','PLUGPOS']:
             try:
                 self.plugController_Connection.connect()
                 self.plugController_Connection.sendMessage(command.string, 

@@ -43,7 +43,7 @@ class Agent(object):
     def initialize_logger(self):
         """Configure logging"""
         #Configure the root logger
-        self.logger=logging.getLogger(
+        self.logger=logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
         # create formatter
         formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')

@@ -65,11 +65,11 @@ class Director(Agent):
             'SLITS_MOVSTEPS':self.SLITS_comand_handler,
             'SLITS_HARDSTOP':self.SLITS_comand_handler,
             #Plugging commands
-            'PLATELIST': self.PLATELIST_command_handler,
-            'PLATE': self.PLATE_command_handler,
-            'PLATESETUP': self.PLATESETUP_command_handler,
-            'PLUGPOS': self.PLUGPOS_command_handler,
-            'PLUGMODE': self.PLUGMODE_command_handler,
+            'PLATELIST': self.PLUGGING_command_handler,
+            'PLATE': self.PLUGGING_command_handler,
+            'PLATESETUP': self.PLUGGING_command_handler,
+            'PLUGPOS': self.PLUGGING_command_handler,
+            'PLUGMODE': self.PLUGGING_command_handler,
             #Datalogger Commands
             'TEMPS':self.datalogger_command_handler})
     

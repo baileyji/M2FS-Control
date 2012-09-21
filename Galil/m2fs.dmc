@@ -471,6 +471,8 @@ RI
 ' Get LoRes TiLt position
 '***************************************************************************
 #GETLRTL
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);JS#GETLRTL;ed4=_ED4;ret[ed4]=0;ELSE
 ^a=LRTLTAX
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
@@ -480,7 +482,7 @@ ELSE; ~a=^a;IF(_TS~a & $80);MG "GETLRTL: MOVING"
 ELSE; IF(axiscal[^a]<>true);MG "GETLRTL: UNCALIBRATED"
 'report position
 ELSE; ~a=^a; MG "GETLRTL:",_TD~a
-ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF
 EN
 
 
@@ -507,6 +509,7 @@ EN,,^h
 ' Get HiRes TiLt position
 '***************************************************************************
 #GETHRTL
+JS#ZS;IF (_JS<1);JS#GETHRTL;ed4=_ED4;ret[ed4]=0;ELSE
 ^a=HRTLTAX;
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
@@ -516,7 +519,7 @@ ELSE; ~a=^a;IF(_TS~a & $80);MG "GETHRTL: MOVING"
 ELSE; IF(axiscal[^a]<>true);MG "GETHRTL: UNCALIBRATED"
 'report position
 ELSE; ~a=^a; MG "GETHRTL:",_TD~a
-ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF
 EN
 
 
@@ -555,7 +558,8 @@ EN,,^h
 ' Get HiRes AZimuth position
 '***************************************************************************
 #GETHRAZ
-^a=HRAZAX;
+JS#ZS;IF(_JS<1);JS#GETHRAZ;ed4=_ED4;ret[ed4]=0;ELSE
+^a=HRAZAX
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 'Move in progress
@@ -563,8 +567,8 @@ ELSE; ~a=^a;IF(_TS~a & $80);MG "GETHRAZ: MOVING"
 'Not calibrated
 ELSE; IF(axiscal[^a]<>true);MG "GETHRAZ: UNCALIBRATED"
 'report position
-ELSE; ~a=^a; MG "GETHRAZ:",_TD~a
-ENDIF;ENDIF;ENDIF
+ELSE;~a=^a; MG "GETHRAZ:",_TD~a
+ENDIF;ENDIF;ENDIF;ENDIF
 EN
 
 
@@ -606,6 +610,7 @@ EN,,^h
 ' TODO sort out behavior for case where motor and pot disagree
 '***************************************************************************
 #QUGESP2
+JS#ZS;IF(_JS<1);JS#QUGESP2;^h=_JS;ed4=_ED4;ret[ed4]=^h;ELSE
 ^a=GESAX;~a=^a;^g=_TD~a
 ~a=^a;IF (_TS~a & $80);^h=moving
 ELSE;IF(axiscal[^a]<>true);^h=unknown
@@ -613,7 +618,7 @@ ELSE;IF (^g=geslrp);^h=lores
 ELSE;IF (^g=geshrp);^h=hires
 ELSE;IF (^g=gesgsp);^h=lrswap
 ELSE;^h=intermd
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
 
 
@@ -622,6 +627,7 @@ EN,,^h
 ' Return the GES position
 '***************************************************************************
 #GETGES2
+JS#ZS;IF(_JS<1);JS#GETGES2;ed4=_ED4;ret[ed4]=0;ELSE
 ^a=GESAX
 'Determine status
 ~a=^a;IF (_TS~a & $80);^h=moving
@@ -644,10 +650,8 @@ IF(^h=lores);~a=^a;MG "GETGES: LORES",gesanap,_TD~a;ENDIF
 IF(^h=hires);~a=^a;MG "GETGES: HIRES",gesanap,_TD~a;ENDIF
 IF(^h=lrswap);~a=^a;MG "GETGES: LRSWAP",gesanap,_TD~a;ENDIF
 IF(^h=intermd);~a=^a;MG "GETGES: INTERMEDIATE",gesanap,_TD~a;ENDIF
-ENDIF
+ENDIF;ENDIF
 EN
-
-
 
 
 '***************************************************************************
@@ -655,7 +659,7 @@ EN
 '***************************************************************************
 #LRSWAP
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#LRSWAP;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#ZS;IF(_JS<1);JS#LRSWAP;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;'      Hope for success
 ^a=LRTLTAX
 'Calibrate if not
@@ -674,7 +678,6 @@ ENDIF
 axiserr[^a]=^h;'Store status
 ENDIF
 EN,,^h
-
 
 
 '***************************************************************************
@@ -720,6 +723,8 @@ EN,,^h
 ' Does not wait for analog value to stabilize
 '***************************************************************************
 #GETFOC
+'Stack and XQ fancy footwork
+JS#ZS;IF(_JS<1);JS#GETFOC;ed4=_ED4;ret[ed4]=0;ELSE
 ^a=FOCAX
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
@@ -728,7 +733,7 @@ ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1))
 ~a=^a;MG "GETFOC: MOVING",focanap,_TD~a
 'Report position
 ELSE; ~a=^a; MG "GETFOC:",focanap,_TD~a
-ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF
 EN
 
 
@@ -737,7 +742,7 @@ EN
 '***************************************************************************
 #SETFOC
 'Stack and XQ fancy footwork
-JS#ZS;IF(_JS<1);ed4=_ED4;JS#SETFOC(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#SETFOC(a[ed4]);ed4=_ED4;ret[ed4]=0;ELSE
 ^b=^a
 ^a=FOCAX
 MG "Requested p:",^b 
@@ -770,6 +775,8 @@ EN
 ' responds "IN" "OUT" "UNKNOWN" "INTERMEDIATE", "MOVING"
 '***************************************************************************
 #GETFESI
+'Stack and XQ fancy footwork
+JS#ZS;IF(_JS<1);JS#GETFESI;ed4=_ED4;ret[ed4]=0;ELSE
 ^a=FESINAX
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
@@ -784,7 +791,7 @@ IF (^a=moving);MG "GETFESI: MOVING";ENDIF
 IF (^a=in);MG "GETFESI: IN";ENDIF
 IF (^a=intermd);MG "GETFESI: INTERMEDIATE";ENDIF
 IF (^a=unknown);MG "GETFESI: UNKNOWN";ENDIF
-ENDIF
+ENDIF;ENDIF
 EN
 
 
@@ -920,6 +927,8 @@ EN,,^h
 ' Does not consider inserter arm status
 '***************************************************************************
 #QUFELP
+'Stack and XQ fancy footwork
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#QUFELP;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^a=FESELAX
 ~a=^a;IF(_SC~a=0);^h=moving
 ELSE
@@ -948,6 +957,7 @@ ELSE
 ENDIF
 ENDIF
 MG "QUFELP: ",^h
+ENDIF
 EN,,^h
 
 
@@ -1059,7 +1069,7 @@ EN,,^h
 '***************************************************************************
 #GETFLSI
 'Stack and XQ fancy footwork
-JS#ZS;IF (_JS<1);JS#GETFLSI;ELSE
+JS#ZS;IF (_JS<1);JS#GETFLSI;ed4=_ED4;ret[ed4]=0;ELSE
 ^a=FLSINAX
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
@@ -1165,6 +1175,8 @@ EN ,,^h
 ' Returns 0 iff sucessful
 '***************************************************************************
 #CALENAX
+'Stack and XQ fancy footwork
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#CALENAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 IF(^a<>GESAX);^h=EFAIL
 ELSE
 'Hope for success
@@ -1228,6 +1240,7 @@ ELSE
 ENDIF
 ENDIF
 axiserr[^a]=^h;'Store status
+ENDIF
 EN,,^h
 
 
@@ -1237,6 +1250,8 @@ EN,,^h
 '  both minimum incremental motion & backlash
 '***************************************************************************
 #FANCYMV;'(axis,absolute)
+'Stack and XQ fancy footwork
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4]);ed4=_ED4;ret[ed4]=0;ELSE
 'Compute delta
 ^b=@RND[^b]
 ~a=^a;^c=^b-_TD~a
@@ -1274,7 +1289,7 @@ JS#BACKLSH(^a,^c)
 ~a=^a;PA~a=^b;SH~a
 ~a=^a;TW~a=(@ABS[(1100*((^b-_TD~a)/_SP~a))]+100);BG~a
 REM ~a=^a;MG "TW=",_TW~a
-ENDIF
+ENDIF;ENDIF
 EN 1
 
 
@@ -1294,6 +1309,11 @@ REM   potentially overshot it.
 REM IF(^d>0);^e=-axlmos[^a];^f=3;ELSE;^e=axlmos[^a];^f=2;ENDIF;
 REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
 
+'Stack and XQ fancy footwork
+JS#ZS
+IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4],c[ed4],d[ed4])
+^h=_JS;ed4=_ED4;ret[ed4]=_JS
+ELSE
 ^h=ENONE;'Hope success
 'If we are at the limit then we are done!
 ~a=^a;^f=(((_LR~a<>0)|(^d>0))&((_LF~a<>0)|(^d<0)))
@@ -1311,11 +1331,13 @@ IF(^d>0);ldelta[^a]=^e;^f=2;ELSE;ldelta[^a]=-^e;^f=3;ENDIF
 ~a=^a;IF (_SC~a<>^f);MO~a;^h=ELIMSWF;ENDIF
 ENDIF
 axiserr[^a]=^h;'Store status
+ENDIF
 EN ,,^h
 
 
 '***************************************************************************
 ' Direction Change Query (Axis,position delta/direction)
+' For internal use only
 '***************************************************************************
 #DIRCNGQ
 EN,,(((ldelta[^a]<0)&(^b>0)) | ((ldelta[^a]>0)&(^b<0)))
@@ -1324,6 +1346,7 @@ EN,,(((ldelta[^a]<0)&(^b>0)) | ((ldelta[^a]>0)&(^b<0)))
 '***************************************************************************
 ' Back LaSH correction(axis, position delta)
 ' Routine applies a backlash correction if direction change
+' For internal use only
 '***************************************************************************
 #BACKLSH
 'Figure out if a change in direction
@@ -1341,6 +1364,7 @@ EN
 ' Check Sanity(axis, position)
 '  Return true if position is, potentially, physically realizeable.
 '  False otherwise 
+'  For internal use only
 '***************************************************************************
 #SANEPOS
 EN,,((^b>=axminp[^a]) & (^b<=axmaxp[^a]))
@@ -1363,6 +1387,7 @@ EN,,((^b>=axminp[^a]) & (^b<=axmaxp[^a]))
 '   focanap  filtered FOC position
 '   analogp[8]  filter analog positions for each axis, only the GES,FESEL, &
 '            FOC axes are meaningful
+' For internal use only
 '***************************************************************************
 #ANAMAF
 JS#ZS;IF (_JS<1);JS#ANAMAF
@@ -1441,17 +1466,20 @@ EN
 '  the specified axis
 '***************************************************************************
 #WAITAMF
+'Stack and XQ fancy footwork
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#WAITAMF(a[ed4]);ed4=_ED4;ret[ed4]=0;ELSE
 IF (anapcln[^a]<>-1)
 REM MG "Waiting...";^b=TIME
 #WAITAM1;WT200;JP#WAITAM1,(anapcln[^a]<>-1)
 REM ^c=TIME-^b;MG ^c," ms."
-ENDIF
+ENDIF;ENDIF
 EN
 
 
 '***************************************************************************
 ' ZERO ARRay
 ' Zeros the contents of the array
+' For internal use only
 '***************************************************************************
 #ZEROARR;^b=^a[-1];^c=0
 #ZEROAR1;^a[^c]=0;^c=^c+1;JP#ZEROAR1,(^c<^b);EN
@@ -1459,6 +1487,7 @@ EN
 
 '***************************************************************************
 ' Mean of an ARRay
+' For internal use only
 '***************************************************************************
 #MEANARR
 ^b=^a[-1];^c=0;^d=0
@@ -1468,6 +1497,7 @@ EN,,^d/^b
 
 '***************************************************************************
 ' Standard Deviation of an array, must pass mean as arg 2
+' For internal use only
 '***************************************************************************
 #STDDEV
 ^c=^a[-1];^d=0;^e=0
@@ -1499,6 +1529,7 @@ EN
 '   Zeros the stepper counts for axis, at current position, 
 '  regardless of analog feedback status, preserves AF
 ' Define Position With Analog Feedback Enabled(axis,position)
+' For internal use only
 '***************************************************************************
 #ZERSTP;^b=0
 #DPWAFE
@@ -1512,6 +1543,7 @@ EN
 
 '***************************************************************************
 ' ENCoder counts to STePs(axis, counts) 
+' For internal use only
 '***************************************************************************
 #ENC2STP
 'MG "Counts: ",^b
@@ -1521,7 +1553,8 @@ EN,,^h
 
 
 '***************************************************************************
-' STePs to ENCoder counts(axis, steps) 
+' STePs to ENCoder counts(axis, steps)
+' For internal use only
 '***************************************************************************
 #STP2ENC
 ~a=^a;^h=(^b*_YC~a)/(_YA~a*_YB~a)
@@ -1531,6 +1564,7 @@ EN,,^h
 '***************************************************************************
 ' MOVTIME(dist,speed,accel,decel)
 ' Compute the time travel would theoretically take in units of the RTC
+' For internal use only
 '***************************************************************************
 #MOVTIME
 REM a=^a;b=^b;c=^c;d=^d
@@ -1541,6 +1575,7 @@ EN,,(@ABS[^a/^b]+(0.5*@ABS[(^b/^c)+(^b/^d)]))*(1000000/_TM)
 '***************************************************************************
 ' Lock Monitor
 ' Monitors the axis locks for the HiRes stage
+' For internal use only
 '***************************************************************************
 #LOCKMON
 IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
@@ -1585,6 +1620,7 @@ EN
 '***************************************************************************
 ' ERRor MeSsaGe(axis, error,...)
 '  Reports the specified error
+' For Internal use only
 '***************************************************************************
 #ERRMSG
 IF (^a=GESAX)
@@ -1673,12 +1709,10 @@ EN
 ' Tell Amplifier status
 '***************************************************************************
 #TELLTA
-^a=_TA0
-IF (^a & $10);MG "Over Current (E-H Axes)";ENDIF
-IF (^a & $1);MG "Over Current (A-D Axes)";ENDIF
-^a=_TA3
-IF (^a & $2);MG "ELO Active (E-H Axes)";ENDIF
-IF (^a & $1);MG "ELO Active (A-D Axes)";ENDIF
+IF (_TA0 & $10);MG "Over Current (E-H Axes)";ENDIF
+IF (_TA0 & $1);MG "Over Current (A-D Axes)";ENDIF
+IF (_TA3 & $2);MG "ELO Active (E-H Axes)";ENDIF
+IF (_TA3 & $1);MG "ELO Active (A-D Axes)";ENDIF
 EN
 
 
@@ -1687,11 +1721,14 @@ EN
 ' Routine executed whenever a program error occurs
 '***************************************************************************
 #CMDERR
-MG "#Threads active:",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7
+MG "#Active Threads:",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7
 MG "#!CMDERR (thread",_ED1," line",_ED,"):";TC1
 EN
 
 
+'***************************************************************************
+' Tell Running Threads
+'***************************************************************************
 #RUNNIN;MG "Active Threads",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7;EN
 
 
@@ -1700,12 +1737,7 @@ EN
 ' Returns the stack level of the calling subtoutine
 '***************************************************************************
 #ZS
-IF(_ED4=0);zs=_ZS0;ENDIF
-IF(_ED4=1);zs=_ZS1;ENDIF
-IF(_ED4=2);zs=_ZS2;ENDIF
-IF(_ED4=3);zs=_ZS3;ENDIF
-IF(_ED4=4);zs=_ZS4;ENDIF
-IF(_ED4=5);zs=_ZS5;ENDIF
-IF(_ED4=6);zs=_ZS6;ENDIF
-IF(_ED4=7);zs=_ZS7;ENDIF
+IF(_ED4=0);zs=_ZS0;ENDIF;IF(_ED4=1);zs=_ZS1;ENDIF;IF(_ED4=2);zs=_ZS2;ENDIF
+IF(_ED4=3);zs=_ZS3;ENDIF;IF(_ED4=4);zs=_ZS4;ENDIF;IF(_ED4=5);zs=_ZS5;ENDIF
+IF(_ED4=6);zs=_ZS6;ENDIF;IF(_ED4=7);zs=_ZS7;ENDIF
 EN,,zs-1

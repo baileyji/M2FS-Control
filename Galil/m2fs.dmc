@@ -612,11 +612,11 @@ EN,,^h
 #QUGESP2
 JS#ZS;IF(_JS<1);JS#QUGESP2;^h=_JS;ed4=_ED4;ret[ed4]=^h;ELSE
 ^a=GESAX;~a=^a;^g=_TD~a
-~a=^a;IF (_TS~a & $80);^h=moving
+~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1));^h=moving
 ELSE;IF(axiscal[^a]<>true);^h=unknown
-ELSE;IF (^g=geslrp);^h=lores
-ELSE;IF (^g=geshrp);^h=hires
-ELSE;IF (^g=gesgsp);^h=lrswap
+ELSE;IF(^g=geslrp);^h=lores
+ELSE;IF(^g=geshrp);^h=hires
+ELSE;IF(^g=gesgsp);^h=lrswap
 ELSE;^h=intermd
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 EN,,^h
@@ -644,6 +644,8 @@ ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 'Report status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE
+'Be doubly sure filtered analog position to be clean
+JS#WAITAMF(^a)
 IF(^h=unknown);MG "GETGES: UNCALIBRATED";ENDIF
 IF(^h=moving);~a=^a;MG "GETGES: MOVING",_TP~a,_TD~a;ENDIF
 IF(^h=lores);~a=^a;MG "GETGES: LORES",gesanap,_TD~a;ENDIF
@@ -732,7 +734,10 @@ IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1))
 ~a=^a;MG "GETFOC: MOVING",focanap,_TD~a
 'Report position
-ELSE; ~a=^a; MG "GETFOC:",focanap,_TD~a
+ELSE;
+'Make doubly sure the position is stable
+JS#WAITAMF(^a)
+ ~a=^a; MG "GETFOC:",focanap,_TD~a
 ENDIF;ENDIF;ENDIF
 EN
 
@@ -891,11 +896,7 @@ ELSE
 JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filterp8) );^h=ENONE
 MG "Caddy at a filter. Safe."
 ELSE
-'We are in a position that needs fine tuning before it is safe to 
-' move the FESIN arm, but it is only safe to tweak the position if the
-' inserter position is known
-JS#QUINPOS(FESINAX,fesinsp,fesremp)
-IF (_JS<>out); ^h=EFLTUNSF
+IF ((_LFD<>1)|(_LRD<>0)); ^h=EFLTUNSF
 MG "Caddy needs to move. Inserter not out. Unsafe."
 ELSE
 'Try to nudge elevator toward nearest valid position
@@ -1094,7 +1095,7 @@ EN
 JS#ZS;IF (_JS<1);JS#INFLSIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FLSINAX
 IF(_LFB=1);JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], axlmspd[^a]);^h=_JS;ENDIF
-IF(^h=ENONE);^b=(_TDB-25);JS#FANCYMV(^a,^b);ENDIF
+IF(^h=ENONE);^b=(_TDB-flsbkof);JS#FANCYMV(^a,^b);ENDIF
 ~a=^a;MC~a;~a=^a;MO~a
 IF ((_LFB=1) | (_LRB=0)); ^h=ELIMSWF;ENDIF
 axiserr[^a]=^h

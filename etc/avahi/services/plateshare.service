@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+
+<!-- See avahi.service(5) for more information about this configuration file -->
+
+<service-group>
+  <name>M2FS Plate Folders</name>
+  <service>
+    <type>_nfs._tcp</type>
+    <port>2049</port>
+    <txt-record>path=/sharetst/write</txt-record>
+  </service>
+</service-group>

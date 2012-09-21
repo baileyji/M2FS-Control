@@ -36,7 +36,7 @@ unsigned long time_since_last_temp_request=0xFFFFFFFF;
 
 String commands[N_COMMANDS]={
   "AC",//set acceleration
-  "AH",//Enable Active Holding
+  "AH",//Enable Active Holding (default disabled)
   "BL",//Define backlash
   "DH",//Drive to hardstop
   "DP",//Define current position as X
@@ -170,7 +170,7 @@ void loop() {
   }
   else { //the screw reads as engaged
     //If this would be a state change...
-    if (locking_screw_disengaged) P
+    if (locking_screw_disengaged) {
       //debounce switch
       uint8_t i=200;
       while (!digitalRead(DISCONNECT_SHOE_PIN) && (i-- > 0) ) 
@@ -181,6 +181,7 @@ void loop() {
         powerUpTetrisShield();
         delay(20); //Wait a short time for the vreg to stabilize
       }
+    }
   }
   
   // Request and fetch the temperature regularly
@@ -578,7 +579,7 @@ bool PRcommand() {
 
   if (!((command_buffer[3] >='0' && command_buffer[3]<='9') || 
       ((command_buffer[3] =='-' || command_buffer[3]=='+') && 
-       command_buffer[4] >='0' && command_buffer[4]<='9' ))) return false;  
+       command_buffer[4] >='0' && command_buffer[4]<='9' ))) return false;
   long param=atol(command_buffer+3);
 
   if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;

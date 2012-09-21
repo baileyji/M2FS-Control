@@ -1122,25 +1122,6 @@ EN,,^h
 
 
 '***************************************************************************
-' QUery INserter POSition status (AXIS, inserted step pos, removed step pos)
-' returns: out, in, intermediate, unknown (if uncalibrated), or moving
-'***************************************************************************
-#QUINPOS;'(axis,insertedpos,removedpos)
-^h=unknown;'Default uncalibrated
-~a=^a;IF(_TS~a & $80); ^h=moving
-ELSE; IF (axiscal[^a]=true)
-'Stopped, out position
-~a=^a;IF ((_SC~a=1) & (_TD~a=^c));^h=out
-'Stopped, in position
-~a=^a;ELSE;IF ((_SC~a=1) & (_TD~a=^b));^h=in
-'Stopped, somewhere else
-ELSE;^h=intermd
-ENDIF;ENDIF;ENDIF;ENDIF
-MG "QUINPOS",^a, ^h
-EN,,^h
-
-
-'***************************************************************************
 ' CALibrate HoMe-switched, unencoded AXis(axis)
 ' Calibrate an axis that has a home switch but no encoder
 ' If home switch fails then sends EHMERR
@@ -1582,39 +1563,6 @@ EN,,(@ABS[^a/^b]+(0.5*@ABS[(^b/^c)+(^b/^d)]))*(1000000/_TM)
 IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
 IF(@AN[8] > LCKVOLT);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
 WT 1000;JP#LOCKMON
-EN
-
-
-'***************************************************************************
-' POTentiometer MONitor(axis)
-' Check to see if the steps changed more (within reason) than the pot 
-'  did every 100 ms
-'   If so then Halt motion as the pot may be jammed
-'   when a monitored axis has its steps reset one must also set
-'   rstpm[GESPM]=true or rstpm[FESELPM]=true 
-'  ^a=axis ^b=oldpot ^c=oldstep ^d=newpot  ^e=newstep
-'  ^f=disagreement in pot v steps
-'  ^h=delta pot ^g=delta step 
-'***************************************************************************
-#POTMON
-AT0;
-~a=^a;^b=_TP~a; ^c=_TD~a
-#POTCHK1
-IF((rstpm[GESPM]=true)&(^a=GESAX))
- ~a=^a;^c=0;^e=0;^b=_TP~a;^d=_TP~a;rstpm[GESPM]=false;' Reset old and new
-ENDIF
-IF((rstpm[FESELPM]=true)&(^a=FESELAX))
- ~a=^a;^c=0;^e=0;^b=_TP~a;^d=_TP~a;rstpm[GESPM]=false;' Reset old and new
-ENDIF
-~a=^a;^d=_TP~a; ^e=_TD~a
-^h=^d  - ^b
-^g=^e - ^c
-^c=^e; ^b=^d
-~a=^a;^f=@ABS[^h*(_YB*_YA~a)/_YC~a-^g]
-~a=^a;IF(^f>error);DC~a=axdecel[^a];ST~a;MC~a;~a=^a;MO~a;potStat[^a]=potjam
-JS#ERRMSG(^a,EPOTJAM,dpot,dstep,error)
-ENDIF;
-AT-250;JP #POTCHK1;'        Check again in a few ms
 EN
 
 

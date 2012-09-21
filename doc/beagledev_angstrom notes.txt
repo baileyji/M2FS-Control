@@ -37,3 +37,6 @@ bitbake xxx -f -c build
 
 cd /media/Angstrom/;sudo rm -rf ./*
 sudo tar -xj -C /media/Angstrom -f ~/setup-scripts/build/tmp-ang
+
+
+appears linux-0003-Add-support-for-MT9P031-Aptina-image-sensor-driver.patch is not needed/already doneneed to patch out line 89 of board_omap3beagle-camera.c: omap_register_i2c_bus(2, 100, NULL, 0);bus is already registered elsewhereif different buss speed needed  line 89 might be an ok place to update to bus speed

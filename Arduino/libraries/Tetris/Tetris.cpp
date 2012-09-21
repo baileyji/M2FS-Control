@@ -198,6 +198,7 @@ void Tetris::positionAbsoluteMove(long p){
 void Tetris::calibrateToHardStop(){
   _calibrated=false;
   _motor.setCurrentPosition(0);
+  motorOn();
   _motor.moveTo(1500*16);
   _calibration_in_progress=2; //First stage
 }

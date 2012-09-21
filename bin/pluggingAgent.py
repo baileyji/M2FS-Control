@@ -52,12 +52,14 @@ class PluggingDisplaySerial(SelectedConnection.SelectedSerial):
                 self.connection=None
                 raise SelectedConnection.ConnectError(error_message)
 
-class ShackhartmanAgent(Agent):
+class PluggingAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'PluggingAgent')
-        #Initialize the shoe
-        self.shackhart=PluggingDisplaySerial(self.args.DEVICE, 115200, self.logger, timeout=1)
-        self.devices.append(self.shackhart)
+        if not self.args.DEVICE:
+            self.args.DEVICE='/dev/vfddisplay'
+        self.display=PluggingDisplaySerial(self.args.DEVICE, 115200,
+                                           self.logger, timeout=1)
+        self.devices.append(self.display)
         self.max_clients=1
     
     def listenOn(self):
@@ -65,6 +67,23 @@ class ShackhartmanAgent(Agent):
     
     def get_version_string(self):
         return 'Plugging Agent Version 0.1'
+    
+    def initialize_cli_parser(self):
+        """Configure the command line interface"""
+        #Create a command parser with the default agent commands
+        helpdesc="This is the plugging agent. It takes shoe commands via \
+        a socket connection."
+        cli_parser = argparse.ArgumentParser(description=helpdesc, add_help=True)
+        cli_parser.add_argument('--version',
+                                action='version',
+                                version=self.get_version_string())
+        cli_parser.add_argument('--device', dest='DEVICE',
+                                action='store', required=False, type=str,
+                                help='the device to control')
+        cli_parser.add_argument('-p','--port', dest='PORT',
+                                action='store', required=False, type=int,
+                                help='the port on which to listen')
+        self.cli_parser=cli_parser
     
     def socket_message_received_callback(self, source, message_str):
         """Create and execute a Command from the message"""
@@ -121,5 +140,5 @@ class ShackhartmanAgent(Agent):
       
 
 if __name__=='__main__':
-    agent=ShackhartmanAgent()
+    agent=PluggingAgent()
     agent.main()

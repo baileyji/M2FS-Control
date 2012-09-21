@@ -85,17 +85,13 @@ class ShoeAgent(Agent):
         """Configure the command line interface"""
         #Create a command parser with the default agent commands
         helpdesc="This is the shoe agent. It takes shoe commands via \
-            a socket connection (if started as a daemon) or via \
-            CLI arguments."
+            a socket connection or via CLI arguments."
         cli_parser = argparse.ArgumentParser(
                     description=helpdesc,
                     add_help=True)
         cli_parser.add_argument('--version',
                                 action='version',
                                 version=self.get_version_string())
-        cli_parser.add_argument('-d','--daemon',dest='DAEMONIZE',
-                                action='store_true', default=False,
-                                help='Run agent as a daemon')
         cli_parser.add_argument('--device', dest='DEVICE',
                                 action='store', required=False, type=str,
                                 help='the device to control')
@@ -162,7 +158,7 @@ class ShoeAgent(Agent):
         self.simpleSendWithResponse('TE\n', command) 
     
     def SLITS_command_handler(self, command):
-        """ Handle geting/setting the nominal slit position in steps """
+        """ Handle geting/setting the slit """
         if '?' in command.string:
             """ retrieve the current slits """
             self.simpleSendWithResponse('SG*\n', command)

@@ -10,7 +10,12 @@ REM what stack depth a function is at
 '***************************************************************************
 #INIT
 ST;MC;MO*
+
 REM Defines
+REM None of these should ever need to change and in fact changing WILL cause
+REM bizarre and bad behavior!
+REM For parameters look lower to the Parameters section.
+
 GESAX=0
 FLSINAX=1
 FOCAX=2
@@ -48,6 +53,11 @@ g[0]=0;g[1]=0;g[2]=0;g[3]=0;g[4]=0;g[5]=0;g[6]=0;g[7]=0
 h[0]=0;h[1]=0;h[2]=0;h[3]=0;h[4]=0;h[5]=0;h[6]=0;h[7]=0
 ret[0]=0;ret[1]=0;ret[2]=0;ret[3]=0;ret[4]=0;ret[5]=0;ret[6]=0;ret[7]=0
 
+'Delta of last move, maintained by #BACKLSH
+DM ldelta[8]
+ldelta[GESAX]=0;ldelta[FLSINAX]=0;ldelta[FOCAX]=0;ldelta[FESINAX]=0
+ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
+
 'Possible Axis positions
 out=0
 in=1
@@ -58,8 +68,8 @@ lores=5
 hires=6
 settle=7
 lrswap=8
-filterp1=9
-'rest of filter position enums are set automatically
+filterp1=9;'rest of filter position enums are set programatically
+REM Aditional position defines must start at filterld+1
 filterp2=filterp1+1;filterp3=filterp1+2;filterp4=filterp1+3;filterp5=filterp1+4
 filterp6=filterp1+5;filterp7=filterp1+6;filterp8=filterp1+7;filterld=filterp1+8
 
@@ -68,21 +78,39 @@ potjam=1
 'Value must be set to 1 atomically when zeroing the position of an encoded axis
 GESPM=0;FESELPM=1;DM rstpm[2];rstpm[GESPM]=false;rstpm[FESELPM]=false
 
+nearfilt=0;' nearest filter to current position, determined by QUFEL
 
-'Analog Position Filtering
-ANAMAFSZ=1000
+'Whether or not the axis is calibrated
+DM axiscal[8]
+axiscal[GESAX]=false;axiscal[FLSINAX]=false;axiscal[FOCAX]=false
+axiscal[FESINAX]=false;axiscal[FESELAX]=false;axiscal[LRTLTAX]=false
+axiscal[HRTLTAX]=false;axiscal[HRAZAX]=false
+
+'Last error state of the axis
+DM axiserr[8]
+axiserr[GESAX]=ENONE;axiserr[FLSINAX]=ENONE;axiserr[FOCAX]=ENONE
+axiserr[FESINAX]=ENONE;axiserr[FESELAX]=ENONE;axiserr[LRTLTAX]=ENONE
+axiserr[HRTLTAX]=ENONE;axiserr[HRAZAX]=ENONE
+
+'Analog Filter Arrays
 DM analogp[8]
+DM anapcln[8];'-1 if no motion has occured within filter window
 ~a=GESAX;gesanap=_TP~a;analogp[GESAX]=gesanap
 ~a=FOCAX;focanap=_TP~a;analogp[FOCAX]=focanap
 ~a=FESELAX;felanap=_TP~a;analogp[FESELAX]=felanap
-DM anapcln[8];'Whether or not motion has dirtied the filtered reading
-'-1 if reading is clean
-anapcln[GESAX]=-1
-anapcln[FOCAX]=-1
-anapcln[FESELAX]=-1
+anapcln[GESAX]=-1;anapcln[FOCAX]=-1;anapcln[FESELAX]=-1
 
+
+
+REM Parameters
 REM Absolutly do not consider a value final unless it has a comment!
 REM  (or the instrument is on the telescope and in use, then Mea Culpa -JB)
+
+
+'Analog Position Filtering
+ANAMAFSZ=1000;'Filter sample size (filter should run at 1ms intervals)
+
+
 DM axaccel[8];'Generic Acceleration rate
 axaccel[GESAX]=100000
 axaccel[FLSINAX]=256000
@@ -92,6 +120,7 @@ axaccel[FESELAX]=256000
 axaccel[LRTLTAX]=100000
 axaccel[HRTLTAX]=100000
 axaccel[HRAZAX]=100000
+
 DM axdecel[8];'Generic Deceleration rate
 axdecel[GESAX]=100000
 axdecel[FLSINAX]=256000
@@ -101,8 +130,7 @@ axdecel[FESELAX]=256000
 axdecel[LRTLTAX]=190000
 axdecel[HRTLTAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
 axdecel[HRAZAX]=160000;'5/6 * 15000um/s^2/0.078um/us=160256
-REM NB The PI actuators advise no greater than 10% max speed
-REM    when approaching limits.
+
 DM axlmspd[8];'limit speed (speed used when intentionally moving to a limit)
 axlmspd[GESAX]=6400
 axlmspd[FLSINAX]=1024
@@ -112,9 +140,10 @@ axlmspd[FESELAX]=6400
 axlmspd[LRTLTAX]=6400;'unused
 axlmspd[HRTLTAX]=6400
 axlmspd[HRAZAX]=6400
+REM NB The PI actuators advise no greater than 10% max speed
+REM    when approaching limits.
+
 DM axhmspd[8];'homing speed, used when returning to home after overshoot
-'Consider steeing in terms of time to get back
-' e.g. HV=axspd^2/2/axlgdcl/desired return time
 axhmspd[GESAX]=256
 axhmspd[FLSINAX]=256
 axhmspd[FOCAX]=256
@@ -123,6 +152,7 @@ axhmspd[FESELAX]=256
 axhmspd[LRTLTAX]=256
 axhmspd[HRTLTAX]=256
 axhmspd[HRAZAX]=256
+
 DM axspd[8];'Generic travel speed
 axspd[GESAX]=7000;'16215;'seems ok
 axspd[FLSINAX]=1024
@@ -132,6 +162,7 @@ axspd[FESELAX]=7000
 axspd[LRTLTAX]=10000;'seems ok (w/o grating) Max per DS: 30091
 axspd[HRTLTAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
 axspd[HRAZAX]=10000;'Max per DS: 5/6*5000um/s/0.078um/us=53418
+
 DM axmaxp[8];'Max possible position (steps, 16x microstepping)
 axmaxp[GESAX]=288112;'Actual value slightly greater if overshooting limits
 axmaxp[FLSINAX]=6447;'Determined experimentally
@@ -141,6 +172,7 @@ axmaxp[FESELAX]=210000;'Determined experimentally, B Side
 axmaxp[LRTLTAX]=1126400; '1 revolution
 axmaxp[HRTLTAX]=128205/2;'10mm
 axmaxp[HRAZAX]=128205/2;'10mm
+
 DM axminp[8];'Max possible position (steps, 16x microstepping)
 axminp[GESAX]=0
 axminp[FLSINAX]=0
@@ -151,12 +183,6 @@ axminp[LRTLTAX]=0
 axminp[HRTLTAX]=-128205/2;'10mm
 axminp[HRAZAX]=-128205/2;'10mm
 
-'delta of last move, maintained by/for #BACKLSH
-DM ldelta[8]
-ldelta[GESAX]=0;ldelta[FLSINAX]=0;ldelta[FOCAX]=0;ldelta[FESINAX]=0
-ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
-
-
 DM bcklsh[8];'backlash in steps, for reference
 bcklsh[GESAX]=77;'76.2 microns
 bcklsh[FLSINAX]=15;'Determined experimentally
@@ -166,6 +192,7 @@ bcklsh[FESELAX]=15;'Determined experimentally
 bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
 bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
 bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
+
 DM mininc[8];'minimum incremental motion
 mininc[GESAX]=0
 mininc[FLSINAX]=0
@@ -175,6 +202,7 @@ mininc[FESELAX]=0;'<20 by touch
 mininc[LRTLTAX]=4;'Per DS: 21 microradians = 3.62 us => 4 usteps = 23.2 urad
 mininc[HRTLTAX]=13;'microsteps, 1 micron
 mininc[HRAZAX]=13;'microsteps, 1 micron
+
 'Unused, comented as short of array space
 'DM dperus[8];'delta per microstep
 'dperus[GESAX]=.992;'microns per microstep
@@ -186,38 +214,17 @@ mininc[HRAZAX]=13;'microsteps, 1 micron
 'dperus[HRTLTAX]=0.078;'microns per microstep
 'dperus[HRAZAX]=0.078;'microns per microstep
 
-'Encoder value near a limit, unused on unencoded
+'Encoder value near a limit, unused on unencoded. Value strictly > -limit
 DM encnlim[8]
-'Value strictly > -limit
-' Got reading of 161 while on -lim.
-' hard limit is at 49. 
-' Noise on pot with motors off has a sigma of about 1.3 with on 80
+' GES reading of 161 while on -lim, hardstop at 49. 
 encnlim[GESAX]=200
-'Value strictly > -limit
-' unknown, system not yet built TODO
 encnlim[FESELAX]=0
 'Value slightly before 4096-to-0 rollover
 'unknown, NEED testing TODO (or remove if we aren't going to use CALFOC
 encnlim[FOCAX]=3800
 
-
-'Whether or not the axis is calibrated
-DM axiscal[8]
-axiscal[GESAX]=false;axiscal[FLSINAX]=false;axiscal[FOCAX]=false
-axiscal[FESINAX]=false;axiscal[FESELAX]=false;axiscal[LRTLTAX]=false
-axiscal[HRTLTAX]=false;axiscal[HRAZAX]=false
-
-
-'Last error state of the axis
-DM axiserr[8]
-axiserr[GESAX]=ENONE;axiserr[FLSINAX]=ENONE;axiserr[FOCAX]=ENONE
-axiserr[FESINAX]=ENONE;axiserr[FESELAX]=ENONE;axiserr[LRTLTAX]=ENONE
-axiserr[HRTLTAX]=ENONE;axiserr[HRAZAX]=ENONE
-
-
 'FOC related defines
 focentol=5;' Encoder tolerance of a desired pot position TODO: DETERMINE
-
 
 'GES Related Defines
 geshrp=7400;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
@@ -230,23 +237,22 @@ gesgsep=1397;' GES Grating Swap encoder nominal position TODO: finalize
 gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
 
 'HiRes Alt & Az defines
-HRTLTLK=true;HRAZLK=true
+HRTLTLK=true;HRAZLK=true;'Start assuming locked
 LCKVOLT=2 ;'Determined empirically, > => locked 
 
 'LoRes Tilt defines
-lrthmos=6400;' Amount to overshoot home before creeping back 
-' (ROUGH STAB TODO:refine)
-lrtinpt=9 ;'  Digital in corresponding to the LoRes origin sensor
-lrtinhx=$9
+lrthmos=6400;' Amount to overshoot home before creeping back (TODO:refine guess)
+lrtinpt=9;'  Digital in corresponding to the LoRes origin sensor
+lrtinhx=$9;'  Digital in corresponding to the LoRes origin sensor in hex
 lrtathm=1 ;'  value of origin sensor (via @IN) when at home
-lrhomng=false
+lrhomng=false;' Is the axis trying to home at present
 lrswapp=-423000;' step position for lr grating swap
 
 'Filter related defines
 nfilt=8 ;' Number of filter slots
 ^a=nfilt+1;'Can't have expression within subscripts
 'FES Elevator nominal filter position in steps
-'.1" per rev 
+'Elevator travels .1" per rev (3200 steps) 
 felstpsp=16*200*5;'steps  worth of space between filters
 DM feselfp[^a]
 feselfp[0]=1500
@@ -261,6 +267,7 @@ feselfp[8]=feselfp[7]+16*200*28.5
 'FES Elevator nominal filter position in encoder counts
 felencsp=317;'.5" filter spacing, 317 counts measured ?? nominal
 DM felencp[^a]
+
 ;'Blue side 8/28/12
 felencp[0]=79;'4.2803
 felencp[1]=378;'felencp[0]+felencsp
@@ -284,8 +291,7 @@ felencp[7]=2128;'felencp[6]+felencsp
 felencp[8]=3837;'felencp[7]+1732;'Load position is an additional 2.85" further
 
 'Allowable range (+/-) in encoder counts around nominal filter position
-feselrg=2 ;'about 0.003"
-nearfilt=0;' nearest filter to current position, determined by QUFEL
+feselrg=2 ;'2 is about 0.003"
 allsafep=2746;'Encoder pos above which it is always safe to move the inserter
 
 'FESIN related defines
@@ -293,27 +299,15 @@ fesinsp=9000 ;'The inserted position in steps of the FESIN arm
 fesremp=1;'The removed position in steps of the FESIN arm, must be >0
 
 'FLS related defines
-flsremp=0;'The removed position in steps of the FLSIN arm
-flsinsp=5323;'The inserted position in steps of the FLSIN arm
+flsbkof=25;'The steps to backoff after inserting
 
-'Set acceleration defaults
-AC axaccel[0],axaccel[1],axaccel[2],axaccel[3]
-AC ,,,,axaccel[4],axaccel[5],axaccel[6],axaccel[7]
-'Set deceleration defaults
-DC axdecel[0],axdecel[1],axdecel[2],axdecel[3]
-DC ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
-'Set limit switch triggered deceleration
-SD axdecel[0],axdecel[1],axdecel[2],axdecel[3]
-SD ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
-'Set homing velocity defaults
-HV axdecel[0],axdecel[1],axdecel[2],axdecel[3]
-HV ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
 
 EN
 
 
 '***************************************************************************
 ' Galil hardware config
+'  Do not use any parameters in here, nothing is defined when this is called
 '***************************************************************************
 #M2FSCFG
 ST;MC;MO*
@@ -348,11 +342,29 @@ HX1;HX2;ST;MC;MO*
 m2fsver=.1;bootup1=1
 JS#M2FSCFG
 JS#INIT
+
+'Set acceleration defaults
+AC axaccel[0],axaccel[1],axaccel[2],axaccel[3]
+AC ,,,,axaccel[4],axaccel[5],axaccel[6],axaccel[7]
+
+'Set deceleration defaults
+DC axdecel[0],axdecel[1],axdecel[2],axdecel[3]
+DC ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
+
+'Set limit switch triggered deceleration
+SD axdecel[0],axdecel[1],axdecel[2],axdecel[3]
+SD ,,,,axdecel[4],axdecel[5],axdecel[6],axdecel[7]
+
+'Set homing velocity defaults
+HV axhmspd[0],axhmspd[1],axhmspd[2],axhmspd[3]
+HV ,,,,axhmspd[4],axhmspd[5],axhmspd[6],axhmspd[7]
+
+'Set speed defaults
+SP axspd[0],axspd[1],axspd[2],axspd[3]
+SP ,,,,axspd[4],axspd[5],axspd[6],axspd[7]
+
 'Query the Filter elevator position to initialize nearfilt
 JS#QUFELP
-REM 'Start monitor for pot jamming on GES and FESEL axes
-REM ^a=GESAX;XQ#POTMON,1
-REM ^a=FESELAX;XQ#POTMON,2
 'Start the analog filter
 XQ #ANAMAF,1
 'Start the HIRes lock monitor

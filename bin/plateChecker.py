@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/env python2.7
 import sys, datetime, glob, shutil, argparse, atexit, signal, os
 sys.path.append(sys.path[0]+'/../lib/')
 import logging, logging.handlers

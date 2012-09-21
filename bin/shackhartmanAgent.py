@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/env python2.7
 import time
 import argparse
 import socket
@@ -19,11 +19,10 @@ MAX_CLIENTS=1
 class ShackhartmanAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShackHartmanAgent')
-        #Initialize the shoe
-        
+        #Initialize the agent
         self.args=self.cli_parser.parse_args()
         self.shled=SelectedConnection.SelectedSerial('/dev/SHled', 115200, self.logger)
-        #self.shlenslet=SelectedConnection.SelectedSerial('/dev/SHlenslet', 115200, self.logger, timeout=1)
+        self.shlenslet=SelectedConnection.SelectedSerial('/dev/SHlenslet', 115200, self.logger, timeout=1)
         self.devices.append(self.shlenslet)
         self.devices.append(self.shled)
         self.max_clients=1

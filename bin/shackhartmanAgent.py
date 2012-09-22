@@ -16,7 +16,7 @@ from command import Command
 
 MAX_CLIENTS=1
 
-class ShackhartmanAgent(Agent):
+class ShackHartmanAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShackHartmanAgent')
         #Initialize the agent
@@ -26,12 +26,12 @@ class ShackhartmanAgent(Agent):
         self.devices.append(self.shlenslet)
         self.devices.append(self.shled)
         self.max_clients=1
-        command_handlers={
+        self.command_handlers.update({
             'SLITSRAW':self.not_implemented_command_handler,
             'SHLED':self.SHLED_command_handler,
             'SHLENS':self.SHLENS_command_handler,
             'SH_STATUS':self.status_command_handler,
-            'SH_VERSION':self.version_request_command_handler}
+            'SH_VERSION':self.version_request_command_handler})
     
     def listenOn(self):
         return ('localhost', self.PORT)
@@ -93,5 +93,5 @@ class ShackhartmanAgent(Agent):
                     return 'INTERMEDIATE'
 
 if __name__=='__main__':
-    agent=ShackhartmanAgent()
+    agent=ShackHartmanAgent()
     agent.main()

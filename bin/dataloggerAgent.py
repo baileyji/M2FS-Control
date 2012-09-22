@@ -30,11 +30,8 @@ class DataloggerAgent(Agent):
         #self.devices.append(self.shoeB)
         self.setupLoggerFiles()
         self.currentTemps={}
-        self.command_handlers={
-                    'TEMPS':self.TEMPS_command_handler,
-                    'VERSION':self.version_request_command_handler,
-                    'STATUS':self.status_command_handler}
-
+        self.command_handlers.update({'TEMPS':self.TEMPS_command_handler})
+    
     def setupLoggerFiles(self):
         tempLog,accelLog=m2fsConfig.getDataloggerLogfileNames()
         self.tempsFile=open(tempLog,'a')

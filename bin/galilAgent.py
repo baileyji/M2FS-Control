@@ -14,9 +14,7 @@ class GalilAgent(Agent):
         #Initialize the Galil
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/galil'+self.args.SIDE
-        self.command_handlers={
-            'STATUS':self.STATUS_command_handler,
-            'VERSION':self.version_request_command_handler,
+        self.command_handlers.update({
             'GALILRAW':self.galil_command_handler,
             'FILTER':self.galil_command_handler,
             'LREL':self.galil_command_handler,
@@ -47,7 +45,7 @@ class GalilAgent(Agent):
             'FLSIM_DEFINS':self.defaults_command_handler,
             'FLSIM_DEFREM':self.defaults_command_handler,
             'GES_DEFSWPSTEP':self.defaults_command_handler,
-            'GES_DEFSWPENC':self.defaults_command_handler} 
+            'GES_DEFSWPENC':self.defaults_command_handler})
         self.galil=GalilSerial(self.args.DEVICE, 115200, self.logger, 
             timeout=0.5, SIDE=self.args.SIDE)
         self.devices.append(self.galil)

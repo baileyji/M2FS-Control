@@ -60,7 +60,7 @@ class SelectedConnection(object):
                 err="Unable to send '%s' on %s" % (message, str(self))
                 if not errorCallback:
                     self.logger.error(err)
-                    raise IOError(err)
+                    raise err
                 else:
                     errorCallback('ERROR: '+err)
         if message=='' or self.out_buffer!='':

@@ -7,7 +7,7 @@
 #include "fibershoe_pins.h"
 
 #define POWERDOWN_DELAY_US  1000
-#define VERSION_STRING "Fibershoe v0.1"
+#define VERSION_STRING "Fibershoe v0.2"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
 #define N_COMMANDS 25

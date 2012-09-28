@@ -1,11 +1,12 @@
 /*
- * Driver for FLSCAM CMOS Image Sensor from Aptina
+ * Driver for FLSCAM CMOS Image Sensor
  *
+ * Copyright (C) 2012, Jeb Bailey <baileyji@umich.edu>
  * Copyright (C) 2011, Laurent Pinchart <laurent.pinchart@ideasonboard.com>
  * Copyright (C) 2011, Javier Martin <javier.martin@vista-silicon.com>
  * Copyright (C) 2011, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
  *
- * Based on the MT9V032 driver and Bastian Hecht's code.
+ * Based on the MT9P031 driver.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,44 +31,33 @@
 
 #define CAM_FLD 98
 
-#define FLSCAM_PIXEL_ARRAY_WIDTH			4096
-#define FLSCAM_PIXEL_ARRAY_HEIGHT			600
+#define FLSCAM_PIXEL_ARRAY_WIDTH0			4096
+#define FLSCAM_PIXEL_ARRAY_HEIGHT0			600
 
-#define FLSCAM_PIXEL_ARRAY_WIDTH2			512
-#define FLSCAM_PIXEL_ARRAY_HEIGHT2			8
+#define FLSCAM_PIXEL_ARRAY_WIDTH1			512
+#define FLSCAM_PIXEL_ARRAY_HEIGHT1			8
 
 #define FLSCAM_CONTROL_REGISTER				0x00
-#define FLSCAM_ENABLE					0x0001
-#define FLSCAM_RESET					0x0040
-
-/* For now we'll just use all the high bits of the i2c expander */
-#define FLSCAM_VERSION_BITS				0xFF00
-#define		FLSCAM_VERSION_VALUE			0x0000
-
-#define	FLSCAM_TEST_PATTERN_ENABLE			0x0004
 
 //This is poorly defined because the GPIO chips starts with all as inputs
 #define FLSCAM_CONTROL_REGISTER_DEFAULT			0x0000
 
+#define FLSCAM_ENABLE					0x0001
+#define FLSCAM_ONLINE					0x0002
+#define	FLSCAM_TEST_PATTERN_ENABLE			0x0004
+#define FLSCAM_ERRORFLAG				0x0008
+#define FLSCAM_MODEBIT_0				0x0010
+#define FLSCAM_MODEBIT_1				0x0020
+#define FLSCAM_RESET					0x0040
+#define FLSCAM_TEST2					0x0080
+/* For now we'll just use all the high bits of the i2c expander */
+#define FLSCAM_VERSION_BITS				0xFF00
+#define		FLSCAM_VERSION_VALUE			0x0000
 
-#define		FLSCAM_ROW_START_DEF			0
-#define		FLSCAM_COLUMN_START_DEF			0
-
-#define		FLSCAM_WINDOW_HEIGHT_MIN		2
-#define		FLSCAM_WINDOW_HEIGHT_MAX		2006
-#define		FLSCAM_WINDOW_HEIGHT_DEF		FLSCAM_PIXEL_ARRAY_HEIGHT
-
-#define		FLSCAM_WINDOW_WIDTH_MIN			2
-#define		FLSCAM_WINDOW_WIDTH_MAX			2752
-#define		FLSCAM_WINDOW_WIDTH_DEF			FLSCAM_PIXEL_ARRAY_WIDTH
-
-#define FLSCAM_SHUTTER_WIDTH_UPPER			0x08
-#define FLSCAM_SHUTTER_WIDTH_LOWER			0x09
-#define		FLSCAM_SHUTTER_WIDTH_MIN		1
-#define		FLSCAM_SHUTTER_WIDTH_MAX		1048575
-#define		FLSCAM_SHUTTER_WIDTH_DEF		1943
-	
-
+#define FLSCAM_MODE0					0x0000
+#define FLSCAM_MODE1					0x0010
+#define FLSCAM_MODE2					0x0030
+#define FLSCAM_MODE3					0x0020
 
 struct flscam {
 	struct v4l2_subdev subdev;
@@ -108,7 +98,7 @@ static int flscam_write(struct i2c_client *client, u8 reg, u16 data)
 	return i2c_smbus_write_word_data(client, reg, cpu_to_be16(data));
 }
 //OK
-static int flscam_set_control(struct flscam *flscam, u16 clear,
+static int flscam_control_clear_set(struct flscam *flscam, u16 clear,
 				      u16 set)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&flscam->subdev);
@@ -128,13 +118,13 @@ static int flscam_reset(struct flscam *flscam)
 {
 	int ret;
 
-	ret = flscam_set_control(flscam, FLSCAM_RESET, 0xFFFF);
+	ret = flscam_control_clear_set(flscam, 0xFFFF, FLSCAM_RESET);
 	if (ret < 0)
 		return ret;
 
 	usleep_range(100, 200);
 
-	ret = flscam_set_control(flscam, 0x0000, FLSCAM_RESET);
+	ret = flscam_control_clear_set(flscam, FLSCAM_RESET, 0);
 	if (ret < 0)
 		return ret;
 
@@ -146,7 +136,7 @@ static int flscam_power_on(struct flscam *flscam)
 
 	int ret;
 
-	ret = flscam_set_control(flscam, FLSCAM_RESET, 0xFFFF);
+	ret = flscam_control_clear_set(flscam, 0xFFFF, FLSCAM_RESET);
 	if (ret < 0)
 		return ret;
 
@@ -157,12 +147,12 @@ static int flscam_power_on(struct flscam *flscam)
 		flscam->pdata->set_xclk(&flscam->subdev,
 					 flscam->pdata->ext_freq);
 
-	ret = flscam_set_control(flscam, 0x0000, FLSCAM_RESET);
+	ret = flscam_control_clear_set(flscam, FLSCAM_RESET, 0);
 	if (ret < 0)
 		return ret;
 
 	/*Clear reset bit and set enable bit*/
-	ret = flscam_set_control(flscam, FLSCAM_ENABLE, FLSCAM_RESET);
+	ret = flscam_control_clear_set(flscam, FLSCAM_RESET, FLSCAM_ENABLE);
 	if (ret < 0)
 		return ret;
 
@@ -172,7 +162,7 @@ static int flscam_power_on(struct flscam *flscam)
 static void flscam_power_off(struct flscam *flscam)
 {
 	/* Clear the enable bit */
-	flscam_set_control(flscam, 0x0000, FLSCAM_ENABLE);
+	flscam_control_clear_set(flscam, FLSCAM_ENABLE, 0);
 
 	if (flscam->pdata->set_xclk)
 		flscam->pdata->set_xclk(&flscam->subdev, 0);
@@ -198,6 +188,7 @@ static int __flscam_set_power(struct flscam *flscam, bool on)
  * V4L2 subdev video operations
  */
 
+//OK
 static int flscam_set_params(struct flscam *flscam)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&flscam->subdev);
@@ -205,6 +196,10 @@ static int flscam_set_params(struct flscam *flscam)
 	int ret;
 
 	//THIS FUNCTION SHOULD PROBABLY SET MODE
+	if (format->width==FLSCAM_PIXEL_ARRAY_WIDTH0)
+		ret= flscam_control_clear_set(flscam, FLSCAM_MODE1, FLSCAM_MODE0);
+	else 
+		ret= flscam_control_clear_set(flscam, FLSCAM_MODE0, FLSCAM_MODE1);
 
 	return ret;
 }
@@ -243,21 +238,25 @@ static int flscam_enum_mbus_code(struct v4l2_subdev *subdev,
 	return 0;
 }
 
+//OK
 static int flscam_enum_frame_size(struct v4l2_subdev *subdev,
 				   struct v4l2_subdev_fh *fh,
 				   struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct flscam *flscam = to_flscam(subdev);
 
-	if (fse->index >= 8 || fse->code != flscam->format.code)
+	if (fse->index >= 2 || fse->code != flscam->format.code)
 		return -EINVAL;
-	
-	//either this should return the window size appropriate to the current mode, OR both possible frame sizes, specifiying discreet steps (O) between them
 
-	fse->min_width = FLSCAM_WINDOW_WIDTH_DEF
-		       / min_t(unsigned int, 7, fse->index + 1);
-	fse->max_width = fse->min_width;
-	fse->min_height = FLSCAM_WINDOW_HEIGHT_DEF / (fse->index + 1);
+	if (fse->index == 0) {	
+		fse->min_width = FLSCAM_PIXEL_ARRAY_WIDTH0;	
+		fse->min_height = FLSCAM_PIXEL_ARRAY_HEIGHT0;
+	}
+	else {
+		fse->min_width = FLSCAM_PIXEL_ARRAY_WIDTH1;	
+		fse->min_height = FLSCAM_PIXEL_ARRAY_HEIGHT1;
+	}
+	fse->max_width = fse->min_width;	
 	fse->max_height = fse->min_height;
 
 	return 0;
@@ -278,20 +277,6 @@ __flscam_get_pad_format(struct flscam *flscam, struct v4l2_subdev_fh *fh,
 	}
 }
 
-static struct v4l2_rect *
-__flscam_get_pad_crop(struct flscam *flscam, struct v4l2_subdev_fh *fh,
-		     unsigned int pad, u32 which)
-{
-	switch (which) {
-	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_crop(fh, pad);
-	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &flscam->crop;
-	default:
-		return NULL;
-	}
-}
-
 //OK
 static int flscam_get_format(struct v4l2_subdev *subdev,
 			      struct v4l2_subdev_fh *fh,
@@ -304,54 +289,28 @@ static int flscam_get_format(struct v4l2_subdev *subdev,
 	return 0;
 }
 
+//OK
 static int flscam_set_format(struct v4l2_subdev *subdev,
 			      struct v4l2_subdev_fh *fh,
 			      struct v4l2_subdev_format *format)
 {
 	struct flscam *flscam = to_flscam(subdev);
 	struct v4l2_mbus_framefmt *__format;
-	struct v4l2_rect *__crop;
-	unsigned int width;
-	unsigned int height;
-	unsigned int hratio;
-	unsigned int vratio;
-
-	__crop = __flscam_get_pad_crop(flscam, fh, format->pad,
-					format->which);
-
-	/* Clamp the width and height to avoid dividing by zero. */
-	width = clamp_t(unsigned int, ALIGN(format->format.width, 2),
-			max(__crop->width / 7, FLSCAM_WINDOW_WIDTH_MIN),
-			__crop->width);
-	height = clamp_t(unsigned int, ALIGN(format->format.height, 2),
-			max(__crop->height / 8, FLSCAM_WINDOW_HEIGHT_MIN),
-			__crop->height);
-
-	hratio = DIV_ROUND_CLOSEST(__crop->width, width);
-	vratio = DIV_ROUND_CLOSEST(__crop->height, height);
 
 	__format = __flscam_get_pad_format(flscam, fh, format->pad,
 					    format->which);
-	__format->width = __crop->width / hratio;
-	__format->height = __crop->height / vratio;
 
+	if (format->width==FLSCAM_PIXEL_ARRAY_WIDTH1) {
+		__format->width = FLSCAM_PIXEL_ARRAY_WIDTH1;
+		__format->height = FLSCAM_PIXEL_ARRAY_HEIGHT1;
+	} else {
+		__format->width = FLSCAM_PIXEL_ARRAY_WIDTH0;
+		__format->height = FLSCAM_PIXEL_ARRAY_HEIGHT0;
+	}
 	format->format = *__format;
 
 	return 0;
 }
-
-static int flscam_get_crop(struct v4l2_subdev *subdev,
-			    struct v4l2_subdev_fh *fh,
-			    struct v4l2_subdev_crop *crop)
-{
-	struct flscam *flscam = to_flscam(subdev);
-
-	crop->rect = *__flscam_get_pad_crop(flscam, fh, crop->pad,
-					     crop->which);
-	return 0;
-}
-
-
 
 /* -----------------------------------------------------------------------------
  * V4L2 subdev control operations
@@ -369,20 +328,16 @@ static int flscam_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
-		ret = flscam_write(client, FLSCAM_SHUTTER_WIDTH_UPPER,
-				    (ctrl->val >> 16) & 0xffff);
-		if (ret < 0)
-			return ret;
 
-		return flscam_write(client, FLSCAM_SHUTTER_WIDTH_LOWER,
-				     ctrl->val & 0xffff);
+		//Do nothing for now
+		return 0;
 
 	case V4L2_CID_TEST_PATTERN:
 		if (!ctrl->val) {
-			return flscam_set_control(flscam, 0, FLSCAM_TEST_PATTERN_ENABLE);
+			return flscam_control_clear_set(flscam, FLSCAM_TEST_PATTERN_ENABLE, 0);
 		}
 
-		return flscam_set_control(flscam, FLSCAM_TEST_PATTERN_ENABLE, 0);
+		return flscam_control_clear_set(flscam, 0 FLSCAM_TEST_PATTERN_ENABLE);
 	}
 	return 0;
 }
@@ -479,26 +434,27 @@ static int flscam_registered(struct v4l2_subdev *subdev)
 	return ret;
 }
 
+//OK
 static int flscam_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
 	struct flscam *flscam = to_flscam(subdev);
 	struct v4l2_mbus_framefmt *format;
-	struct v4l2_rect *crop;
-
-	crop = v4l2_subdev_get_try_crop(fh, 0);
-	crop->left = FLSCAM_COLUMN_START_DEF;
-	crop->top = FLSCAM_ROW_START_DEF;
-	crop->width = FLSCAM_WINDOW_WIDTH_DEF;
-	crop->height = FLSCAM_WINDOW_HEIGHT_DEF;
 
 	format = v4l2_subdev_get_try_format(fh, 0);
 
 	format->code = V4L2_MBUS_FMT_Y8_1X8;
 
-	format->width = FLSCAM_WINDOW_WIDTH_DEF;
-	format->height = FLSCAM_WINDOW_HEIGHT_DEF;
+	//This may be superfluous 
+	if (format->width==FLSCAM_PIXEL_ARRAY_WIDTH1) {
+		format->width = FLSCAM_PIXEL_ARRAY_WIDTH1;
+		format->height = FLSCAM_PIXEL_ARRAY_HEIGHT1;
+	} else {
+		format->width = FLSCAM_PIXEL_ARRAY_WIDTH0;
+		format->height = FLSCAM_PIXEL_ARRAY_HEIGHT0;
+	}
+
 	format->field = V4L2_FIELD_NONE;
-	format->colorspace = V4L2_COLORSPACE_SRGB;  //???
+	format->colorspace = V4L2_COLORSPACE_SRGB;
 
 	return flscam_set_power(subdev, 1);
 }
@@ -519,13 +475,12 @@ static struct v4l2_subdev_video_ops flscam_subdev_video_ops = {
 	.s_stream       = flscam_s_stream,
 };
 
-
+//OK
 static struct v4l2_subdev_pad_ops flscam_subdev_pad_ops = {
 	.enum_mbus_code = flscam_enum_mbus_code,
 	.enum_frame_size = flscam_enum_frame_size,
 	.get_fmt = flscam_get_format,
 	.set_fmt = flscam_set_format,
-	.get_crop = flscam_get_crop,
 };
 
 //OK
@@ -545,7 +500,7 @@ static const struct v4l2_subdev_internal_ops flscam_subdev_internal_ops = {
 /* -----------------------------------------------------------------------------
  * Driver initialization and probing
  */
-
+//OK
 static int flscam_probe(struct i2c_client *client,
 			 const struct i2c_device_id *did)
 {
@@ -575,6 +530,7 @@ static int flscam_probe(struct i2c_client *client,
 
 	v4l2_ctrl_handler_init(&flscam->ctrls, ARRAY_SIZE(flscam_ctrls) + 1);
 
+	//Leaving in for now, but it does nothing
 	v4l2_ctrl_new_std(&flscam->ctrls, &flscam_ctrl_ops,
 			  V4L2_CID_EXPOSURE, FLSCAM_SHUTTER_WIDTH_MIN,
 			  FLSCAM_SHUTTER_WIDTH_MAX, 1,
@@ -599,11 +555,6 @@ static int flscam_probe(struct i2c_client *client,
 		goto done;
 
 	flscam->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-
-	flscam->crop.width = FLSCAM_WINDOW_WIDTH_DEF;
-	flscam->crop.height = FLSCAM_WINDOW_HEIGHT_DEF;
-	flscam->crop.left = FLSCAM_COLUMN_START_DEF;
-	flscam->crop.top = FLSCAM_ROW_START_DEF;
 
 	flscam->format.code = V4L2_MBUS_FMT_Y8_1X8;
 

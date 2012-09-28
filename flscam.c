@@ -13,7 +13,7 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/delay.h
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/i2c.h>

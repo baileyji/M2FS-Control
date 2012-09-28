@@ -22,17 +22,9 @@ static int beagle_cam_set_xclk(struct v4l2_subdev *subdev, int hz)
 	return isp->platform_cb.set_xclk(isp, hz, FLSCAM_XCLK);
 }
 
-static int beagle_cam_reset(struct v4l2_subdev *subdev, int active)
-{
-	/* Set RESET_BAR to !active */
-	gpio_set_value(FLSCAM_RESET_GPIO, !active);
-
-	return 0;
-}
 
 static struct flscam_platform_data beagle_flscam_platform_data = {
 	.set_xclk	= beagle_cam_set_xclk,
-	.reset		= beagle_cam_reset,
 	.ext_freq	= FLSCAM_EXT_FREQ,
 };
 
@@ -85,7 +77,7 @@ static int __init beagle_camera_init(void)
 	else
 		regulator_enable(reg_2v8);
 
-	omap_register_i2c_bus(2, 100, NULL, 0);
+	//omap_register_i2c_bus(2, 100, NULL, 0);
 	gpio_request_one(FLSCAM_CAM_FLD_GPIO, GPIOF_OUT_INIT_HIGH, "cam_fld");
 	omap3_init_camera(&beagle_isp_platform_data);
 

@@ -40,14 +40,14 @@ static struct isp_subdev_i2c_board_info flscam_camera_subdevs[] = {
 	},
 	{ NULL, 0, },
 };
-
+//TODO to i need to add a hsvs_syncdetect or wait_hs_vs
 static struct isp_v4l2_subdevs_group beagle_camera_subdevs[] = {
 	{
 		.subdevs = flscam_camera_subdevs,
 		.interface = ISP_INTERFACE_PARALLEL,
 		.bus = {
 			.parallel = {
-				.data_lane_shift = 0,
+				.data_lane_shift = 0x2, //It is 0x2 in the board file for the 2010 validation image
 				.clk_pol = 1,
 				.bridge = ISPCTRL_PAR_BRIDGE_DISABLE,
 			}

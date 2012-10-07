@@ -38,6 +38,10 @@ class SelectedConnection(object):
     def __getattr__(self, attr):
         return getattr(self.connection, attr)
 
+    def postConnect(self):
+        """ Called after establishing a connection subclass my implement and throw exception is connection is fails to meet desired criteria"""
+        pass
+    
     def trimReceivedString(self, string):
         """ remove \r\n \r\r \n\n \n\r \n \r from end of string. """
         chop=0
@@ -262,6 +266,7 @@ class SelectedSerial(SelectedConnection):
         try:
             self.connection=serial.Serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout)
+            self.postConnect()
         except Exception, e:
             self.connection=None
             raise ConnectError(e)
@@ -365,6 +370,7 @@ class SelectedSocket(SelectedConnection):
             thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             thesocket.setblocking(0)
             self.connection=thesocket
+            self.postConnect()
         except Exception, e:
             self.connection=None
             raise ConnectError(str(e))

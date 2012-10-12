@@ -223,6 +223,15 @@ void loop() {
     uint32_t t1=micros();
     if(t%5 ==0) cout<<"Run took "<<t1-t<<" us.\n";
   #endif
+  if (!locking_screw_disengaged) {
+  
+    if (stresscycles>0 && !tetris[0].moving()) {
+      stresscycles--;
+      if (tetris[0].currentPosition()==stressTopP)
+        tetris[0].positionAbsoluteMove(stressBottomP);
+      else
+        tetris[0].positionAbsoluteMove(stressTopP);
+    }
   
   //Do we leave the motors on while idle?
   if (!leave_tetris_on_when_idle) {

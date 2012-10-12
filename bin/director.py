@@ -13,26 +13,26 @@ class Director(Agent):
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
         self.galilAgentR_Connection=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['GalilAgentR'], self.logger)
+            agent_ports['GalilAgentR'])
         self.devices.append(self.galilAgentR_Connection)
         self.galilAgentB_Connection=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['GalilAgentB'], self.logger)
+            agent_ports['GalilAgentB'])
         self.devices.append(self.galilAgentB_Connection)
         #Slit Subsytem Controller
         self.slitController_Connection=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['SlitController'], self.logger)
+            agent_ports['SlitController'])
         self.devices.append(self.slitController_Connection)
         #Datalogger Agent
         self.dataloggerAgent_Connection=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['DataloggerAgent'], self.logger)
+            agent_ports['DataloggerAgent'])
         self.devices.append(self.dataloggerAgent_Connection)
         #Shack-Hartman Agent
         self.shackhatmanAgent_Connection=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['ShackHartmanAgent'], self.logger)
+            agent_ports['ShackHartmanAgent'])
         self.devices.append(self.shackhatmanAgent_Connection)
         #Plugging Controller
         self.plugController_Connection=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['PlugController'], self.logger)
+            agent_ports['PlugController'])
         self.devices.append(self.plugController_Connection)
         self.command_handlers.update({
 

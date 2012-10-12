@@ -14,15 +14,15 @@ import SelectedConnection
 from agent import Agent
 from command import Command
 
-MAX_CLIENTS=1
 
 class ShackHartmanAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShackHartmanAgent')
         #Initialize the agent
         self.args=self.cli_parser.parse_args()
-        self.shled=SelectedConnection.SelectedSerial('/dev/SHled', 115200, self.logger)
-        self.shlenslet=SelectedConnection.SelectedSerial('/dev/SHlenslet', 115200, self.logger, timeout=1)
+        self.shled=SelectedConnection.SelectedSerial('/dev/SHled', 115200)
+        self.shlenslet=SelectedConnection.SelectedSerial('/dev/SHlenslet',
+            115200, timeout=1)
         self.devices.append(self.shlenslet)
         self.devices.append(self.shled)
         self.max_clients=1

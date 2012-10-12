@@ -15,17 +15,17 @@ class DataloggerAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'DataloggerAgent')
         #Initialize the dataloggers
-        self.dataloggerR=datalogger.Datalogger('/dev/dataloggerR', 115200, self.logger)
-        self.dataloggerB=datalogger.Datalogger('/dev/dataloggerB', 115200, self.logger)
-        self.dataloggerC=datalogger.Datalogger('/dev/dataloggerC', 115200, self.logger)
+        self.dataloggerR=datalogger.Datalogger('/dev/dataloggerR', 115200)
+        self.dataloggerB=datalogger.Datalogger('/dev/dataloggerB', 115200)
+        self.dataloggerC=datalogger.Datalogger('/dev/dataloggerC', 115200)
         self.devices.append(self.dataloggerR)
         self.devices.append(self.dataloggerB)
         self.devices.append(self.dataloggerC)
         agent_ports=m2fsConfig.getAgentPorts()
         self.shoeR=SelectedConnection.SelectedSocket('localhost', 
-            agent_ports['ShoeAgentR'], self.logger)
+            agent_ports['ShoeAgentR'])
         self.shoeB=SelectedConnection.SelectedSocket('localhost', 
-            agent_ports['ShoeAgentB'], self.logger)
+            agent_ports['ShoeAgentB'])
         #self.devices.append(self.shoeR)
         #self.devices.append(self.shoeB)
         self.setupLoggerFiles()

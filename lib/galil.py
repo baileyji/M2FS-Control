@@ -64,15 +64,17 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         self.config={}
         if self.isOpen():
             self.initialize_galil()
+
+    def _postConnect(self):
+        """
+        Called after establishing a connection.
         
-    def connect(self):
-        if self.connection is not None:
-            return
+        Subclass may implement and throw and exception if the connection
+        is in any way unsuitable. Any return values are ignored. Exception text
+        will be raised as a connect error.
+        """
         expected_version='0.1000'
         try:
-            #Open the serial connection
-            self.connection=serial.Serial(self.port, self.baudrate, 
-                timeout=self.timeout)
             #Get the current threads
             self.update_executing_threads_and_commands()
             if self.thread_command_map['0']==None:
@@ -87,27 +89,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             response=self.send_command_to_gail('MG m2fsver')
             if response != expected_version:
                 error_message=("Incompatible Firmware, Galil reported '%s' , expected '%s'." %
-                    (response,expected_version))
+                               (response,expected_version))
                 raise SelectedConnection.ConnectError(error_message)
-        except serial.SerialException,e:
-            error_message="Connect to Galil failed. Exception: %s"% e 
-            self.logger.error(error_message)
-            #self.connection.close()
-            self.connection=None
-            raise SelectedConnection.ConnectError(error_message)
-        except IOError,e :
-            error_message="Connect to Galil failed. Exception: %s"% e 
-            self.logger.error(error_message)
-            #self.connection.close()
-            self.connection=None
-            raise SelectedConnection.ConnectError(error_message)
-        except GalilCommandNotAcknowledgedError, e:
-            error_message="Connect to Galil failed. Exception: %s"% e 
-            self.logger.error(error_message)
-            self.connection.close()
-            self.connection=None
-            raise SelectedConnection.ConnectError(error_message)
-                
+    
     def initialize_galil(self):
         #Check to see if we are connecting to the Galil for the first time after boot
         bootup1=self.send_command_to_gail('MG bootup1')

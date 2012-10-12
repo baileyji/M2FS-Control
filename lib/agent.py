@@ -130,7 +130,7 @@ class Agent(object):
         if len(self.sockets) < self.max_clients:
             connection.setblocking(0)
             connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            soc = SelectedSocket(addr[0],addr[1], self.logger,
+            soc = SelectedSocket(addr[0],addr[1],
                 Live_Socket_To_Use=connection,
                 default_message_received_callback=self.socket_message_received_callback)
             self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))

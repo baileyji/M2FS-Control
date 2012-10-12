@@ -14,10 +14,10 @@ class SlitController(Agent):
         #Connect to the shoes
         agent_ports=m2fsConfig.getAgentPorts()
         self.shoeAgentR_Connection=SelectedConnection.SelectedSocket(
-            'localhost', agent_ports['ShoeAgentR'], self.logger)
+            'localhost', agent_ports['ShoeAgentR'])
         self.devices.append(self.shoeAgentR_Connection)
         self.shoeAgentB_Connection=SelectedConnection.SelectedSocket(
-            'localhost', agent_ports['ShoeAgentB'], self.logger)
+            'localhost', agent_ports['ShoeAgentB'])
         self.devices.append(self.shoeAgentB_Connection)
         #No closed oop 
         self.closed_loop=0

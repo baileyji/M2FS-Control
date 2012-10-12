@@ -1,3 +1,5 @@
+import logging, sys
+
 class ReadError(IOError):
     pass
 
@@ -7,13 +9,13 @@ class WriteError(IOError):
 class ConnectError(IOError):
     pass
 
-import logging
-import sys
+
 class SelectedConnection(object):
-    def __init__(self, logger=None,
+    def __init__(self,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):
+        """ The sent and response callbacks are called iff a message is sent or recieved. If there is an error they will not be called."""
 
         self.logger=logging.getLogger('SelectedCon')
         self.defaultResponseCallback=default_message_received_callback
@@ -26,20 +28,53 @@ class SelectedConnection(object):
         self.in_buffer=''
 
     def __str__(self):
+        """ String form of connection to make easy status reporting """
         if self.isOpen():
             return 'Open SelectedConnection '+self.addr_str()
         else:
             return 'Closed SelectedConnection '+self.addr_str()
 
     def addr_str(self):
-        """ Implemented by subclass """
+        """ Report connection address. Implemented by subclass """
         pass
         
     def __getattr__(self, attr):
+        """ This is used to provide functionality with select """
         return getattr(self.connection, attr)
+    
+    
+    def connect(self):
+        """
+        Establish the connection.
+        
+        If a connection is open no action is taken, otherwise the
+        implementation specific connect is called, followed by the _postConnect
+        function.
+        All exceptions are trapped and raised as a ConnectError.
+        If an error is raised, the connection is not open.
+        """
+        if self.isOpen():
+            return
+        try:
+            self.implementationSpecificConnect()
+            self._postConnect()
+        except Exception, e:
+            self.logger.info('Connect failed: %s'%str(e))
+            self.connection=None
+            raise ConnectError(str(e))
 
-    def postConnect(self):
-        """ Called after establishing a connection subclass my implement and throw exception is connection is fails to meet desired criteria"""
+    def isOpen(self):
+        """ Returns true if the connection is established. Override in subclass"""
+        return false
+
+    def _postConnect(self):
+        """
+        Called after establishing a connection.
+        
+        Subclass may implement and throw and exception if the connection
+        is in any way unsuitable. Any return values are ignored. Exception text
+        will be raised as a connect error.
+        """
         pass
     
     def trimReceivedString(self, string):
@@ -55,41 +90,67 @@ class SelectedConnection(object):
             return string
     
     def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
-        if not self.isOpen():
-            self.logger.debug("Send %s to %s. Attempting open"%(message, self)) 
-            try:
-                self.connect()
-            except ConnectError, err:
-                self.connection=None
-                err="Unable to send '%s' on %s" % (message, str(self))
-                if not errorCallback:
-                    self.logger.error(err)
-                    raise err
-                else:
-                    errorCallback('ERROR: '+err)
-        if message=='' or self.out_buffer!='':
+        """
+        Place the string <message> in the output buffer to be sent next time
+        connection is selected.
+
+        It is an error to send a message while there remains data in the output
+        buffer. If done a WriteError is raised and the error logged. No other 
+        action is taken.
+
+        If the connection is not open, an attempt will be made to establish a 
+        connection by the standard procedure. If the connection can not be
+        established the errorCallback is called with a failure message else a
+        connect error is raised.
+        
+        If defined, errorCallback will update the curent error callback handler.
+        If defined and the message is placed into the output buffer, sentCallback and
+        responseCallback will update their respective callback handlers.
+        
+        If message is not \n terminated a \n will be appended.
+        
+        """
+        if self.out_buffer!='':
+            err="Attempting to send %s on non-empty buffer"% message
+            self.logger.error(err)
+            raise WriteError(err)
+        if errorCallback is not None:
+            self.errorCallback=errorCallback
+        try:
+            self.connect()
+        except ConnectError, err:
+            self.connection=None
+            err="Unable to send '%s' on %s" % (message, str(self))
+            self.handle_error(error=err)
+            raise WriteError(err)
+        if message=='':
             return
         if message[-1] !='\n':
-            self.out_buffer=message+'\n'
-        else:
-            self.out_buffer=message
+            message=message+'\n'
+        self.out_buffer=message
         if responseCallback is not None:
             self.responseCallback=responseCallback
         if sentCallback is not None:
             self.sentCallback=sentCallback
-        if errorCallback is not None:
-            self.errorCallback=errorCallback
     
     def sendMessageBlocking(self, message):
-        """ Send a string immediately, appends string terminator if needed"""
-        if not self.isOpen():
-            try:
-                self.connect()
-            except ConnectError, err:
-                self.connection=None
-                err="Attempted to send '%s' to '%s' but coudn't connect." % (message, self.addr_str())
-                self.logger.error(err)
-                raise IOError(err)
+        """
+        Send the string message immediately.
+        
+        If the connection is not open, an attempt will be made to establish a
+        connection by the standard procedure.
+        
+        Raises WriteError if message cannot be sent, or is only sent in part.
+        
+        If message is not \n terminated a \n will be appended.
+        """
+        try:
+            self.connect()
+        except ConnectError, err:
+            self.connection=None
+            err="Attempted to send '%s' to '%s' but coudn't connect." % (message, self.addr_str())
+            self.logger.error(err)
+            raise WriteError(err)
         if not message:
             return
         if message[-1]!='\n':
@@ -108,14 +169,13 @@ class SelectedConnection(object):
     
     def receiveMessageBlocking(self, nBytes=0, timeout=None):
         """Wait for a response, chops \r & \n off response if present"""
-        if not self.isOpen():
-            try:
-                self.connect()
-            except ConnectError, err:
-                self.connection=None
-                err="Attempting to receive %s" % str(self)
-                self.logger.error(err)
-                raise IOError(err)
+        try:
+            self.connect()
+        except ConnectError, err:
+            self.connection=None
+            err="Attempting to receive on %s" % str(self)
+            self.logger.error(err)
+            raise ReadError(err)
         try:
             response=self.implementationSpecificBlockingReceive(nBytes, timeout)
             self.logger.debug("BlockingReceive got: '%s'" % 
@@ -127,13 +187,17 @@ class SelectedConnection(object):
     
     def handle_error(self, error=None):
         """ Connection fails"""
-        self.logger.error("Error %s on %s." %(error, self.addr_str()))
-        self.handle_disconnect()
-        
-    def handle_disconnect(self):
-        """Disconnect"""
+        err="ERROR: %s on %s." %(error, self.addr_str())
+        self.logger.error(err)
+        if self.errorCallback !=None:
+            callback=self.errorCallback
+            self.errorCallback=self.defaultErrorCallback
+            callback(self,err)
+        self._handle_disconnect()
+
+    def _handle_disconnect(self):
+        """Disconnect, clearing output buffer"""
         if self.connection is None:
-            self.logger.error('Handle_Disconnect called on already disconnected %s' % self)
             return
         self.logger.info("%s disconnecting." % self)
         self.out_buffer=''
@@ -143,18 +207,13 @@ class SelectedConnection(object):
             self.logger.debug('implementationSpecificDisconnect caused exception: %s'%str(e))
         self.connection = None
         self.sentCallback=self.defaultSentCallback
-        if self.errorCallback !=None:
-            callback=self.errorCallback
-            self.errorCallback=self.defaultErrorCallback
-            callback(self,'ERROR: Lost Connection %s'%self.addr_str())
-        elif self.responseCallback != None:
-            callback=self.responseCallback
-            self.responseCallback=self.defaultResponseCallback
-            callback(self,'ERROR (not response): Lost Connection %s'%self.addr_str())
+        self.responseCallback=self.defaultResponseCallback
+        self.errorCallback=self.defaultErrorCallback
     
     def close(self):
+        """ Terminate the connection"""
         if self.isOpen():
-            self.handle_disconnect()
+            self._handle_disconnect()
             
     def do_select_read(self):
         """ Do select for read whenever the connection is open """
@@ -209,12 +268,12 @@ class SelectedConnection(object):
         
 import serial, termios
 class SelectedSerial(SelectedConnection):
-    def __init__(self, port, baudrate, logger,
+    def __init__(self, port, baudrate,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None,timeout=None):
                 
-        SelectedConnection.__init__(self, logger=logger,
+        SelectedConnection.__init__(self,
                 default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
                 default_message_error_callabck=default_message_error_callabck)
@@ -228,7 +287,7 @@ class SelectedSerial(SelectedConnection):
             self.connect()
         except ConnectError, err:
             self.connection=None
-            self.logger.info('Could not connect to %s. %s' % 
+            self.logger.info('Could not connect to %s. %s' %
                 (self.addr_str(),str(err)))
     
     def addr_str(self):
@@ -260,16 +319,9 @@ class SelectedSerial(SelectedConnection):
                 self.connection.timeout=saved_timeout
         return response
     
-    def connect(self):
-        if self.connection is not None:
-            return
-        try:
-            self.connection=serial.Serial(self.port, baudrate=self.baudrate,
+    def implementationSpecificConnect(self):
+        self.connection=serial.Serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout)
-            self.postConnect()
-        except Exception, e:
-            self.connection=None
-            raise ConnectError(e)
     
     def implementationSpecificRead(self):
         """ Perform a device specific read, Rais ReadError if no data or any error """
@@ -297,28 +349,29 @@ class SelectedSerial(SelectedConnection):
             self.connection.flushOutput()
             self.connection.flushInput()
             self.connection.close()
-        except termios.error:
+        except Exception:
           pass
-
     
     def isOpen(self):
         return self.connection is not None and self.connection.isOpen()
         
 import socket
 class SelectedSocket(SelectedConnection):
-    def __init__(self, host, port, logger, Live_Socket_To_Use=None,
+    def __init__(self, host, port, Live_Socket_To_Use=None,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):
-        SelectedConnection.__init__(self, logger=logger,
+        SelectedConnection.__init__(self,
                 default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
                 default_message_error_callabck=default_message_error_callabck)
         self.host=host
         self.port=port
         creation_message='Creating SelectedSocket: '+self.addr_str()
-        if Live_Socket_To_Use:
+        if isinstance(Live_Socket_To_Use, socket.socket):
             creation_message+=' with live socket.'
+        elif Live_Socket_To_Use:
+            raise TypeError("Live_socket_to_use must be a socket")
         self.logger.debug(creation_message)
         if Live_Socket_To_Use:
             self.connection=Live_Socket_To_Use
@@ -361,19 +414,12 @@ class SelectedSocket(SelectedConnection):
                 self.connection.settimeout(saved_timeout)
         return response
     
-    def connect(self):
-        if self.connection is not None:
-            return
-        try:
-            thesocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            thesocket.connect((self.host, self.port))
-            thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            thesocket.setblocking(0)
-            self.connection=thesocket
-            self.postConnect()
-        except Exception, e:
-            self.connection=None
-            raise ConnectError(str(e))
+    def implementationSpecificConnect(self):
+        thesocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        thesocket.connect((self.host, self.port))
+        thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        thesocket.setblocking(0)
+        self.connection=thesocket
    
     def implementationSpecificRead(self):
         """ Perform a device specific read, Raise ReadError if no data or any error """
@@ -397,9 +443,9 @@ class SelectedSocket(SelectedConnection):
         """disconnection specific to socket"""
         try:
             self.connection.shutdown(socket.SHUT_RDWR)
-        except socket.error:
+            self.connection.close()
+        except Exception:
             pass
-        self.connection.close()
     
     def isOpen(self):
         return self.connection is not None

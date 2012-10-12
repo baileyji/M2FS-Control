@@ -46,7 +46,7 @@ class GalilAgent(Agent):
             'FLSIM_DEFREM':self.defaults_command_handler,
             'GES_DEFSWPSTEP':self.defaults_command_handler,
             'GES_DEFSWPENC':self.defaults_command_handler})
-        self.galil=GalilSerial(self.args.DEVICE, 115200, self.logger, 
+        self.galil=GalilSerial(self.args.DEVICE, 115200,
             timeout=0.5, SIDE=self.args.SIDE)
         self.devices.append(self.galil)
     

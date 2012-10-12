@@ -11,38 +11,29 @@ from command import Command
 
 import termios
 class ShoeSerial(SelectedConnection.SelectedSerial):
-    def connect(self):
-        if self.connection is not None:
-            return
+    def _postConnect(self):
+        """
+        Called after establishing a connection.
+        
+        Subclass may implement and throw and exception if the connection
+        is in any way unsuitable. Any return values are ignored. Exception text
+        will be raised as a connect error.
+        """
         expected_version_string='Fibershoe v0.1'
-        try:
-            self.connection=serial.Serial(self.port, self.baudrate, 
-                timeout=self.timeout)
-            time.sleep(1)
-            self.sendMessageBlocking('PV\n')
-            response=self.receiveMessageBlocking().replace(':','')
-            #response=expected_version_string #DEBUGGING LINE OF CODE
-            if response != expected_version_string:
-                if 'Powered Down' in response:
-                    error_message="Shoe locking nut disengaged"
-                else:
-                    error_message=("Incompatible Firmware."+
-                        "Shoe reported '%s' , expected '%s'." %
-                        (response,expected_version_string))
-                self.connection.close()
-                self.connection=None
-                raise SelectedConnection.ConnectError(error_message)
-        except serial.SerialException,e:
-            error_message="Failed initialize serial link. Exception: %s"% e 
-            self.logger.error(error_message)
-            self.close()
+        time.sleep(1)
+        self.sendMessageBlocking('PV\n')
+        response=self.receiveMessageBlocking().replace(':','')
+        #response=expected_version_string #DEBUGGING LINE OF CODE
+        if response != expected_version_string:
+            if 'Powered Down' in response:
+                error_message="Shoe locking nut disengaged"
+            else:
+                error_message=("Incompatible Firmware."+
+                    "Shoe reported '%s' , expected '%s'." %
+                    (response,expected_version_string))
+            self.connection.close()
             self.connection=None
             raise SelectedConnection.ConnectError(error_message)
-        except IOError,e :
-            self.logger.error(str(e))
-            self.close()
-            self.connection=None
-            raise SelectedConnection.ConnectError(str(e))
     
     def implementationSpecificDisconnect(self):
         """disconnection specific to serial"""
@@ -63,7 +54,7 @@ class ShoeAgent(Agent):
         #Initialize the shoe
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/shoe'+self.args.SIDE
-        self.shoe=ShoeSerial(self.args.DEVICE, 115200, self.logger, timeout=1)
+        self.shoe=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         self.devices.append(self.shoe)
         self.max_clients=2
         self.command_handlers={

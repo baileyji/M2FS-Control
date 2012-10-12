@@ -16,58 +16,40 @@ from command import Command
 
 MAX_CLIENTS=1
 
-class ShoeFirmwareError(SelectedConnection.ConnectError):
-    pass
-
 import termios
-class PluggingDisplaySerial(SelectedConnection.SelectedSerial):
-    def connect(self):
-        if self.connection is None:
-            expected_version_string='Sharck-Hartman v0.1'
-            try:
-                self.connection=serial.Serial(self.port, self.baudrate, 
-                    timeout=self.timeout)
-                time.sleep(1)
-                self.sendMessageBlocking('PV\n')
-                response=self.receiveMessageBlocking().replace(':','')
-                #response=expected_version_string #DEBUGGING LINE OF CODE
-                if response != expected_version_string:
-                    error_message=("Incompatible Firmware. Shoe reported '%s' , expected '%s'." %
-                        (response,expected_version_string))
-                    self.connection.close()
-                    self.connection=None
-                    raise ShoeFirmwareError(error_message)
-            except serial.SerialException,e:
-                error_message="Failed initialize serial link. Exception: %s"% e 
-                self.logger.error(error_message)
-                #self.connection.close()
-                self.connection=None
-                raise SelectedConnection.ConnectError(error_message)
-            except IOError,e :
-                if type(e)==type(ShoeFirmwareError):
-                  raise e
-                error_message="Shoe failed to handshake. %s"%e
-                self.logger.error(error_message)
-                #self.connection.close()
-                self.connection=None
-                raise SelectedConnection.ConnectError(error_message)
+
 
 class FeedbackAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'PluggingAgent')
         #Initialize the shoe
         self.misplugAudioFile=m2fsConfig.getMisplugAudioFilename()
-        self.display=serial.Serial('/dev/pluggingDisplay', 19200)
+        self.status='OK'
         self.max_clients=1
         self.misplug_messages={}
-        self.command_handlers.update({
-            'MISPLUG':self.MISPLUG_command_handler})
-    
+        self.command_handlers.update({'MISPLUG':self.MISPLUG_command_handler}
+                    'DISPLAYOFF':self.DISPLAYOFF_command_handler)
+        try:
+            self.display=serial.Serial('/dev/pluggingDisplay', 115200)
+            self.display.write('\x14') #cursor off
+            # Set brightness to 200% (25-200% set by changing final byte from 1-8)
+            self.display.write('\x1F\x58\x08')
+            
     def listenOn(self):
         return ('localhost', self.PORT)
     
     def get_version_string(self):
         return 'Feedback Agent Version 0.1'
+    
+    def DISPLAYOFF_command_handler(self, command):
+        command.setReply('OK')
+        try:
+            self.display.write('\x1F\x28\x61\x40\x00')
+        except Exception, e:
+            self.status['Display']='disconnected'
+
+    def status_command_handler(self, command):
+        command.setReply('%s %s'%(self.displayStatus, self.speakerStatus))
 
     def MISPLUG_command_handler(self, command):
         """ Play sound on side and display message
@@ -104,8 +86,9 @@ class FeedbackAgent(Agent):
     
     def update_display_text(self):
         """ Show the current misplug info on the display """
-        self.display.write('\x??') #cursor home
-        self.display.write('\n'.join(self.misplug_messages.values())
+        self.display.write('\x1F\x28\x61\x40\x01') #display on
+        self.display.sendMessageBlocking('\x0C') #cursor home
+        self.display.sendMessageBlocking(''.join(self.misplug_messages.values())
     
     def play_misplug(self, pan):
         """ TODO: Play misplug sound with pan setting """

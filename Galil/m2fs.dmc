@@ -241,7 +241,7 @@ HRTLTLK=true;HRAZLK=true;'Start assuming locked
 LCKVOLT=2 ;'Determined empirically, > => locked 
 
 'LoRes Tilt defines
-lrthmos=6400;' Amount to overshoot home before creeping back (TODO:refine guess)
+lrthmos=6400;'Amount to overshoot home before creeping back (TODO:refine guess)
 lrtinpt=9;'  Digital in corresponding to the LoRes origin sensor
 lrtinhx=$9;'  Digital in corresponding to the LoRes origin sensor in hex
 lrtathm=1 ;'  value of origin sensor (via @IN) when at home
@@ -268,18 +268,7 @@ feselfp[8]=feselfp[7]+16*200*28.5
 felencsp=317;'.5" filter spacing, 317 counts measured ?? nominal
 DM felencp[^a]
 
-;'Blue side 8/28/12
-felencp[0]=79;'4.2803
-felencp[1]=378;'felencp[0]+felencsp
-felencp[2]=670;'felencp[1]+felencsp
-felencp[3]=961.2;'felencp[2]+felencsp
-felencp[4]=1256;'felencp[3]+felencsp
-felencp[5]=1529;'felencp[4]+felencsp
-felencp[6]=1812;'felencp[5]+felencsp
-felencp[7]=2096;'felencp[6]+felencsp
-felencp[8]=3848;'felencp[7]+1732;'Load position is an additional 2.85" further
-
-;'Red side 8/28/12
+REM Red side 8/28/12
 felencp[0]=116.7;'4.2803
 felencp[1]=413;'felencp[0]+felencsp
 felencp[2]=705;'felencp[1]+felencsp
@@ -289,6 +278,17 @@ felencp[5]=1559;'felencp[4]+felencsp
 felencp[6]=1842.7;'felencp[5]+felencsp
 felencp[7]=2128;'felencp[6]+felencsp
 felencp[8]=3837;'felencp[7]+1732;'Load position is an additional 2.85" further
+
+REM Blue side 8/28/12
+felencp[0]=79;'4.2803
+felencp[1]=378;'felencp[0]+felencsp
+felencp[2]=670;'felencp[1]+felencsp
+felencp[3]=961.2;'felencp[2]+felencsp
+felencp[4]=1256;'felencp[3]+felencsp
+felencp[5]=1529;'felencp[4]+felencsp
+felencp[6]=1812;'felencp[5]+felencsp
+felencp[7]=2096;'felencp[6]+felencsp
+felencp[8]=3848;'felencp[7]+1732;'Load position is an additional 2.85" further
 
 'Allowable range (+/-) in encoder counts around nominal filter position
 feselrg=2 ;'2 is about 0.003"
@@ -737,7 +737,7 @@ ELSE; ~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1))
 ELSE;
 'Make doubly sure the position is stable
 JS#WAITAMF(^a)
- ~a=^a; MG "GETFOC:",focanap,_TD~a
+~a=^a; MG "GETFOC:",focanap,_TD~a
 ENDIF;ENDIF;ENDIF
 EN
 

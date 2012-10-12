@@ -29,10 +29,19 @@ def main():
     data=map(lambda x:x.replace('\n','\r'),data)
     data=map(lambda x:x.replace('\t',' '),data)
     
+    fail=False
     for l in data:
         if '\\' in l:
             print 'Forbidden character (\\) in line:'
             print '     '+l
+            fail=True
+        if len(l)>80:
+            print 'Line too long: (%i)'%len(l)
+            print '     '+l
+            fail=True
+    if fail:
+        print "File not suitable for upload"
+        exit(0)
             
     #open serial connection
     try:

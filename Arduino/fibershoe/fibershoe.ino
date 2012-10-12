@@ -7,10 +7,10 @@
 #include "fibershoe_pins.h"
 
 #define POWERDOWN_DELAY_US  1000
-#define VERSION_STRING "Fibershoe v0.2"
+#define VERSION_STRING "Fibershoe v0.3"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
-#define N_COMMANDS 25
+#define N_COMMANDS 26
 
 //#define DEBUG
 
@@ -28,16 +28,26 @@ char command_buffer[81];
 unsigned char command_buffer_ndx=0;
 unsigned char command_length=0;
 bool have_command_to_parse=false;
-bool leave_tetris_on_when_idle=false;
+bool leave_tetris_on_when_idle=true;
 
 bool tempRetrieved=false;
 unsigned long time_of_last_temp_request=0;
 unsigned long time_since_last_temp_request=0xFFFFFFFF;
+//Boot assuming locking nut is disengaged
+bool locking_screw_disengaged=true;
 
+
+//Stress testing
+unsigned long stresscycles=0;
+long stressBottomP=0;
+long stressTopP=0;
+
+#define CY_COMMAND_NDX 3
 String commands[N_COMMANDS]={
   "AC",//set acceleration
-  "AH",//Enable Active Holding (default disabled)
+  "AH",//Enable Active Holding (default enabled)
   "BL",//Define backlash
+  "CY",//Cycle tetris A N times from stressBottomP to stressTopP
   "DH",//Drive to hardstop
   "DP",//Define current position as X
   "DS",//Disconnect Shoe, power off shoe, saving current position data no further commands will be accepted until shoe is reset
@@ -65,6 +75,7 @@ bool (*cmdFuncArray[N_COMMANDS])() = {
   ACcommand,//set acceleration
   AHcommand,
   BLcommand,//Define backlash
+  CYcommand,
   DHcommand,//Drive to hardstop
   DPcommand,//Define current position as X
   DScommand,
@@ -85,8 +96,8 @@ bool (*cmdFuncArray[N_COMMANDS])() = {
   TDcommand,                
   TEcommand,//Report temp
   TScommand,
-  powerUpTetrisShield,
-  powerDownTetrisShield
+  enableTetrisVreg,
+  disableTetrisVreg
   };
   
 void serialEvent() {
@@ -149,41 +160,44 @@ void setup() {
   tetris[7]=Tetris(TETRIS_8_RESET, TETRIS_8_STANDBY, TETRIS_8_DIR, 
     TETRIS_8_CK, TETRIS_8_PHASE_HOME);
   
-  loadMotorPositionsFromEEPROM();
-  
   // Start serial connection
-  Serial.begin(115200);
+  Serial.begin(115200);delay(300);
   
-  //Boot assuming locking nut is disengaged
-  boolean locking_screw_disengaged=true;
-    
 }
 
 void loop() {
 
   // If the locking screw reads as disengaged...
-  if (digitalRead(DISCONNECT_SHOE_PIN)){ 
+  if (digitalRead(DISCONNECT_SHOE_PIN)){
     //and this is a state change... 
     if (!locking_screw_disengaged)
+    {
+      #ifdef DEBUG
+        cout<<"Locking screw disengaged.\n";
+      #endif
       // power down (NB DScommand() sets locking_screw_disengaged=true)
       DScommand();
+    }
   }
   else { //the screw reads as engaged
     //If this would be a state change...
     if (locking_screw_disengaged) {
       //debounce switch
       uint8_t i=200;
-      while (!digitalRead(DISCONNECT_SHOE_PIN) && (i-- > 0) ) 
-        delay(1);
+      while (!digitalRead(DISCONNECT_SHOE_PIN) && (i-- > 1) ) delay(1);
       //If the locking screw is engaged power up and accept commands
       if (i==0) {
+        #ifdef DEBUG
+          cout<<"Locking screw reingaged.\n";
+        #endif
+        loadMotorPositionsFromEEPROM();
         locking_screw_disengaged=false;
-        powerUpTetrisShield();
+        enableTetrisVreg();
         delay(20); //Wait a short time for the vreg to stabilize
       }
     }
   }
-  
+
   // Request and fetch the temperature regularly
   if (time_since_last_temp_request > TEMP_UPDATE_INTERVAL_MS) {
     tempSensor.requestTemperatures();
@@ -207,22 +221,15 @@ void loop() {
     }
     else {
       bool commandGood=parseAndExecuteCommand();
-      if (commandGood) Serial.write(":\n");
+      if (commandGood) {
+        Serial.write(":\n");
+      }
       else Serial.write("?\n");
     }
     have_command_to_parse=false;
     command_buffer_ndx=0;
   }
   
-  // Call run on each tetris
-  #ifdef DEBUG
-    uint32_t t=micros();
-  #endif
-  for(int i=0;i<8;i++) tetris[i].run();
-  #ifdef DEBUG
-    uint32_t t1=micros();
-    if(t%5 ==0) cout<<"Run took "<<t1-t<<" us.\n";
-  #endif
   if (!locking_screw_disengaged) {
   
     if (stresscycles>0 && !tetris[0].moving()) {
@@ -233,18 +240,36 @@ void loop() {
         tetris[0].positionAbsoluteMove(stressTopP);
     }
   
-  //Do we leave the motors on while idle?
-  if (!leave_tetris_on_when_idle) {
-    for (unsigned char i=0; i<8; i++) 
-      if (!tetris[i].moving()) tetris[i].motorOff();
+    // Call run on each tetris
+    #ifdef DEBUG_RUN_TIME
+      uint32_t t=micros();
+    #endif
+    for(int i=0;i<8;i++) tetris[i].run();
+    #ifdef DEBUG_RUN_TIME
+      uint32_t t1=micros();
+      if((t1-t)>80) cout<<"Run took "<<t1-t<<" us.\n";
+    #endif
+    
+    if (stresscycles>0 && !tetris[0].moving() && tetris[0].currentPosition()==stressBottomP) {
+      cout<<"Cycle "<<(stresscycles+1)/2<<" finished.\n";
+      delay(100);
+    }
+    
+    
+    //Do we leave the motors on while idle?
+    if (!leave_tetris_on_when_idle) {
+      for (unsigned char i=0; i<8; i++) 
+        if (!tetris[i].moving()) tetris[i].motorOff();
+    }
   }
-
 }
 
 bool parseAndExecuteCommand() {
   if(command_length < 2) return false;
   char ndx=getCallbackNdxForCommand();
   if (ndx == -1 ) return false;
+  if (ndx != CY_COMMAND_NDX)
+    stresscycles=0;
   return cmdFuncArray[ndx]();
 } 
 
@@ -260,7 +285,8 @@ char getCallbackNdxForCommand() {
 
 bool DScommand() {
   //HOME AND HALT EVERYTHING
-  powerDownTetrisShield();
+  stresscycles=0;
+  disableTetrisVreg();
   #ifdef DEBUG
     uint32_t t=millis();
   #endif
@@ -293,6 +319,9 @@ void saveMotorPositionsToEEPROM() {
     EEPROMwrite32bitval(128+4*i, tetris[i].currentPosition());
   }
   EEPROM.write(32, 0x81); EEPROM.write(33, 0x81);
+  #ifdef DEBUG
+    cout<<"Positions saved"<<endl;
+  #endif
 }
 bool loadMotorPositionsFromEEPROM() {
   if(EEPROM.read(32)==0x81 && EEPROM.read(33)==0x81) {
@@ -300,7 +329,12 @@ bool loadMotorPositionsFromEEPROM() {
       int32_t v1,v2;
       v1 = (int32_t) EEPROMread32bitval(4*i);
       v2 = (int32_t) EEPROMread32bitval(4*i+128);
-      if (v1==v2) tetris[i].definePosition( v1 );;
+      if (v1==v2) {
+        tetris[i].definePosition( v1 );
+        #ifdef DEBUG
+          cout<<"Tetris "<<(uint16_t)i<<" position "<<v1<<" restored."<<endl;
+        #endif
+      }
     }
     EEPROM.write(32, 0);EEPROM.write(33, 0);
   }
@@ -315,7 +349,7 @@ void printCommandBufNfo(){
 }
 #endif
 
-bool tetrisShieldIsPowered() {
+bool tetrisVregIsEnabled() {
   return digitalRead(TETRIS_MOTORS_POWER_ENABLE);
 }
 
@@ -335,8 +369,8 @@ unsigned char getAxisForCommand() {
   return axis;
 }
 
-bool powerDownTetrisShield() {
-  if (tetrisShieldIsPowered()) {
+bool disableTetrisVreg() {
+  if (tetrisVregIsEnabled()) {
     for(int i=0;i<8;i++) tetris[i].motorOff();
     delayMicroseconds(POWERDOWN_DELAY_US);
     digitalWrite(TETRIS_MOTORS_POWER_ENABLE,LOW);
@@ -344,8 +378,8 @@ bool powerDownTetrisShield() {
   return true;
 }
 
-bool powerUpTetrisShield() {
-  if (!tetrisShieldIsPowered()){
+bool enableTetrisVreg() {
+  if (!tetrisVregIsEnabled()){
     for(int i=0;i<8;i++) tetris[i].motorOff();
     delayMicroseconds(POWERDOWN_DELAY_US);
     digitalWrite(TETRIS_MOTORS_POWER_ENABLE,HIGH);
@@ -431,7 +465,7 @@ bool TScommand() {
   for (int i=0;i<8;i++) statusBytes[0]|=(tetris[i].moving()<<i);
   for (int i=0;i<8;i++) statusBytes[1]|=(tetris[i].isCalibrated()<<i);
   for (int i=0;i<8;i++) statusBytes[2]|=(tetris[i].motorIsOn()<<i);
-  statusBytes[3]=(tetrisShieldIsR()<<1)|tetrisShieldIsPowered();
+  statusBytes[3]=(tetrisShieldIsR()<<1)|tetrisVregIsEnabled();
   cout<<statusBytes[3]<<" "<<statusBytes[2]<<" "<<statusBytes[1]<<" "<<statusBytes[0];
   return true;
 }
@@ -487,7 +521,7 @@ bool STcommand(){
 bool SHcommand(){
   unsigned char axis = getAxisForCommand();
   if ( axis >8 ) return false;
-  powerUpTetrisShield();
+  enableTetrisVreg();
   if(axis==0) for(int i=0;i<8;i++) tetris[i].motorOn();
   else tetris[axis-1].motorOn();
   return true;
@@ -720,3 +754,35 @@ bool PCcommand() {
   cout<<"#BLx# Backlash - Set the amount of backlash of tetris x to # (usteps)";Serial.write('\n');
   return true;
 }
+
+bool CYcommand() {
+  
+  int command_offset=3;
+  char * searchstr=" ";
+  
+  if (command_offset >= command_length) return false;
+    
+  stresscycles=2*atol(command_buffer+command_offset);
+  
+  command_offset+=strcspn(command_buffer+command_offset, searchstr)+1;
+  if (command_offset >= command_length) return false;
+  
+  stressBottomP=atol(command_buffer+command_offset);
+  
+  command_offset+=strcspn(command_buffer+command_offset, searchstr)+1;
+  if (command_offset >= command_length) return false;
+  
+  stressTopP=atol(command_buffer+command_offset);
+
+  #ifdef DEBUG
+    cout<<stresscycles/2<<" "<<stressTopP<<"  "<<stressBottomP;Serial.write('\n');  
+  #endif
+
+  if (stressTopP>=stressBottomP || stressTopP<-8000 || stressBottomP>1000) {
+    stressBottomP=stressTopP=0;
+    return false;
+  }
+
+  return true;
+}
+

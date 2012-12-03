@@ -7,7 +7,36 @@ from m2fsConfig import m2fsConfig
 
 SERVER_RETRY_TIME=10
 class Agent(object):
+    """
+    Base Class for (nearly) all M2FS controll programs
+    
+    The base class provides the basic functionality for the program. 
+    It configures logging.
+    It handles incomming socket connections
+    It does the basic grunt work of listening for incomming commands and calling
+    the appropriate handler.
+    It sends the command responses after the command object indicates it has completed
+    It runs the main even loop which uses select to read and write on all agent conections, whether inbound or outbound.
+    
+    It is my intention to make the individual connections their own threads,
+    removing the necessity of the select call in the event loop and allowing data non-blocking sends and secieves even within command handlers.
+    """ 
     def __init__(self, basename):
+        """
+        Initialize the agent
+        
+        Set max clients to 1 (Only receive commands from one connection).
+        Create an instance cookie.
+        Parse command line arguments (override default set by subclassing 
+        initialize_cli_parser()
+        Initialize logging.
+        Register default command handlers for STATUS and VERSION
+        Parse the command line arguments and place in self.args
+        Start listening for connections on user supplied port. If no port 
+        supplied, get port for agent from m2fsconfig
+        
+        Registers and exit handler for SIGTERM and SIGINT
+        """
         self.sockets=[]
         self.devices=[]
         self.commands=[]
@@ -41,7 +70,12 @@ class Agent(object):
             'VERSION':self.version_request_command_handler}
     
     def initialize_logger(self):
-        """Configure logging"""
+        """
+        Configure logging
+        
+        Set logging level to DEBUG, set message format, log to stdout
+        Set self.logger to logger of self.name
+        """
         #Configure the root logger
         self.logger=logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
@@ -58,7 +92,11 @@ class Agent(object):
         self.logger=logging.getLogger(self.name)
 
     def initialize_cli_parser(self):
-        """Configure the command line interface"""
+        """Configure the command line interface
+        
+        If and argument is stored to dest=SIDE it will be appended to the agent
+        name.
+        """
         #Create a command parser with the default agent commands
         helpdesc="This is the instrument interface"
         cli_parser = argparse.ArgumentParser(
@@ -71,9 +109,26 @@ class Agent(object):
                                 action='store', required=False, type=int,
                                 help='the port on which to listen')
         self.cli_parser=cli_parser
-            
+        self.add_additional_cli_arguments()
+    
+    def add_additional_cli_arguments(self)
+        """
+        Additional CLI arguments may be added by implementing this function.
+        
+        Arguments should be added as:
+        self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
+        """
+        pass
+    
     def initialize_socket_server(self, tries=0):
-        """ Start listening for socket connections """
+        """
+        Start listening for socket connections
+        
+        Creat a non-blocking server socket on self.listenOn()
+        In the even of a socket error sleep SERVER_RETRY_TIME and retry
+         tries times.
+        If unable to initialize the socket call the server error handler
+        """
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.setblocking(0)
@@ -89,7 +144,15 @@ class Agent(object):
                 self.handle_server_error(error=msg)
     
     def listenOn(self):
-        """ Implemented by subclass """
+        """ 
+        Return an address tuple on which the server shall listen. 
+        Implemented by subclass
+        Must return a tuple of form (address, port) address must be a string,
+        port a number, self.PORT may be used for the default port.
+        
+        For most agents this function will be:
+        return ('localhost', self.PORT)
+        """
         pass
     
     def socket_message_received_callback(self, source, message_str):
@@ -105,10 +168,18 @@ class Agent(object):
             self.command_handlers.get(command_name.upper(), self.bad_command_handler)(command)
         
     def get_version_string(self):
+        """ Return a string with the version. Subclasses should override. """
         return 'AGENT Base Class Version 0.1'
     
     def on_exit(self, arg):
-        """Prepare to exit"""
+        """
+        Prepare to exit
+        
+        Log exit
+        shutdown server socket
+        close all open connections
+        wait 1 second
+        """
         self.logger.info("exiting %s" % arg)
         if self.server_socket:
             try:
@@ -123,7 +194,15 @@ class Agent(object):
         time.sleep(1)
     
     def handle_connect(self):
-        """Server socket gets a connection"""
+        """
+        Callback for when select indicates read on a server socket connection.
+        
+        Accept connection. 
+        Close if already have self.max_clients connections
+        Else,
+        Create a SelectedConnection
+        (SelectedSocket, I havent actually fully abstracted this yet)
+                        """
         # accept a connection in any case, close connection
         # below if already busy
         connection, addr = self.server_socket.accept()

@@ -111,7 +111,7 @@ class Agent(object):
         self.cli_parser=cli_parser
         self.add_additional_cli_arguments()
     
-    def add_additional_cli_arguments(self)
+    def add_additional_cli_arguments(self):
         """
         Additional CLI arguments may be added by implementing this function.
         

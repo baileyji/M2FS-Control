@@ -58,39 +58,36 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'loresSwapStep':'GES','loresSwapEncoder':'GES'}
         self.thread_command_map={
             '0':'AUTO','1':'ANAMAF','2':'LOCKMON','3':None,
-            '4':None,'5':None,'6':None,'7':None
-            }
+            '4':None,'5':None,'6':None,'7':None}
         SelectedConnection.SelectedSerial.__init__(self,*args,**kwargs)
         self.config={}
         if self.isOpen():
             self.initialize_galil()
-
+    
     def _postConnect(self):
         """
         Called after establishing a connection.
         
-        Subclass may implement and throw and exception if the connection
+        Subclass may implement and throw an exception if the connection
         is in any way unsuitable. Any return values are ignored. Exception text
         will be raised as a connect error.
         """
         expected_version='0.1000'
-        try:
-            #Get the current threads
-            self.update_executing_threads_and_commands()
-            if self.thread_command_map['0']==None:
-                try:
-                    self.send_command_to_gail('XQ#AUTO,0')
-                    self.logger.warning("Executing #AUTO manually")
-                    self.update_executing_threads_and_commands()
-                except GalilCommandNotAcknowledgedError:
-                    error_message="Galil not programed"
-                    raise SelectedConnection.ConnectError(error_message)
-            #Get the software version
-            response=self.send_command_to_gail('MG m2fsver')
-            if response != expected_version:
-                error_message=("Incompatible Firmware, Galil reported '%s' , expected '%s'." %
-                               (response,expected_version))
+        #Get the current threads
+        self.update_executing_threads_and_commands()
+        if self.thread_command_map['0']==None:
+            try:
+                self.send_command_to_gail('XQ#AUTO,0')
+                self.logger.warning("Executing #AUTO manually")
+                self.update_executing_threads_and_commands()
+            except GalilCommandNotAcknowledgedError:
+                error_message="Galil not programed"
                 raise SelectedConnection.ConnectError(error_message)
+        #Get the software version
+        response=self.send_command_to_gail('MG m2fsver')
+        if response != expected_version:
+            error_message=("Incompatible Firmware, Galil reported '%s', expected '%s'." % (response,expected_version))
+            raise SelectedConnection.ConnectError(error_message)
     
     def initialize_galil(self):
         #Check to see if we are connecting to the Galil for the first time after boot
@@ -243,7 +240,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             
     def add_galil_command_to_executing_commands(self, command, thread):
         self.thread_command_map[thread]=command
-
+    
     def getDefault(self, settingName):
         try:
             variableName=self.settingName_to_variableName_map[settingName]
@@ -258,7 +255,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return val
         except IOError, e:
             return str(e)
-
+    
     def setDefault(self, settingName, value):
         try:
             variableName=self.settingName_to_variableName_map[settingName]
@@ -379,8 +376,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return "ERROR: "+str(e)
         except AttributeError:
             import pdb; pdb.set_trace()
-
-
+    
+    
     def command_class_blocked(self, name):
         blockingThreads=filter(lambda x: name in x,
             self.thread_command_map.items())
@@ -418,7 +415,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
         return self.do_motion_command(command_class, command_string)
-
+    
     def set_loel(self, position):
         command_class='LREL'
         command_string="a[<threadID>]=%s;XQ#SETLRTL,<threadID>" % position
@@ -454,7 +451,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         command_class='FILTER'
         command_string="XQ#RMFESIN,<threadID>"
         return self.do_motion_command(command_class, command_string)
-
+    
     def insert_flsim(self, *args):
         command_class='FLSIM'
         command_string="XQ#INFLSIN,<threadID>"

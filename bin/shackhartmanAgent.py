@@ -1,17 +1,12 @@
 #!/usr/bin/env python2.7
-import time
+import sys, time
+sys.path.append(sys.path[0]+'/../lib/')
 import argparse
-import socket
-import signal
 import logging
 import logging.handlers
-import atexit
-import serial
-import sys
-import select
+from agent import Agent
 sys.path.append('../lib/')
 import SelectedConnection
-from agent import Agent
 from command import Command
 
 

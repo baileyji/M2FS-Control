@@ -1,4 +1,0 @@
-0	0	; minimum encoder (R,B)
-100	100	; maximum encoder 
-0.0	0.0	; offset
-2.0	2.0	; unit [1/enc]

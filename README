@@ -5,3 +5,12 @@ look in doc for more info
 Contents of ./etc should be added/appended to /etc
  
 run install.sh
+
+
+microSD Card Contents:
+Card	Kernel	Features				root l/p
+1	3.2.18 	rtc, connman-tests, isp n: m2fs, fls	root/monterey
+2	does this cared exist?
+3	does not boot, may be something else entirely
+4	3.2.28	connman-tests n: rtc, m2fs, isp, fls	root/monterey 
+5 	3.2.28	connman-tests, m2fs 			root/toor

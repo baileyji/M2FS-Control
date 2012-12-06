@@ -16,6 +16,10 @@ def main():
                       dest="auto", action="store_true", default=False) 
                       
     (args, args_leftover)=parser.parse_args()
+    if not args.device or not args.file:
+        parser.print_help()
+        exit(1)
+    
     bitrate=115200
 
     try:

@@ -27,7 +27,10 @@ class PlateManager(threading.Thread):
         self._plateDirectory=directory
         self._plates={}
         self.lock=threading.Lock()
-        self.oldcontents=dict ([(f, None) for f in os.listdir(self._plateDirectory)])
+        try:
+            self.oldcontents=dict ([(f, None) for f in os.listdir(self._plateDirectory)])
+        except OSError:
+            self.oldcontents=dict()
         for file in self.oldcontents:
             new_plate=Plate(os.path.join(self._plateDirectory,file))
             self._plates[new_plate.name]=new_plate
@@ -52,7 +55,10 @@ class PlateManager(threading.Thread):
     def run(self):
         import os, time
         while 1:
-            after = dict ([(f, None) for f in os.listdir(self._plateDirectory)])
+            try:
+                after = dict ([(f, None) for f in os.listdir(self._plateDirectory)])
+            except OSError:
+                after = dict()
             added = [f for f in after if not f in self.oldcontents]
             removed = [f for f in self.oldcontents if not f in after]
             self.oldcontents=after

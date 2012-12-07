@@ -368,7 +368,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 if response[:3]=='ERR':
                     return "ERROR: "+response[3:]
                 else:
-                    return response
+                    return response.strip()
             except IndexError:
                 #Non-standard response, just return it
                 return response

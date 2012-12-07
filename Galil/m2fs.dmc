@@ -391,8 +391,6 @@ EN
 'ST resets the stopcode
 '***************************************************************************
 #MCTIME
-MG "MCTIME CALLED"
-SCABCDEFGH
 IF(_SCA=99);MOA;axiserr[0]=ETIME;STA;ENDIF
 IF(_SCB=99);MOB;axiserr[1]=ETIME;STB;ENDIF
 IF(_SCC=99);MOC;axiserr[2]=ETIME;STC;ENDIF
@@ -401,7 +399,6 @@ IF(_SCE=99);MOE;axiserr[4]=ETIME;STE;ENDIF
 IF(_SCF=99);MOF;axiserr[5]=ETIME;STG;ENDIF
 IF(_SCG=99);MOG;axiserr[6]=ETIME;STG;ENDIF
 IF(_SCH=99);MOH;axiserr[7]=ETIME;STH;ENDIF
-SCABCDEFGH
 EN 1
 
 '***************************************************************************
@@ -750,13 +747,10 @@ EN
 JS#ZS;IF(_JS<1);ed4=_ED4;JS#SETFOC(a[ed4]);ed4=_ED4;ret[ed4]=0;ELSE
 ^b=^a
 ^a=FOCAX
-MG "Requested p:",^b 
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
 ^c=^b-focanap
-'MG "Counts to convert:",^c
 JS#ENC2STP(^a,^c);~a=^a;^c=_TD~a+_JS
-'MG "Moving to:",^b
 ~a=^a;JS#FANCYMV(^a,^c);~a=^a;MC~a;~a=^a;MO~a
 'Rince lather repeat x1 a few times, PID loop would be "proper"
 JS#WAITAMF(^a)
@@ -811,21 +805,16 @@ IF(_LFD=1);' If not inserted
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 IF(^h=ENONE);'insert the FESIN if all is well
-MG "FESELSF reports safe, inserting"
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], axlmspd[^a]);^h=_JS
 REM Check error cases
 IF (^h=ENONE)
-IF ((_LFD=1)|(_LRD=0));^h=ELIMSWF;MG "Insert failed";ENDIF
-ELSE
-MG "MOVE2LIM failed."
+IF ((_LFD=1)|(_LRD=0));^h=ELIMSWF;ENDIF
 ENDIF
 ~a=^a;MC~a;~a=^a;MO~a
-ELSE
-MG"FESELSF Reports unsafe"
 ENDIF
 ELSE
-IF(_LRD=0);^h=ELIMSWF;MG "Both Limits tripped. fail"
-ELSE; MG "Already In";ENDIF
+IF(_LRD=0);^h=ELIMSWF
+ENDIF
 ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -843,24 +832,19 @@ IF(_LRD=1);' If not retracted
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 IF(^h=ENONE);'Remove the FESIN if all is well
-MG "FESELSF reports safe, removing inserter"
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
 IF ((_LFD=1)&(_LRD=0)&(^h=ENONE))
 'Move to the removed idle position
-MG"Moving to keyway spot"
 ~a=^a;DP~a=0;JS#FANCYMV(^a,fesremp);~a=^a;MC~a
-~a=^a;IF(_SC~a<>1);^h=EFAIL;MG "FANCYMV failed. SC=",_SC~a;ENDIF
+~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF
 ~a=^a;MO~a
 ELSE
 ^h=ELIMSWF;~a=^a;MC~a;~a=^a;MO~a
-MG "MOVE2LIM failed."
+ENDIF
 ENDIF
 ELSE
-MG"FESELSF Reports unsafe"
+IF(_LFD=0);^h=ELIMSWF
 ENDIF
-ELSE
-IF(_LFD=0);^h=ELIMSWF;MG "Both Limits tripped. fail"
-ELSE; MG "Already out";ENDIF
 ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -890,14 +874,11 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#FESELSF;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 JS#WAITAMF(^a)
 'Case 1: caddy is above inserter return 0
 IF(felanap>allsafep);^h=ENONE
-MG "Caddy above inserter. Safe."
 ELSE
 'Check if position is within tolerance of a filter position
 JS#QUFELP;IF( (_JS>=filterp1) & (_JS<=filterp8) );^h=ENONE
-MG "Caddy at a filter. Safe."
 ELSE
 IF ((_LFD<>1)|(_LRD<>0)); ^h=EFLTUNSF
-MG "Caddy needs to move. Inserter not out. Unsafe."
 ELSE
 'Try to nudge elevator toward nearest valid position
 'Compute number of steps between current encoder position and nominal 
@@ -913,9 +894,7 @@ JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a
 JS#QUFELP
 'If we still aren't in a safe spot fail
 IF( ((_JS>=filterp1) & (_JS<=filterp8)) | (felanap>allsafep) );^h=ENONE
-MG "Caddy position adjusted and arm is clear to move. Safe."
 ELSE;^h= EFLTUNSF;axiserr[^a]=EFLTUNSF
-MG "Could not manage to get caddy in safe position. Unsafe."
 ENDIF;ENDIF;ENDIF;ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -957,7 +936,6 @@ ELSE
 ^h=intermd
 ENDIF
 ENDIF
-MG "QUFELP: ",^h
 ENDIF
 EN,,^h
 
@@ -1018,10 +996,6 @@ JS#QUFELP;^b=_JS-filterp1
 IF ((_LFD=0)&(_LRD=1));^c=in;ENDIF
 IF ((_LFD=1)&(_LRD=0));^c=out;ENDIF
 IF (_TSD & $80); ^c=moving;ENDIF
-IF (^c=in); MG "Inserter is in.";ENDIF
-IF (^c=moving); MG "Inserter is moving.";ENDIF
-IF (^c=out); MG "Inserter is out.";ENDIF
-IF (^c=unknown); MG "Inserter is unknown.";ENDIF
 'If the desired position = current position we are done
 IF( ((^a=9)&(^c=out)) | ( ((^c=in)|(^a=8)) & (^b=^a) ) );^h=ENONE
 ELSE;'We are not in position
@@ -1033,27 +1007,21 @@ IF ((^h=ENONE)&(_LRD=0)&(_LFD=1)&(^a<>9))
 
 JS#WAITAMF(FESELAX)
 ^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
-MG "Arm out. Moving to filter",^a," at",felencp[^a]," move",_JS," steps"
 JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
 
 JS#WAITAMF(FESELAX)
 ^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
-MG "Arm out. Moving to filter",^a," at",felencp[^a]," move",_JS," steps"
 JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
 
 JS#WAITAMF(FESELAX)
 ^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
-MG "Arm out. Moving to filter",^a," at",felencp[^a]," move",_JS," steps"
 JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
 
-MG "Done moving, getting position"
 'Get current state of elevator
 JS#QUFELP;^b=_JS
-MG "QEFELP reports",^b
 IF( ((^b-filterp1)=^a) & (^b<>intermd) );'If we are where we should be...
 'Insert the filter if needed
-IF(^b<>filterld);MG "Inserting";JS#INFESIN;^h=_JS
-MG "#INFESIN returned",^h
+IF(^b<>filterld);JS#INFESIN;^h=_JS
 ELSE;^h=ENONE;ENDIF
 ELSE;^h=EFLTUNSF
 MG "PICKFIL: EFLTUNSF"
@@ -1573,7 +1541,7 @@ EN
 '***************************************************************************
 #ERRMSG
 IF (^a=GESAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "GES: OK"
 ELSE;IF (^b=EPOTJAM);MG "!GES:ERRPot not changing with steps."
 ELSE;IF (^b=ELIMSWF);MG "!GES:ERRLimit switch failure."
 ELSE;IF (^b=EGESPMM)
@@ -1585,7 +1553,7 @@ ELSE;MG "!GES:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRTLTAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "HRTLT: OK"
 ELSE;IF (^b=EHMERR);MG "!HRTLT:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ELIMSWF);MG "!HRTLT:ERRLimit switch failure."
 ELSE;IF (^b=ELCKERR);MG "!HRTLT:ERRLocked. You must loosen the locking nut."
@@ -1595,7 +1563,7 @@ ELSE;MG "!HRTLT:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRAZAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "HRAZ: OK"
 ELSE;IF (^b=EHMERR);MG "!HRAZ:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ELIMSWF);MG "!HRAZ:ERRLimit switch failure."
 ELSE;IF (^b=ELCKERR);MG "!HRAZ:ERRLocked. You must loosen the locking nut."
@@ -1605,7 +1573,7 @@ ELSE;MG "!HRAZ: Unknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=LRTLTAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "LRTLT: OK"
 ELSE;IF (^b=EHMERR);MG "!LRTLT:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!LRTLT:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!LRTLT:ERRUnspecified error."
@@ -1613,14 +1581,14 @@ ELSE;MG "!LRTLT:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FOCAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "FOC: OK"
 ELSE;IF (^b=ECRAZY);MG "!FOC:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FOC:ERRUnspecified error."
 ELSE;MG "!FOC:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FLSINAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "FLSIN: OK"
 ELSE;IF (^b=ELIMSWF);MG "!FLSIN:ERRLimit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FLSIN:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!FLSIN:ERRRequested value out of allowed range."
@@ -1629,7 +1597,7 @@ ELSE;MG "!FLSIN:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESINAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "FESIN: OK"
 ELSE;IF (^b=ELIMSWF);MG "!FESIN:ERRLimit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FESIN:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!FESIN:ERRRequested value out of allowed range."
@@ -1638,7 +1606,7 @@ ELSE;MG "!FESIN:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESELAX)
-IF (^b=ENONE);MG "OK"
+IF (^b=ENONE);MG "FESEL: OK"
 ELSE;IF (^b=EPOTJAM);MG "!FESEL: ERRPot not changing with steps."
 ELSE;IF (^b=ELIMSWF);MG "!FESEL:ERR Limit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FESEL: ERRHoming failure. Switch did not toggle."
@@ -1671,7 +1639,7 @@ EN
 '***************************************************************************
 #CMDERR
 MG "#Active Threads:",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7
-MG "#!CMDERR (thread",_ED1," line",_ED,"):";TC1
+MG "#!CMDERR ",_TC," (thread",_ED1," line",_ED,"):"
 EN
 
 

@@ -217,7 +217,7 @@ mininc[HRAZAX]=13;'microsteps, 1 micron
 'Encoder value near a limit, unused on unencoded. Value strictly > -limit
 DM encnlim[8]
 ' GES reading of 161 while on -lim, hardstop at 49. 
-encnlim[GESAX]=200
+encnlim[GESAX]=240
 encnlim[FESELAX]=0
 'Value slightly before 4096-to-0 rollover
 'unknown, NEED testing TODO (or remove if we aren't going to use CALFOC
@@ -1152,8 +1152,8 @@ EN ,,^h
 '***************************************************************************
 ' CALibrate ENcoded AXis(axis)
 ' Calibrate an axis that has an analog encoder
-' Does not turn axis off if sucessful, 
-' For use on axes w/o pot & with a Home switch (GES)
+' Does not turn axis off if sucessful
+' For use with GES only
 ' Returns 0 iff sucessful
 '***************************************************************************
 #CALENAX
@@ -1167,7 +1167,7 @@ ELSE
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a);^b=analogp[^a]
 'If pot reads close to the negative limit move positive by a little
-IF(^b < encnlim[^a])
+~a=^A;IF((^b < encnlim[^a])|(_LR~a<>1))
 ^b=1024;'5*(encnlim[^a]-^b)
 JS#ENC2STP(^a,^b);~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axspd[^a]
 'MG "Pot reads close to the -limit move positive a little", ^b,_JS

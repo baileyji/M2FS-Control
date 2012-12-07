@@ -338,6 +338,7 @@ EN
 ' Starutp Routine
 '***************************************************************************
 #AUTO
+MG "This code has debugging comments enabled and will not work with galilAgent"
 HX1;HX2;ST;MC;MO*
 m2fsver=.1;bootup1=1
 JS#M2FSCFG

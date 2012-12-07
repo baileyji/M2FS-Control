@@ -2,7 +2,7 @@ import socket
 SHOE_R=('localhost',42000)
 SLITCONTROLLER=('localhost',48000)
 GALIL_R=('localhost',40000)
-DIRECTOR=('141.211.198.113',51280)#socket.gethostname(),50000)
+DIRECTOR=('localhost',51800)#socket.gethostname(),50000)
 
 def cg():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

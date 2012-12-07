@@ -12,7 +12,7 @@ from m2fsConfig import m2fsConfig
 class GalilThreadUpdateException(IOError):
     pass
 
-class GalilCommandNotAcknowledgedError(Exception):
+class GalilCommandNotAcknowledgedError(IOError):
     pass
 
 import termios

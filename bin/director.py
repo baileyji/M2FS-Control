@@ -137,7 +137,7 @@ class Director(Agent):
                 statusmsg=d.receiveMessageBlocking()
                 reply=reply+statusmsg
             except IOError:
-                reply=reply+('%s:UNKNOWN' % d.prettyname)
+                reply=reply+('%s:UNKNOWN' % d.addr_str())
         command.setReply(reply)
     
     def galil_command_handler(self, command):

@@ -168,7 +168,6 @@ class SelectedConnection(object):
             response=self.implementationSpecificBlockingReceive(nBytes, timeout)
             self.logger.debug("BlockingReceive got: '%s'" % 
                 response.replace('\n','\\n').replace('\r','\\r'))
-            return self.trimReceivedString(response)
             return response.rstrip(' \t\n\r')
         except ReadError, e:
             self.handle_error(e)

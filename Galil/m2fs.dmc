@@ -641,8 +641,6 @@ ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 'Report status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 ELSE
-'Be doubly sure filtered analog position to be clean
-JS#WAITAMF(^a)
 IF(^h=unknown);MG "GETGES: UNCALIBRATED";ENDIF
 IF(^h=moving);~a=^a;MG "GETGES: MOVING",_TP~a,_TD~a;ENDIF
 IF(^h=lores);~a=^a;MG "GETGES: LORES",gesanap,_TD~a;ENDIF
@@ -1135,7 +1133,7 @@ ELSE
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a);^b=analogp[^a]
 'If pot reads close to the negative limit move positive by a little
-~a=^A;IF((^b < encnlim[^a])|(_LR~a<>1))
+~a=^a;IF((^b < encnlim[^a])|(_LR~a<>1))
 ^b=1024;'5*(encnlim[^a]-^b)
 JS#ENC2STP(^a,^b);~a=^a;AC~a=axaccel[^a]; DC~a=axdecel[^a];SP~a=axspd[^a]
 'MG "Pot reads close to the -limit move positive a little", ^b,_JS

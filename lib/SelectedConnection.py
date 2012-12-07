@@ -77,18 +77,6 @@ class SelectedConnection(object):
         """
         pass
     
-    def trimReceivedString(self, string):
-        """ remove \r\n \r\r \n\n \n\r \n \r from end of string. """
-        chop=0
-        if len(string) >0 and string[-1] in '\r\n':
-            chop=1
-        if len(string) > 1 and string[-2] in '\r\n':
-            chop=2
-        if chop!=0:
-            return string[:-chop]
-        else:
-            return string
-    
     def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
         """
         Place the string <message> in the output buffer to be sent next time
@@ -181,6 +169,7 @@ class SelectedConnection(object):
             self.logger.debug("BlockingReceive got: '%s'" % 
                 response.replace('\n','\\n').replace('\r','\\r'))
             return self.trimReceivedString(response)
+            return response.rstrip(' \t\n\r')
         except ReadError, e:
             self.handle_error(e)
             raise e

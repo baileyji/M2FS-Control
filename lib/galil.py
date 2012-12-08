@@ -379,7 +379,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     
     def command_class_blocked(self, name):
-        blockingThreads=filter(lambda x: name in x,
+        blockingThreads=filter(lambda x: name in x[1],
             self.thread_command_map.items())
         return blockingThreads!=[]
     

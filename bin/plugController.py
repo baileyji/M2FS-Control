@@ -116,7 +116,7 @@ class PlugController(Agent):
         platefile_path=m2fsConfig.getPlateDirectory()
         self.plateManager=PlateManager(platefile_path)
         self.plateManager.start()
-        self.active_plate=None
+        self.active_plate=Plate(None)
         self.command_handlers.update({
             'PLATELIST': self.PLATELIST_command_handler,
             'PLATE': self.PLATE_command_handler,
@@ -136,7 +136,7 @@ class PlugController(Agent):
         Must not be spaces in plate file names
         """
         plateList=self.plateManager.getPlateNames()
-        command.setReply(''.join(plateList))
+        command.setReply(''.join(plateList)+'\n')#append \n to force sending of empty response if no plates are found
     
     def PLATE_command_handler(self, command):
         """

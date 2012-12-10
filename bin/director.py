@@ -134,10 +134,10 @@ class Director(Agent):
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')
-                statusmsg=d.receiveMessageBlocking()
+                statusmsg=d.receiveMessageBlocking()+'\r'
                 reply=reply+statusmsg
             except IOError:
-                reply=reply+('%s:UNKNOWN' % d.addr_str())
+                reply=reply+('\r%s:UNKNOWN' % d.addr_str())+'\r'
         command.setReply(reply)
     
     def galil_command_handler(self, command):

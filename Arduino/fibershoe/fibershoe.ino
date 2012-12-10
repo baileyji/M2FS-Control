@@ -7,12 +7,13 @@
 #include "fibershoe_pins.h"
 
 #define POWERDOWN_DELAY_US  1000
-#define VERSION_STRING "Fibershoe v0.3"
+#define VERSION_STRING "Fibershoe v0.4"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
 #define N_COMMANDS 26
 
 //#define DEBUG
+//#define DEBUG_RUN_TIME
 
 #define TEMP_UPDATE_INTERVAL_MS 20000
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
@@ -345,6 +346,7 @@ void printCommandBufNfo(){
   cout<<"Command Buffer Info";Serial.write('\n');
   cout<<"Buf ndx: "<<(unsigned int)command_buffer_ndx<<" Cmd len: "<<(unsigned int)command_length;Serial.write('\n');
   cout<<"Contents:";Serial.write((const uint8_t*)command_buffer,command_buffer_ndx);
+  cout<<"Axis:"<<(unsigned int)getAxisForCommand();
   Serial.write('\n');
 }
 #endif
@@ -418,7 +420,7 @@ bool SGcommand() {
   if (axis==0) for(int i=0;i<8;i++) {
     
     if(tetris[i].moving()) cout<<"MOVING";
-    else if (!tetris[i].isCalibrated()) cout<<"UNKNOWN";
+    else if (!tetris[i].isCalibrated()) { cout<<"UNKNOWN"; }
     else {
       char slit=tetris[i].getCurrentSlit();
       if (slit>=0) cout<<slit+1;
@@ -428,7 +430,7 @@ bool SGcommand() {
   }
   else {
     if(tetris[axis-1].moving()) cout<<"MOVING";
-    else if (!tetris[axis-1].isCalibrated()) cout<<"UNKNOWN";
+    else if (!tetris[axis-1].isCalibrated()) { cout<<"UNKNOWN"; }
     else {
       char slit=tetris[axis-1].getCurrentSlit();
       if (slit>=0) cout<<slit+1;
@@ -487,7 +489,7 @@ bool TDcommand(){
   unsigned char axis = getAxisForCommand();
   if ( axis >8 ) return false;
   
-  if (axis==0) for(int i=0;i<8;i++) {
+  if (axis==0) {for(int i=0;i<8;i++) {
     if (tetris[i].moving())
       cout<<"MOVING";
     else if (! tetris[i].isCalibrated())
@@ -495,7 +497,7 @@ bool TDcommand(){
     else
       tetris[i].tellPosition(); 
     if(i<7) cout<<", ";
-  }
+  }}
   else {
     if (tetris[axis-1].moving())
       cout<<"MOVING";
@@ -558,7 +560,7 @@ bool SLcommand() {
     else cont=tetris[axis-1].isCalibrated();
     if (!cont) return false;
 
-    if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+    if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
     else if (tetris[axis-1].moving()) return false;
 
     if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit);
@@ -578,8 +580,7 @@ bool SLcommand() {
     
     for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
 
-    for (unsigned char i=0;i<8;i++)
-      tetris[i].dumbMoveToSlit(slit[i]);  
+    for (unsigned char i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit[i]);  
   }
   else return false;
 
@@ -625,7 +626,7 @@ bool PRcommand() {
        command_buffer[4] >='0' && command_buffer[4]<='9' ))) return false;
   long param=atol(command_buffer+3);
 
-  if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+  if(axis==0)  for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
   else if (tetris[axis-1].moving()) return false;
 
   if(axis==0) for(int i=0;i<8;i++) tetris[i].positionRelativeMove(param);
@@ -649,7 +650,7 @@ bool PAcommand() {
   else cont=tetris[axis-1].isCalibrated();
   if (!cont) return false;
   
-  if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+  if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
   else if (tetris[axis-1].moving()) return false;
 
   if(axis==0) for(int i=0;i<8;i++) tetris[i].positionAbsoluteMove(param);
@@ -723,7 +724,7 @@ bool DHcommand() {
   unsigned char axis = getAxisForCommand();
   if ( axis >8 ) return false;
   
-  if(axis==0) for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
+  if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
   else if (tetris[axis-1].moving()) return false;
   
   if(axis==0) for(int i=0;i<8;i++) tetris[i].calibrateToHardStop();

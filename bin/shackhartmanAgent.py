@@ -16,17 +16,15 @@ class ShackHartmanAgent(Agent):
         #Initialize the agent
         self.args=self.cli_parser.parse_args()
         self.shled=SelectedConnection.SelectedSerial('/dev/SHled', 115200)
+        self.shledValue=0
         self.shlenslet=SelectedConnection.SelectedSerial('/dev/SHlenslet',
-            115200, timeout=1)
+            115200)
         self.devices.append(self.shlenslet)
         self.devices.append(self.shled)
         self.max_clients=1
         self.command_handlers.update({
-            'SLITSRAW':self.not_implemented_command_handler,
             'SHLED':self.SHLED_command_handler,
-            'SHLENS':self.SHLENS_command_handler,
-            'SH_STATUS':self.status_command_handler,
-            'SH_VERSION':self.version_request_command_handler})
+            'SHLENS':self.SHLENS_command_handler})
     
     def listenOn(self):
         return ('localhost', self.PORT)
@@ -37,19 +35,18 @@ class ShackHartmanAgent(Agent):
     def SHLED_command_handler(self, command):
         """ Handle geting/setting the LED illumination value """
         if '?' in command.string:
-            """ retrieve the current slits """
-            self.shled.sendMessage('?',responseCallback=command.setReply)
+            command.setReply('%i' % self.shledValue)
         else:
             """ Set the LED brightness 0-255 """
             command_parts=command.string.split(' ')
-            if len(command_parts) < 2:
-                command.setReply('!ERROR: Improperly formatted command.\n')
             try:
-                int(command_parts[1])
-                self.shled.sendMessage(command_parts[1])
+                self.shled.sendMessage(chr(int(command_parts[1])))
+                self.shledValue=int(command_parts[1])
                 command.setReply('OK')
             except ValueError:
-                command.setReply('!ERROR: Improperly formatted command.\n')
+                self.invalid_command_handler(command)
+            except IOError, e:
+                command.setReply('ERROR: %s' % str(e))
     
     def SHLENS_command_handler(self, command):
         """ Handle geting/setting the position of the lenslet inserter """
@@ -67,7 +64,16 @@ class ShackHartmanAgent(Agent):
 
     def status_command_handler(self, command):
         """report status"""
-        self.simpleSendWithResponse('TS\n', command)
+        try:
+            lensStatus=self.determineLensletPosition()
+        except IOError:
+            lensStatus='ERROR'
+        try:
+            self.shled.sendMessage(chr(self.shledValue))
+            ledStatus='%i' % self.shledValue
+        except IOError:
+            ledStatus='ERROR'
+        command.setReply('Lenslet: %s Led: %s' % (lensStatus, ledStatus))
     
     def determineLensletPosition(self):
         self.shlenslet.sendMessageBlocking('\xA1\x21')

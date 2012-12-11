@@ -1,0 +1,30 @@
+#Comments go anywhere on their own line preceded by #
+PlateName
+SetupName1
+#target    ra    dec    ep    hole_x    hole_y    hole_z    side(optional)
+SetupName2
+#target    ra    dec    ep    hole_x    hole_y    hole_z    side(optional)
+SetupName2
+#target    ra    dec    ep    hole_x    hole_y    hole_z    side(optional)
+
+
+Plate
+   PlateInfo (name, run, ?)
+   Holes
+      (x, y, z, UUID)
+   Setups
+      PlugPositions
+         (fiberUUID, HoleUUID)
+      SetupInfo (name, pointing, ?)
+      Targets
+        TargetInfo (name, ra, dec, epoch, ?)
+        Hole UUID
+      CentralStar
+	TargetInfo (name, ra, dec, epoch, ?)
+	Hole UUID
+      GuideObjects
+	TargetInfo (name, ra, dec, epoch, ?)
+	Hole UUID
+      AcquisitionObjects
+	TargetInfo (name, ra, dec, epoch, ?)
+	Hole UUID	

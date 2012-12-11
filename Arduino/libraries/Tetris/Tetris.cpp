@@ -37,7 +37,8 @@ Tetris::Tetris(int rst_pin, int stby_pin, int dir_pin, int ck_pin, int phase_pin
   //<=683 pulses of backlash per 06/1 datasheet at 16x ustepping
   
   //If 16x ustepping
-  setSpeed(300);       // steps/second 
+  //Max with 8 motors around 411 with v1.27 of accelstepper
+  setSpeed(300);       // steps/second  
   setAcceleration(1000);
   
 	

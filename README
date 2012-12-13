@@ -1,10 +1,10 @@
 The Michigan/Magellan Fiber System Spectrograph Readme Extraordinaire!
 
-look in doc for more info
+See M2FS Electronics & Control for system overview.
 
-Contents of ./etc should be added/appended to /etc
- 
+grab code from github
 run install.sh
+
 
 
 microSD Card Contents:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import sys, time, threading
+import sys, time, threading, os, re
 sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
@@ -7,6 +7,13 @@ from agent import Agent
 from command import Command
 from plate import Plate
 from m2fsConfig import m2fsConfig
+
+def getListOfPlateFiles(dir):
+    try:
+        prog=re.compile('(^(?!\.)).*(.plate)$', flags=re.IGNORECASE)
+        return filter(prog.match, os.listdir(dir))
+    except OSError:
+        return []
 
 class PlateManager(threading.Thread):
     """
@@ -27,10 +34,7 @@ class PlateManager(threading.Thread):
         self._plateDirectory=directory
         self._plates={}
         self.lock=threading.Lock()
-        try:
-            self.oldcontents=dict ([(f, None) for f in os.listdir(self._plateDirectory)])
-        except OSError:
-            self.oldcontents=dict()
+        self.oldcontents={}.fromkeys(getListOfPlateFiles(self._plateDirectory))
         for file in self.oldcontents:
             new_plate=Plate(os.path.join(self._plateDirectory,file))
             self._plates[new_plate.name]=new_plate
@@ -53,12 +57,8 @@ class PlateManager(threading.Thread):
         self.logger.addHandler(ch)
     
     def run(self):
-        import os, time
         while 1:
-            try:
-                after = dict ([(f, None) for f in os.listdir(self._plateDirectory)])
-            except OSError:
-                after = dict()
+            after = {}.fromkeys(getListOfPlateFiles(self._plateDirectory))
             added = [f for f in after if not f in self.oldcontents]
             removed = [f for f in self.oldcontents if not f in after]
             self.oldcontents=after

@@ -26,22 +26,24 @@ class Plate(object):
                         target.kind=col[1]
                         target.desiredFiber=Fiber(col[10])
                         target.usedFiber=None
-                        if target.kind=='SH'
+                        if target.kind=='SH':
                             new_setup.shobject.append(target)
-                        elif target.kind=='G'
+                        elif target.kind=='G':
                             new_setuo.guideobjects.append(target)
                         else:
                             new_setup.targets.append(target)
             except IndexError:
-                raise Exception('Bad file, line %i: "%s"' % (i, line) )
-    
+                raise Exception('Bad file, "%s", line %i: "%s"' % (file, i, line.replace('\n','\\n')) )
+            except ValueError:
+                raise Exception('Bad file, "%s", line %i: "%s"' % (file, i, line.replace('\n','\\n')) )
+
     def __init__(self, file):
         if not file:
             self.name='None'
             self.file=None
-            self.setups=immutabledict()
+            self.setups={}
             self.active_setup_name=''
-            self.holes=immutableset()
+            self.holes=frozenset()
         else:
             Plate._initFromFile(self, file)
 
@@ -72,11 +74,11 @@ class Fiber(object):
 class Setup(object):
     def __init__(self):
         self.name=''
-        self.plugPos=( (Fiber(), Hole()), (Fiber(), Hole()), ...)
-        self.targets=(Hole(), CelestialObject(),(Hole(), CelestialObject()),...)
+        self.plugPos=( (Fiber(), Hole()), (Fiber(), Hole()))
+        self.targets=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
         self.shobject=(Hole(), CelestialObject())
-        self.guideobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()),...)
-        self.acquisitionobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()),...)
+        self.guideobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
+        self.acquisitionobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
 
 
 class CelestialObject(object):

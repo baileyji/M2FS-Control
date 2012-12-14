@@ -375,12 +375,12 @@ EN
 
 
 '***************************************************************************
-' Shutdown Routine
+' Shutdown Routine RUN ON THREAD 3
 '***************************************************************************
 #SHTDWN
-ST*;HX3;HX4;HX5;HX6;MC;MO*
-a[3]=9;XQ#PICKFIL,3
-a[4]=0;XQ#SETLRTL,4
+HX4;HX5;HX6;ST*;MC;MO*
+a[3]=9;XQ#PICKFIL,4
+a[4]=0;XQ#SETLRTL,5
 JP#IDLE
 EN
 

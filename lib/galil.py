@@ -404,7 +404,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     
     def command_class_blocked(self, name):
-        blockingThreads=filter(lambda x: name in x[1] or 'SHUTDOWN' in x[1],
+        blockingThreads=filter(lambda x:
+                               x[1] and
+                               (name in x[1] or 'SHUTDOWN' in x[1]),
             self.thread_command_map.items())
         return blockingThreads!=[]
     

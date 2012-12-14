@@ -35,7 +35,9 @@ class Director(Agent):
             agent_ports['PlugController'])
         self.devices.append(self.plugController_Connection)
         self.command_handlers.update({
-
+            #Director Commands
+            'GUICLOSING':self.guiclose_command_handler,
+            'SHUTDOWN':self.shutdown_command_handler,
             #Galil Agent Commands
             'GALILRAW':self.galil_command_handler,
             'GES':self.galil_command_handler,
@@ -77,7 +79,13 @@ class Director(Agent):
         return (socket.gethostname(), self.PORT)
     
     def get_version_string(self):
-        return 'Director Version 0.1'    
+        return 'Director Version 0.1'
+    
+    def guiclose_command_handler(self, command):
+        command.setReply('OK')
+    
+    def shutdown_command_handler(self, command):
+        command.setReply('OK')
       
     def shackhartman_command_handler(self, command):
         try:

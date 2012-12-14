@@ -122,7 +122,7 @@ class Director(Agent):
            actions """
         command_name,_,args=command.string.partition(' ')
         if command_name in ['PLATELIST', 'PLATE','PLATESETUP','PLUGPOS']:
-            def callback(reply):
+            def callback(junk,reply):
                 command.setReply(reply+'\n')
             try:
                 self.plugController_Connection.connect()

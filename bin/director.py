@@ -138,7 +138,7 @@ class Director(Agent):
     
     def status_command_handler(self, command):
         #TODO Query each subsystem for status
-        reply=self.cookie+' '
+        reply=self.cookie+'\r'
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')

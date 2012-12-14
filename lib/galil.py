@@ -190,7 +190,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def sendMessageBlocking(self, message):
         """ Send a string immediately, appends string terminator if needed"""
         if not self.isOpen():
-            message="BlockingSend fail: '%s' to %s" % (message,self)
+            message="Connect before sending '%s' to %s" % (message,self.addr_str())
             self.logger.error(message)
             raise SelectedConnection.WriteError(message)
         if not message:
@@ -314,13 +314,18 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             thread_number=self.get_motion_thread()
             if thread_number is None:
                 return "ERROR: All available galil threads in use. Try again later"
+        except IOError, e:
+            return "ERROR: "+str(e)
+        try:
             #Send the command to the galil
             self.send_command_to_gail(
                 command_string.replace('<threadID>', thread_number))
-            self.add_galil_command_to_executing_commands(command_class, thread_number)
             return 'OK'
         except IOError, e:
             return "ERROR: "+str(e)
+        finally:
+            # assume that the command is blocked anyway
+            self.add_galil_command_to_executing_commands(command_class, thread_number)
             
     def check_abort_switch(self):
         """ Return True if abort switch engaged """

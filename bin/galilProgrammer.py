@@ -13,7 +13,9 @@ def main():
     parser.add_option("-d", "--device", help="The galil to program",
                       dest="device")
     parser.add_option("--auto", help="Run #AUTO after programming",
-                      dest="auto", action="store_true", default=False) 
+                      dest="auto", action="store_true", default=False)
+    parser.add_option("--burn", help="Store program in flash, takes 10 sec. Do not interrupt.",
+                      dest="burn", action="store_true", default=False)
                       
     (args, args_leftover)=parser.parse_args()
     if not args.device or not args.file:
@@ -70,7 +72,11 @@ def main():
 
     if resp == ':::':
         print "Complete: "+resp
-        if args.auto:
+        if args.burn:
+            ser.write('BP\r')
+            ser.flush()
+            time.sleep(10)
+        elif args.auto:
             ser.write('XQ#AUTO,0\r')
             ser.flush()
             if ser.read(1) ==':':

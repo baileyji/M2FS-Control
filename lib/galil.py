@@ -256,6 +256,26 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except IOError, e:
             return str(e)
     
+    def reset(self):
+        try:
+            self.connection.open()
+            self.connection.write('RS\r')
+            self.connection.flush()
+            self.connection.close()
+            self.connect()
+            return 'OK'
+        except IOError, e:
+            return str(e)
+    
+    def shutdown(self):
+        try:
+            self.send_command_to_gail('HX3;XQ#SHTDWN,3')
+            return 'OK'
+        except IOError, e:
+            return str(e)
+        finally:
+            self.add_galil_command_to_executing_commands('SHUTDOWN', 3)
+    
     def setDefault(self, settingName, value):
         try:
             variableName=self.settingName_to_variableName_map[settingName]
@@ -379,7 +399,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     
     def command_class_blocked(self, name):
-        blockingThreads=filter(lambda x: name in x[1],
+        blockingThreads=filter(lambda x: name in x[1] or 'SHUTDOWN' in x[1],
             self.thread_command_map.items())
         return blockingThreads!=[]
     

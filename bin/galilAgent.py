@@ -45,7 +45,9 @@ class GalilAgent(Agent):
             'FLSIM_DEFINS':self.defaults_command_handler,
             'FLSIM_DEFREM':self.defaults_command_handler,
             'GES_DEFSWPSTEP':self.defaults_command_handler,
-            'GES_DEFSWPENC':self.defaults_command_handler})
+            'GES_DEFSWPENC':self.defaults_command_handler,
+            'RESET':self.reset_command_handler,
+            'SHUTDOWN':self.shutdown_command_handler})
         self.galil=GalilSerial(self.args.DEVICE, 115200,
             timeout=0.5, SIDE=self.args.SIDE)
         self.devices.append(self.galil)
@@ -119,6 +121,12 @@ class GalilAgent(Agent):
             command.setReply(self.galil.getDefault(settingName))
         else:
             command.setReply(self.galil.setDefault(settingName, args))
+    
+    def reset_command_handler(self, command):
+        command.setReply(self.galil.reset())
+    
+    def shutdown_command_handler(self, command):
+        command.setReply(self.galil.shutdown())
     
     def galil_command_handler(self, command):
         """Execute the command on the galil and setReply"""

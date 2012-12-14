@@ -15,9 +15,9 @@ class ShackHartmanAgent(Agent):
         Agent.__init__(self,'ShackHartmanAgent')
         #Initialize the agent
         self.args=self.cli_parser.parse_args()
-        self.shled=SelectedConnection.SelectedSerial('/dev/SHled', 115200)
+        self.shled=SelectedConnection.SelectedSerial('/dev/shLED', 115200)
         self.shledValue=0
-        self.shlenslet=SelectedConnection.SelectedSerial('/dev/SHlenslet',
+        self.shlenslet=SelectedConnection.SelectedSerial('/dev/shLenslet',
             115200)
         self.devices.append(self.shlenslet)
         self.devices.append(self.shled)

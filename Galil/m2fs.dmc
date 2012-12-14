@@ -1540,6 +1540,7 @@ EN
 #ERRMSG
 IF (^a=GESAX)
 IF (^b=ENONE);MG "GES: OK"
+ELSE;IF (^b=ETIME);MG "!GES:ERRMotion Timeout."
 ELSE;IF (^b=EPOTJAM);MG "!GES:ERRPot not changing with steps."
 ELSE;IF (^b=ELIMSWF);MG "!GES:ERRLimit switch failure."
 ELSE;IF (^b=EGESPMM)
@@ -1548,63 +1549,70 @@ ELSE;IF (^b=EFAIL);MG "!GES:ERRUnspecified error."
 ELSE;IF (^b=ECRAZY);MG "!GES:ERRRequested value out of allowed range."
 ELSE;IF (^b=ELIMOST);MG "!GES:ERROvershot limit switch."
 ELSE;MG "!GES:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRTLTAX)
 IF (^b=ENONE);MG "HRTLT: OK"
+ELSE;IF (^b=ETIME);MG "!HRTLT:ERRMotion Timeout."
 ELSE;IF (^b=EHMERR);MG "!HRTLT:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ELIMSWF);MG "!HRTLT:ERRLimit switch failure."
 ELSE;IF (^b=ELCKERR);MG "!HRTLT:ERRLocked. You must loosen the locking nut."
 ELSE;IF (^b=ECRAZY);MG "!HRTLT:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!HRTLT:ERRUnspecified error."
 ELSE;MG "!HRTLT:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRAZAX)
 IF (^b=ENONE);MG "HRAZ: OK"
+ELSE;IF (^b=ETIME);MG "!HRAZ:ERRMotion Timeout."
 ELSE;IF (^b=EHMERR);MG "!HRAZ:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ELIMSWF);MG "!HRAZ:ERRLimit switch failure."
 ELSE;IF (^b=ELCKERR);MG "!HRAZ:ERRLocked. You must loosen the locking nut."
 ELSE;IF (^b=ECRAZY);MG "!HRAZ:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!HRAZ:ERRUnspecified error."
 ELSE;MG "!HRAZ: Unknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=LRTLTAX)
 IF (^b=ENONE);MG "LRTLT: OK"
+ELSE;IF (^b=ETIME);MG "!LRTLT:ERRMotion Timeout."
 ELSE;IF (^b=EHMERR);MG "!LRTLT:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!LRTLT:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!LRTLT:ERRUnspecified error."
 ELSE;MG "!LRTLT:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FOCAX)
 IF (^b=ENONE);MG "FOC: OK"
+ELSE;IF (^b=ETIME);MG "!FOC:ERRMotion Timeout."
 ELSE;IF (^b=ECRAZY);MG "!FOC:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FOC:ERRUnspecified error."
 ELSE;MG "!FOC:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FLSINAX)
 IF (^b=ENONE);MG "FLSIN: OK"
+ELSE;IF (^b=ETIME);MG "!FLSIN:ERRMotion Timeout."
 ELSE;IF (^b=ELIMSWF);MG "!FLSIN:ERRLimit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FLSIN:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!FLSIN:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FLSIN:ERRUnspecified error."
 ELSE;MG "!FLSIN:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESINAX)
 IF (^b=ENONE);MG "FESIN: OK"
+ELSE;IF (^b=ETIME);MG "!FESIN:ERRMotion Timeout."
 ELSE;IF (^b=ELIMSWF);MG "!FESIN:ERRLimit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FESIN:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!FESIN:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FESIN:ERRUnspecified error."
 ELSE;MG "!FESIN:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESELAX)
 IF (^b=ENONE);MG "FESEL: OK"
+ELSE;IF (^b=ETIME);MG "!FESEL:ERRMotion Timeout."
 ELSE;IF (^b=EPOTJAM);MG "!FESEL: ERRPot not changing with steps."
 ELSE;IF (^b=ELIMSWF);MG "!FESEL:ERR Limit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FESEL: ERRHoming failure. Switch did not toggle."
@@ -1614,7 +1622,7 @@ ELSE;IF (^b=ECRAZY);MG "!FESEL: ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FESEL: ERRUnspecified error."
 ELSE;IF (^b=EFLTUNSF);MG "!FESEL:ERRFilter changer unsafe state. Fix Manually."
 ELSE;MG "!FESEL:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 axiserr[^a]=ENONE
 EN

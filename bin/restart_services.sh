@@ -10,4 +10,6 @@ systemctl restart shoeB.service
 systemctl restart galilR.service
 systemctl restart galilB.service
 systemctl restart slitController.service
+systemctl restart shackhartman.service
+systemctl restart plugController.service
 systemctl restart director.service

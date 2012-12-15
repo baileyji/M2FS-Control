@@ -329,7 +329,11 @@ class SelectedSerial(SelectedConnection):
         """ Perform a device specific read, Raise WriteError if no data or any error """
         try:
             count = self.connection.write(self.out_buffer)
-            return count
+            if count!=None:
+                return count
+            else:
+                #assume full message sent
+                return (self.out_buffer)
         except serial.SerialException,err:
             raise WriteError(err)
     

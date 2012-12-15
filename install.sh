@@ -1,5 +1,5 @@
 #!/bin/bash
-cp -rv ./etc /etc
+cp -rv ./etc/* /etc/
 useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsuser") m2fsuser
 useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsadmin") m2fsadmin
 mkdir -p /home/m2fs/plates

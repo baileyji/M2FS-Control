@@ -235,10 +235,10 @@ class SelectedConnection(object):
             if self.out_buffer:
                 # write a chunk
                 count = self.implementationSpecificWrite(self.out_buffer)
-                self.logger.debug('Attempted write "%s", wrote "%s" on %s:%s' %
+                self.logger.debug('Attempted write "%s", wrote "%s" on %s' %
                     (self.out_buffer.replace('\n','\\n'),
                      self.out_buffer[:count].replace('\n','\\n'),
-                     self.host,self.port))
+                     self.addr_str()))
                 # and remove the sent data from the buffer
                 self.out_buffer = self.out_buffer[count:]
                 if self.sentCallback and self.out_buffer=='':

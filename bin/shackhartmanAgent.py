@@ -93,9 +93,9 @@ class ShackHartmanAgent(Agent):
             response=self.shlenslet.receiveMessageBlocking(nBytes=2)
             #for bit meanings se simple_motor_controllers.pdf
             err=hex(256*ord(response[1])+ord(response[0]))
-        except IOError:
-            err='ERROR'
-        return err
+            return err
+        except Exception, e
+            return str(e)
     
     def getTemp(self):
         """

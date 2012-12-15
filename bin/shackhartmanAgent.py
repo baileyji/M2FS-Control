@@ -13,15 +13,11 @@ from command import Command
 class ShackHartmanAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShackHartmanAgent')
-        #Initialize the agent
-        self.args=self.cli_parser.parse_args()
         self.shled=SelectedConnection.SelectedSerial('/dev/shLED', 115200)
-        self.shledValue=0
-        self.shlenslet=SelectedConnection.SelectedSerial('/dev/shLenslet',
-            115200)
+        self.shlenslet=SelectedConnection.SelectedSerial('/dev/shLenslet', 115200)
         self.devices.append(self.shlenslet)
         self.devices.append(self.shled)
-        self.max_clients=1
+        self.shledValue=0
         self.command_handlers.update({
             'SHLED':self.SHLED_command_handler,
             'SHLENS':self.SHLENS_command_handler,
@@ -61,9 +57,9 @@ class ShackHartmanAgent(Agent):
             else:
                 try:
                     if 'IN' in command.string and 'OUT' not in command.string:
-                        self.shlenslet.sendMessageBlocking('\x89\x7F')
+                        self.shlenslet.sendMessage('\x89\x7F')
                     elif 'OUT' in command.string and 'IN' not in command.string:
-                        self.shlenslet.sendMessageBlocking('\x8A\x7F')
+                        self.shlenslet.sendMessage('\x8A\x7F')
                     else:
                         self.bad_command_handler(command)
                 except IOError, e:

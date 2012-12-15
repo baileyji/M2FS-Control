@@ -16,7 +16,6 @@ class SelectedConnection(object):
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):
         """ The sent and response callbacks are called iff a message is sent or recieved. If there is an error they will not be called."""
-
         self.logger=logging.getLogger('SelectedCon')
         self.defaultResponseCallback=default_message_received_callback
         self.defaultSentCallback=default_message_sent_callback
@@ -26,7 +25,7 @@ class SelectedConnection(object):
         self.errorCallback=self.defaultErrorCallback
         self.out_buffer=''
         self.in_buffer=''
-
+    
     def __str__(self):
         """ String form of connection to make easy status reporting """
         if self.isOpen():
@@ -34,6 +33,7 @@ class SelectedConnection(object):
         else:
             return 'Closed SelectedConnection '+self.addr_str()
 
+    
     def addr_str(self):
         """ Report connection address. Implemented by subclass """
         pass
@@ -182,7 +182,6 @@ class SelectedConnection(object):
             self.errorCallback=self.defaultErrorCallback
             callback(self,err)
         self._handle_disconnect()
-
     def _handle_disconnect(self):
         """Disconnect, clearing output buffer"""
         if self.connection is None:
@@ -229,7 +228,6 @@ class SelectedConnection(object):
     def do_select_write(self):
         """ Do select for write whenever the connection is open & have data """
         return self.isOpen() and self.out_buffer !=''
-        
     
     def handle_write(self):
         """Write callback for select"""

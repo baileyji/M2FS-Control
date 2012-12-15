@@ -135,6 +135,7 @@ class ShackHartmanAgent(Agent):
                         return 'INTERMEDIATE'
         except IOError:
             return 'ERROR'
+    
 
 if __name__=='__main__':
     agent=ShackHartmanAgent()

@@ -32,7 +32,6 @@ class SelectedConnection(object):
             return 'Open SelectedConnection '+self.addr_str()
         else:
             return 'Closed SelectedConnection '+self.addr_str()
-
     
     def addr_str(self):
         """ Report connection address. Implemented by subclass """
@@ -182,6 +181,7 @@ class SelectedConnection(object):
             self.errorCallback=self.defaultErrorCallback
             callback(self,err)
         self._handle_disconnect()
+    
     def _handle_disconnect(self):
         """Disconnect, clearing output buffer"""
         if self.connection is None:

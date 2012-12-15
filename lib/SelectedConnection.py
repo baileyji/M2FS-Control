@@ -333,7 +333,7 @@ class SelectedSerial(SelectedConnection):
                 return count
             else:
                 #assume full message sent
-                return (self.out_buffer)
+                return len(self.out_buffer)
         except serial.SerialException,err:
             raise WriteError(err)
     

@@ -115,7 +115,8 @@ class ShackHartmanAgent(Agent):
         try:
             self.shlenslet.sendMessageBlocking('\xA1\x21')
             response=self.shlenslet.receiveMessageBlocking()
-            if response != 0:
+            err=self.getErrorStatus()
+            if response != 0 and err !='0x0':
                 return 'MOVING'
             else:
                 self.shlenslet.sendMessageBlocking('\xA1\x12')

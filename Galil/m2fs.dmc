@@ -338,7 +338,7 @@ EN
 ' Starutp Routine
 '***************************************************************************
 #AUTO
-HX1;HX2;ST;MC;MO*
+HX1;HX2;HX3;HX4;HX5;HX6;HX7;ST;MC;MO*
 m2fsver=.1;bootup1=1
 JS#M2FSCFG
 JS#INIT
@@ -363,12 +363,14 @@ HV ,,,,axhmspd[4],axhmspd[5],axhmspd[6],axhmspd[7]
 SP axspd[0],axspd[1],axspd[2],axspd[3]
 SP ,,,,axspd[4],axspd[5],axspd[6],axspd[7]
 
-'Query the Filter elevator position to initialize nearfilt
-JS#QUFELP
 'Start the analog filter
 XQ #ANAMAF,1
 'Start the HIRes lock monitor
 XQ #LOCKMON,2
+
+'Query the Filter elevator position to initialize nearfilt
+JS#QUFELP
+
 'Idle forever
 #IDLE;WT 10000;JP#IDLE
 EN
@@ -885,6 +887,7 @@ JS#ENC2STP(FESELAX,^b)
 ~a=^a;^b=_TD~a+_JS
 JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a
 'Check the position again
+JS#WAITAMF(^a)
 JS#QUFELP
 'If we still aren't in a safe spot fail
 IF( ((_JS>=filterp1) & (_JS<=filterp8)) | (felanap>allsafep) );^h=ENONE
@@ -904,7 +907,7 @@ EN,,^h
 'Stack and XQ fancy footwork
 JS#ZS;IF(_JS<1);ed4=_ED4;JS#QUFELP;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^a=FESELAX
-~a=^a;IF(_SC~a=0);^h=moving
+~a=^a;IF((_SC~a=0) | (anapcln[^a]<>-1));^h=moving
 ELSE
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
@@ -985,6 +988,7 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Check for invalid filter id
 IF ((^a<0)|(^a>9));^h=EBADFP
 ELSE;'ID valid, get current state of elevator (^b) and inserter (^c)
+JS#WAITAMF(FESELAX)
 JS#QUFELP;^b=_JS-filterp1
 ^c=unknown
 IF ((_LFD=0)&(_LRD=1));^c=in;ENDIF
@@ -1012,6 +1016,7 @@ JS#WAITAMF(FESELAX)
 JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
 
 'Get current state of elevator
+JS#WAITAMF(FESELAX)
 JS#QUFELP;^b=_JS
 IF( ((^b-filterp1)=^a) & (^b<>intermd) );'If we are where we should be...
 'Insert the filter if needed

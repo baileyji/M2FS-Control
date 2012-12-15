@@ -162,9 +162,10 @@ class Agent(object):
         command=Command(source, message_str)
         existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
         if existing_commands_from_source:
-            self.logger.warning('Command %s received before command %s finished.' %
-                (message_str.replace('\n','\\n').replace('\r','\\r'),
-                 existing_commands_from_source[0].string))
+            warning=('Command "%s" received before command "%s" finished.' %
+                     (message_str, existing_commands_from_source[0])
+            ).replace('\n','\\n').replace('\r','\\r')
+            self.logger.warning(warning)
         else:
             self.commands.append(command)
             self.command_handlers.get(command_name.upper(), self.bad_command_handler)(command)

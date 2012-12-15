@@ -177,7 +177,7 @@ class SelectedConnection(object):
     def handle_error(self, error=''):
         """ Connection fails"""
         err=('ERROR: "%s" on %s.' %
-            (error.replace('\n','\\n').replace('\r','\\r'), self.addr_str()))
+            (str(error).replace('\n','\\n').replace('\r','\\r'), self.addr_str()))
         self.logger.error(err)
         if self.errorCallback !=None:
             callback=self.errorCallback

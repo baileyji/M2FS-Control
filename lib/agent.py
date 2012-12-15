@@ -136,9 +136,9 @@ class Agent(object):
             self.server_socket.bind(self.listenOn())
             self.server_socket.listen(1)
             self.logger.info(" Waiting for connection on %s:%s..." % self.listenOn())
-        except socket.error, msg:
+        except socket.error, e:
             if tries > 0:
-                self.logger.info('Server socket error %s, retrying %s more times.'%(msg,tries))
+                self.logger.info('Server socket error %s, retrying %s more times.'%(set(e),tries))
                 time.sleep(SERVER_RETRY_TIME)
                 self.initialize_socket_server(tries=tries-1)
             else:
@@ -163,7 +163,8 @@ class Agent(object):
         existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
         if existing_commands_from_source:
             self.logger.warning('Command %s received before command %s finished.' %
-                (message_str, existing_commands_from_source[0].string))
+                (message_str.replace('\n','\\n').replace('\r','\\r'),
+                 existing_commands_from_source[0].string))
         else:
             self.commands.append(command)
             self.command_handlers.get(command_name.upper(), self.bad_command_handler)(command)
@@ -222,7 +223,7 @@ class Agent(object):
     
     def handle_server_error(self, error=''):
         """Socket server fails"""
-        self.logger.error('Socket server error:%s'%error)
+        self.logger.error('Socket server error: "%s"' % error)
         sys.exit(1)
     
     def update_select_maps(self, read_map, write_map, error_map):
@@ -280,6 +281,7 @@ class Agent(object):
     def status_command_handler(self,command):
         """ Handle a status request, reply with cookie"""
         command.setReply(self.cookie+'\n')
+    
     def do_select(self):
         """
         Perform the select operation on all devices and sockets whcih require it

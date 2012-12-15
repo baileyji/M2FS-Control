@@ -58,7 +58,7 @@ class SelectedConnection(object):
             self.implementationSpecificConnect()
             self._postConnect()
         except Exception, e:
-            self.logger.info('Connect failed: %s'%str(e))
+            self.logger.info('Connect failed: %s' % str(e))
             self.connection=None
             raise ConnectError(str(e))
 
@@ -98,7 +98,8 @@ class SelectedConnection(object):
         
         """
         if self.out_buffer!='':
-            err="Attempting to send %s on non-empty buffer"% message
+            err="Attempting to send %s on non-empty buffer" % message
+            err=err.replace('\n','\\n').replace('\r','\\r')
             self.logger.error(err)
             raise WriteError(err)
         if errorCallback is not None:
@@ -135,7 +136,8 @@ class SelectedConnection(object):
             self.connect()
         except ConnectError, err:
             self.connection=None
-            err="Attempted to send '%s' to '%s' but coudn't connect." % (message, self.addr_str())
+            err=("Attempted to send '%s' to '%s' but coudn't connect." %
+                (message, self.addr_str())).replace('\n','\\n').replace('\r','\\r')
             self.logger.error(err)
             raise WriteError(err)
         if not message:
@@ -144,10 +146,10 @@ class SelectedConnection(object):
             message+='\n'
         try:
             count=self.implementationSpecificBlockingSend(message)
-            self.logger.debug("Attempted write '%s', wrote '%s' to %s" %
-                    (message.replace('\n','\\n').replace('\r','\\r'),
-                     message[:count].replace('\n','\\n').replace('\r','\\r'),
-                     self.addr_str()))
+            msg=("Attempted write '%s', wrote '%s' to %s" %
+                 (message, message[:count], self.addr_str())
+                 ).replace('\n','\\n').replace('\r','\\r')
+            self.logger.debug(msg)
             if count !=len(message):
                 raise WriteError('Could not send complete message.')
         except WriteError,err:
@@ -172,9 +174,10 @@ class SelectedConnection(object):
             self.handle_error(e)
             raise e
     
-    def handle_error(self, error=None):
+    def handle_error(self, error=''):
         """ Connection fails"""
-        err="ERROR: %s on %s." %(error, self.addr_str())
+        err=('ERROR: "%s" on %s.' %
+            (error.replace('\n','\\n').replace('\r','\\r'), self.addr_str()))
         self.logger.error(err)
         if self.errorCallback !=None:
             callback=self.errorCallback
@@ -210,14 +213,15 @@ class SelectedConnection(object):
         """Read callback for select"""
         try:
             data = self.implementationSpecificRead()
-            self.logger.debug("Handle_Read got: %s" % data.replace('\n','\\n'))
+            self.logger.debug("Handle_Read got: %s" %
+                              data.replace('\n','\\n').replace('\r','\\r'))
             self.in_buffer += data
             count=self.in_buffer.find('\n')
             if count is not -1:
                 message_str=self.in_buffer[0:count+1]
                 self.in_buffer=self.in_buffer[count+1:]
                 self.logger.debug("Received message '%s' on %s" % 
-                    (message_str.replace('\n','\\n'), self))
+                    (message_str.replace('\n','\\n').replace('\r','\\r'), self))
                 if self.responseCallback:
                     callback=self.responseCallback
                     self.responseCallback=self.defaultResponseCallback
@@ -235,10 +239,10 @@ class SelectedConnection(object):
             if self.out_buffer:
                 # write a chunk
                 count = self.implementationSpecificWrite(self.out_buffer)
-                self.logger.debug('Attempted write "%s", wrote "%s" on %s' %
-                    (self.out_buffer.replace('\n','\\n'),
-                     self.out_buffer[:count].replace('\n','\\n'),
-                     self.addr_str()))
+                msg=('Attempted write "%s", wrote "%s" on %s' %
+                     (self.out_buffer, self.out_buffer[:count],self.addr_str())
+                ).replace('\n','\\n').replace('\r','\\r')
+                self.logger.debug(msg)
                 # and remove the sent data from the buffer
                 self.out_buffer = self.out_buffer[count:]
                 if self.sentCallback and self.out_buffer=='':

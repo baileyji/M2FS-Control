@@ -81,10 +81,10 @@ class Director(Agent):
     def get_version_string(self):
         return 'Director Version 0.1'
     
-    def guiclose_command_handler(self, command):
+    def guiclose_command_handler(self, command):#TODO
         command.setReply('OK')
     
-    def shutdown_command_handler(self, command):
+    def shutdown_command_handler(self, command):#TODO
         command.setReply('OK')
       
     def shackhartman_command_handler(self, command):

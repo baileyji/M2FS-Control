@@ -90,7 +90,7 @@ class Agent(object):
         self.logger.addHandler(ch)
         #Get a logger for the agent
         self.logger=logging.getLogger(self.name)
-
+    
     def initialize_cli_parser(self):
         """Configure the command line interface
         
@@ -167,7 +167,7 @@ class Agent(object):
         else:
             self.commands.append(command)
             self.command_handlers.get(command_name.upper(), self.bad_command_handler)(command)
-        
+    
     def get_version_string(self):
         """ Return a string with the version. Subclasses should override. """
         return 'AGENT Base Class Version 0.1'
@@ -203,7 +203,7 @@ class Agent(object):
         Else,
         Create a SelectedConnection
         (SelectedSocket, I havent actually fully abstracted this yet)
-                        """
+        """
         # accept a connection in any case, close connection
         # below if already busy
         connection, addr = self.server_socket.accept()
@@ -224,7 +224,7 @@ class Agent(object):
         """Socket server fails"""
         self.logger.error('Socket server error:%s'%error)
         sys.exit(1)
-        
+    
     def update_select_maps(self, read_map, write_map, error_map):
         """Update dictionaries for select call. insert fd->callback mapping"""
         # check the server socket
@@ -256,7 +256,7 @@ class Agent(object):
             dead_commands=filter(lambda x:x.source==dead_socket,self.commands)
             for dead_command in dead_commands:
                 self.commands.remove(dead_command)
-                
+    
     def handle_completed_commands(self):
         """Return results of complete commands and cull the commands."""
         completed_commands=filter(lambda x: x.state=='complete',self.commands)
@@ -264,7 +264,7 @@ class Agent(object):
             self.logger.debug("Closing out command %s" % command)
             command.source.sendMessage(command.reply)
             self.commands.remove(command)
-
+    
     def not_implemented_command_handler(self, command):
         """ Placeholder command handler """
         command.setReply('!ERROR: Command not implemented.\n')
@@ -272,17 +272,18 @@ class Agent(object):
     def bad_command_handler(self, command):
         """ Handle an unrecognized command """
         command.setReply('!ERROR: Unrecognized command.\n')
-        
+    
     def version_request_command_handler(self,command):
         """ Handle a version request """ 
         command.setReply(self.get_version_string()+'\n')
-
+    
     def status_command_handler(self,command):
         """ Handle a status request, reply with cookie"""
         command.setReply(self.cookie+'\n')
-
     def do_select(self):
-        """ Perform the select operation on all devices and sockets whcih require it """
+        """
+        Perform the select operation on all devices and sockets whcih require it
+        """
         #select_start = time.time()
         read_map = {}
         write_map = {}
@@ -300,18 +301,17 @@ class Agent(object):
         for writer in writers: write_map[writer]()
         for error  in errors:  error_map[error]()       
         #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
-        
-
+    
     def run(self):
         pass
-
+    
     def runOnce(self):
         self.logger.info('Command line commands not yet implemented.')
         sys.exit(0)
     
     def runSetup(self):
         pass
-
+    
     def main(self):
         """
         Loop forever, acting on commands as received if on a port.
@@ -324,9 +324,9 @@ class Agent(object):
             self.runOnce()
         while True:
             self.do_select()
-
+            
             self.run()
-
+            
             #log commands
             for command in self.commands:
                 self.logger.debug(command)

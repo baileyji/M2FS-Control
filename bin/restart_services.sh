@@ -5,6 +5,7 @@
 #
 #  Created by Jeb Bailey on 7/25/12.
 #  Copyright (c) 2012 SpaceColonyOne, Inc. All rights reserved.
+systemctl --system daemon-reload
 systemctl restart shoeR.service
 systemctl restart shoeB.service
 systemctl restart galilR.service

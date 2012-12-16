@@ -1016,10 +1016,10 @@ JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
 'Get current state of elevator
 JS#WAITAMF(FESELAX)
 JS#QUFELP;^b=_JS
-IF( ((^b-filterp1)=^a) & (^b<>intermd) );'If we are where we should be...
+'If we are where we should be...
+IF( ((^b-filterp1)=^a) & (^b<>intermd) )
 'Insert the filter if needed
-IF(^b<>filterld);JS#INFESIN;^h=_JS
-ELSE;^h=ENONE;ENDIF
+IF(^b<>filterld);JS#INFESIN;^h=_JS;ELSE;^h=ENONE;ENDIF
 ELSE;^h=EFLTUNSF
 REM MG "PICKFIL: EFLTUNSF"
 ENDIF

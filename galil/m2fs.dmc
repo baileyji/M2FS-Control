@@ -954,8 +954,8 @@ JS#QUFELP;^b=_JS
 IF((^a=moving)|(^b=moving));MG "GETFILT: MOVING"
 ELSE;IF(^b=filterld);MG "GETFILT: LOAD"
 ELSE;IF(^a=unknown);MG "GETFILT: UNKNOWN"
-ELSE;IF(^a=out);MG "GETFILT: NONE"
-ELSE;IF((^a=intermd)|(^b=intermd);MG "GETFILT: Intermediate"
+ELSE;IF(^a=out);MG "GETFILT: 10"
+ELSE;IF((^a=intermd)|(^b=intermd);MG "GETFILT: INTERMEDIATE"
 ELSE;'One will match
 IF(^b=filterp1);MG "GETFILT: 1";ENDIF
 IF(^b=filterp2);MG "GETFILT: 2";ENDIF

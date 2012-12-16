@@ -40,6 +40,8 @@ EFAIL=9
 ECRAZY=11;'A passed parameter is outside of all sane bounds
 ELIMOST=12;' Over shot the limitswitch
 EFLTUNSF=13
+ELIMSW=14;' Limit switch disallows move
+EBADAX=15;'Routine can't operate on specified axis
 
 'Array of threaded execution parameters
 DM a[8],b[8],c[8],d[8],e[8],f[8],g[8],h[8],ret[8]
@@ -1103,7 +1105,7 @@ EN,,^h
 #CALHMAX;'(axis)
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#CALHMAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-IF ((^a<>HRTLTAX)&(^a<>HRAZAX));^h=EFAIL
+IF ((^a<>HRTLTAX)&(^a<>HRAZAX));^h=EBADAX
 ELSE
 ^h=ENONE;axiserr[^a]=ENONE
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
@@ -1130,7 +1132,7 @@ EN ,,^h
 #CALENAX
 'Stack and XQ fancy footwork
 JS#ZS;IF(_JS<1);ed4=_ED4;JS#CALENAX(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-IF(^a<>GESAX);^h=EFAIL
+IF(^a<>GESAX);^h=EBADAX
 ELSE
 'Hope for success
 ^h=ENONE;axiserr[^a]=ENONE
@@ -1553,6 +1555,8 @@ MG "!GES:ERREncoder & stepper mismatch. Try recalibrating.",gesanap,_TDA
 ELSE;IF (^b=EFAIL);MG "!GES:ERRUnspecified error."
 ELSE;IF (^b=ECRAZY);MG "!GES:ERRRequested value out of allowed range."
 ELSE;IF (^b=ELIMOST);MG "!GES:ERROvershot limit switch."
+ELSE;IF (^b=ELIMSW);MG "!GES:ERRLimit switch."
+ELSE;IF (^b=EBADAX);MG "!GES:ERRRoutine not for this axis."
 ELSE;MG "!GES:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
@@ -1564,6 +1568,8 @@ ELSE;IF (^b=ELIMSWF);MG "!HRTLT:ERRLimit switch failure."
 ELSE;IF (^b=ELCKERR);MG "!HRTLT:ERRLocked. You must loosen the locking nut."
 ELSE;IF (^b=ECRAZY);MG "!HRTLT:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!HRTLT:ERRUnspecified error."
+ELSE;IF (^b=ELIMSW);MG "!HRTLT:ERRLimit switch."
+ELSE;IF (^b=EBADAX);MG "!HRTLT:ERRRoutine not for this axis."
 ELSE;MG "!HRTLT:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
@@ -1575,6 +1581,8 @@ ELSE;IF (^b=ELIMSWF);MG "!HRAZ:ERRLimit switch failure."
 ELSE;IF (^b=ELCKERR);MG "!HRAZ:ERRLocked. You must loosen the locking nut."
 ELSE;IF (^b=ECRAZY);MG "!HRAZ:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!HRAZ:ERRUnspecified error."
+ELSE;IF (^b=ELIMSW);MG "!HRAZ:ERRLimit switch."
+ELSE;IF (^b=EBADAX);MG "!HRAZ:ERRRoutine not for this axis."
 ELSE;MG "!HRAZ: Unknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
@@ -1584,6 +1592,7 @@ ELSE;IF (^b=ETIME);MG "!LRTLT:ERRMotion Timeout."
 ELSE;IF (^b=EHMERR);MG "!LRTLT:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!LRTLT:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!LRTLT:ERRUnspecified error."
+ELSE;IF (^b=EBADAX);MG "!LRTLT:ERRRoutine not for this axis."
 ELSE;MG "!LRTLT:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
@@ -1592,6 +1601,7 @@ IF (^b=ENONE);MG "FOC: OK"
 ELSE;IF (^b=ETIME);MG "!FOC:ERRMotion Timeout."
 ELSE;IF (^b=ECRAZY);MG "!FOC:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FOC:ERRUnspecified error."
+ELSE;IF (^b=EBADAX);MG "!FOC:ERRRoutine not for this axis."
 ELSE;MG "!FOC:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
@@ -1602,6 +1612,8 @@ ELSE;IF (^b=ELIMSWF);MG "!FLSIN:ERRLimit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FLSIN:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!FLSIN:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FLSIN:ERRUnspecified error."
+ELSE;IF (^b=ELIMSW);MG "!FLSIN:ERRLimit switch."
+ELSE;IF (^b=EBADAX);MG "!FLSIN:ERRRoutine not for this axis."
 ELSE;MG "!FLSIN:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
@@ -1612,6 +1624,8 @@ ELSE;IF (^b=ELIMSWF);MG "!FESIN:ERRLimit switch failure."
 ELSE;IF (^b=EHMERR);MG "!FESIN:ERRHoming failure. Switch did not toggle."
 ELSE;IF (^b=ECRAZY);MG "!FESIN:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FESIN:ERRUnspecified error."
+ELSE;IF (^b=ELIMSW);MG "!FESIN:ERRLimit switch."
+ELSE;IF (^b=EBADAX);MG "!FESIN:ERRRoutine not for this axis."
 ELSE;MG "!FESIN:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
@@ -1625,6 +1639,7 @@ ELSE;IF (^b=EBADFP)
 MG "!FESEL: ERR",^c {Z2.0}," is not a valid filter position."
 ELSE;IF (^b=ECRAZY);MG "!FESEL: ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FESEL: ERRUnspecified error."
+ELSE;IF (^b=EBADAX);MG "!FESEL:ERRRoutine not for this axis."
 ELSE;IF (^b=EFLTUNSF);MG "!FESEL:ERRFilter changer unsafe state. Fix Manually."
 ELSE;MG "!FESEL:ERRUnknown error code",^b,". This is a software bug."
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF

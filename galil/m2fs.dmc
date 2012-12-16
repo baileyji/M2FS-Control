@@ -1192,7 +1192,7 @@ WT 500
 JS#ENC2STP(^a,500);^b=_JS
 'Move off limit slowly and stop
 ~a=^a;PR~a=^b;BG~a
-#CALENA3;WT 50;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a
+#CALENA3;WT 25;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a
 'If we didn't get off the limit, fail
 ~a=^a;IF(_LR~a=0);^h=ELIMSWF;ENDIF
 ENDIF

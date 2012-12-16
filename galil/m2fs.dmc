@@ -561,7 +561,8 @@ IF(^h=ENONE);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 'If we are good to go, but not calibrated, calibrate
 IF ((^h=ENONE)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
-IF(^h=ENONE);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
+IF(^h=ENONE);JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
+~a=^a;IF((SC~a=2)|(SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -609,7 +610,8 @@ IF(^h=0);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 'If we are good to go, but not calibrated, calibrate
 IF ((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
-IF(^h=0);JS#FANCYMV(^a,^b);~a=^a;MC~a;~a=^a;MO~a;ENDIF
+IF(^h=0);JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
+~a=^a;IF((SC~a=2)|(SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -691,7 +693,7 @@ IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=(^h | _JS);ENDIF
 axiserr[^a]=_JS
 'If we are good to go, MOVE!
 IF(^h=ENONE)
-JS#FANCYMV(LRTLTAX,lrswapp);JS#FANCYMV(GESAX,gesgsp)
+JS#FANCYMV(LRTLTAX,lrswapp);JS#FANCYMV(GESAX,gesgsp);^h=_JS
 ^a=LRTLTAX;~a=^a;MC~a;~a=^a;MO~a
 ^a=GESAX;~a=^a;MC~a;~a=^a;MO~a
 'Verify GES in an acceptable position
@@ -711,7 +713,7 @@ JS#ZS;IF (_JS<1);JS#HIRES;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Calibrate if needed
 IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
-IF(^h=0);JS#FANCYMV(^a,geshrp);~a=^a;MC~a;~a=^a;MO~a
+IF(^h=ENONE);JS#FANCYMV(^a,geshrp);^h=_JS;~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
 JS#QUGESP2;IF (_JS<>hires);^h=EFAIL;ENDIF
 ENDIF
@@ -730,7 +732,7 @@ JS#ZS;IF (_JS<1);JS#LORES;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Calibrate if needed
 IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
-IF(^h=ENONE);JS#FANCYMV(^a,geslrp);~a=^a;MC~a;~a=^a;MO~a
+IF(^h=ENONE);JS#FANCYMV(^a,geslrp);^h=_JS;~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
 JS#QUGESP2;IF(_JS<>lores);^h=EFAIL;ENDIF
 ENDIF
@@ -1218,7 +1220,8 @@ EN,,^h
 '***************************************************************************
 #FANCYMV;'(axis,absolute)
 'Stack and XQ fancy footwork
-JS#ZS;IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4]);ed4=_ED4;ret[ed4]=0;ELSE
+JS#ZS;IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4]);ed4=_ED4;ret[ed4]=_JS;ELSE
+^h=ENONE
 'Compute delta
 ^b=@RND[^b]
 ~a=^a;^c=^b-_TD~a
@@ -1229,8 +1232,14 @@ IF(@ABS[^c]<mininc[^a])
 'First move mininc[^a]+@ABS[^c] in direction we last headed
 IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
 ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a];PA~a=^d;SH~a;BG~a
-~a=^a;MC~a
+~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a]
+'Verify the limit isn't tripped in the the direction of inteded motion
+~a=^a;IF( ((ldelta[^a]>0)&(_LF~a=0)) | ((ldelta[^a]<0)&(_LR~a=0)) )
+'Starting the move will cause a command error
+^h=ELIMSW
+ELSE
+~a=^a;PA~a=^d;SH~a;BG~a;MC~a
+ENDIF
 'Check position to see if we didn't reach our goal (i.e. we hit a limit)
 ~a=^a;IF(_TD~a<>^d)
 'Figure how far we need to move in the other direction
@@ -1241,22 +1250,33 @@ ELSE;~a=^a;^d=_TD~a+(2*(mininc[^a]+@ABS[^c]));ENDIF
 'Handle backlash
 JS#BACKLSH(^a,^e)
 'Move past in the other direction
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a];PA~a=^d;SH~a;BG~a
-~a=^a;MC~a
+'Verify the limit isn't tripped in the the direction of inteded motion
+~a=^a;IF( ((^e>0)&(_LF~a=0)) | ((^e<0)&(_LR~a=0)) )
+'Starting the move will cause a command error
+^h=ELIMSW
+ELSE
+~a=^a;PA~a=^d;SH~a;BG~a;MC~a
 ENDIF
+ENDIF;' didn't reach goal
 'Recompute delta
 ~a=^a;^c=^b-_TD~a
-ENDIF
+ENDIF;' very small move
 'Handle backlash
 JS#BACKLSH(^a,^c)
 'Start move to position
+'Verify the limit isn't tripped in the the direction of inteded motion
+~a=^a;IF( ((^c>0)&(_LF~a=0)) | ((^c<0)&(_LR~a=0)) )
+'Starting the move will cause a command error
+^h=ELIMSW
+ELSE
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a]
 'NB setting TW to value larger than max is ok
 ~a=^a;PA~a=^b;SH~a
 ~a=^a;TW~a=(@ABS[(1100*((^b-_TD~a)/_SP~a))]+100);BG~a
-REM ~a=^a;MG "TW=",_TW~a
-ENDIF;ENDIF
-EN 1
+ENDIF
+ENDIF;'nonzero move
+ENDIF;'footwork
+EN 1,,^h
 
 
 '***************************************************************************

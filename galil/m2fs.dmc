@@ -1021,7 +1021,7 @@ IF( ((^b-filterp1)=^a) & (^b<>intermd) );'If we are where we should be...
 IF(^b<>filterld);JS#INFESIN;^h=_JS
 ELSE;^h=ENONE;ENDIF
 ELSE;^h=EFLTUNSF
-MG "PICKFIL: EFLTUNSF"
+REM MG "PICKFIL: EFLTUNSF"
 ENDIF
 ENDIF;ENDIF;ENDIF
 axiserr[FESELAX]=^h

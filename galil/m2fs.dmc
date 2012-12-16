@@ -732,7 +732,7 @@ IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=_JS;ENDIF
 'If all is well start moving to position
 IF(^h=ENONE);JS#FANCYMV(^a,geslrp);~a=^a;MC~a;~a=^a;MO~a
 'Verify we are in an acceptable position
-JS#QUGESP2;IF (_JS<>lores);^h=EFAIL;ENDIF
+JS#QUGESP2;IF(_JS<>lores);^h=EFAIL;ENDIF
 ENDIF
 axiserr[^a]=^h;'Store status
 ENDIF

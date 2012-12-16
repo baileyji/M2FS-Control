@@ -249,50 +249,47 @@ lrhomng=false;' Is the axis trying to home at present
 lrswapp=-423000;' step position for lr grating swap
 
 'Filter related defines
-nfilt=8 ;' Number of filter slots
-^a=nfilt+1;'Can't have expression within subscripts
-'FES Elevator nominal filter position in steps
-'Elevator travels .1" per rev (3200 steps) 
-felstpsp=16*200*5;'steps  worth of space between filters
-DM feselfp[^a]
-feselfp[0]=1500
-feselfp[1]=feselfp[0]+felstpsp
-feselfp[2]=feselfp[1]+felstpsp
-feselfp[3]=feselfp[2]+felstpsp
-feselfp[4]=feselfp[3]+felstpsp
-feselfp[5]=feselfp[4]+felstpsp
-feselfp[6]=feselfp[5]+felstpsp
-feselfp[7]=feselfp[6]+felstpsp
-feselfp[8]=feselfp[7]+16*200*28.5
-'FES Elevator nominal filter position in encoder counts
-felencsp=317;'.5" filter spacing, 317 counts measured ?? nominal
-DM felencp[^a]
+nfilt=8;' Number of filter slots
 
-REM Red side 8/28/12
-felencp[0]=116.7;'4.2803
-felencp[1]=413;'felencp[0]+felencsp
-felencp[2]=705;'felencp[1]+felencsp
-felencp[3]=992;'felencp[2]+felencsp
-felencp[4]=1276;'felencp[3]+felencsp
-felencp[5]=1559;'felencp[4]+felencsp
-felencp[6]=1842.7;'felencp[5]+felencsp
-felencp[7]=2128;'felencp[6]+felencsp
-felencp[8]=3837;'felencp[7]+1732;'Load position is an additional 2.85" further
+'NB Elevator nominally travels .1" per rev (3200 steps) 
 
-REM Blue side 8/28/12
-felencp[0]=79;'4.2803
-felencp[1]=378;'felencp[0]+felencsp
-felencp[2]=670;'felencp[1]+felencsp
-felencp[3]=961.2;'felencp[2]+felencsp
-felencp[4]=1256;'felencp[3]+felencsp
-felencp[5]=1529;'felencp[4]+felencsp
-felencp[6]=1812;'felencp[5]+felencsp
-felencp[7]=2096;'felencp[6]+felencsp
-felencp[8]=3848;'felencp[7]+1732;'Load position is an additional 2.85" further
+'FES Elevator nominal filter positions in encoder counts
+^a=nfilt+1;DM felencp[^a]
 
-'Allowable range (+/-) in encoder counts around nominal filter position
-feselrg=2 ;'2 is about 0.003"
-allsafep=2746;'Encoder pos above which it is always safe to move the inserter
+REM Red side 12/15/12
+felencp[0]=79.5;'Valid +/-9.5
+felencp[1]=383.5;'Valid +/-4.5
+felencp[2]=667.5;'Valid +/-5.5
+felencp[3]=960;'Valid +/-8
+felencp[4]=1247;'Valid +/-5
+felencp[5]=1531;'Valid +/-4
+felencp[6]=1808;'Valid +/-5
+felencp[7]=2108.5;'Valid +/-6.5
+felencp[8]=3789;'Valid +/-40
+'Elevator tolerance (+/-) in encoder counts about filter position
+feselrg=2.5
+'Encoder pos above which it is always safe to move the inserter
+allsafep=3749
+'55.4 steps/cnt
+'57.76 cnts/rev
+
+REM Blue side 12/15/12
+REM felencp[0]=113.5;'Valid +/-12.5
+REM felencp[1]=416;'Valid +/-8
+REM felencp[2]=704;'Valid +/-13
+REM felencp[3]=991.5;'Valid +/-12.5
+REM felencp[4]=1276;'Valid +/-12
+REM felencp[5]=1560.5;'Valid +/-10.5
+REM felencp[6]=1846;'Valid +/-7
+REM felencp[7]=2131.5;'Valid +/-7.5
+REM felencp[8]=3790.5;'Valid +/-72.5
+REM 'Elevator tolerance (+/-) in encoder counts about filter position
+REM feselrg=5.5
+REM 'Encoder pos above which it is always safe to move the inserter
+REM allsafep=3718
+REM '54.57 steps/cnt
+REM '58.64 cnts/rev
+
 
 'FESIN related defines
 fesinsp=9000 ;'The inserted position in steps of the FESIN arm
@@ -320,10 +317,11 @@ AF 1,,1,,1;'		Configure GES, FES, & FOC for analog feedback
 YA 16,16,16,16,16,16,16,16;'Set stepping mode resolutions
 YB 200,200,200,200,200,400,400,400;'Set stepper motor steps/revolution
 LDE=3;'No limits on filter elevator
-'Encoder resolution counts/rev (APPROXIMATE VALUES!)
+'Encoder counts/rev
 'GES Nominally 44.7. GER R measured to be about 42.3
-'FESEL measured to be 607.6 counts per inch on B side
-YC 42,,26,,61 
+'FESEL measured to be 60.76 counts/rev on B side
+'FESEL measured to be 57.76 counts/rev on R side (12/15/12)
+YC 42,,26,,58
 'No built-in position error detection for steppers 	
 ER*=-1			
 'Configure: Limits active high, Home high -> go backward (retract)
@@ -912,7 +910,7 @@ ELSE
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a)
 'Determine which filter is nearest current position 
-'Compute abs(feselfp[i]-position)
+'Compute abs(felencp[i]-position)
 ^f=felanap
 ^d=@ABS[(felencp[0]-^f)];^e=0;^b=1
 'find minumum 

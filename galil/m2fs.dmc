@@ -1663,8 +1663,11 @@ EN
 ' Routine executed whenever a program error occurs
 '***************************************************************************
 #CMDERR
-MG "#Active Threads:",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7
-MG "#!CMDERR ",_TC," (thread",_ED1," line",_ED,"):"
+IF((_ED1=2)&(_TC=7))
+'MOMON is trying to kill motors but they are running, ignore
+ELSE
+MG "#!CMDERR:ERR",_TC," (thread",_ED1," line",_ED,"):"
+ENDIF
 EN
 
 

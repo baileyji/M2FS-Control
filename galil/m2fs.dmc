@@ -1264,7 +1264,7 @@ REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
 
 'Stack and XQ fancy footwork
 JS#ZS
-IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4],c[ed4],d[ed4])
+IF(_JS<1);ed4=_ED4;JS#MOV2LIM(a[ed4],b[ed4],c[ed4],d[ed4])
 ^h=_JS;ed4=_ED4;ret[ed4]=_JS
 ELSE
 ^h=ENONE;'Hope success

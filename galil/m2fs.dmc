@@ -1176,9 +1176,8 @@ JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=2*_JS
 ELSE
 'If we somehow overshot limit move forward slowly until on limit
 ~a=^a;IF(_LR~a=1)
-'Try to move back onto the limit
-'MG "Wait"
-JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
+'Try to move back onto the limit, 500 counts willbe plenty
+JS#ENC2STP(^a,500);^b=_JS
 'MG "overshot limit move forward slowly until on limit",^b
 ~a=^a;SP~a=axhmspd[^a];PR~a=^b;BG~a
 #CALENA2;WT 50;~a=^a;JP#CALENA2, (_LR~a=1);ST~a;MC~a
@@ -1188,10 +1187,9 @@ JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
 ENDIF
 'If all is well
 IF(^h=ENONE)
-'Get number of steps to position near limit and use it
-'  to estimate steps needed to move totally off the negative limit
-'MG "wait"
-JS#WAITAMF(^a);^b=encnlim[^a]-analogp[^a];JS#ENC2STP(^a,^b);^b=1.1*_JS
+WT 500
+'500 counts is plenty to move totally off the negative limit
+JS#ENC2STP(^a,500);^b=_JS
 'Move off limit slowly and stop
 ~a=^a;PR~a=^b;BG~a
 #CALENA3;WT 50;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a

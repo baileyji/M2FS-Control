@@ -21,11 +21,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def __init__(self, *args, **kwargs):
         self.SIDE=kwargs.pop('SIDE')
         self.settingName_to_variableName_map={
-            'filter1step':'feselfp[0]','filter2step':'feselfp[1]',
-            'filter3step':'feselfp[2]','filter4step':'feselfp[3]',
-            'filter5step':'feselfp[4]','filter6step':'feselfp[5]',
-            'filter7step':'feselfp[6]','filter8step':'feselfp[7]',
-            'filter9step':'feselfp[8]', #NB LOAD position
             'filter1encoder':'felencp[0]','filter2encoder':'felencp[1]',
             'filter3encoder':'felencp[2]','filter4encoder':'felencp[3]',
             'filter5encoder':'felencp[4]','filter6encoder':'felencp[5]',
@@ -39,11 +34,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'flsimInserted':'flsinsp','flsimRemoved':'flsremp',
             'loresSwapStep':'gesgsp','loresSwapEncoder':'gesgsep'}
         self.settingNameCommandClasses={
-            'filter1step':'FILTER','filter2step':'FILTER',
-            'filter3step':'FILTER','filter4step':'FILTER',
-            'filter5step':'FILTER','filter6step':'FILTER',
-            'filter7step':'FILTER','filter8step':'FILTER',
-            'filter9step':'FILTER', #NB LOAD position
             'filter1encoder':'FILTER','filter2encoder':'FILTER',
             'filter3encoder':'FILTER','filter4encoder':'FILTER',
             'filter5encoder':'FILTER','filter6encoder':'FILTER',

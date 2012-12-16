@@ -320,7 +320,7 @@ LDE=3;'No limits on filter elevator
 'Encoder counts/rev
 'GES Nominally 44.7. GER R measured to be about 42.3
 'FESEL measured to be 60.76 counts/rev on B side
-'FESEL measured to be 57.76 counts/rev on R side (12/15/12)
+'FESEL measured to be 57.76 (R) & 58.64 (B) counts/rev (12/15/12)
 YC 42,,26,,58
 'No built-in position error detection for steppers 	
 ER*=-1			

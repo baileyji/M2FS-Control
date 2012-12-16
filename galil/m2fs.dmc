@@ -1557,7 +1557,7 @@ ELSE;IF (^b=ELIMOST);MG "!GES:ERROvershot limit switch."
 ELSE;IF (^b=ELIMSW);MG "!GES:ERRLimit switch."
 ELSE;IF (^b=EBADAX);MG "!GES:ERRRoutine not for this axis."
 ELSE;MG "!GES:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRTLTAX)
 IF (^b=ENONE);MG "HRTLT: OK"
@@ -1570,7 +1570,7 @@ ELSE;IF (^b=EFAIL);MG "!HRTLT:ERRFail."
 ELSE;IF (^b=ELIMSW);MG "!HRTLT:ERRLimit switch."
 ELSE;IF (^b=EBADAX);MG "!HRTLT:ERRRoutine not for this axis."
 ELSE;MG "!HRTLT:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=HRAZAX)
 IF (^b=ENONE);MG "HRAZ: OK"
@@ -1583,7 +1583,7 @@ ELSE;IF (^b=EFAIL);MG "!HRAZ:ERRFail."
 ELSE;IF (^b=ELIMSW);MG "!HRAZ:ERRLimit switch."
 ELSE;IF (^b=EBADAX);MG "!HRAZ:ERRRoutine not for this axis."
 ELSE;MG "!HRAZ: Unknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=LRTLTAX)
 IF (^b=ENONE);MG "LRTLT: OK"
@@ -1593,7 +1593,7 @@ ELSE;IF (^b=ECRAZY);MG "!LRTLT:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!LRTLT:ERRFail."
 ELSE;IF (^b=EBADAX);MG "!LRTLT:ERRRoutine not for this axis."
 ELSE;MG "!LRTLT:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FOCAX)
 IF (^b=ENONE);MG "FOC: OK"
@@ -1602,7 +1602,7 @@ ELSE;IF (^b=ECRAZY);MG "!FOC:ERRRequested value out of allowed range."
 ELSE;IF (^b=EFAIL);MG "!FOC:ERRFail."
 ELSE;IF (^b=EBADAX);MG "!FOC:ERRRoutine not for this axis."
 ELSE;MG "!FOC:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FLSINAX)
 IF (^b=ENONE);MG "FLSIN: OK"
@@ -1614,7 +1614,7 @@ ELSE;IF (^b=EFAIL);MG "!FLSIN:ERRFail."
 ELSE;IF (^b=ELIMSW);MG "!FLSIN:ERRLimit switch."
 ELSE;IF (^b=EBADAX);MG "!FLSIN:ERRRoutine not for this axis."
 ELSE;MG "!FLSIN:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESINAX)
 IF (^b=ENONE);MG "FESIN: OK"
@@ -1626,7 +1626,7 @@ ELSE;IF (^b=EFAIL);MG "!FESIN:ERRUFail."
 ELSE;IF (^b=ELIMSW);MG "!FESIN:ERRLimit switch."
 ELSE;IF (^b=EBADAX);MG "!FESIN:ERRRoutine not for this axis."
 ELSE;MG "!FESIN:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 IF (^a=FESELAX)
 IF (^b=ENONE);MG "FESEL: OK"
@@ -1641,7 +1641,7 @@ ELSE;IF (^b=EFAIL);MG "!FESEL: ERRFail."
 ELSE;IF (^b=EBADAX);MG "!FESEL:ERRRoutine not for this axis."
 ELSE;IF (^b=EFLTUNSF);MG "!FESEL:ERRFilter changer unsafe state. Fix Manually."
 ELSE;MG "!FESEL:ERRUnknown error code",^b,". This is a software bug."
-ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
+ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 axiserr[^a]=ENONE
 EN

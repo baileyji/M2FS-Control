@@ -1136,7 +1136,6 @@ IF(^a<>GESAX);^h=EBADAX
 ELSE
 'Hope for success
 ^h=ENONE;axiserr[^a]=ENONE
-'MG "#Wait"
 'Wait for filtered analog position to be clean
 JS#WAITAMF(^a);^b=analogp[^a]
 'If pot reads close to the negative limit move positive by a little
@@ -1167,7 +1166,7 @@ JS#WAITAMF(^a);JS#ENC2STP(^a,analogp[^a]);^b=1.1*_JS
 #CALENA2;WT 50;~a=^a;JP#CALENA2, (_LR~a=1);ST~a;MC~a
 'If negative movement is allowed then the switch failed 
 '  or we managed to overshoot twice it either way this is a fail
-~a=^a;IF(_LR~a=1);^h=ELIMOST;'MG "STILL NOT ON LIMIT, fail";ENDIF
+~a=^a;IF(_LR~a=1);^h=ELIMOST;ENDIF
 ENDIF
 'If all is well
 IF(^h=ENONE)
@@ -1176,13 +1175,10 @@ IF(^h=ENONE)
 'MG "wait"
 JS#WAITAMF(^a);^b=encnlim[^a]-analogp[^a];JS#ENC2STP(^a,^b);^b=1.1*_JS
 'Move off limit slowly and stop
-'MG "Move off limit slowly",^b
 ~a=^a;PR~a=^b;BG~a
 #CALENA3;WT 50;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a
 'If we didn't get off the limit, fail
-~a=^a;IF(_LR~a=0);^h=ELIMSWF
-'MG "STILL ON LIMIT, fail"
-ENDIF
+~a=^a;IF(_LR~a=0);^h=ELIMSWF;ENDIF
 ENDIF
 ENDIF
 'If success, make this the reference position
@@ -1212,9 +1208,8 @@ JS#ZS;IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4]);ed4=_ED4;ret[ed4]=0;ELSE
 ~a=^a;^c=^b-_TD~a
 IF(^c<>0)
 REM ~a=^a;MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
-'If required move is too small
+'If required move is less than the minimum increment
 IF(@ABS[^c]<mininc[^a])
-'MG "FANCYMV: Move is less than the minimum increment of",mininc[^a]
 'First move mininc[^a]+@ABS[^c] in direction we last headed
 IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
 ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF

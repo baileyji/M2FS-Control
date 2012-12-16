@@ -383,7 +383,7 @@ JS#QUFELP
 IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
 IF(@AN[8] > LCKVOLT);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
 'Ensure the motor monitor routine is running
-IF(_HX2=0);XQ#MOMONI,2
+IF(_HX2=0);XQ#MOMONI,2;ENDIF
 WT 1000;JP#AUTO1
 EN
 

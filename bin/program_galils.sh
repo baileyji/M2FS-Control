@@ -7,7 +7,7 @@
 #  Copyright (c) 2012 SpaceColonyOne, Inc. All rights reserved.
 systemctl stop galilR.service
 systemctl stop galilB.service
-./galilProgrammer.py -f ../Galil/m2fs.dmc -d /dev/galilR --auto
-./galilProgrammer.py -f ../Galil/m2fs.dmc -d /dev/galilB --auto
+./galilProgrammer.py -f ../galil/m2fs.dmc -d /dev/galilR --auto
+./galilProgrammer.py -f ../galil/m2fs.dmc -d /dev/galilB --auto
 systemctl start galilR.service
 systemctl start galilB.service

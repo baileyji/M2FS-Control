@@ -370,14 +370,32 @@ SP ,,,,axspd[4],axspd[5],axspd[6],axspd[7]
 
 'Start the analog filter
 XQ #ANAMAF,1
-'Start the HIRes lock monitor
-XQ #LOCKMON,2
+'Start the motor monitor to ensure they don't get left on
+momon=1
+XQ #MOMONI,2
 
 'Query the Filter elevator position to initialize nearfilt
 JS#QUFELP
 
 'Idle forever
-#IDLE;WT 10000;JP#IDLE
+#AUTO1
+' Monitor the axis locks for the HiRes stage
+IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
+IF(@AN[8] > LCKVOLT);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
+'Ensure the motor monitor routine is running
+IF(_HX2=0);XQ#MOMONI,2
+WT 1000;JP#AUTO1
+EN
+
+
+'***************************************************************************
+' MOtor MONitor 
+'  Turn motors off if none of the motion threads are running
+' For internal use only
+'***************************************************************************
+#MOMONI
+IF(((((momon=1)&(_HX3=0))&((_HX4=0)&(_HX5=0)))&(_HX6=0)));MO*;ENDIF
+WT 1000;JP#MOMONI
 EN
 
 
@@ -1520,18 +1538,6 @@ EN,,^h
 REM a=^a;b=^b;c=^c;d=^d
 REM MG "Move Time:",^a,^b,^c,^d
 EN,,(@ABS[^a/^b]+(0.5*@ABS[(^b/^c)+(^b/^d)]))*(1000000/_TM)
-
-
-'***************************************************************************
-' Lock Monitor
-' Monitors the axis locks for the HiRes stage
-' For internal use only
-'***************************************************************************
-#LOCKMON
-IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
-IF(@AN[8] > LCKVOLT);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
-WT 1000;JP#LOCKMON
-EN
 
 
 '***************************************************************************

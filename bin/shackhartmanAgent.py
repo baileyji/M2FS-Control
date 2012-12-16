@@ -94,7 +94,7 @@ class ShackHartmanAgent(Agent):
             #for bit meanings se simple_motor_controllers.pdf
             err=hex(256*ord(response[1])+ord(response[0]))
             return err
-        except Exception, e
+        except Exception, e:
             return str(e)
     
     def getTemp(self):

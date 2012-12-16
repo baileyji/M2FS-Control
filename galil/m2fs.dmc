@@ -986,7 +986,7 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Check for invalid filter id
 IF ((^a<0)|(^a>9));^h=EBADFP
 ELSE;'ID valid, get current state of elevator (^b) and inserter (^c)
-JS#WAITAMF(FESELAX)
+JS#WAITAMF(FESELAX);^d=(felencp[^a]-felanap)
 JS#QUFELP;^b=_JS-filterp1
 ^c=unknown
 IF ((_LFD=0)&(_LRD=1));^c=in;ENDIF
@@ -1000,21 +1000,17 @@ JS#RMFESIN;^h=_JS
 'If arm retracted, desired filter != none
 IF ((^h=ENONE)&(_LRD=0)&(_LFD=1)&(^a<>9))
 'Move to the desired filter
-
-JS#WAITAMF(FESELAX)
-^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
+'NB ^a is index of requested filter position in felencp array
+'^d is encoder distance to desired filter position
+'^e=0 is a loop counter
+^e=0
+#PICKFI1
+'Get steps to go
+JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
 JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
-
-JS#WAITAMF(FESELAX)
-^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
-JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
-
-JS#WAITAMF(FESELAX)
-^d=(felencp[^a]-felanap);JS#ENC2STP(FESELAX,^d);^d=_TDE+_JS
-JS#FANCYMV(FESELAX,^d);~a=FESELAX;MC~a;~a=FESELAX;MO~a
-
-'Get current state of elevator
-JS#WAITAMF(FESELAX)
+JS#WAITAMF(FESELAX);^d=(felencp[^a]-felanap);^e=^e+1
+JP#PICKFI1,((^e<3) & (@ABS[^d]>feselrg))
+'Double check we are in position
 JS#QUFELP;^b=_JS
 'If we are where we should be...
 IF( ((^b-filterp1)=^a) & (^b<>intermd) )

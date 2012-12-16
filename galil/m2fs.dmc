@@ -290,6 +290,11 @@ REM allsafep=3718
 REM '54.57 steps/cnt
 REM '58.64 cnts/rev
 
+'Flag to indicate move in progress
+' without this there is a race condition with a filter query
+' while the elevator has reaced position but the inserter hasn't started that
+' would result in NONE being reported
+filmove=0
 
 'FESIN related defines
 fesinsp=9000 ;'The inserted position in steps of the FESIN arm
@@ -399,6 +404,7 @@ IF(_SCF=99);MOF;axiserr[5]=ETIME;STG;ENDIF
 IF(_SCG=99);MOG;axiserr[6]=ETIME;STG;ENDIF
 IF(_SCH=99);MOH;axiserr[7]=ETIME;STH;ENDIF
 EN 1
+
 
 '***************************************************************************
 ' CALibrate LoRes Tilt
@@ -951,8 +957,8 @@ IF ((_LFD=0)&(_LRD=1));^a=in;ENDIF
 IF ((_LFD=1)&(_LRD=0));^a=out;ENDIF
 IF (_TSD & $80); ^a=moving;ENDIF
 JS#QUFELP;^b=_JS
-IF((^a=moving)|(^b=moving));MG "GETFILT: MOVING"
-ELSE;IF(^b=filterld);MG "GETFILT: LOAD"
+IF((^a=moving)|(^b=moving)|(filmove=1));MG "GETFILT: MOVING"
+ELSE;IF(^b=filterld);MG "GETFILT: 9"
 ELSE;IF(^a=unknown);MG "GETFILT: UNKNOWN"
 ELSE;IF(^a=out);MG "GETFILT: 10"
 ELSE;IF((^a=intermd)|(^b=intermd);MG "GETFILT: INTERMEDIATE"
@@ -981,6 +987,7 @@ EN
 #PICKFIL
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+
 'Hope for success, force filternum to an integer
 ^h=ENONE;axiserr[FESELAX]=ENONE;^a=@INT[^a]-1
 'Check for invalid filter id
@@ -995,6 +1002,8 @@ IF (_TSD & $80); ^c=moving;ENDIF
 'If the desired position = current position we are done
 IF( ((^a=9)&(^c=out)) | ( ((^c=in)|(^a=8)) & (^b=^a) ) );^h=ENONE
 ELSE;'We are not in position
+'Set moving flag to prevent a race condition with query
+filmove=1
 'Stow the FESIN arm, note REFESIN ensures safe to move
 JS#RMFESIN;^h=_JS
 'If arm retracted, desired filter != none
@@ -1021,6 +1030,7 @@ REM MG "PICKFIL: EFLTUNSF"
 ENDIF
 ENDIF;ENDIF;ENDIF
 axiserr[FESELAX]=^h
+filmove=0;'be sure we've been set back to 0
 ENDIF
 EN,,^h
 

@@ -243,7 +243,7 @@ HRTLTLK=true;HRAZLK=true;'Start assuming locked
 LCKVOLT=2 ;'Determined empirically, > => locked 
 
 'LoRes Tilt defines
-lrthmos=6400;'Amount to overshoot home before creeping back (TODO:refine guess)
+lrthmos=20000;'Amount to move past home before moving back, must get off switch
 lrtinpt=9;'  Digital in corresponding to the LoRes origin sensor
 lrtinhx=$9;'  Digital in corresponding to the LoRes origin sensor in hex
 lrtathm=1 ;'  value of origin sensor (via @IN) when at home
@@ -443,9 +443,9 @@ EN 1
 JS#ZS;IF (_JS<1);JS#CALLRT;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Axis F, Hope Success
 ^a=LRTLTAX;^h=ENONE;axiserr[^a]=ENONE
+lrhomng=false;II ,,lrtinhx,lrtinhx;'Trip on @IN[lrtinpt] goes to 1
 'Find home sensor if not there already
 IF (@IN[lrtinpt]<>lrtathm)
-II ,,lrtinhx,lrtinhx;'Trip on @IN[lrtinpt] goes to 1
 lrhomng=true
 'Do a relative move -1.1 revolutions
 ~a=^a;^b=-1.10*(axmaxp[^a]-axminp[^a])
@@ -462,7 +462,7 @@ IF (^h=ENONE)
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a];PR~a=^b;SH~a;BG~a;MC~a
 'Move to home sensor
 lrhomng=true
-^b=(1.1*lrthmos)+bcklsh[^a] 
+^b=((1.1*lrthmos)+bcklsh[^a])
 ~a=^a; DC~a=axdecel[^a]; SP~a=axhmspd[^a]; PR~a=^b;SH~a; BG~a
 ' wait till stopped (input interrupt stopped us) or get to position
 #CALLRT2;WT 500;JP#CALLRT2, (_SCF=0);~a=^a;MC~a

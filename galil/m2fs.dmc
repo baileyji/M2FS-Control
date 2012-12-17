@@ -266,7 +266,7 @@ felencp[3]=960;'Valid +/-8
 felencp[4]=1247;'Valid +/-5
 felencp[5]=1531;'Valid +/-4
 felencp[6]=1808;'Valid +/-5
-felencp[7]=2108.5;'Valid +/-6.5
+felencp[7]=2108.5;'Valid +/-6.5 2098.5 +/-2.5
 felencp[8]=3789;'Valid +/-40
 'Elevator tolerance (+/-) in encoder counts about filter position
 feselrg=2.5

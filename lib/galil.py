@@ -47,7 +47,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'flsimInserted':'FLSIM','flsimRemoved':'FLSIM',
             'loresSwapStep':'GES','loresSwapEncoder':'GES'}
         self.thread_command_map={
-            '0':'AUTO','1':'ANAMAF','2':'LOCKMON','3':None,
+            '0':'AUTO','1':'ANAMAF','2':'MOMONI','3':None,
             '4':None,'5':None,'6':None,'7':None}
         SelectedConnection.SelectedSerial.__init__(self,*args,**kwargs)
         self.config={}
@@ -211,11 +211,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         for thread_number, thread_status in enumerate(response.split(' ')):
             if '0.' in thread_status:
                 self.thread_command_map["%i"%thread_number]=None
-            elif self.thread_command_map["%i"%thread_number] != None:
+            elif self.thread_command_map["%i"%thread_number] == None:
                 #something is running and we aren't aware of it
                 if thread_number < 3:
                     self.thread_command_map["%i"%thread_number]=(
-                        ['AUTO','ANAMAF','LOCKMON'][thread_number])
+                        ['AUTO','ANAMAF','MOMONI'][thread_number])
                 else:
                     #Can't actually query what is running so block everything
                     self.thread_command_map["%i"%thread_number]=(

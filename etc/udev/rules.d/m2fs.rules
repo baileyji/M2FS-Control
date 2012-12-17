@@ -25,9 +25,12 @@ ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeF171"
 ATTRS{serial}=="64935343433351713280", SYMLINK+="shoe3280"
 
 #Device nodes for the fiber shoes, red is in port 1 of the
-# spectrograph hub, blue in port 2. Spectrograph hub in port 2 of main hub. 
-KERNELS=="1-2.?.2.1", ATTRS{product}=="Arduino Mega 2560", SYMLINK+="shoeR"
-KERNELS=="1-2.?.2.2", ATTRS{product}=="Arduino Mega 2560", SYMLINK+="shoeB"
+# spectrograph hub, blue in port 2. Spectrograph hub in port 2 of main hub.
+#I'd like to use these two rules, but it seems not all mega's report the product string
+#KERNELS=="1-2.?.2.1", ATTRS{product}=="Arduino Mega 2560", SYMLINK+="shoeR"
+#KERNELS=="1-2.?.2.2", ATTRS{product}=="Arduino Mega 2560", SYMLINK+="shoeB"
+#KERNELS=="1-2.?.2.1", ATTRS{manufacturer}=="Arduino*", SYMLINK+="shoeR"
+#KERNELS=="1-2.?.2.2", ATTRS{manufacturer}=="Arduino*", SYMLINK+="shoeB"
 
 #Place the blue shoe's serial in this rule
 KERNELS=="1-2.?.2.1", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeBincradleR"

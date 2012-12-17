@@ -343,7 +343,11 @@ EN
 ' Starutp Routine
 '***************************************************************************
 #AUTO
+'Trace off, echo off
+TR0;EO0
+'Stop all threads, motions, motors off
 HX1;HX2;HX3;HX4;HX5;HX6;HX7;ST;MC;MO*
+'Set just booted flag
 m2fsver=.1;bootup1=1
 JS#M2FSCFG
 JS#INIT

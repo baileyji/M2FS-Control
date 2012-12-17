@@ -1234,7 +1234,9 @@ IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
 ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a]
 'Verify the limit isn't tripped in the the direction of inteded motion
-~a=^a;IF( ((ldelta[^a]>0)&(_LF~a=0)) | ((ldelta[^a]<0)&(_LR~a=0)) )
+'Will evaluate to cmd err if only a sigle limit is disabled
+'The instrument doesnt use have LD= 1 or 2 so non issue 
+~a=^a;IF((_LD~a<>3)&((ldelta[^a]>0)&(_LF~a=0)) | ((ldelta[^a]<0)&(_LR~a=0)) )
 'Starting the move will cause a command error
 ^h=ELIMSW
 ELSE
@@ -1251,7 +1253,7 @@ ELSE;~a=^a;^d=_TD~a+(2*(mininc[^a]+@ABS[^c]));ENDIF
 JS#BACKLSH(^a,^e)
 'Move past in the other direction
 'Verify the limit isn't tripped in the the direction of inteded motion
-~a=^a;IF( ((^e>0)&(_LF~a=0)) | ((^e<0)&(_LR~a=0)) )
+~a=^a;IF((_LD~a<>3)& ((^e>0)&(_LF~a=0)) | ((^e<0)&(_LR~a=0)) )
 'Starting the move will cause a command error
 ^h=ELIMSW
 ELSE
@@ -1265,7 +1267,7 @@ ENDIF;' very small move
 JS#BACKLSH(^a,^c)
 'Start move to position
 'Verify the limit isn't tripped in the the direction of inteded motion
-~a=^a;IF( ((^c>0)&(_LF~a=0)) | ((^c<0)&(_LR~a=0)) )
+~a=^a;IF((_LD~a<>3)& ((^c>0)&(_LF~a=0)) | ((^c<0)&(_LR~a=0)) )
 'Starting the move will cause a command error
 ^h=ELIMSW
 ELSE

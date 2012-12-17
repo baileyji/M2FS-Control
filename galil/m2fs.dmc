@@ -1236,7 +1236,7 @@ ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
 'Verify the limit isn't tripped in the the direction of inteded motion
 'Will evaluate to cmd err if only a sigle limit is disabled
 'The instrument doesnt use have LD= 1 or 2 so non issue 
-~a=^a;IF((_LD~a<>3)&((ldelta[^a]>0)&(_LF~a=0)) | ((ldelta[^a]<0)&(_LR~a=0)) )
+~a=^a;IF((_LD~a<>3)&(((ldelta[^a]>0)&(_LF~a=0))|((ldelta[^a]<0)&(_LR~a=0))))
 'Starting the move will cause a command error
 ^h=ELIMSW
 ELSE
@@ -1253,7 +1253,7 @@ ELSE;~a=^a;^d=_TD~a+(2*(mininc[^a]+@ABS[^c]));ENDIF
 JS#BACKLSH(^a,^e)
 'Move past in the other direction
 'Verify the limit isn't tripped in the the direction of inteded motion
-~a=^a;IF((_LD~a<>3)& ((^e>0)&(_LF~a=0)) | ((^e<0)&(_LR~a=0)) )
+~a=^a;IF((_LD~a<>3)& (((^e>0)&(_LF~a=0)) | ((^e<0)&(_LR~a=0))) )
 'Starting the move will cause a command error
 ^h=ELIMSW
 ELSE
@@ -1267,7 +1267,7 @@ ENDIF;' very small move
 JS#BACKLSH(^a,^c)
 'Start move to position
 'Verify the limit isn't tripped in the the direction of inteded motion
-~a=^a;IF((_LD~a<>3)& ((^c>0)&(_LF~a=0)) | ((^c<0)&(_LR~a=0)) )
+~a=^a;IF((_LD~a<>3)& (((^c>0)&(_LF~a=0)) | ((^c<0)&(_LR~a=0))) )
 'Starting the move will cause a command error
 ^h=ELIMSW
 ELSE
@@ -1296,7 +1296,6 @@ REM   move away from the limit we want be just a bit so account for having
 REM   potentially overshot it.
 REM IF(^d>0);^e=-axlmos[^a];^f=3;ELSE;^e=axlmos[^a];^f=2;ENDIF;
 REM ~a=^a;AC~a=^b; DC~a=^c;IF(_SC~a<>^f);PR~a=^e; BG~a;MC~a;ENDIF;
-
 'Stack and XQ fancy footwork
 JS#ZS
 IF(_JS<1);ed4=_ED4;JS#MOV2LIM(a[ed4],b[ed4],c[ed4],d[ed4])

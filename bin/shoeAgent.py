@@ -19,8 +19,9 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         is in any way unsuitable. Any return values are ignored. Exception text
         will be raised as a connect error.
         """
-        expected_version_string='Fibershoe v0.1'
-        time.sleep(1)
+        expected_version_string='Fibershoe v0.4'
+        #Shoe takes a minute to boot
+        time.sleep(2)
         self.sendMessageBlocking('PV\n')
         response=self.receiveMessageBlocking().replace(':','')
         #response=expected_version_string #DEBUGGING LINE OF CODE

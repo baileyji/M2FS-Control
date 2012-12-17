@@ -634,7 +634,7 @@ EN,,^h
 #QUGESP2
 JS#ZS;IF(_JS<1);JS#QUGESP2;^h=_JS;ed4=_ED4;ret[ed4]=^h;ELSE
 ^a=GESAX;~a=^a;^g=_TD~a
-~a=^a;IF((_TS~a & $80)|(anapcln[^a]<>-1));^h=moving
+~a=^a;IF((_TS~a & $80));^h=moving
 ELSE;IF(axiscal[^a]<>true);^h=unknown
 ELSE;IF(^g=geslrp);^h=lores
 ELSE;IF(^g=geshrp);^h=hires

@@ -687,8 +687,7 @@ IF (axiscal[^a]<>true);JS#CALLRT;^h=_JS;ENDIF
 axiserr[^a]=^h
 'Calibrate GES if needed
 ^a=GESAX;axiserr[^a]=ENONE
-IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=(^h | _JS);ENDIF
-axiserr[^a]=_JS
+IF(axiscal[^a]<>true);JS#CALENAX(^a);^h=(^h |_JS);axiserr[^a]=_JS;ENDIF
 'If we are good to go, MOVE!
 IF(^h=ENONE)
 JS#FANCYMV(LRTLTAX,lrswapp);JS#FANCYMV(GESAX,gesgsp);^h=_JS

@@ -484,13 +484,7 @@ EN ,,^h
 '  SHF (this should mean that a MC trippoint on the axis is cleared.)
 '  TODO call galil re this
 '***************************************************************************
-#ININT
-IF ((lrhomng=true)&(@IN[lrtinpt]=lrtathm))
-REM DCF=axdecel[5] This command is reported as not valid while running yet I can 
-REM  execute it over serial w/o any problem TODO: CALL GALIL 
-REM STF;SHF;lrhomng=false
-STF;lrhomng=false;ENDIF
-RI
+#ININT;IF ((lrhomng=true)&(@IN[lrtinpt]=lrtathm));STF;lrhomng=false;ENDIF;RI
 
 
 '***************************************************************************

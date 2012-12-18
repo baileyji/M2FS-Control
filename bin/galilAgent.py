@@ -94,11 +94,6 @@ class GalilAgent(Agent):
             command_name=command_name+' '+args.split(' ')[0]
         #double check this is a real config parameter
         command_settingName_map={
-            'FILTER_DEFSTEP 1':'filter1step','FILTER_DEFSTEP 2':'filter2step',
-            'FILTER_DEFSTEP 3':'filter3step','FILTER_DEFSTEP 4':'filter4step',
-            'FILTER_DEFSTEP 5':'filter5step','FILTER_DEFSTEP 6':'filter6step',
-            'FILTER_DEFSTEP 7':'filter7step','FILTER_DEFSTEP 8':'filter8step',
-            'FILTER_DEFSTEP 9':'filter9step', #NB LOAD position
             'FILTER_DEFENC 1':'filter1encoder','FILTER_DEFENC 2':'filter2encoder',
             'FILTER_DEFENC 3':'filter3encoder','FILTER_DEFENC 4':'filter4encoder',
             'FILTER_DEFENC 5':'filter5encoder','FILTER_DEFENC 6':'filter6encoder',

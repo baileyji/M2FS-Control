@@ -455,7 +455,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     def set_ges(self, position):
         """Position should be either HIRES, LORES, or LRSWAP"""
-        command_class='GES'
+        if 'LRSWAP' in position:
+            command_class='GES LREL'
+        else:
+            command_class='GES'
         command_string="XQ#%s,<threadID>" % position
         return self.do_motion_command(command_class, command_string)
     

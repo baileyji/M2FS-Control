@@ -25,7 +25,6 @@ class GalilAgent(Agent):
             'FILTER_INSERT':self.galil_command_handler,
             'FILTER_REMOVE':self.galil_command_handler,
             'FLSIM':self.galil_command_handler,
-            'FOCUS_CALIBRATE':self.galil_command_handler,
             'LREL_CALIBRATE':self.galil_command_handler,
             'HREL_CALIBRATE':self.galil_command_handler,
             'HRAZ_CALIBRATE':self.galil_command_handler,

@@ -48,6 +48,43 @@ class GalilAgent(Agent):
             'GES_DEFSWPENC':self.defaults_command_handler,
             'RESET':self.reset_command_handler,
             'SHUTDOWN':self.shutdown_command_handler})
+        self.query_commands={
+            'FILTER':self.galil.get_filter,
+            'LREL':self.galil.get_loel,
+            'HREL':self.galil.get_hrel,
+            'HRAZ':self.galil.get_hraz,
+            'FOCUS':self.galil.get_foc,
+            'GES':self.galil.get_ges,
+            'FLSIM':self.galil.get_flsim}
+        self.action_commands={
+            'GALILRAW':self.galil.raw,
+            'FILTER':self.galil.set_filter,
+            'LREL':self.galil.set_loel,
+            'HREL':self.galil.set_hrel,
+            'HRAZ':self.galil.set_hraz,
+            'FOCUS':self.galil.set_foc,
+            'GES':self.galil.set_ges,
+            'FILTER_INSERT':self.galil.insert_filter,
+            'FILTER_REMOVE':self.galil.remove_filter,
+            'FLSIM_INSERT':self.galil.insert_flsim,
+            'FLSIM_REMOVE':self.galil.remove_flsim,
+            'LREL_CALIBRATE':self.galil.calibrate_lrel,
+            'HREL_CALIBRATE':self.galil.calibrate_hrel,
+            'HRAZ_CALIBRATE':self.galil.calibrate_hraz,
+            'GES_CALIBRATE':self.galil.calibrate_ges}
+        self.command_settingName_map={
+            'FILTER_DEFENC 1':'filter1encoder','FILTER_DEFENC 2':'filter2encoder',
+            'FILTER_DEFENC 3':'filter3encoder','FILTER_DEFENC 4':'filter4encoder',
+            'FILTER_DEFENC 5':'filter5encoder','FILTER_DEFENC 6':'filter6encoder',
+            'FILTER_DEFENC 7':'filter7encoder','FILTER_DEFENC 8':'filter8encoder',
+            'FILTER_DEFENC 9':'filter9encoder', #NB LOAD position
+            'FILTER_DEFINS':'filterInserted','FILTER_DEFREM':'filterRemoved',
+            'FILTER_DEFTOL':'filterTolerance',
+            'GES_DEFHRSTEP':'hiresStep','GES_DEFLRSTEP':'loresStep',
+            'GES_DEFHRENC':'hiresEncoder','GES_DEFLRENC':'loresEncoder',
+            'GES_DEFTOL':'gesTolerance',
+            'FLSIM_DEFINS':'flsimInserted','FLSIM_DEFREM':'flsimRemoved',
+            'GES_DEFSWPSTEP':'loresSwapStep','GES_DEFSWPENC':'loresSwapEncoder'}
         self.galil=GalilSerial(self.args.DEVICE, 115200,
             timeout=0.5, SIDE=self.args.SIDE)
         self.devices.append(self.galil)
@@ -93,24 +130,11 @@ class GalilAgent(Agent):
         if command_name in ['FILTER_DEFSTEP','FILTER_DEFENC']:
             command_name=command_name+' '+args.split(' ')[0]
         #double check this is a real config parameter
-        command_settingName_map={
-            'FILTER_DEFENC 1':'filter1encoder','FILTER_DEFENC 2':'filter2encoder',
-            'FILTER_DEFENC 3':'filter3encoder','FILTER_DEFENC 4':'filter4encoder',
-            'FILTER_DEFENC 5':'filter5encoder','FILTER_DEFENC 6':'filter6encoder',
-            'FILTER_DEFENC 7':'filter7encoder','FILTER_DEFENC 8':'filter8encoder',
-            'FILTER_DEFENC 9':'filter9encoder', #NB LOAD position
-            'FILTER_DEFINS':'filterInserted','FILTER_DEFREM':'filterRemoved',
-            'FILTER_DEFTOL':'filterTolerance',
-            'GES_DEFHRSTEP':'hiresStep','GES_DEFLRSTEP':'loresStep',
-            'GES_DEFHRENC':'hiresEncoder','GES_DEFLRENC':'loresEncoder',
-            'GES_DEFTOL':'gesTolerance',
-            'FLSIM_DEFINS':'flsimInserted','FLSIM_DEFREM':'flsimRemoved',
-            'GES_DEFSWPSTEP':'loresSwapStep','GES_DEFSWPENC':'loresSwapEncoder'}
-        if command_name not in command_settingName_map:
+        if command_name not in self.command_settingName_map:
             command.setReply('!ERROR: Bad Command. %s' % command)
             return
         #Grab the setting name
-        settingName=command_settingName_map[command_name]
+        settingName=self.command_settingName_map[command_name]
         #Getting or Setting?
         if '?' in command.string:
             command.setReply(self.galil.getDefault(settingName))
@@ -139,34 +163,10 @@ class GalilAgent(Agent):
             elif args=='OUT':
                 command_name='FLSIM_REMOVE'
         
-        query_commands={
-            'FILTER':self.galil.get_filter,
-            'LREL':self.galil.get_loel,
-            'HREL':self.galil.get_hrel,
-            'HRAZ':self.galil.get_hraz,
-            'FOCUS':self.galil.get_foc,
-            'GES':self.galil.get_ges,
-            'FLSIM':self.galil.get_flsim}
-        action_commands={
-            'GALILRAW':self.galil.raw,
-            'FILTER':self.galil.set_filter,
-            'LREL':self.galil.set_loel,
-            'HREL':self.galil.set_hrel,
-            'HRAZ':self.galil.set_hraz,
-            'FOCUS':self.galil.set_foc,
-            'GES':self.galil.set_ges,
-            'FILTER_INSERT':self.galil.insert_filter,
-            'FILTER_REMOVE':self.galil.remove_filter,
-            'FLSIM_INSERT':self.galil.insert_flsim,
-            'FLSIM_REMOVE':self.galil.remove_flsim,
-            'LREL_CALIBRATE':self.galil.calibrate_lrel,
-            'HREL_CALIBRATE':self.galil.calibrate_hrel,
-            'HRAZ_CALIBRATE':self.galil.calibrate_hraz,
-            'GES_CALIBRATE':self.galil.calibrate_ges}
         if query:
-            command.setReply(query_commands[command_name]())
+            command.setReply(self.query_commands[command_name]())
         else:
-            command.setReply(action_commands[command_name](args))
+            command.setReply(self.action_commands[command_name](args))
     
 
 if __name__=='__main__':

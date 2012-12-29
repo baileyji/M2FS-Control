@@ -15,37 +15,65 @@ class GalilAgent(Agent):
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/galil'+self.args.SIDE
         self.command_handlers.update({
+            """ Send the command string directely to the Galil """
             'GALILRAW':self.galil_command_handler,
+            """ Get/Set the filter """
             'FILTER':self.galil_command_handler,
-            'LREL':self.galil_command_handler,
-            'HREL':self.galil_command_handler,
-            'HRAZ':self.galil_command_handler,
-            'FOCUS':self.galil_command_handler,
-            'GES':self.galil_command_handler,
+            """ Command the filter inserter to insert """
             'FILTER_INSERT':self.galil_command_handler,
+            """ Command the filter inserter to retract """
             'FILTER_REMOVE':self.galil_command_handler,
+            """ Get/Set the lorres elevation position """
+            'LREL':self.galil_command_handler,
+            """ Get/Set the hires elevation position """
+            'HREL':self.galil_command_handler,
+            """ Get/Set the hires azimuth position """
+            'HRAZ':self.galil_command_handler,
+            """ Get/Set the focus position """
+            'FOCUS':self.galil_command_handler,
+            """ 
+            Command the GES to the HIRES, LORES, or grating change (LRSWAP)
+            position. LRSWAP also blocks LREL commands as it is a coordinated
+            move
+            """
+            'GES':self.galil_command_handler,
+            """ Insert/Remove FLS pickoff """
             'FLSIM':self.galil_command_handler,
+            """ Force Calibration of the named axis """
             'LREL_CALIBRATE':self.galil_command_handler,
             'HREL_CALIBRATE':self.galil_command_handler,
             'HRAZ_CALIBRATE':self.galil_command_handler,
             'GES_CALIBRATE':self.galil_command_handler,
-            'GES_DEFHRP':self.defaults_command_handler,
-            'GES_DEFLRP':self.defaults_command_handler,
-            'FILTER_DEFSTEP':self.defaults_command_handler,
-            'FILTER_DEFENC':self.defaults_command_handler,
-            'FILTER_DEFINS':self.defaults_command_handler,
-            'FILTER_DEFREM':self.defaults_command_handler,
-            'FILTER_DEFTOL':self.defaults_command_handler,
+            """ The _DEF commands get/set defailt values for varios values """
+            """ The Hires step position"""
             'GES_DEFHRSTEP':self.defaults_command_handler,
+            """ The Lores step position"""
             'GES_DEFLRSTEP':self.defaults_command_handler,
+            """ The Hires encoder position"""
             'GES_DEFHRENC':self.defaults_command_handler,
+            """ The Lores encoder position"""
             'GES_DEFLRENC':self.defaults_command_handler,
+            """ gesenct """
             'GES_DEFTOL':self.defaults_command_handler,
-            'FLSIM_DEFINS':self.defaults_command_handler,
-            'FLSIM_DEFREM':self.defaults_command_handler,
+            """ gesgsp """
             'GES_DEFSWPSTEP':self.defaults_command_handler,
+            """ gesgsep """
             'GES_DEFSWPENC':self.defaults_command_handler,
+            """ The encoder position of specified filter """
+            'FILTER_DEFENC':self.defaults_command_handler,
+            """ fesinsp"""
+            'FILTER_DEFINS':self.defaults_command_handler,
+            """ fesremp"""
+            'FILTER_DEFREM':self.defaults_command_handler,
+            """ feselrg """
+            'FILTER_DEFTOL':self.defaults_command_handler,
+            """ flsinsp """
+            'FLSIM_DEFINS':self.defaults_command_handler,
+            """ flsremp """
+            'FLSIM_DEFREM':self.defaults_command_handler,
+            """ Do a soft reset of the galil """
             'RESET':self.reset_command_handler,
+            """ Move all axes to the shutdown positions """ 
             'SHUTDOWN':self.shutdown_command_handler})
         self.query_commands={
             'FILTER':self.galil.get_filter,

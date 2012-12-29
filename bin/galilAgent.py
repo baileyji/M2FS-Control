@@ -126,7 +126,7 @@ class GalilAgent(Agent):
     
     def defaults_command_handler(self, command):
         command_name,junk,args=command.string.partition(' ')
-        if command_name in ['FILTER_DEFSTEP','FILTER_DEFENC']:
+        if command_name is 'FILTER_DEFENC':
             command_name=command_name+' '+args.split(' ')[0]
         #double check this is a real config parameter
         if command_name not in self.command_settingName_map:

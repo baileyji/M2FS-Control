@@ -19,7 +19,7 @@ class SlitController(Agent):
         self.shoeAgentB_Connection=SelectedConnection.SelectedSocket(
             'localhost', agent_ports['ShoeAgentB'])
         self.devices.append(self.shoeAgentB_Connection)
-        #No closed oop 
+        #No closed loop
         self.closed_loop=0
         self.command_handlers={
             """ Note that the R slits are the slits in whichever shoe is in the R cradle """

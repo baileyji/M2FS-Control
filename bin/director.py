@@ -87,6 +87,15 @@ class Director(Agent):
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
             """
+            Guider Agent Commands
+
+            The director passes the command along to the agent.
+
+            Authoritative command discriptions are in guiderAgent.py
+            """
+            'GFOCUS':self.not_implemented_command_handler,
+            'GFILTER':self.not_implemented_command_handler,
+            """
             Slit Commands
 
             The director passes the command along to the agent.

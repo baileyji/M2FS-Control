@@ -1,0 +1,16 @@
+[Unit]
+Description=M2FS Sharck-Hartman
+
+[Install]
+WantedBy=director.service
+#Also=
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/bin/guiderAgent.py
+WorkingDirectory=/M2FS-Control/
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

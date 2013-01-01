@@ -36,9 +36,18 @@ class Director(Agent):
         self.devices.append(self.plugController_Connection)
         self.command_handlers.update({
             #Director Commands
+            """ Notify the instrument the GUI is about to close """
             'GUICLOSING':self.guiclose_command_handler,
+            """ Move all systems to stowage positions and power off """
             'SHUTDOWN':self.shutdown_command_handler,
-            #Galil Agent Commands
+            """
+            Galil Agent (R & B) Commands
+            
+            The director determines if the command is for the R or B galilAgent
+            and then passes it along to the agent.
+            
+            Authoritative command discriptions are in galilAgent.py
+            """
             'GALILRAW':self.galil_command_handler,
             'GES':self.galil_command_handler,
             'GES_CALIBRATE':self.galil_command_handler,
@@ -55,10 +64,22 @@ class Director(Agent):
             'FLSIM':self.galil_command_handler,
             'FLSIM_INSERT':self.galil_command_handler,
             'FLSIM_REMOVE':self.galil_command_handler,
-            #Shack Hartman Commands
+            """
+            Shack-Hartman Agent Commands
+
+            The director passes the command along to the agent.
+
+            Authoritative command discriptions are in shackhartmanAgent.py
+            """
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
-            #Slit Commands
+            """
+            Slit Commands
+
+            The director passes the command along to the agent.
+
+            Command discriptions are in slitController.py
+            """
             'SLITS':self.SLITS_comand_handler,
             'SLITS_CLOSEDLOOP':self.SLITS_comand_handler,
             'SLITS_SLITPOS':self.SLITS_comand_handler,
@@ -66,13 +87,25 @@ class Director(Agent):
             'SLITS_ACTIVEHOLD':self.SLITS_comand_handler,
             'SLITS_MOVSTEPS':self.SLITS_comand_handler,
             'SLITS_HARDSTOP':self.SLITS_comand_handler,
-            #Plugging commands
+            """
+            Plugging Commands
+
+            The director passes the command along to the agent.
+
+            Command discriptions are in plugController.py
+            """
             'PLATELIST': self.PLUGGING_command_handler,
             'PLATE': self.PLUGGING_command_handler,
             'PLATESETUP': self.PLUGGING_command_handler,
             'PLUGPOS': self.PLUGGING_command_handler,
             'PLUGMODE': self.PLUGGING_command_handler,
-            #Datalogger Commands
+            """
+            Datalogger Agent Commands
+
+            The director passes the command along to the agent.
+
+            Authoritative command discriptions are in dataloggerAgent.py
+            """
             'TEMPS':self.datalogger_command_handler})
     
     def listenOn(self):

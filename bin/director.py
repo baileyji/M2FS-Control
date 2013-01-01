@@ -64,6 +64,19 @@ class Director(Agent):
             'FLSIM':self.galil_command_handler,
             'FLSIM_INSERT':self.galil_command_handler,
             'FLSIM_REMOVE':self.galil_command_handler,
+            'GES_DEFHRSTEP':self.galil_command_handler,
+            'GES_DEFLRSTEP':self.galil_command_handler,
+            'GES_DEFHRENC':self.galil_command_handler,
+            'GES_DEFLRENC':self.galil_command_handler,
+            'GES_DEFTOL':self.galil_command_handler,
+            'GES_DEFSWPSTEP':self.galil_command_handler,
+            'GES_DEFSWPENC':self.galil_command_handler,
+            'FILTER_DEFENC':self.galil_command_handler,
+            'FILTER_DEFINS':self.galil_command_handler,
+            'FILTER_DEFREM':self.galil_command_handler,
+            'FILTER_DEFTOL':self.galil_command_handler,
+            'FLSIM_DEFINS':self.galil_command_handler,
+            'FLSIM_DEFREM':self.galil_command_handler,
             """
             Shack-Hartman Agent Commands
 

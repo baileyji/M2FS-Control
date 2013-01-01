@@ -78,7 +78,7 @@ class SlitController(Agent):
                     self.bad_command_handler(command)
             else:
                 """ We are operating closed loop, way more work to do folks"""
-                    command.setReply('ERROR: Closed loop control not yet implemented.')
+                command.setReply('ERROR: Closed loop control not yet implemented.')
         else:
             """
             Command should be in form:

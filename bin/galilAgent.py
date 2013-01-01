@@ -91,6 +91,7 @@ class GalilAgent(Agent):
             'FLSIM':self.galil.get_flsim}
         self.action_commands={
             'GALILRAW':self.galil.raw,
+            'GALILRESET':self.galil.reset,
             'FILTER':self.galil.set_filter,
             'LREL':self.galil.set_loel,
             'HREL':self.galil.set_hrel,

@@ -10,10 +10,16 @@ import SelectedConnection
 from command import Command
 
 
+class LEDserial(SelectedConnection.SelectedSerial):
+    def _postConnect(self):
+        """ Turn the LED off whenever the agent connects (known state)"""
+        self.connection.write('\x00')
+        self.connection.flush()
+
 class ShackHartmanAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShackHartmanAgent')
-        self.shled=SelectedConnection.SelectedSerial('/dev/shLED', 115200)
+        self.shled=LEDserial('/dev/shLED', 115200)
         self.shlenslet=SelectedConnection.SelectedSerial('/dev/shLenslet', 115200)
         self.devices.append(self.shlenslet)
         self.devices.append(self.shled)

@@ -58,7 +58,7 @@ class ShoeAgent(Agent):
         self.shoe=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         self.devices.append(self.shoe)
         self.max_clients=2
-        self.command_handlers={
+        self.command_handlers.update({
             'SLITSRAW':self.RAW_command_handler,
             'SLITS':self.SLITS_command_handler,
             'SLITS_SLITPOS':self.SLITPOS_command_handler,
@@ -66,7 +66,7 @@ class ShoeAgent(Agent):
             'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
             'SLITS_TEMP':self.TEMP_command_handler,
             'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
-            'SLITS_HARDSTOP':self.HARDSTOP_command_handler}
+            'SLITS_HARDSTOP':self.HARDSTOP_command_handler})
     
     def listenOn(self):
         return ('localhost', self.PORT)

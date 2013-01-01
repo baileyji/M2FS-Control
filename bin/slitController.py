@@ -21,7 +21,7 @@ class SlitController(Agent):
         self.devices.append(self.shoeAgentB_Connection)
         #No closed loop
         self.closed_loop=0
-        self.command_handlers={
+        self.command_handlers.update({
             """ Note that the R slits are the slits in whichever shoe is in the R cradle """
             """ Get/Set the positions of all 8 of the R or B slits """
             'SLITS':self.SLITS_comand_handler,
@@ -36,7 +36,7 @@ class SlitController(Agent):
             'SLITS_MOVSTEPS':self.not_implemented_command_handler,
             'SLITS_HARDSTOP':self.not_implemented_command_handler,
             'SLITS_IMAGSET':self.not_implemented_command_handler,
-            'SLITS_PROJSET':self.not_implemented_command_handler}
+            'SLITS_PROJSET':self.not_implemented_command_handler})
     
     def listenOn(self):
         return ('localhost', self.PORT)

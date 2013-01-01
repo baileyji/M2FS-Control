@@ -39,6 +39,8 @@ class GalilAgent(Agent):
             move
             """
             'GES':self.galil_command_handler,
+            """ Nudge the GES stage by a little """
+            'GES_MOVE':self.not_implemented_command_handler,
             """ Insert/Remove FLS pickoff """
             'FLSIM':self.galil_command_handler,
             """ Force Calibration of the named axis """
@@ -100,7 +102,8 @@ class GalilAgent(Agent):
             'LREL_CALIBRATE':self.galil.calibrate_lrel,
             'HREL_CALIBRATE':self.galil.calibrate_hrel,
             'HRAZ_CALIBRATE':self.galil.calibrate_hraz,
-            'GES_CALIBRATE':self.galil.calibrate_ges}
+            'GES_CALIBRATE':self.galil.calibrate_ges,
+            'GES_MOVE':self.galil.nudge_ges}
         self.command_settingName_map={
             'FILTER_DEFENC 1':'filter1encoder','FILTER_DEFENC 2':'filter2encoder',
             'FILTER_DEFENC 3':'filter3encoder','FILTER_DEFENC 4':'filter4encoder',

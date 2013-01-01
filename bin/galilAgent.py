@@ -19,6 +19,8 @@ class GalilAgent(Agent):
             'GALILRAW':self.galil_command_handler,
             """ Get/Set the filter """
             'FILTER':self.galil_command_handler,
+            """ These next two commands are the same as FILTER <current#> & 
+            FILTER 10, perhapse they should be removed """
             """ Command the filter inserter to insert """
             'FILTER_INSERT':self.galil_command_handler,
             """ Command the filter inserter to retract """

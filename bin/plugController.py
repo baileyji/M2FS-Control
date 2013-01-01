@@ -118,10 +118,15 @@ class PlugController(Agent):
         self.plateManager.start()
         self.active_plate=Plate(None)
         self.command_handlers.update({
+            """ Return a list of all known plates """
             'PLATELIST': self.PLATELIST_command_handler,
+            """ Get/set the current plate, setting returns number of setups """
             'PLATE': self.PLATE_command_handler,
+            """ Get/Set the setup on the current plate """
             'PLATESETUP': self.PLATESETUP_command_handler,
+            """ Return a list of plate hole IDs for all 256 fibers, ordered """
             'PLUGPOS': self.PLUGPOS_command_handler,
+            """ Enter/Leave plugging mode """ 
             'PLUGMODE': self.PLUGMODE_command_handler})
     
     def listenOn(self):

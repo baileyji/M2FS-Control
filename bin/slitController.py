@@ -20,25 +20,22 @@ class SlitController(Agent):
             'localhost', agent_ports['ShoeAgentB'])
         self.devices.append(self.shoeAgentB_Connection)
         #No closed loop
-        self.closed_loop=0
+        self.closed_loop=False
+        self.closedLoopMoveInProgress=False
         self.command_handlers.update({
             """ Note that the R slits are the slits in whichever shoe is in the R cradle """
-            """ Send arg string along to the R or B shoe and wait for reply """
-            'SLITSRAW':self.RAW_command_handler,
             """ Get/Set the positions of all 8 of the R or B slits """
             'SLITS':self.SLITS_comand_handler,
             """ Toggle closed loop positioning or get status """
             'SLITS_CLOSEDLOOP':self.SLITS_CLOSEDLOOP_command_handler_blocking,
             """ Get/Set wheather to leave tetris motors on after a move """
             'SLITS_ACTIVEHOLD':self.SLITS_ACTIVEHOLD_command_handler,
-            'SLITS_SLITPOS':self.not_implemented_command_handler,
-            'SLITS_CURRENTPOS':self.not_implemented_command_handler,
-            'SLITS_ILLUMPROF':self.not_implemented_command_handler,
-            'SLITS_ILLUMMEAS':self.not_implemented_command_handler,
-            'SLITS_MOVSTEPS':self.not_implemented_command_handler,
-            'SLITS_HARDSTOP':self.not_implemented_command_handler,
-            'SLITS_IMAGSET':self.not_implemented_command_handler,
-            'SLITS_PROJSET':self.not_implemented_command_handler})
+            """ Pass command along to appropriate shoe """
+            'SLITSRAW':self.pass_along_command_handler,
+            'SLITS_MOVSTEPS':self.pass_along_command_handler,
+            'SLITS_HARDSTOP':self.pass_along_command_handler,
+            'SLITS_SLITPOS':self.pass_along_command_handler,
+            'SLITS_CURRENTPOS':self.pass_along_command_handler})
     
     def listenOn(self):
         return ('localhost', self.PORT)
@@ -63,29 +60,37 @@ class SlitController(Agent):
             ('On' if self.closed_loop else 'Off', statusR, statusB))
         command.setReply(status+'\n')
     
-    def RAW_command_handler(self, command):
-        """ Pass the command along to the correct shoe """
+    def pass_along_command_handler(self, command):
+        """ 
+        Command handler for commands that just get passed along
+        
+        Make sure the current mode is suitable to pass them along
+        """
         command_name,junk,args=command.string.partition(' ')
         RorB,junk,args=args.partition(' ')
-        if 'R'==RorB:
-            shoe_command='%s %s' % (command_name, args)
-            try:
-                self.shoeAgentR_Connection.sendMessageBlocking(shoe_command)
-                response=self.shoeAgentR_Connection.receiveMessageBlocking()
-                command.setReply(response)
-            except IOError:
-                command.setReply('Shoe R Disconnected')
-        elif 'B'==RorB:
-            shoe_command='%s %s' % (command_name, args)
-            try:
-                self.shoeAgentB_Connection.sendMessageBlocking(shoe_command)
-                response=self.shoeAgentB_Connection.receiveMessageBlocking()
-                command.setReply(response)
-            except IOError:
-                command.setReply('Shoe B Disconnected')
+        #Verify that it is ok to pass the command along
+        if (self.closed_loop and self.closedLoopMoveInProgress and
+            command_name in ['SLITS_HARDSTOP','SLITS_MOVSTEPS']):
+            command.setReply('ERROR: Closed loop move in progress.')
         else:
-            self.bad_command_handler(command)
-
+            if RorB!='R' and RorB !='B':
+                self.bad_command_handler(command)
+            elif 'R'==RorB:
+                shoe_command='%s %s' % (command_name, args)
+                try:
+                    self.shoeAgentR_Connection.sendMessageBlocking(shoe_command)
+                    response=self.shoeAgentR_Connection.receiveMessageBlocking()
+                    command.setReply(response)
+                except IOError:
+                    command.setReply('Shoe R Disconnected')
+            elif 'B'==RorB:
+                shoe_command='%s %s' % (command_name, args)
+                try:
+                    self.shoeAgentB_Connection.sendMessageBlocking(shoe_command)
+                    response=self.shoeAgentB_Connection.receiveMessageBlocking()
+                    command.setReply(response)
+                except IOError:
+                    command.setReply('Shoe B Disconnected')
     
     def SLITS_comand_handler(self, command):
         """ Handle a SLITS command """

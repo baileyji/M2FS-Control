@@ -23,6 +23,8 @@ class SlitController(Agent):
         self.closed_loop=0
         self.command_handlers.update({
             """ Note that the R slits are the slits in whichever shoe is in the R cradle """
+            """ Send arg string along to the R or B shoe and wait for reply """
+            'SLITSRAW':self.RAW_command_handler,
             """ Get/Set the positions of all 8 of the R or B slits """
             'SLITS':self.SLITS_comand_handler,
             """ Toggle closed loop positioning or get status """
@@ -60,6 +62,30 @@ class SlitController(Agent):
         status=("Closed-loop:%s\rShoeA:%s\rShoeB:%s" %
             ('On' if self.closed_loop else 'Off', statusR, statusB))
         command.setReply(status+'\n')
+    
+    def RAW_command_handler(self, command):
+        """ Pass the command along to the correct shoe """
+        command_name,junk,args=command.string.partition(' ')
+        RorB,junk,args=args.partition(' ')
+        if 'R'==RorB:
+            shoe_command='%s %s' % (command_name, args)
+            try:
+                self.shoeAgentR_Connection.sendMessageBlocking(shoe_command)
+                response=self.shoeAgentR_Connection.receiveMessageBlocking()
+                command.setReply(response)
+            except IOError:
+                command.setReply('Shoe R Disconnected')
+        elif 'B'==RorB:
+            shoe_command='%s %s' % (command_name, args)
+            try:
+                self.shoeAgentB_Connection.sendMessageBlocking(shoe_command)
+                response=self.shoeAgentB_Connection.receiveMessageBlocking()
+                command.setReply(response)
+            except IOError:
+                command.setReply('Shoe B Disconnected')
+        else:
+            self.bad_command_handler(command)
+
     
     def SLITS_comand_handler(self, command):
         """ Handle a SLITS command """

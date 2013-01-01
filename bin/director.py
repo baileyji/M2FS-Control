@@ -104,6 +104,7 @@ class Director(Agent):
 
             Command discriptions are in slitController.py
             """
+            'SLITSRAW':self.SLITS_comand_handler,
             'SLITS':self.SLITS_comand_handler,
             'SLITS_CLOSEDLOOP':self.SLITS_comand_handler,
             'SLITS_SLITPOS':self.SLITS_comand_handler,

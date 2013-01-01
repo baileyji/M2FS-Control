@@ -17,6 +17,8 @@ class GalilAgent(Agent):
         self.command_handlers.update({
             """ Send the command string directely to the Galil """
             'GALILRAW':self.galil_command_handler,
+            """ Reset the Galil to its power-on state """
+            'GALILRESET':self.not_implemented_command_handler,
             """ Get/Set the filter """
             'FILTER':self.galil_command_handler,
             """ These next two commands are the same as FILTER <current#> & 

@@ -48,6 +48,7 @@ class Director(Agent):
             
             Authoritative command discriptions are in galilAgent.py
             """
+            'GALILRESET':self.galil_command_handler,
             'GALILRAW':self.galil_command_handler,
             'GES':self.galil_command_handler,
             'GES_MOVE':self.galil_command_handler

@@ -80,16 +80,21 @@ class SlitController(Agent):
                 """ We are operating closed loop, way more work to do folks"""
                     command.setReply('ERROR: Closed loop control not yet implemented.')
         else:
-            """Command should be in form SLITS [R|B] #,#,#,#,#,#,#,# """
+            """
+            Command should be in form:
+            SLITS [R|B] {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7}
+            """
             if not self.closed_loop:
                 if 'R' in command.string:
                     shoe_command='SLITS'+command.string.partition('R')[2]
                     self.shoeAgentR_Connection.sendMessage(shoe_command, 
-                        responseCallback=command.setReply, errorCallback=command.setReply)
+                        responseCallback=command.setReply,
+                        errorCallback=command.setReply)
                 elif 'B' in command.string:
                     shoe_command='SLITS'+command.string.partition('B')[2]
                     self.shoeAgentB_Connection.sendMessage(shoe_command,
-                        responseCallback=command.setReply, errorCallback=command.setReply)
+                        responseCallback=command.setReply,
+                        errorCallback=command.setReply)
                 else:
                     self.bad_command_handler(command)
             else:
@@ -158,7 +163,21 @@ class SlitController(Agent):
         self.closed_loop='ON' in command.string
                 
     def SLITS_ACTIVEHOLD_command_handler(self, command):
-        """ handle switching between motors on while idle and motors off"""
+        """
+        This is an engineering/testing command. Once a state is decided on it
+        will be hardcoded as the default into the shoes' microcontroller.
+        
+        The function is an example of state synchronization problem with the 
+        current control architecture. Say we want to set active holding to the
+        non-default state. Now there should never be a situation where the 
+        states of the two shoes differ. If the command arrives while one
+        shoe is disconnected or one of the shoe agents crashes then the state 
+        needs to be sent/resent to the shoe later. How do we resolve this?
+        
+        This instance of the issue is of minor importance as the default state
+        will be preferred however the general problem with state could surface
+        in some other area of the system.
+        """
         if '?' in command.string:
             #First check Red shoe for motion
             try:

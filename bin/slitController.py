@@ -36,9 +36,7 @@ class SlitController(Agent):
             'SLITS_MOVSTEPS':self.not_implemented_command_handler,
             'SLITS_HARDSTOP':self.not_implemented_command_handler,
             'SLITS_IMAGSET':self.not_implemented_command_handler,
-            'SLITS_PROJSET':self.not_implemented_command_handler,
-            'SLITS_STATUS':self.status_command_handler,
-            'SLITS_VERSION':self.version_request_command_handler}
+            'SLITS_PROJSET':self.not_implemented_command_handler}
     
     def listenOn(self):
         return ('localhost', self.PORT)

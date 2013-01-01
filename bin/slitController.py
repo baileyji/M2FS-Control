@@ -104,7 +104,7 @@ class SlitController(Agent):
     def SLITS_CLOSEDLOOP_command_handler(self, command):
         """ handle switching between open and closed loop control"""
         if '?' in command.string:
-            command.setReply('On' if self.closed_loop else 'Off')
+            command.setReply('ON' if self.closed_loop else 'OFF')
             return
         if 'ON' in command.string and 'OFF' in command.string:
             self.bad_command_handler(command)

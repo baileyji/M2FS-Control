@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import sys, time, socket
+import sys, time, socket, os
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 import SelectedConnection
@@ -131,8 +131,18 @@ class Director(Agent):
         command.setReply('OK')
     
     def shutdown_command_handler(self, command):#TODO
+        """
+        Start instrument power down
+        
+        init computer shutdown procedure and then systemd notify individual
+        agents. I prefer this path, but it would be prefered that 
+        agents distinguish between a manual systemctl stop/kill/restart and a
+        shutdown now
+        
+        """
         command.setReply('OK')
-      
+        os.system('upsmon -c fsd')
+    
     def shackhartman_command_handler(self, command):
         try:
             self.shackhatmanAgent_Connection.connect()

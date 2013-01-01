@@ -66,9 +66,7 @@ class ShoeAgent(Agent):
             'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
             'SLITS_TEMP':self.TEMP_command_handler,
             'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
-            'SLITS_HARDSTOP':self.HARDSTOP_command_handler,
-            'SLITS_STATUS':self.status_command_handler,
-            'SLITS_VERSION':self.version_request_command_handler}
+            'SLITS_HARDSTOP':self.HARDSTOP_command_handler}
     
     def listenOn(self):
         return ('localhost', self.PORT)

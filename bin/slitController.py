@@ -22,13 +22,17 @@ class SlitController(Agent):
         #No closed oop 
         self.closed_loop=0
         self.command_handlers={
+            """ Note that the R slits are the slits in whichever shoe is in the R cradle """
+            """ Get/Set the positions of all 8 of the R or B slits """
             'SLITS':self.SLITS_comand_handler,
+            """ Toggle closed loop positioning or get status """
             'SLITS_CLOSEDLOOP':self.SLITS_CLOSEDLOOP_command_handler_blocking,
+            """ Get/Set wheather to leave tetris motors on after a move """
+            'SLITS_ACTIVEHOLD':self.SLITS_ACTIVEHOLD_command_handler,
             'SLITS_SLITPOS':self.not_implemented_command_handler,
             'SLITS_CURRENTPOS':self.not_implemented_command_handler,
             'SLITS_ILLUMPROF':self.not_implemented_command_handler,
             'SLITS_ILLUMMEAS':self.not_implemented_command_handler,
-            'SLITS_ACTIVEHOLD':self.SLITS_ACTIVEHOLD_command_handler,
             'SLITS_MOVSTEPS':self.not_implemented_command_handler,
             'SLITS_HARDSTOP':self.not_implemented_command_handler,
             'SLITS_IMAGSET':self.not_implemented_command_handler,

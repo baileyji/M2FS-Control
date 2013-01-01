@@ -63,14 +63,20 @@ class SlitController(Agent):
         """ Handle a SLITS command """
         if '?' in command.string:
             """ Retrieve the slit positions """
-            if 'R' in command.string:
-                self.shoeAgentR_Connection.sendMessage('SLITS ?', 
-                    responseCallback=command.setReply, errorCallback=command.setReply)
-            elif 'B' in command.string:
-                self.shoeAgentB_Connection.sendMessage('SLITS ?', 
-                    responseCallback=command.setReply, errorCallback=command.setReply)
+            if not self.closed_loop:
+                if 'R' in command.string:
+                    self.shoeAgentR_Connection.sendMessage('SLITS ?', 
+                        responseCallback=command.setReply,
+                        errorCallback=command.setReply)
+                elif 'B' in command.string:
+                    self.shoeAgentB_Connection.sendMessage('SLITS ?', 
+                        responseCallback=command.setReply,
+                        errorCallback=command.setReply)
+                else:
+                    self.bad_command_handler(command)
             else:
-                self.bad_command_handler(command)
+                """ We are operating closed loop, way more work to do folks"""
+                    command.setReply('ERROR: Closed loop control not yet implemented.')
         else:
             """Command should be in form SLITS [R|B] #,#,#,#,#,#,#,# """
             if not self.closed_loop:

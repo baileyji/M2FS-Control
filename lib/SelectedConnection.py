@@ -76,7 +76,10 @@ class SelectedConnection(object):
         """
         pass
     
-    def sendMessage(self, message, sentCallback=None, responseCallback=None, errorCallback=None):
+    def sendMessage(self, message,
+                    sentCallback=None,
+                    responseCallback=None,
+                    errorCallback=None):
         """
         Place the string <message> in the output buffer to be sent next time
         connection is selected.

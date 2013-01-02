@@ -35,10 +35,15 @@ class Director(Agent):
             agent_ports['PlugController'])
         self.devices.append(self.plugController_Connection)
         self.command_handlers.update({
-            #Director Commands
+            """
+            Director Commands
+
+            These commands operate on the entire instrument or require
+            coordinating a multiple systems.
+            """
             """ Notify the instrument the GUI is about to close """
             'GUICLOSING':self.guiclose_command_handler,
-            """ Move all systems to stowage positions and power off """
+            """ Shut the instrument down, all axes move to stowed positions """
             'SHUTDOWN':self.shutdown_command_handler,
             """ 
             Enable/Disable plugging mode.
@@ -150,11 +155,12 @@ class Director(Agent):
         """
         Start instrument power down
         
-        init computer shutdown procedure and then systemd notify individual
-        agents. I prefer this path, but it would be prefered that 
-        agents distinguish between a manual systemctl stop/kill/restart and a
-        shutdown now
-        
+        Initiate what Network UPS Tools calls a forced shutdown
+        upsmon should start the norma systemd shutdown procedure
+        and then, after systemd indicates ready to power off (which entails
+        waiting for all agents to shutdown,
+        instruct the UPS to kill the load, disabling power to the instrument.
+        The instrument power button must be pressed to start it back
         """
         command.setReply('OK')
         os.system('upsmon -c fsd')

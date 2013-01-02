@@ -150,14 +150,13 @@ class Agent(object):
     def listenOn(self):
         """ 
         Return an address tuple on which the server shall listen. 
-        Implemented by subclass
+        
         Must return a tuple of form (address, port) address must be a string,
         port a number, self.PORT may be used for the default port.
         
-        For most agents this function will be:
-        return ('localhost', self.PORT)
+        For most agents overriding this function is unnecessary.
         """
-        pass
+        return ('localhost', self.PORT)
     
     def socket_message_received_callback(self, source, message_str):
         """Create and execute a Command from the message"""

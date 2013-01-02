@@ -167,6 +167,9 @@ class Agent(object):
         """
         Create a Command from the message and execute the proper handler.
         
+        This is intended to be the callback for any SelectedConnections created
+        from incomming connections.
+        
         A Command is created from the received string and source.
         If a command exists from the source log a worning and ignore the 
             command.
@@ -227,8 +230,9 @@ class Agent(object):
         Accept connection. 
         Close if already have self.max_clients connections
         Else,
-        Create a SelectedConnection
-        (SelectedSocket, I havent actually fully abstracted this yet)
+        Create a SelectedSocket from the socket with
+            self.socket_message_received_callback as the 
+            default_message_received_callback.
         log connection
         Add it to self.sockets
         """

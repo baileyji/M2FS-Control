@@ -23,7 +23,9 @@ class SlitController(Agent):
         self.closed_loop=False
         self.closedLoopMoveInProgress=False
         self.command_handlers.update({
-            """ Note that the R slits are the slits in whichever shoe is in the R cradle """
+            """ Note that the R slits are the slits in whichever shoe 
+                is in the R cradle 
+            """
             """ Get/Set the positions of all 8 of the R or B slits """
             'SLITS':self.SLITS_comand_handler,
             """ Toggle closed loop positioning or get status """

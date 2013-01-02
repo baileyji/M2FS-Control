@@ -130,12 +130,15 @@ class Agent(object):
         If unable to initialize the socket call the server error handler
         """
         try:
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket = socket.socket(socket.AF_INET,
+                                               socket.SOCK_STREAM)
             self.server_socket.setblocking(0)
-            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_socket.setsockopt(socket.SOL_SOCKET,
+                                          socket.SO_REUSEADDR, 1)
             self.server_socket.bind(self.listenOn())
             self.server_socket.listen(1)
-            self.logger.info(" Waiting for connection on %s:%s..." % self.listenOn())
+            self.logger.info(" Waiting for connection on %s:%s..." %
+                             self.listenOn())
         except socket.error, e:
             if tries > 0:
                 self.logger.info('Server socket error %s, retrying %s more times.'%(set(e),tries))

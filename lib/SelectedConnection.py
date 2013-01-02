@@ -186,10 +186,10 @@ class SelectedConnection(object):
             callback=self.errorCallback
             self.errorCallback=self.defaultErrorCallback
             callback(self,err)
-        self._handle_disconnect()
+        self._disconnect()
     
-    def _handle_disconnect(self):
         """Disconnect, clearing output buffer"""
+    def _disconnect(self):
         if self.connection is None:
             return
         self.logger.info("%s disconnecting." % self)
@@ -206,7 +206,7 @@ class SelectedConnection(object):
     def close(self):
         """ Terminate the connection"""
         if self.isOpen():
-            self._handle_disconnect()
+            self._disconnect()
             
     def do_select_read(self):
         """ Do select for read whenever the connection is open """

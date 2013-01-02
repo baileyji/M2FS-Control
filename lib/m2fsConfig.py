@@ -1,12 +1,32 @@
 import ConfigParser
 import os
+
 class m2fsConfig:
+    """" 
+    Class to handle reading and writing instrument configuration data 
     
+    Class contains only static methods
+    
+    getPlateDirectory
+    getRejectDirectory
+    getMisplugAudioFilename
+    getUploadDirectory
+    getPort
+    getAgentPorts
+    getGalilDefaults
+    setGalilDefaults
+    getDataloggerLogfileNames
+    """
     def __init__(self):
         pass
     
     @staticmethod
     def getConfDir():
+        """
+        Get the config directory.
+        
+        Works if working directory is ./M2FS-Control or ./M2FS-Control/bin 
+        """
         if os.path.isdir('./conf'):
             return './conf/'
         else:
@@ -14,6 +34,7 @@ class m2fsConfig:
     
     @staticmethod    
     def getPlateDirectory():
+        """ Get the platefile directory from m2fs_paths.conf """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
@@ -21,6 +42,7 @@ class m2fsConfig:
     
     @staticmethod
     def getRejectDirectory():
+        """ Get the directory for bad platefiles from m2fs_paths.conf """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
@@ -28,6 +50,7 @@ class m2fsConfig:
     
     @staticmethod
     def getMisplugAudioFilename():
+        """ Get the misplug sound effect file """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
@@ -35,6 +58,7 @@ class m2fsConfig:
     
     @staticmethod    
     def getUploadDirectory():
+        """ Get the directory where users upload new plates """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
@@ -42,6 +66,7 @@ class m2fsConfig:
     
     @staticmethod
     def getPort(string):
+        """ Retrieve the port for Agent named string from m2fs_socket.conf """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_socket.conf','r'))
@@ -50,6 +75,7 @@ class m2fsConfig:
         
     @staticmethod
     def getAgentPorts():
+        """ Retrieve a dict of all agent ports as name:port pairs """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_socket.conf','r'))
@@ -57,6 +83,7 @@ class m2fsConfig:
     
     @staticmethod
     def getGalilDefaults(side):
+        """ Get dict of galil parameter defaults for galil R or B per side """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         if side=='B':
@@ -71,6 +98,12 @@ class m2fsConfig:
     
     @staticmethod
     def setGalilDefaults(side, defaults):
+        """ 
+        Write the Galil defaults for side to the config galil file
+        
+        Takes a dict settings. Any settings in the file, but not in the dict
+        WILL be erased. 
+        """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.add_section('Defaults')
@@ -83,7 +116,7 @@ class m2fsConfig:
                 config.set('Defaults', setting, value)
             config.write(configfile)
             configfile.close()
-
+    
     @staticmethod
     def getDataloggerLogfileNames():
         """

@@ -8,34 +8,39 @@ from m2fsConfig import m2fsConfig
 SERVER_RETRY_TIME=10
 class Agent(object):
     """
-    Base Class for (nearly) all M2FS controll programs
+    Base Class for (nearly) all M2FS control programs
     
     The base class provides the basic functionality for the program. 
     It configures logging.
     It handles incomming socket connections
     It does the basic grunt work of listening for incomming commands and calling
     the appropriate handler.
-    It sends the command responses after the command object indicates it has completed
-    It runs the main even loop which uses select to read and write on all agent conections, whether inbound or outbound.
+    It sends the command responses to the source of the sommand after the
+        command has completed.
+    It runs the main event loop which uses select to read and write on all agent conections, whether inbound or outbound.
     
-    It is my intention to make the individual connections their own threads,
-    removing the necessity of the select call in the event loop and allowing data non-blocking sends and secieves even within command handlers.
+    It is my intention to make either the individual connections or the commands
+        themselves into their own threads, thereby removing the necessity of the
+        select call in the event loop and allowing non-blocking sends/receives
+        within command handlers. I've not come up with a good implementation 
+        yet.
     """ 
     def __init__(self, basename):
         """
         Initialize the agent
         
         Set max clients to 1 (Only receive commands from one connection).
-        Create an instance cookie.
-        Parse command line arguments (override default set by subclassing 
-        initialize_cli_parser()
-        Initialize logging.
-        Register default command handlers for STATUS and VERSION
+        Create an instance cookie from the current time.
+        Configure command line arguments (change defaults by overriding
+        initialize_cli_parser() or add_additional_cli_arguments()
         Parse the command line arguments and place in self.args
+        Register default command handlers for STATUS and VERSION
+        Define the agent name, appending SIDE if an argument
+        Initialize logging.
         Start listening for connections on user supplied port. If no port 
-        supplied, get port for agent from m2fsconfig
-        
-        Registers and exit handler for SIGTERM and SIGINT
+        supplied, get port for agent from m2fsconfig based on agent name.
+        Register atexit function for cleanup.
+        Register exit handler for SIGSTOP, SIGTERM, & SIGINT
         """
         self.sockets=[]
         self.devices=[]
@@ -94,8 +99,8 @@ class Agent(object):
     def initialize_cli_parser(self):
         """Configure the command line interface
         
-        If and argument is stored to dest=SIDE it will be appended to the agent
-        name.
+        NB If an argument is stored to dest=SIDE it will be appended to the
+        agent name by __init__.
         """
         #Create a command parser with the default agent commands
         helpdesc="This is the instrument interface"
@@ -126,8 +131,8 @@ class Agent(object):
         
         Creat a non-blocking server socket on self.listenOn()
         In the even of a socket error sleep SERVER_RETRY_TIME and retry
-         tries times.
-        If unable to initialize the socket call the server error handler
+         tries times. Tries should be less than any recursion limit.
+        If unable to initialize the socket call handle_server_error
         """
         try:
             self.server_socket = socket.socket(socket.AF_INET,
@@ -159,7 +164,24 @@ class Agent(object):
         return ('localhost', self.PORT)
     
     def socket_message_received_callback(self, source, message_str):
-        """Create and execute a Command from the message"""
+        """
+        Create a Command from the message and execute the proper handler.
+        
+        A Command is created from the received string and source.
+        If a command exists from the source log a worning and ignore the 
+            command.
+        Otherwise add the Command to the list of commands. Then get the command
+            handler from command_handlers using the first word in the message
+            as a key after converting it to uppercase. Finally, call the command
+            handler with the Command.
+            
+        A major limitation of the current design is that this function will not
+            return until the handler does, which means that any sequenced
+            actions that are IO dependant must use blocking IO. This effectively
+            prevents closing out the command and transmitting the response
+            unless the handler spawns a thread (I've not done this anywhere)
+            uses a nasty system of nested callbacks or some other hack.
+        """
         command_name=message_str.partition(' ')[0]
         command=Command(source, message_str)
         existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
@@ -183,7 +205,7 @@ class Agent(object):
         Log exit
         shutdown server socket
         close all open connections
-        wait 1 second
+        wait 1 second to ensure all messages make it into the system log
         """
         self.logger.info("exiting %s" % arg)
         if self.server_socket:
@@ -207,6 +229,8 @@ class Agent(object):
         Else,
         Create a SelectedConnection
         (SelectedSocket, I havent actually fully abstracted this yet)
+        log connection
+        Add it to self.sockets
         """
         # accept a connection in any case, close connection
         # below if already busy
@@ -225,12 +249,30 @@ class Agent(object):
                 'Rejecting connect from %s:%s' % (addr[0], addr[1]))
     
     def handle_server_error(self, error=''):
-        """Socket server fails"""
+        """
+        Callback for when select indicates error on a server socket.
+
+        log error
+        exit
+        """
         self.logger.error('Socket server error: "%s"' % error)
         sys.exit(1)
     
     def update_select_maps(self, read_map, write_map, error_map):
-        """Update dictionaries for select call. insert fd->callback mapping"""
+        """
+        Update dictionaries for select call. 
+        
+        always select on server reads (incomming connection) or errors (fatal)
+            with self.handle_connect and self.handle_server_error as the 
+            handlers
+        select on each of the sockets & devices (they all implement 
+            SelectedConnection) for read, write, and error if the connection
+            reports it needs selecting on
+        Use the read, write, & error handlers defined by SelectedConnection
+        
+        In case it isn't clear the select maps are key value pairs of 
+            selectable_object:handler_for_when_select_indicates_object_is_ready
+        """
         # check the server socket
         read_map[self.server_socket] = self.handle_connect
         error_map[self.server_socket] = self.handle_server_error
@@ -244,7 +286,14 @@ class Agent(object):
                 error_map[selectedconn] = selectedconn.handle_error
     
     def cull_dead_sockets_and_their_commands(self):
-        """Remove dead sockets from list of sockets & purge commands from same."""
+        """
+        Remove dead sockets from list of sockets & purge commands from same.
+        
+        Find all closed socket connections (commands can't come from
+            devices, so no need to check)
+        Remove the socket from sockets
+        Find any commands that came from the socket and remove them
+        """
         dead_sockets=filter(lambda x: not x.isOpen(), self.sockets)
         for dead_socket in dead_sockets:
             self.logger.debug("Cull dead socket: %s" % dead_socket)
@@ -254,7 +303,13 @@ class Agent(object):
                 self.commands.remove(dead_command)
     
     def handle_completed_commands(self):
-        """Return results of complete commands and cull the commands."""
+        """
+        Return results of complete commands and cull the commands.
+        
+        Find all commands that are 'complete'.
+        For each command, send the reply to the source
+        Remove the command
+        """
         completed_commands=filter(lambda x: x.state=='complete',self.commands)
         for command in completed_commands:
             self.logger.debug("Closing out command %s" % command)
@@ -262,11 +317,19 @@ class Agent(object):
             self.commands.remove(command)
     
     def not_implemented_command_handler(self, command):
-        """ Placeholder command handler """
+        """
+        Placeholder command handler 
+        
+        Agents may use this command handler as a placeholder.
+        """
         command.setReply('!ERROR: Command not implemented.')
     
     def bad_command_handler(self, command):
-        """ Handle an unrecognized command """
+        """
+        Handle an unrecognized command 
+        
+        Agents may use this command handler if a command is found to be invalid.
+        """
         command.setReply('!ERROR: Unrecognized command.')
     
     def version_request_command_handler(self,command):
@@ -274,12 +337,21 @@ class Agent(object):
         command.setReply(self.get_version_string())
     
     def status_command_handler(self,command):
-        """ Handle a status request, reply with cookie"""
+        """
+        Handle a status request, reply with cookie
+        
+        Agents will generally override this command handler
+        """
         command.setReply(self.cookie)
     
     def do_select(self):
         """
-        Perform the select operation on all devices and sockets whcih require it
+        Select on all devices and sockets whcih require it.
+        
+        First call update_select_maps to get object:handler pairs on which to
+            select for reading, writing, & errors.
+        Perform the select call
+        Call the appropriate handlers for each of the objects returned by select 
         """
         #select_start = time.time()
         read_map = {}
@@ -300,21 +372,55 @@ class Agent(object):
         #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
     
     def run(self):
+        """
+        Called once per main loop, after select & any handlers but
+            before closing out commands.
+        Implement in subclass
+        """
         pass
     
     def runOnce(self):
+        """
+        Main for standalone, no-server-socket operation.
+        
+        Not used at present. Override in subclass
+        """
         self.logger.info('Command line commands not yet implemented.')
         sys.exit(0)
     
     def runSetup(self):
+        """
+        Called once before entering main loop.
+        Implement in subclass
+        """
         pass
     
     def main(self):
         """
-        Loop forever, acting on commands as received if on a port.
+        Main loop (or one shot if no port). Act on commands as received.
         
-        Run once from command line if no port.
+        The general (only at time of writing) case assumes operation with a
+        port. The typical flow is as follows:
         
+        Agent has been initialized and SelectedConnections to all other devices
+        and agents required have been created and are in devices & sockets.
+        Main calls runSetup to allow subclasses to perform any additional setup
+        and then enters the main loop.
+        In the main loop, do_select is run, which checks each connection to see
+        if it needs reading, writing, or checking for errors. It then selects
+        on those connections, finally executing the read, write, or error 
+        callbacks for each connected as indicated. For details of what these
+        handlers do, see SelectedConnection. In essence they grab received data
+        into an internal buffer until some criterion is met; transmit any
+        pending data, & deal with an error, respectively.
+        Next, any dead socket conectionions are dropped along with all commands
+        received from those connections. Note that commands can only arrive from
+        a connection in self.sockets and never in self.devices. Also note that
+        the dropped commands(') callback(s) will already have been executed.
+        Finally, the loop closes out any completed commands. Essentially this
+        means taking the command response and sending it to the source. Note 
+        the data isn't actually sent until the next do_select call, at the
+        earliest
         """
         self.runSetup()
         if self.PORT is None:

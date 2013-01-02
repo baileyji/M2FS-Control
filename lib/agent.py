@@ -41,7 +41,7 @@ class Agent(object):
         self.devices=[]
         self.commands=[]
         self.max_clients=1
-        self.cookie=time.time().__str__()
+        self.cookie=str(int(time.time()))
         self.initialize_cli_parser()
         self.args=self.cli_parser.parse_args()
         if 'SIDE' in self.args:

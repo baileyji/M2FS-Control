@@ -188,8 +188,14 @@ class SelectedConnection(object):
             callback(self,err)
         self._disconnect()
     
-        """Disconnect, clearing output buffer"""
     def _disconnect(self):
+        """
+        Disconnect, clearing output buffer
+        
+        Calls _implementationSpecificDisconnect to perform the disconnect.
+        Trap and log any exceptions that occur.
+        Reset set, received, & error callbacks to their defaults.
+        """
         if self.connection is None:
             return
         self.logger.info("%s disconnecting." % self)

@@ -44,6 +44,9 @@ class Agent(object):
         self.cookie=str(int(time.time()))
         self.initialize_cli_parser()
         self.args=self.cli_parser.parse_args()
+        self.command_handlers={
+            'STATUS':self.status_command_handler,
+            'VERSION':self.version_request_command_handler}
         if 'SIDE' in self.args:
             self.name=basename+self.args.SIDE
         else:
@@ -63,11 +66,8 @@ class Agent(object):
         #register an exit function
         atexit.register(self.on_exit, self)
         #Register a terminate signal handler
-        signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(1))
-        signal.signal(signal.SIGINT, lambda signum, stack_frame: exit(1))
-        self.command_handlers={
-            'STATUS':self.status_command_handler,
-            'VERSION':self.version_request_command_handler}
+        signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(0))
+        signal.signal(signal.SIGINT, lambda signum, stack_frame: exit(0))
     
     def initialize_logger(self):
         """

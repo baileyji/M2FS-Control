@@ -40,6 +40,11 @@ class Director(Agent):
             'GUICLOSING':self.guiclose_command_handler,
             """ Move all systems to stowage positions and power off """
             'SHUTDOWN':self.shutdown_command_handler,
+            """ 
+            Enable/Disable plugging mode.
+            Involves GalilAgents, PlugController, & SlitController.
+            """
+            'PLUGMODE': self.plugmode_command_handler,
             """
             Galil Agent (R & B) Commands
             
@@ -123,7 +128,6 @@ class Director(Agent):
             'PLATE': self.PLUGGING_command_handler,
             'PLATESETUP': self.PLUGGING_command_handler,
             'PLUGPOS': self.PLUGGING_command_handler,
-            'PLUGMODE': self.PLUGGING_command_handler,
             """
             Datalogger Agent Commands
 
@@ -200,11 +204,12 @@ class Director(Agent):
                 command.setReply('ERROR: Could not establish a connection with the plug controller.')
             except SelectedConnection.WriteError, err:
                 command.setReply('ERROR: Could not send to plug controller.')
-        elif command_name =='PLUGMODE':
-            self.not_implemented_command_handler(command)
         else:
             command.setReply(
                 "ERROR: PLUGGING_command_handler should not have been called for '%s'" % command.string)
+    
+    def plugmode_command_handler(self, command):
+        self.not_implemented_command_handler(command)
     
     def status_command_handler(self, command):
         #TODO Query each subsystem for status

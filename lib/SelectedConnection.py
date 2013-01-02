@@ -55,7 +55,7 @@ class SelectedConnection(object):
         if self.isOpen():
             return
         try:
-            self.implementationSpecificConnect()
+            self._implementationSpecificConnect()
             self._postConnect()
         except Exception, e:
             self.logger.info('Connect failed: %s' % str(e))
@@ -148,7 +148,7 @@ class SelectedConnection(object):
         if message[-1]!='\n':
             message+='\n'
         try:
-            count=self.implementationSpecificBlockingSend(message)
+            count=self._implementationSpecificBlockingSend(message)
             msg=("Attempted write '%s', wrote '%s' to %s" %
                  (message, message[:count], self.addr_str())
                  ).replace('\n','\\n').replace('\r','\\r')
@@ -169,7 +169,7 @@ class SelectedConnection(object):
             self.logger.error(err)
             raise ReadError(err)
         try:
-            response=self.implementationSpecificBlockingReceive(nBytes, timeout)
+            response=self._implementationSpecificBlockingReceive(nBytes, timeout)
             self.logger.debug("BlockingReceive got: '%s'" % 
                 response.replace('\n','\\n').replace('\r','\\r'))
             return response.rstrip(' \t\n\r')
@@ -221,7 +221,7 @@ class SelectedConnection(object):
     def handle_read(self):
         """Read callback for select"""
         try:
-            data = self.implementationSpecificRead()
+            data = self._implementationSpecificRead()
             self.logger.debug("Handle_Read got: %s" %
                               data.replace('\n','\\n').replace('\r','\\r'))
             self.in_buffer += data
@@ -247,7 +247,7 @@ class SelectedConnection(object):
         try:
             if self.out_buffer:
                 # write a chunk
-                count = self.implementationSpecificWrite(self.out_buffer)
+                count = self._implementationSpecificWrite(self.out_buffer)
                 msg=('Attempted write "%s", wrote "%s" on %s' %
                      (self.out_buffer, self.out_buffer[:count],self.addr_str())
                 ).replace('\n','\\n').replace('\r','\\r')
@@ -292,7 +292,7 @@ class SelectedSerial(SelectedConnection):
     def addr_str(self):
         return "%s@%s"%(self.port,self.baudrate)
     
-    def implementationSpecificBlockingSend(self, message):
+    def _implementationSpecificBlockingSend(self, message):
         try:
             self.connection.write(message)
             self.connection.flush()
@@ -300,7 +300,7 @@ class SelectedSerial(SelectedConnection):
         except serial.SerialException, e:
             raise WriteError(str(e))
     
-    def implementationSpecificBlockingReceive(self, nBytes, timeout=None):
+    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
         saved_timeout=self.connection.timeout
         if type(timeout) in (int,float,long) and timeout>0:
             self.connection.timeout=timeout
@@ -318,11 +318,11 @@ class SelectedSerial(SelectedConnection):
                 self.connection.timeout=saved_timeout
         return response
     
-    def implementationSpecificConnect(self):
+    def _implementationSpecificConnect(self):
         self.connection=serial.Serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout)
     
-    def implementationSpecificRead(self):
+    def _implementationSpecificRead(self):
         """ Perform a device specific read, Rais ReadError if no data or any error """
         try:
             data=self.connection.read(self.connection.inWaiting())
@@ -334,7 +334,7 @@ class SelectedSerial(SelectedConnection):
         except IOError, err:
             raise ReadError(err)
     
-    def implementationSpecificWrite(self, data):
+    def _implementationSpecificWrite(self, data):
         """ Perform a device specific read, Raise WriteError if no data or any error """
         try:
             count = self.connection.write(self.out_buffer)
@@ -390,14 +390,14 @@ class SelectedSocket(SelectedConnection):
     def addr_str(self):
         return "%s:%s"%(self.host,self.port)
     
-    def implementationSpecificBlockingSend(self, message):
+    def _implementationSpecificBlockingSend(self, message):
         try:
             count = self.connection.send(message)
             return count
         except socket.error,err:
             raise WriteError(str(err))
     
-    def implementationSpecificBlockingReceive(self, nBytes, timeout=None):
+    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
         saved_timeout=self.connection.gettimeout()
         if type(timeout) in (int,float,long) and timeout>0:
             self.connection.settimeout(timeout)
@@ -417,14 +417,14 @@ class SelectedSocket(SelectedConnection):
                 self.connection.settimeout(saved_timeout)
         return response
     
-    def implementationSpecificConnect(self):
+    def _implementationSpecificConnect(self):
         thesocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         thesocket.connect((self.host, self.port))
         thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         thesocket.setblocking(0)
         self.connection=thesocket
    
-    def implementationSpecificRead(self):
+    def _implementationSpecificRead(self):
         """ Perform a device specific read, Raise ReadError if no data or any error """
         try:
             data=self.connection.recv(1024)
@@ -434,7 +434,7 @@ class SelectedSocket(SelectedConnection):
         except socket.error, err:
             raise ReadError(err)
     
-    def implementationSpecificWrite(self, data):
+    def _implementationSpecificWrite(self, data):
         """ Perform a device specific read, Raise WriteError if no data or any error """
         try:
             count = self.connection.send(self.out_buffer)

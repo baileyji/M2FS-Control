@@ -1,6 +1,5 @@
 import ConfigParser
 import os
-_CONFIG_DIRECTORY='./conf/'
 class m2fsConfig:
     
     def __init__(self):
@@ -12,18 +11,6 @@ class m2fsConfig:
             return './conf/'
         else:
             return '../conf/'
-    
-    @staticmethod
-    def writePositionDefault(positionName, value):
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        with open(m2fsConfig.fileName,'r') as configfile:
-            config.readfp(configfile)
-            configfile.close()
-        with open(m2fsConfig.fileName,'w') as configfile:
-            config.set('PositionDefaults', setting, value)
-            config.write(configfile)
-            configfile.close()
     
     @staticmethod    
     def getPlateDirectory():

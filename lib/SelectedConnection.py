@@ -201,9 +201,9 @@ class SelectedConnection(object):
         self.logger.info("%s disconnecting." % self)
         self.out_buffer=''
         try:
-            self.implementationSpecificDisconnect()
+            self._implementationSpecificDisconnect()
         except Exception, e:
-            self.logger.debug('implementationSpecificDisconnect caused exception: %s'%str(e))
+            self.logger.debug('_implementationSpecificDisconnect caused exception: %s'%str(e))
         self.connection = None
         self.sentCallback=self.defaultSentCallback
         self.responseCallback=self.defaultResponseCallback
@@ -346,7 +346,7 @@ class SelectedSerial(SelectedConnection):
         except serial.SerialException,err:
             raise WriteError(err)
     
-    def implementationSpecificDisconnect(self):
+    def _implementationSpecificDisconnect(self):
         """disconnection specific to serial"""
         try:
             self.connection.flushOutput()
@@ -442,7 +442,7 @@ class SelectedSocket(SelectedConnection):
         except socket.error, err:
             raise WriteError(err)
     
-    def implementationSpecificDisconnect(self):
+    def _implementationSpecificDisconnect(self):
         """disconnection specific to socket"""
         try:
             self.connection.shutdown(socket.SHUT_RDWR)

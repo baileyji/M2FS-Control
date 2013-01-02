@@ -110,7 +110,6 @@ class SelectedConnection(object):
         try:
             self.connect()
         except ConnectError, err:
-            self.connection=None
             err="Unable to send '%s' on %s" % (message, str(self))
             self.handle_error(error=err)
             raise WriteError(err)
@@ -138,7 +137,6 @@ class SelectedConnection(object):
         try:
             self.connect()
         except ConnectError, err:
-            self.connection=None
             err=("Attempted to send '%s' to '%s' but coudn't connect." %
                 (message, self.addr_str())).replace('\n','\\n').replace('\r','\\r')
             self.logger.error(err)
@@ -164,7 +162,6 @@ class SelectedConnection(object):
         try:
             self.connect()
         except ConnectError, err:
-            self.connection=None
             err="Attempting to receive on %s" % str(self)
             self.logger.error(err)
             raise ReadError(err)
@@ -285,7 +282,6 @@ class SelectedSerial(SelectedConnection):
         try:
             self.connect()
         except ConnectError, err:
-            self.connection=None
             self.logger.info('Could not connect to %s. %s' %
                 (self.addr_str(),str(err)))
     
@@ -383,7 +379,6 @@ class SelectedSocket(SelectedConnection):
             try:
                 self.connect()
             except ConnectError, err:
-                self.connection=None
                 self.logger.info('Could not connect to %s. %s' % 
                     (self.addr_str(),str(err)))
     

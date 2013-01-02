@@ -51,7 +51,7 @@ class Director(Agent):
             'GALILRESET':self.galil_command_handler,
             'GALILRAW':self.galil_command_handler,
             'GES':self.galil_command_handler,
-            'GES_MOVE':self.galil_command_handler
+            'GES_MOVE':self.galil_command_handler,
             'GES_CALIBRATE':self.galil_command_handler,
             'LREL':self.galil_command_handler,
             'LREL_CALIBRATE':self.galil_command_handler,

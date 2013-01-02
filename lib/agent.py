@@ -234,22 +234,14 @@ class Agent(object):
         # check the server socket
         read_map[self.server_socket] = self.handle_connect
         error_map[self.server_socket] = self.handle_server_error
-        #check client sockets
-        for socket in self.sockets:
-            if socket.do_select_read():
-                read_map[socket] = socket.handle_read
-            if socket.do_select_write():
-                write_map[socket] = socket.handle_write
-            if socket.do_select_error():
-                error_map[socket] = socket.handle_error
-        #check device connections
-        for device in self.devices:
-            if device.do_select_read():
-                read_map[device] = device.handle_read
-            if device.do_select_write():
-                write_map[device] = device.handle_write
-            if device.do_select_error():
-                error_map[device] = device.handle_error
+        #check all other connections
+        for selectedconn in self.sockets + self.devices:
+            if selectedconn.do_select_read():
+                read_map[selectedconn] = selectedconn.handle_read
+            if selectedconn.do_select_write():
+                write_map[selectedconn] = selectedconn.handle_write
+            if selectedconn.do_select_error():
+                error_map[selectedconn] = selectedconn.handle_error
     
     def cull_dead_sockets_and_their_commands(self):
         """Remove dead sockets from list of sockets & purge commands from same."""

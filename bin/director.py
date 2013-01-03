@@ -6,6 +6,8 @@ import SelectedConnection
 from command import Command
 from m2fsConfig import m2fsConfig
 
+DIRECTOR_VERSION_STRING='Director v0.5'
+
 class Director(Agent):
     def __init__(self):
         Agent.__init__(self,'Director')
@@ -133,7 +135,8 @@ class Director(Agent):
         return (socket.gethostname(), self.PORT)
     
     def get_version_string(self):
-        return 'Director Version 0.1'
+        """ Return a string with the version."""
+        return DIRECTOR_VERSION_STRING
     
     def guiclose_command_handler(self, command):#TODO
         command.setReply('OK')

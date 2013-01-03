@@ -317,8 +317,11 @@ class Agent(object):
         completed_commands=filter(lambda x: x.state=='complete',self.commands)
         for command in completed_commands:
             self.logger.debug("Closing out command %s" % command)
-            command.source.sendMessage(command.reply)
-            self.commands.remove(command)
+            try:
+                command.source.sendMessage(command.reply)
+                self.commands.remove(command)
+            except WriteError:
+                pass
     
     def not_implemented_command_handler(self, command):
         """

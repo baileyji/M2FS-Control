@@ -11,6 +11,17 @@ from galil import GalilSerial
 GALIL_AGENT_VERSION_STRING='Galil Agent v0.2'
 
 class GalilAgent(Agent):
+    """
+    This control program is responsible for all motions, exclusive of the tetri,
+    for one side of the spectrograph. Two instances are run, one for the R side
+    and one for the B side.
+    
+    Much of the detailed device functionality is handled by the Galil object,
+    which is a subclass of SelectedSerial. See galil.py.
+    
+    For additional details please refrence the M2FS Control Systems
+    document.
+    """
     def __init__(self):
         Agent.__init__(self,'GalilAgent')
         #Update the list of command handlers
@@ -162,7 +173,14 @@ class GalilAgent(Agent):
 
     
     def defaults_command_handler(self, command):
+        """
+        Get/Set default positions values for the galil
+        
+        This implementationn is a bit clunkuy, using two dicts and some string
+        analysis. I've not come up with anything better and it works.
+        """
         command_name,junk,args=command.string.partition(' ')
+        #check if the command needs preprocessing
         if command_name is 'FILTER_DEFENC':
             command_name=command_name+' '+args.split(' ')[0]
         #double check this is a real config parameter
@@ -178,6 +196,7 @@ class GalilAgent(Agent):
             command.setReply(self.galil.setDefault(settingName, args))
     
     def reset_command_handler(self, command):
+        """ Reset the galil """
         command.setReply(self.galil.reset())
     
     def _stowShutdown(self):
@@ -187,7 +206,15 @@ class GalilAgent(Agent):
         self.galil.shutdown()
     
     def galil_command_handler(self, command):
-        """Execute the command on the galil and setReply"""
+        """
+        Execute the command on the galil and set the reply to result 
+        
+        First analyze the command string to determine the appropriate galil
+        function to call.
+        
+        This implementationn is a bit clunkuy, using two dicts and some string
+        analysis. I've not come up with anything better and it works.
+        """
         command_name,junk,args=command.string.partition(' ')
         query='?' in command.string
         

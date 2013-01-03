@@ -97,7 +97,8 @@ class Agent(object):
         self.logger=logging.getLogger(self.name)
     
     def initialize_cli_parser(self):
-        """Configure the command line interface
+        """
+        Configure the command line interface
         
         NB If an argument is stored to dest=SIDE it will be appended to the
         agent name by __init__.

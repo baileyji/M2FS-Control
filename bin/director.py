@@ -215,8 +215,47 @@ class Director(Agent):
                 "ERROR: PLUGGING_command_handler should not have been called for '%s'" % command.string)
     
     def plugmode_command_handler(self, command):
-        self.not_implemented_command_handler(command)
-    
+        """
+        Handle entering and exiting plug mode
+        
+        On entering we need to insert the FLS pickoff 'FLSIM IN' to each galil
+        This takes 5-30 seconds and if it fails then we can't sucessfully enter
+        plugmode. We then need to make sure that all slits are in a position 
+        that is suitable for plugging, what constitutes suitable is unknown at
+        present. Finally, notify the plugcontroller that it should start 
+        checking fiber plug locations.
+        
+        On leaving plug mode we need to remove the FLS pickoff ('FLISM OUT' to
+        both Galil agents). And perhaps reset the slit positions, which if
+        closed loop control is enabled would require the pickoff to still be
+        inserted.
+
+        Considering the FLS system isn't yet operational, this command is 
+        just a dummy to excersise the FLS Pickoffs
+        """
+        if '?' in command.string:
+            #Check to see if we've made it into plug mode sucess
+            reply='OFF'
+            command.setReply(reply)
+        elif 'OFF' in command.string and 'ON' not in command.string:
+            #Turn plugmode off
+            try:
+                self.galilAgentR_Connection.sendMessage('FLSIM OUT')
+                self.galilAgentR_Connection.sendMessage('FLSIM OUT')
+                command.setReply('OK')
+            except WriteError:
+                command.setReply('ERROR: Could not set pickoff position')
+        elif 'ON' in command.string and 'OFF' not in command.string:
+            #Turn plugmode on
+            try:
+                self.galilAgentR_Connection.sendMessage('FLSIM IN')
+                self.galilAgentR_Connection.sendMessage('FLSIM IN')
+                command.setReply('OK')
+            except WriteError:
+                command.setReply('ERROR: Could not set pickoff position')
+        else:
+            self.bad_command_handler(command)
+
     def status_command_handler(self, command):
         #TODO Query each subsystem for status
         reply=self.cookie+'\r'

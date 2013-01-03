@@ -11,9 +11,7 @@ from galil import GalilSerial
 class GalilAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'GalilAgent')
-        #Initialize the Galil
-        if not self.args.DEVICE:
-            self.args.DEVICE='/dev/galil'+self.args.SIDE
+        #Update the list of command handlers
         self.command_handlers.update({
             #Send the command string directely to the Galil
             'GALILRAW':self.galil_command_handler,
@@ -77,6 +75,25 @@ class GalilAgent(Agent):
             'FLSIM_DEFREM':self.defaults_command_handler,
             #Do a soft reset of the galil
             'RESET':self.reset_command_handler})
+        self.command_settingName_map={
+            'FILTER_DEFENC 1':'filter1encoder','FILTER_DEFENC 2':'filter2encoder',
+            'FILTER_DEFENC 3':'filter3encoder','FILTER_DEFENC 4':'filter4encoder',
+            'FILTER_DEFENC 5':'filter5encoder','FILTER_DEFENC 6':'filter6encoder',
+            'FILTER_DEFENC 7':'filter7encoder','FILTER_DEFENC 8':'filter8encoder',
+            'FILTER_DEFENC 9':'filter9encoder', #NB LOAD position
+            'FILTER_DEFINS':'filterInserted','FILTER_DEFREM':'filterRemoved',
+            'FILTER_DEFTOL':'filterTolerance',
+            'GES_DEFHRSTEP':'hiresStep','GES_DEFLRSTEP':'loresStep',
+            'GES_DEFHRENC':'hiresEncoder','GES_DEFLRENC':'loresEncoder',
+            'GES_DEFTOL':'gesTolerance',
+            'FLSIM_DEFINS':'flsimInserted','FLSIM_DEFREM':'flsimRemoved',
+            'GES_DEFSWPSTEP':'loresSwapStep','GES_DEFSWPENC':'loresSwapEncoder'}
+        #Initialize the Galil
+        if not self.args.DEVICE:
+            self.args.DEVICE='/dev/galil'+self.args.SIDE
+        self.galil=GalilSerial(self.args.DEVICE, 115200, timeout=0.5,
+                               SIDE=self.args.SIDE)
+        self.devices.append(self.galil)
         self.query_commands={
             'FILTER':self.galil.get_filter,
             'LREL':self.galil.get_loel,
@@ -103,22 +120,6 @@ class GalilAgent(Agent):
             'HRAZ_CALIBRATE':self.galil.calibrate_hraz,
             'GES_CALIBRATE':self.galil.calibrate_ges,
             'GES_MOVE':self.galil.nudge_ges}
-        self.command_settingName_map={
-            'FILTER_DEFENC 1':'filter1encoder','FILTER_DEFENC 2':'filter2encoder',
-            'FILTER_DEFENC 3':'filter3encoder','FILTER_DEFENC 4':'filter4encoder',
-            'FILTER_DEFENC 5':'filter5encoder','FILTER_DEFENC 6':'filter6encoder',
-            'FILTER_DEFENC 7':'filter7encoder','FILTER_DEFENC 8':'filter8encoder',
-            'FILTER_DEFENC 9':'filter9encoder', #NB LOAD position
-            'FILTER_DEFINS':'filterInserted','FILTER_DEFREM':'filterRemoved',
-            'FILTER_DEFTOL':'filterTolerance',
-            'GES_DEFHRSTEP':'hiresStep','GES_DEFLRSTEP':'loresStep',
-            'GES_DEFHRENC':'hiresEncoder','GES_DEFLRENC':'loresEncoder',
-            'GES_DEFTOL':'gesTolerance',
-            'FLSIM_DEFINS':'flsimInserted','FLSIM_DEFREM':'flsimRemoved',
-            'GES_DEFSWPSTEP':'loresSwapStep','GES_DEFSWPENC':'loresSwapEncoder'}
-        self.galil=GalilSerial(self.args.DEVICE, 115200,
-            timeout=0.5, SIDE=self.args.SIDE)
-        self.devices.append(self.galil)
     
     def listenOn(self):
         return ('localhost', self.PORT)

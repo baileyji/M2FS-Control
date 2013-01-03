@@ -198,21 +198,26 @@ class Director(Agent):
             command.setReply('ERROR: Could not send to datalogger agent.')
     
     def PLUGGING_command_handler(self, command):
-        """ Pass Plugging related commands along and coordinate multi-system
-           actions """
-        command_name,_,args=command.string.partition(' ')
-        if command_name in ['PLATELIST', 'PLATE','PLATESETUP','PLUGPOS']:
-            try:
-                self.plugController_Connection.connect()
-                self.plugController_Connection.sendMessage(command.string, 
-                    responseCallback=command.setReply)
-            except SelectedConnection.ConnectError, err:
-                command.setReply('ERROR: Could not establish a connection with the plug controller.')
-            except SelectedConnection.WriteError, err:
-                command.setReply('ERROR: Could not send to plug controller.')
-        else:
-            command.setReply(
-                "ERROR: PLUGGING_command_handler should not have been called for '%s'" % command.string)
+        """
+        Handle commands for the plugging system
+        
+        Pass the command string along to the plug controller agent.
+        The response callback is the command's setReply function.
+        
+        This routine implements the same functionality as
+        shackhartman_command_handler, but in a different manner.
+        Using the errorCallback is much cleaner and removes dependence on an
+        additional function, but does not provide direct control over the error
+        messages.
+        """
+        try:
+            self.plugController_Connection.connect()
+            self.plugController_Connection.sendMessage(command.string, 
+                responseCallback=command.setReply)
+        except SelectedConnection.ConnectError, err:
+            command.setReply('ERROR: Could not establish a connection with the plug controller.')
+        except SelectedConnection.WriteError, err:
+            command.setReply('ERROR: Could not send to plug controller.')
     
     def plugmode_command_handler(self, command):
         """

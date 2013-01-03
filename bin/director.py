@@ -39,29 +39,24 @@ class Director(Agent):
         self.devices.append(self.plugController_Connection)
         self.devices.append(self.guiderAgent_Connection)
         self.command_handlers.update({
-            """
-            Director Commands
-
-            These commands operate on the entire instrument or require
-            coordinating a multiple systems.
-            """
-            """ Notify the instrument the GUI is about to close """
+            #Director Commands
+            #
+            #These commands operate on the entire instrument or require
+            #coordinating a multiple systems.
+            #
+            #Notify the instrument the GUI is about to close """
             'GUICLOSING':self.guiclose_command_handler,
-            """ Shut the instrument down, all axes move to stowed positions """
+            #Shut the instrument down, all axes move to stowed positions
             'SHUTDOWN':self.shutdown_command_handler,
-            """ 
-            Enable/Disable plugging mode.
-            Involves GalilAgents, PlugController, & SlitController.
-            """
+            #Enable/Disable plugging mode.
+            #Involves GalilAgents, PlugController, & SlitController.
             'PLUGMODE': self.plugmode_command_handler,
-            """
-            Galil Agent (R & B) Commands
-            
-            The director determines if the command is for the R or B galilAgent
-            and then passes it along to the agent.
-            
-            Authoritative command discriptions are in galilAgent.py
-            """
+            #Galil Agent (R & B) Commands
+            #
+            #The director determines if the command is for the R or B galilAgent
+            #and then passes it along to the agent.
+            #
+            #Authoritative command discriptions are in galilAgent.py
             'GALILRESET':self.galil_command_handler,
             'GALILRAW':self.galil_command_handler,
             'GES':self.galil_command_handler,
@@ -91,31 +86,25 @@ class Director(Agent):
             'FILTER_DEFTOL':self.galil_command_handler,
             'FLSIM_DEFINS':self.galil_command_handler,
             'FLSIM_DEFREM':self.galil_command_handler,
-            """
-            Shack-Hartman Agent Commands
-
-            The director passes the command along to the agent.
-
-            Authoritative command discriptions are in shackhartmanAgent.py
-            """
+            #Shack-Hartman Agent Commands
+            #
+            #The director passes the command along to the agent.
+            #
+            #Authoritative command discriptions are in shackhartmanAgent.py
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
-            """
-            Guider Agent Commands
-
-            The director passes the command along to the agent.
-
-            Authoritative command discriptions are in guiderAgent.py
-            """
+            #Guider Agent Commands
+            #
+            #The director passes the command along to the agent.
+            #
+            #Authoritative command discriptions are in guiderAgent.py
             'GFOCUS':self.not_implemented_command_handler,
             'GFILTER':self.not_implemented_command_handler,
-            """
-            Slit Commands
-
-            The director passes the command along to the agent.
-
-            Command discriptions are in slitController.py
-            """
+            #Slit Commands
+            #
+            #The director passes the command along to the agent.
+            #
+            #Command discriptions are in slitController.py
             'SLITSRAW':self.SLITS_comand_handler,
             'SLITS':self.SLITS_comand_handler,
             'SLITS_CLOSEDLOOP':self.SLITS_comand_handler,
@@ -124,24 +113,20 @@ class Director(Agent):
             'SLITS_ACTIVEHOLD':self.SLITS_comand_handler,
             'SLITS_MOVSTEPS':self.SLITS_comand_handler,
             'SLITS_HARDSTOP':self.SLITS_comand_handler,
-            """
-            Plugging Commands
-
-            The director passes the command along to the agent.
-
-            Command discriptions are in plugController.py
-            """
+            #Plugging Commands
+            #
+            #The director passes the command along to the agent.
+            #
+            #Command discriptions are in plugController.py
             'PLATELIST': self.PLUGGING_command_handler,
             'PLATE': self.PLUGGING_command_handler,
             'PLATESETUP': self.PLUGGING_command_handler,
             'PLUGPOS': self.PLUGGING_command_handler,
-            """
-            Datalogger Agent Commands
-
-            The director passes the command along to the agent.
-
-            Authoritative command discriptions are in dataloggerAgent.py
-            """
+            #Datalogger Agent Commands
+            #
+            #The director passes the command along to the agent.
+            #
+            #Authoritative command discriptions are in dataloggerAgent.py
             'TEMPS':self.datalogger_command_handler})
     
     def listenOn(self):

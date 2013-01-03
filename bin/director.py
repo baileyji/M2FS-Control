@@ -74,8 +74,6 @@ class Director(Agent):
             'FILTER_INSERT':self.galil_command_handler,
             'FILTER_REMOVE':self.galil_command_handler,
             'FLSIM':self.galil_command_handler,
-            'FLSIM_INSERT':self.galil_command_handler,
-            'FLSIM_REMOVE':self.galil_command_handler,
             'GES_DEFHRSTEP':self.galil_command_handler,
             'GES_DEFLRSTEP':self.galil_command_handler,
             'GES_DEFHRENC':self.galil_command_handler,

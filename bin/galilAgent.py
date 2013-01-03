@@ -121,31 +121,30 @@ class GalilAgent(Agent):
             'GES_CALIBRATE':self.galil.calibrate_ges,
             'GES_MOVE':self.galil.nudge_ges}
     
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return "This is the galil agent"
     
-    def initialize_cli_parser(self):
-        """Configure the command line interface"""
-        #Create a command parser with the default agent commands
-        helpdesc="This is the galil agent"
-        cli_parser = argparse.ArgumentParser(
-                    description=helpdesc,
-                    add_help=True)
-        cli_parser.add_argument('--version',
-                                action='version',
-                                version=self.get_version_string())
-        cli_parser.add_argument('--device', dest='DEVICE',
-                                action='store', required=False, type=str,
-                                help='the device to control')
-        cli_parser.add_argument('--side', dest='SIDE',
+    def add_additional_cli_arguments(self):
+        """
+        Additional CLI arguments may be added by implementing this function.
+        
+        Arguments should be added as:
+        self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
+        """
+        self.cli_parser.add_argument('--side', dest='SIDE',
                                 action='store', required=False, type=str,
                                 help='R or B',
                                 default='R')
-        cli_parser.add_argument('-p','--port', dest='PORT',
-                                action='store', required=False, type=int,
-                                help='the port on which to listen')
-        cli_parser.add_argument('command',nargs='*',
-                                help='Agent command to execute')
-        self.cli_parser=cli_parser
-    
+        self.cli_parser.add_argument('--device', dest='DEVICE',
+                                action='store', required=False, type=str,
+                                help='the device to control')
+
     def get_version_string(self):
         return 'Galil Agent Version 0.2'
         

@@ -132,44 +132,56 @@ class SelectedConnection(object):
         
         The sentCallback will be called when the message is transmitted in full
         with self as the only argument.
+        
+        The errorCallback will only be called if an error occurs. It is called
+        with self, and an error message starting with 'ERROR:' as arguments.
 
         It is an error to send a message while there remains data in the output
-        buffer. If done a WriteError is raised and the error logged. No other 
-        action is taken. Specifically, the errorCallback is NOT called.
-        I can't remember why this behavior is specified: it is exceptional and
-        thus suspect.
-
+        buffer. If done and an errorCallback is passed that callback is called.
+        If no error callback is passed a WriteError is raised regardless of the 
+        presence of a defaultErrorHandler, which is not called. The thinking 
+        here is that code may be anticipating calls to the defaulterrorhandler 
+        comming from the previous send attempt.
+        
         If the connection is not open, an attempt will be made to establish a 
         connection by the standard procedure. If the connection can not be
-        established the errorCallback is called with a failure message and a
-        WriteError is raised.
+        established the errorCallback is called with a failure message. A write
+        WriteError is raised if there is no defaultErrorCallback and
+        errorCallback.
         
         If defined, errorCallback will be used for the next error or until
-        disconnect at which time the defaultErrorCallback will be restored.
+        disconnect at which time the defaultErrorCallback will be restored. If
+        out_buffer was not empty self.errorCallback is not updated.
         Perhaps the error callback should be replaced with the default if the
-        message is sucessfully sent as well.
+        message is sucessfully sent as well. TODO: Consider revising 
         
         If message is not \n terminated a \n will be appended.
         
         Finally, the message is placed in the output buffer and the response 
-        and message sent callbacks updated if defined. They revert to their 
-        defaults at disconnect. The sent call back will also revert to default
-        after the message is sucessfully sent and similarly the recieved after
+        and message sent callbacks are updated if defined. They revert to their
+        defaults at disconnect. The sent callback will also revert to default
+        after the message is sucessfully sent, similarly the recieved after
         the message is received.
         """
         if self.out_buffer!='':
             err="Attempting to send %s on non-empty buffer" % message
             err=err.replace('\n','\\n').replace('\r','\\r')
             self.logger.error(err)
-            raise WriteError(err)
+            if errorCallback is not None:
+                errorCallback(self, 'ERROR: '+err)
+            else
+                raise WriteError(err)
         if errorCallback is not None:
             self.errorCallback=errorCallback
         try:
             self.connect()
         except ConnectError, err:
-            err="Unable to send '%s' on %s" % (message, str(self))
+            err="Unable to send '%s'" % message
+            #Query state because calling resets to defaul, which may be none
+            doRaise=self.errorCallback is None
             self.handle_error(error=err)
-            raise WriteError(err)
+            if doRaise:
+                raise WriteError(err)
         if message=='':
             return
         if message[-1] !='\n':

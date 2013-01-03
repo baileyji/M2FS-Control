@@ -212,12 +212,10 @@ class Director(Agent):
            actions """
         command_name,_,args=command.string.partition(' ')
         if command_name in ['PLATELIST', 'PLATE','PLATESETUP','PLUGPOS']:
-            def callback(junk,reply):
-                command.setReply(reply+'\n')
             try:
                 self.plugController_Connection.connect()
                 self.plugController_Connection.sendMessage(command.string, 
-                    responseCallback=callback)
+                    responseCallback=command.setReply)
             except SelectedConnection.ConnectError, err:
                 command.setReply('ERROR: Could not establish a connection with the plug controller.')
             except SelectedConnection.WriteError, err:

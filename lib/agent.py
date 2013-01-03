@@ -318,7 +318,11 @@ class Agent(object):
         for command in completed_commands:
             self.logger.debug("Closing out command %s" % command)
             try:
-                command.source.sendMessage(command.reply)
+                if command.reply=='':
+                    #Force sending of the empty response
+                    command.source.sendMessage('\n')
+                else:
+                    command.source.sendMessage(command.reply)
                 self.commands.remove(command)
             except WriteError:
                 pass

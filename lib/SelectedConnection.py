@@ -169,7 +169,7 @@ class SelectedConnection(object):
             self.logger.error(err)
             if errorCallback is not None:
                 errorCallback(self, 'ERROR: '+err)
-            else
+            else:
                 raise WriteError(err)
         if errorCallback is not None:
             self.errorCallback=errorCallback

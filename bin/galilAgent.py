@@ -149,10 +149,14 @@ class GalilAgent(Agent):
         return 'Galil Agent Version 0.2'
         
     def STATUS_command_handler(self, command):
+        """ Report the status of the galil """
         if self.galil.isOpen():
-            command.setReply("Connected")
+            state="Connected"
         else:
-            command.setReply("Disconnected")
+            state="Disconnected"
+        reply='%s: %s %s' % (self.get_version_string(), self.cookie, state)
+        command.setReply(reply)
+
     
     def defaults_command_handler(self, command):
         command_name,junk,args=command.string.partition(' ')

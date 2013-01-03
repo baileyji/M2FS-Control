@@ -277,10 +277,6 @@ class Director(Agent):
         """ Galil command handler """
         command_name,junk,args=command.string.partition(' ')
         RorB,junk,args=args.partition(' ')
-        if command_name[0:3]=='RAW':
-            galil_command='RAW'+args
-        else:
-            galil_command=command_name+' '+args
         if RorB =='R':
             self.galilAgentR_Connection.sendMessage(galil_command,
                 responseCallback=command.setReply,

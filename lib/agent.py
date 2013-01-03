@@ -153,7 +153,7 @@ class Agent(object):
                 self.handle_server_error(error=msg)
     
     def listenOn(self):
-        """ 
+        """
         Return an address tuple on which the server shall listen. 
         
         Must return a tuple of form (address, port) address must be a string,
@@ -171,7 +171,7 @@ class Agent(object):
         from incomming connections.
         
         A Command is created from the received string and source.
-        If a command exists from the source log a worning and ignore the 
+        If a command exists from the source log a warning and ignore the 
             command.
         Otherwise add the Command to the list of commands. Then get the command
             handler from command_handlers using the first word in the message

@@ -8,6 +8,8 @@ from agent import Agent
 from command import Command
 from galil import GalilSerial
 
+GALIL_AGENT_VERSION_STRING='Galil Agent v0.2'
+
 class GalilAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'GalilAgent')
@@ -146,7 +148,8 @@ class GalilAgent(Agent):
                                 help='the device to control')
 
     def get_version_string(self):
-        return 'Galil Agent Version 0.2'
+        """ Return a string with the version."""
+        return GALIL_AGENT_VERSION_STRING
         
     def STATUS_command_handler(self, command):
         """ Report the status of the galil """

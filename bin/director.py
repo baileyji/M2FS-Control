@@ -13,25 +13,26 @@ class Director(Agent):
         #Galil Agents
         self.galilAgentR_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['GalilAgentR'])
-        self.devices.append(self.galilAgentR_Connection)
         self.galilAgentB_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['GalilAgentB'])
-        self.devices.append(self.galilAgentB_Connection)
         #Slit Subsytem Controller
         self.slitController_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['SlitController'])
-        self.devices.append(self.slitController_Connection)
         #Datalogger Agent
         self.dataloggerAgent_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['DataloggerAgent'])
-        self.devices.append(self.dataloggerAgent_Connection)
         #Shack-Hartman Agent
         self.shackhatmanAgent_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['ShackHartmanAgent'])
-        self.devices.append(self.shackhatmanAgent_Connection)
         #Plugging Controller
         self.plugController_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['PlugController'])
+        #add them all to devices
+        self.devices.append(self.galilAgentR_Connection)
+        self.devices.append(self.galilAgentB_Connection)
+        self.devices.append(self.slitController_Connection)
+        self.devices.append(self.dataloggerAgent_Connection)
+        self.devices.append(self.shackhatmanAgent_Connection)
         self.devices.append(self.plugController_Connection)
         self.command_handlers.update({
             """

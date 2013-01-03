@@ -262,15 +262,21 @@ class Director(Agent):
             self.bad_command_handler(command)
 
     def status_command_handler(self, command):
-        #TODO Query each subsystem for status
-        reply=self.cookie+'\r'
+        """ 
+        Report the status of all instrument subsystems 
+        
+        Return a '\r' delimited set of strings containing the results of STATUS 
+        requests to each agent. If an agent doesnt respond report it's status as 
+        unknown. TODO make the agent name reported meaningful to the end used.
+        """
+        reply='%s: %s/r' % (self.get_version_string(),self.cookie)
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')
                 statusmsg=d.receiveMessageBlocking()+'\r'
                 reply=reply+statusmsg
             except IOError:
-                reply=reply+('\r%s:UNKNOWN' % d.addr_str())+'\r'
+                reply=reply+('%s: UNKNOWN\r' % d.addr_str())
         command.setReply(reply)
     
     def galil_command_handler(self, command):

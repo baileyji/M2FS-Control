@@ -342,11 +342,11 @@ class Agent(object):
     
     def status_command_handler(self,command):
         """
-        Handle a status request, reply with cookie
+        Handle a status request, reply with version & cookie
         
         Agents will generally override this command handler
         """
-        command.setReply(self.cookie)
+        command.setReply('%s: %s' % (self.get_version_string(), self.cookie))
     
     def do_select(self):
         """

@@ -104,7 +104,7 @@ class Agent(object):
         agent name by __init__.
         """
         #Create a command parser with the default agent commands
-        helpdesc="This is the instrument interface"
+        helpdesc=self.get_cli_help_string()
         cli_parser = argparse.ArgumentParser(
                     description=helpdesc,
                     add_help=True)
@@ -116,6 +116,15 @@ class Agent(object):
                                 help='the port on which to listen')
         self.cli_parser=cli_parser
         self.add_additional_cli_arguments()
+    
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """ 
+        return "Subclass should override to provide help"
     
     def add_additional_cli_arguments(self):
         """

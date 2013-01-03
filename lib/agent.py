@@ -201,15 +201,26 @@ class Agent(object):
         """ Return a string with the version. Subclasses should override. """
         return 'AGENT Base Class Version 0.1'
     
+    def _stowShutdown(self):
+        """
+        Stowed shutdown hook, called prior to shutting down agent
+        
+        Only called if a stowed shutdown is required.
+        """
+        pass
+    
     def on_exit(self, arg):
         """
         Prepare to exit
         
+        call the stowed shutdown hook if necessary 
         Log exit
         shutdown server socket
         close all open connections
         wait 1 second to ensure all messages make it into the system log
         """
+        if m2fsConfig.doStowedShutdown():
+            self._stowShutdown()
         self.logger.info("exiting %s" % arg)
         if self.server_socket:
             try:

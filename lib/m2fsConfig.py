@@ -7,6 +7,9 @@ class m2fsConfig:
     
     Class contains only static methods
     
+    disableStowedShutdown
+    enableStowedShutdown
+    doStowedShutdown
     getPlateDirectory
     getRejectDirectory
     getMisplugAudioFilename
@@ -31,6 +34,23 @@ class m2fsConfig:
             return './conf/'
         else:
             return '../conf/'
+
+    @staticmethod
+    def disableStowedShutdown():
+        """ Disable Stowed Shutdown """
+        os.system('rm /var/run/M2FS_do_stowed_shutdown')
+    
+    @staticmethod
+    def enableStowedShutdown():
+        """ Enable Stowed Shutdown """
+        os.system('touch /var/run/M2FS_do_stowed_shutdown')
+    
+    @staticmethod
+    def doStowedShutdown():
+        """
+        Return true if agents should perform a stowed shutdown
+        """
+        return os.path.exists('/var/run/M2FS_do_stowed_shutdown')
     
     @staticmethod    
     def getPlateDirectory():

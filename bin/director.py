@@ -27,6 +27,8 @@ class Director(Agent):
         processing them when self.main() is called
         """
         Agent.__init__(self,'Director')
+        #Enable stowed shutdown by default
+        m2fsConfig.enableStowedShutdown()
         #Fetch the agent ports
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
@@ -70,6 +72,8 @@ class Director(Agent):
             #Enable/Disable plugging mode.
             #Involves GalilAgents, PlugController, & SlitController.
             'PLUGMODE': self.plugmode_command_handler,
+            #Enable/Disable Stowed shutdown
+            'STOWEDSHUTDOWN': self.stowedshutdown_command_handler,
             #Galil Agent (R & B) Commands
             #
             #The director determines if the command is for the R or B galilAgent
@@ -183,6 +187,26 @@ class Director(Agent):
         """
         command.setReply('OK')
         os.system('upsmon -c fsd')
+    
+    def stowedshutdown_command_handler(self, command):
+        """
+        Enable/Disable/Query Stowed shutdown
+        
+        Default is set in __init__. If enabled, when the instrument is powered
+        down, whether by the UPS or by user command every agent's
+        _stowedShutdown hook will be called. If an individual agent is killed
+        (barring SIGKILL) that agent will call its stowed shutdown hook. 
+        """
+        if '?' in command.string:
+            command.setReply('ON' if m2fsConfig.doStowedShutdown() else 'OFF')
+        elif 'ON' in command.string and 'OFF' not in command.string:
+            m2fsConfig.enableStowedShutdown()
+            command.setReply('OK')
+        elif 'OFF' in command.string and 'ON' not in command.string:
+            m2fsConfig.disableStowedShutdown()
+            command.setReply('OK')
+        else:
+            self.bad_command_handler(command)
     
     def shackhartman_command_handler(self, command):
         """

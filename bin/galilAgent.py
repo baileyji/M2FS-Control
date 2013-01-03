@@ -77,10 +77,8 @@ class GalilAgent(Agent):
             'FLSIM_DEFINS':self.defaults_command_handler,
             """ flsremp """
             'FLSIM_DEFREM':self.defaults_command_handler,
-            """ Do a soft reset of the galil """
-            'RESET':self.reset_command_handler,
-            """ Move all axes to the shutdown positions """ 
-            'SHUTDOWN':self.shutdown_command_handler})
+            #Do a soft reset of the galil
+            'RESET':self.reset_command_handler})
         self.query_commands={
             'FILTER':self.galil.get_filter,
             'LREL':self.galil.get_loel,
@@ -179,8 +177,11 @@ class GalilAgent(Agent):
     def reset_command_handler(self, command):
         command.setReply(self.galil.reset())
     
-    def shutdown_command_handler(self, command):
-        command.setReply(self.galil.shutdown())
+    def _stowShutdown(self):
+        """
+        Perform a stowed shutdown
+        """
+        self.galil.shutdown()
     
     def galil_command_handler(self, command):
         """Execute the command on the galil and setReply"""

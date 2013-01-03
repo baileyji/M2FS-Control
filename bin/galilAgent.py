@@ -121,8 +121,6 @@ class GalilAgent(Agent):
             'GES_CALIBRATE':self.galil.calibrate_ges,
             'GES_MOVE':self.galil.nudge_ges}
     
-    def listenOn(self):
-        return ('localhost', self.PORT)
     
     def initialize_cli_parser(self):
         """Configure the command line interface"""

@@ -27,6 +27,9 @@ class Director(Agent):
         #Plugging Controller
         self.plugController_Connection=SelectedConnection.SelectedSocket('localhost',
             agent_ports['PlugController'])
+        #Guider Agent
+        self.guiderAgent_Connection=SelectedConnection.SelectedSocket('localhost',
+            agent_ports['GuiderAgent'])
         #add them all to devices
         self.devices.append(self.galilAgentR_Connection)
         self.devices.append(self.galilAgentB_Connection)
@@ -34,6 +37,7 @@ class Director(Agent):
         self.devices.append(self.dataloggerAgent_Connection)
         self.devices.append(self.shackhatmanAgent_Connection)
         self.devices.append(self.plugController_Connection)
+        self.devices.append(self.guiderAgent_Connection)
         self.command_handlers.update({
             """
             Director Commands

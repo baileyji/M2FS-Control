@@ -166,16 +166,28 @@ class Director(Agent):
         os.system('upsmon -c fsd')
     
     def shackhartman_command_handler(self, command):
-        try:
-            self.shackhatmanAgent_Connection.connect()
-            self.shackhatmanAgent_Connection.sendMessage(command.string,
-            responseCallback=command.setReply)
-        except SelectedConnection.ConnectError, err:
-            command.setReply('ERROR: Could not establish a connection with the shackhartman agent.')
-        except SelectedConnection.WriteError, err:
-            command.setReply('ERROR: Could not send to ShackHartman agent.')
+        """
+        Handle commands for the Shack-Hartman system
+        
+        Pass the command string along to the SH agent. The response and error
+        callback is the command's setReply function.
+        """
+        self.shackhatmanAgent_Connection.sendMessage(command.string,
+            responseCallback=command.setReply, errorCallback=command.setReply)
     
     def SLITS_comand_handler(self, command):
+        """
+        Handle commands for the fiber slit system
+        
+        Pass the command string along to the slit controller agent. 
+        The response callback is the command's setReply function.
+        
+        This routine implements the same functionality as
+        shackhartman_command_handler, but in a different manner.
+        Using the errorCallback is much cleaner and removes dependence on an
+        additional function, but does not provide direct control over the error
+        messages.
+        """
         try:
             self.slitController_Connection.connect()
             self.slitController_Connection.sendMessage(command.string, 

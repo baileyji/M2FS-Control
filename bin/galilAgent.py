@@ -41,9 +41,9 @@ class GalilAgent(Agent):
             move
             """
             'GES':self.galil_command_handler,
-            """ Nudge the GES stage by a little """
-            'GES_MOVE':self.not_implemented_command_handler,
-            """ Insert/Remove FLS pickoff """
+            #Nudge the GES stage by a little
+            'GES_MOVE':self.galil_command_handler,
+            #Insert/Remove FLS pickoff
             'FLSIM':self.galil_command_handler,
             """ Force Calibration of the named axis """
             'LREL_CALIBRATE':self.galil_command_handler,

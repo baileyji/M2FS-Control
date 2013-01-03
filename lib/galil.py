@@ -502,3 +502,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         command_string="XQ#CALGES,<threadID>"
         return self.do_motion_command(command_class, command_string)
     
+    def nudge_ges(self, amount):
+        command_class='GES'
+        command_string="a[<threadID>]=%s;XQ#NUDGGES,<threadID>" % amount
+        return self.do_motion_command(command_class, command_string)

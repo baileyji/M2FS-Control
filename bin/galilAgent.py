@@ -192,11 +192,6 @@ class GalilAgent(Agent):
                 command_name='FLSIM_INSERT'
             elif args=='OUT':
                 command_name='FLSIM_REMOVE'
-        elif command_name=='FILTER':
-            if args=='IN':
-                command_name='FLSIM_INSERT'
-            elif args=='OUT':
-                command_name='FLSIM_REMOVE'
         
         if query:
             command.setReply(self.query_commands[command_name]())

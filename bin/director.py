@@ -282,10 +282,12 @@ class Director(Agent):
         else:
             galil_command=command_name+' '+args
         if RorB =='R':
-            self.galilAgentR_Connection.sendMessage(galil_command, responseCallback=command.setReply,
+            self.galilAgentR_Connection.sendMessage(galil_command,
+                responseCallback=command.setReply,
                 errorCallback=command.setReply)
         elif RorB =='B':
-            self.galilAgentB_Connection.sendMessage(galil_command, responseCallback=command.setReply,
+            self.galilAgentB_Connection.sendMessage(galil_command,
+                responseCallback=command.setReply,
                 errorCallback=command.setReply)
         else:
             self.bad_command_handler(command)

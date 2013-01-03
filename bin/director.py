@@ -160,7 +160,16 @@ class Director(Agent):
         commands from the GUI
         """
         return (socket.gethostname(), self.PORT)
-    
+
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return "This is the M2FS Director"
+
     def get_version_string(self):
         """ Return a string with the version."""
         return DIRECTOR_VERSION_STRING

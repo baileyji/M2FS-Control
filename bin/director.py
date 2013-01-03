@@ -9,7 +9,6 @@ from m2fsConfig import m2fsConfig
 class Director(Agent):
     def __init__(self):
         Agent.__init__(self,'Director')
-        self.max_clients=1
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
         self.galilAgentR_Connection=SelectedConnection.SelectedSocket('localhost',

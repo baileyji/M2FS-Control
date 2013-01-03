@@ -100,8 +100,8 @@ class Director(Agent):
             #The director passes the command along to the agent.
             #
             #Authoritative command discriptions are in guiderAgent.py
-            'GFOCUS':self.not_implemented_command_handler,
-            'GFILTER':self.not_implemented_command_handler,
+            'GFOCUS':self.guider_command_handler,
+            'GFILTER':self.guider_command_handler,
             #Slit Commands
             #
             #The director passes the command along to the agent.
@@ -292,6 +292,28 @@ class Director(Agent):
         else:
             self.bad_command_handler(command)
 
+    def guider_command_handler(self, command):
+        """
+        Handle commands for the guider system
+        
+        Pass the command string along to the guider agent.
+        The response callback is the command's setReply function.
+        
+        This routine implements the same functionality as
+        shackhartman_command_handler, but in a different manner.
+        Using the errorCallback is much cleaner and removes dependence on an
+        additional function, but does not provide direct control over the error
+        messages.
+        """
+        try:
+            self.guiderAgent_Connection.connect()
+            self.guiderAgent_Connection.sendMessage(command.string,
+                responseCallback=command.setReply)
+        except SelectedConnection.ConnectError, err:
+            command.setReply('ERROR: Could not establish a connection with the guider agent.')
+        except SelectedConnection.WriteError, err:
+            command.setReply('ERROR: Could not send to guider agent.
+    
 
 if __name__=='__main__':
     director=Director()

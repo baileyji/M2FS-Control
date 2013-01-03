@@ -364,7 +364,7 @@ class Director(Agent):
         except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the guider agent.')
         except SelectedConnection.WriteError, err:
-            command.setReply('ERROR: Could not send to guider agent.
+            command.setReply('ERROR: Could not send to guider agent.')
     
 
 if __name__=='__main__':

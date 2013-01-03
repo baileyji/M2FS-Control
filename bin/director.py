@@ -9,8 +9,25 @@ from m2fsConfig import m2fsConfig
 DIRECTOR_VERSION_STRING='Director v0.5'
 
 class Director(Agent):
+    """
+    This is the primary control program for the M2FS instrument. It does
+    relatively little for the majority of commands, merely passing them along to
+    the appropriate other Agent program responsible for that particular 
+    subsystem. For additional details please refrence the M2FS Control Systems
+    document.
+    """
     def __init__(self):
+        """
+        Initialize the M2FS Director
+        
+        The Director starts by creating connections to all of the other agents.
+        It then updates command_handlers withall of the instrument commands
+        
+        At this point the Director is ready to start listening for commands and
+        processing them when self.main() is called
+        """
         Agent.__init__(self,'Director')
+        #Fetch the agent ports
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
         self.galilAgentR_Connection=SelectedConnection.SelectedSocket('localhost',
@@ -132,16 +149,27 @@ class Director(Agent):
             'TEMPS':self.datalogger_command_handler})
     
     def listenOn(self):
+        """
+        Return an address tuple on which the server shall listen.
+        
+        Overrides the default localhost address as the director listens for 
+        commands from the GUI
+        """
         return (socket.gethostname(), self.PORT)
     
     def get_version_string(self):
         """ Return a string with the version."""
         return DIRECTOR_VERSION_STRING
     
-    def guiclose_command_handler(self, command):#TODO
+    def guiclose_command_handler(self, command):
+        """
+        Handle the GUI telling the instrument it is closing
+        
+        Do nothing, what do we care
+        """
         command.setReply('OK')
     
-    def shutdown_command_handler(self, command):#TODO
+    def shutdown_command_handler(self, command):
         """
         Start instrument power down
         
@@ -151,6 +179,7 @@ class Director(Agent):
         waiting for all agents to shutdown,
         instruct the UPS to kill the load, disabling power to the instrument.
         The instrument power button must be pressed to start it back
+        TODO: TEST AND VERIFY FUNCTIONALITY
         """
         command.setReply('OK')
         os.system('upsmon -c fsd')
@@ -160,7 +189,7 @@ class Director(Agent):
         Handle commands for the Shack-Hartman system
         
         Pass the command string along to the SH agent. The response and error
-        callback is the command's setReply function.
+        callbacks are the command's setReply function.
         """
         self.shackhatmanAgent_Connection.sendMessage(command.string,
             responseCallback=command.setReply, errorCallback=command.setReply)
@@ -188,6 +217,18 @@ class Director(Agent):
             command.setReply('ERROR: Could not send to slit controller.')
     
     def datalogger_command_handler(self, command):
+        """
+        Handle commands for the datalogging system
+        
+        Pass the command string along to the datalogger agent.
+        The response callback is the command's setReply function.
+        
+        This routine implements the same functionality as
+        shackhartman_command_handler, but in a different manner.
+        Using the errorCallback is much cleaner and removes dependence on an
+        additional function, but does not provide direct control over the error
+        messages.
+        """
         try:
             self.dataloggerAgent_Connection.connect()
             self.dataloggerAgent_Connection.sendMessage(command.string, 
@@ -280,7 +321,16 @@ class Director(Agent):
         command.setReply(reply)
     
     def galil_command_handler(self, command):
-        """ Galil command handler """
+        """ 
+        Handle commands for either of the galils
+            
+        Pass the command string along to the appropriate galil agent.
+        The response and error callbacks are the command's setReply function.
+        
+        Determine the appropriate galil agent by checking the second word in
+        the command string if it is 'R' then GalilAgentR, if it is 'B' then 
+        agent B. The command is considered bad if it is neither 'R' nor 'B'.
+        """
         command_name,junk,args=command.string.partition(' ')
         RorB,junk,args=args.partition(' ')
         if RorB =='R':

@@ -239,6 +239,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         acknowledgements=0 #acknowledgements for commands sent in command_string
         commandReplies=num_colons_expected*[''] #store for replies beyond :|? 
         galilReply=''
+        galilProtocolError=False
         for i in range(0,num_colons_expected):
             #Get the first byte from the galil, typically this will be it
             response=self.receiveMessageBlocking(nBytes=1)

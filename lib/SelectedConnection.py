@@ -121,11 +121,13 @@ class SelectedConnection(object):
     def sendMessage(self, message,
                     sentCallback=None,
                     responseCallback=None,
-                    errorCallback=None):
+                    errorCallback=None,
+                    connect=True):
         """
-        Place <message> in the output buffer. Null strings are quietly ignored.
+        Place <message> in the output buffer. Null are not sent.
         
-        Message will be be sent next time connection is selected.
+        Message will be be sent next time connection is selected. The message 
+        will be terminated by the _terminateMessage function.
         
         The responseCallback will be called upon receipt of the first
         subsequent message with self and the messaage as arguments.
@@ -143,10 +145,11 @@ class SelectedConnection(object):
         here is that code may be anticipating calls to the defaulterrorhandler 
         comming from the previous send attempt.
         
-        If the connection is not open, an attempt will be made to establish a 
-        connection by the standard procedure. If the connection can not be
+        If the connection is not open and connect is true, an attempt will be
+        made to establish a connection by the standard procedure. This is the
+        default behavior. If the connection can not be
         established the errorCallback is called with a failure message. A write
-        WriteError is raised if there is no defaultErrorCallback and
+        WriteError is raised if there is no defaultErrorCallback or
         errorCallback.
         
         If defined, errorCallback will be used for the next error or until
@@ -155,14 +158,13 @@ class SelectedConnection(object):
         Perhaps the error callback should be replaced with the default if the
         message is sucessfully sent as well. TODO: Consider revising 
         
-        If message is not \n terminated a \n will be appended.
-        
         Finally, the message is placed in the output buffer and the response 
         and message sent callbacks are updated if defined. They revert to their
         defaults at disconnect. The sent callback will also revert to default
         after the message is sucessfully sent, similarly the recieved after
         the message is received.
         """
+        #Check for a pending message
         if self.out_buffer!='':
             err="Attempting to send %s on non-empty buffer" % message
             err=err.replace('\n','\\n').replace('\r','\\r')
@@ -171,17 +173,30 @@ class SelectedConnection(object):
                 errorCallback(self, 'ERROR: '+err)
             else:
                 raise WriteError(err)
+        #Update the error callback
         if errorCallback is not None:
             self.errorCallback=errorCallback
-        try:
-            self.connect()
-        except ConnectError, err:
-            err="Unable to send '%s'" % message
-            #Query state because calling resets to defaul, which may be none
+        #connect if needed
+        if connect:
+            try:
+                self.connect()
+            except ConnectError, err:
+                err="Unable to send '%s'" % message
+                #Query state because calling resets to default (possibly None)
+                doRaise=self.errorCallback is None
+                self.handle_error(error=err)
+                if doRaise:
+                    raise WriteError(err)
+        elif not self.isOpen():
+            err="Connect before sending '%s' to %s" % (message,self.addr_str())
+            err=err.replace('\n','\\n').replace('\r','\\r')
+            self.logger.error(err)
+            #Query state because calling resets to default (possibly None)
             doRaise=self.errorCallback is None
             self.handle_error(error=err)
             if doRaise:
                 raise WriteError(err)
+        #Ignore empty strings
         if message=='':
             return
         message=self._terminateMessage(message)
@@ -191,27 +206,35 @@ class SelectedConnection(object):
         if sentCallback is not None:
             self.sentCallback=sentCallback
     
-    def sendMessageBlocking(self, message):
+    def sendMessageBlocking(self, message, connect=True):
         """
         Send the string message immediately.
         
-        If the connection is not open, an attempt will be made to establish a
-        connection by the standard procedure.
+        If the connection is not open and connect is true, an attempt
+        will be made to establish a connection by the standard procedure.
+        This is the default behavior. If the connection can not be
+        established a WriteError is raised. The error callback is NOT called. 
+        Note this behavior differs from sendMessage.
         
-        In the message is empty noting is trasmitted. If message is not \n
-        terminated a \n will be appended.
-        
+        If the message is empty nothing is trasmitted. The message will be 
+        terminated by the _terminateMessage function.
         
         If connected, but message cannot be sent or is only sent in part 
-        handle_error is called (which implies self.errorCallback if set) and
+        handle_error is called (which implies self.errorCallback, if set) and
         WriteError is raised. This is probably NOT is ideal behavior, probably
         should just raise the WriteError. TODO: think/test 
         """
-        try:
-            self.connect()
-        except ConnectError, err:
-            err=("Attempted to send '%s' to '%s' but coudn't connect." %
-                (message, self.addr_str())).replace('\n','\\n').replace('\r','\\r')
+        if connect:
+            try:
+                self.connect()
+            except ConnectError, err:
+                err=("Attempted to send '%s' to '%s' but coudn't connect." %
+                    (message, self.addr_str())).replace('\n','\\n').replace('\r','\\r')
+                self.logger.error(err)
+                raise WriteError(err)
+        elif not self.isOpen():
+            err="Connect before sending '%s' to %s" % (message,self.addr_str())
+            err=err.replace('\n','\\n').replace('\r','\\r')
             self.logger.error(err)
             raise WriteError(err)
         if not message:

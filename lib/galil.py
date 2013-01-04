@@ -19,10 +19,15 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     This class extents the SelectedSerial implementation of SelectedConnection
     with routines needed to control the Galil. It grew out of a potentially
     misguided desire to abstract some stuff ouut of the galil agent.
+    As is all sends and receives are performed using blocking sends and receives
+    so it never really makes use of the whole Selected bit. It does get used as
+    it allows trapping of unsolicited messages from the galil, which would
+    otherwise clog things up. 
     
     The controller uses the concept of command classes to keep track of which
     commands block other commands. E.g. if a command in class GES is executing 
-    changing a parameter with the same class would be blocked.
+    changing a parameter with the same class would be blocked. The classes are
+    FOCUS, FILTER, FLSIM, LREL, HREL, HRAZ, GES, & SHUTDOWN.
     
     General flow is:
         initialize attributes
@@ -173,13 +178,16 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 self.config=config
                 self._send_command_to_gail('bootup1=0')
                 config={}
-                self.logger.critical('Galil'+self.SIDE+' configFile rebuilt.')
+                self.logger.warning('Galil'+self.SIDE+' configFile rebuilt.')
                 return
             except IOError,e:
                 raise IOError("Failure during rebuild of defaults file.")
         #Send the config to the galil
         if config:
             try:
+                #NB we are only here if bootup1=1, which implies nothing but the
+                # basic threads are running and thus we are guaranteed the
+                # settings are not blocked by some executing thread
                 for settingName, value in config.items():
                     variableName=self.settingName_to_variableName_map[settingName]
                     self._send_command_to_gail('%s=%s' % (variableName, value))
@@ -279,15 +287,33 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         elif message[-1] != '\r':
             message+='\r'
         return message
-
+    
     def _update_executing_threads_and_commands(self):
-        """Retrieve and update the list of thread statuses from the galil"""
+        """
+        Retrieve and update the list of thread statuses from the galil
+        
+        The galil doesn't provide a way to determine what program is executing
+        on a thread, just that the thread is running. By convention, threads 0-2
+        are used by the galil code as #AUTO, #ANAMAF, & #MOMONI, respectively. 
+        Threads 3-6 are used for motion commands and thread 7 is used for
+        status queries.
+        
+        Ask the galil what is running, fail if we don't recognize the response.
+        For each inactive thread, mark the thread as not running anything by
+        setting self.thread_command_map[idle_thread_number]=None
+        For each executing thread, if we don't have a record of mark it as 
+        active. For the first three threads, we can assign the name based on
+        convention. For the remaining, mark the thread as running all command
+        classes. While this is impossible there is no way to tell which 
+        particular command class should be blocked. 
+        """
         #Ask galil for thread statuses
         response=self._send_command_to_gail(
             'MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
         #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
         if response[-1] == '?' or response[0:3] !='HX=' or '\r' not in response:
             raise GalilThreadUpdateException("Could not update galil threads.")
+        #Extract the part we care about
         response=response[4:response.find('\r')]
         #Update threads are no longer running
         for thread_number, thread_status in enumerate(response.split(' ')):
@@ -299,21 +325,48 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                     self.thread_command_map["%i"%thread_number]=(
                         ['AUTO','ANAMAF','MOMONI'][thread_number])
                 else:
-                    #Can't actually query what is running so block everything
+                    #Can't actually query what is running so block
+                    # all the command classes
                     self.thread_command_map["%i"%thread_number]=(
                         'FOCUS FILTER FLSIM LREL HREL HRAZ GES')
     
     def _get_motion_thread(self):
-        """ Get ID of Galil thread to use for the command. None if none free""" 
+        """
+        Get ID of Galil thread to use for the command. None if none free
+        
+        This assumes the thread_command_map is current.
+        By convention we use threads 3-6 for motion.
+        """
         for i in '3456':
+            #check to see if something is executing on the thread
             if self.thread_command_map[i]==None:
                 return i
         return None
             
     def _add_galil_command_to_executing_commands(self, command, thread):
+        """
+        Mark command as executing on thread.
+        
+        Honestly, a function for this!
+        """
         self.thread_command_map[thread]=command
     
     def _do_motion_command(self, command_class, command_string):
+        """
+        Execute a motion command, connecting and starting up if needed
+        
+        Connect to the galil
+        Initialize the galil (function just returns if not needed)
+        Update our knowledge of what is running
+        Fail if the command if blocked
+        Test for ELO & ABORT switched beign engaged. This is VERY UNRELIABLE.
+        Get a thread to execute the command on, failing if none available
+        Tell the galil to execute the the command on the proper thread
+        Respond 'OK' with success and 'ERROR: '+message on failure. 
+        Always assume that the command started sucessfully and add it to the 
+        store of executing commands. If we are wrong no harm done and it will
+        be dropped next time we update anyway.
+        """
         try:
             #Make sure we are connected
             self.connect()
@@ -347,6 +400,19 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self._add_galil_command_to_executing_commands(command_class, thread_number)
     
     def _do_status_query(self, command_string):
+        """
+        Execute a status command, connecting and starting up if needed
+        
+        Connect to the galil
+        Initialize the galil (function just returns if not needed)
+        Update our knowledge of what is running
+        Send the command to the galil, status commands are never blocked
+        Listen for a response
+        Check to see if the response indicates an error ('ERR' will follow the 
+        first :. If so prepend ERROR: to the tail of the message.
+        return the message
+        Trap all errors and return 'ERROR: '+message
+        """
         try:
             #Make sure we are connected
             self.connect()
@@ -371,10 +437,16 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except IOError, e:
             return "ERROR: "+str(e)
     
-    def _command_class_blocked(self, name):
-        blockingThreads=filter(lambda x:
-                               x[1] and
-                               (name in x[1] or 'SHUTDOWN' in x[1]),
+    def _command_class_blocked(self, cclass):
+        """
+        Return true if the command class is blocked by an executing thread
+        
+        Look through thread_command_map and find all threads running the
+        command class cclass or 'SHUTDOWN' (which blocks everything).
+        If any threads were found return true. 
+        """
+        blockingThreads=filter(lambda x: x[1] and
+                               (cclass in x[1] or 'SHUTDOWN' in x[1]),
             self.thread_command_map.items())
         return blockingThreads!=[]
     
@@ -383,7 +455,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         Return True if abort switch engaged
         
         This doesn't work reliably due to poorly defined issues with the 
-        underlying hardware. It may return 
+        underlying hardware.
         """
         try:
             val=int(float(self._send_command_to_gail('MG _AB')))
@@ -392,7 +464,13 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         return val != 1
     
     def check_elo_switch(self):
-        """ Return True if elo switch engaged """
+        """
+        Return True if elo switch engaged
+        
+        This doesn't work reliably due to poorly defined issues with the
+        underlying hardware. TODO need to verify this routine won't cause a
+        fault while a command is running (because of MO*).
+        """
         try:
             val=int(float(self._send_command_to_gail('MG _TA3')))
             #Galil doesn't reset the ELO status automatically, need to do
@@ -415,6 +493,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         return val != 0
     
     def reset(self):
+        """ Reset the galil
+        
+        Directly use the underlying serial functions. self.connect may fail if
+        the galil has entered some weird state. 
+        """
         try:
             self.connection.open()
             self.connection.write('RS\r')
@@ -426,6 +509,19 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return str(e)
     
     def shutdown(self):
+        """
+        Tell the galil to prepare for poweroff
+        
+        It is not vital that this routine be called prior to power off, just a
+        good idea. The galil code will gracefully handle an abrupt power
+        failure.
+        
+        Kill thread 3 and execute shutdown on it. SHTDWN must be executed on 
+        thread three. If motion was being controlled by thread 3 then shtdwn 
+        will stop it.
+        add shutdown to the list of commands running. It blocks all other motion
+        commands.        
+        """
         try:
             self._send_command_to_gail('HX3;XQ#SHTDWN,3')
             return 'OK'
@@ -435,6 +531,15 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self._add_galil_command_to_executing_commands('SHUTDOWN', 3)
 
     def getDefault(self, settingName):
+        """
+        Retrieve the value of a galil setting
+        
+        get the galil parameter name
+        tell galil to report it's value
+        listen for the response (it won't be long, 20 chars is excessive)
+        return the value as a string or an error message as a string
+        invalid parameters are user errors and will generate a '!ERROR' message.
+        """
         try:
             variableName=self.settingName_to_variableName_map[settingName]
         except KeyError:
@@ -450,6 +555,17 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return str(e)
     
     def setDefault(self, settingName, value):
+        """
+        Set a new value for galil setting
+        
+        make sure we are connected and update the currently executing threads
+        ensure the setting is a real setting
+        ensure the setting isn't blocked by an executing thread
+            return error message if so
+        Set the new value on the galil, in the config dict, and with m2fsConfig
+        No provision is made to ensure the value is suitable
+        return 'OK'
+        """
         try:
             variableName=self.settingName_to_variableName_map[settingName]
         except KeyError:
@@ -468,6 +584,15 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return str(e)
     
     def raw(self, command_string):
+        """
+        Send a raw string to the galil and wait for the response
+        
+        make sure we are connected and initialized
+        send the string to the galil
+        get a response up to 1024 characters in length
+        finally update the executing threads incase the command started 
+        something
+        """ 
         try:
             #Make sure we are connected
             self.connect()
@@ -483,56 +608,76 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except IOError, e:
             self.logger.error(str(e))
             return "ERROR: "+str(e)
-    
+
+    #The remaining commands are wrappers for each of the galil tasks
+    #They generate a basic command string to be sent to the galil
+    # for the motion command, the thread ID is determined later and a
+    # placeholder is used, which is filled in when _do_motion_command determines
+    # which thread is to be used.
+    # Note that the setting routines may start a move which takes 10s of seconds
+    # to complete. The 'OK' returned only indicates that the move has begun
+
     def get_filter(self):
+        """ Return the current filter position """
         command_string="XQ#%s,%s" % ('GETFILT', '7')
         return self._do_status_query(command_string)
     
     def get_loel(self):
+        """ Return the Lores Elevation """
         command_string="XQ#%s,%s" % ('GETLRTL', '7')
         return self._do_status_query(command_string)
         
     def get_hrel(self):
+        """ Return the Hires Elevation """
         command_string="XQ#%s,%s" % ('GETHRTL', '7')
         return self._do_status_query(command_string)
     
     def get_hraz(self):
+        """ Return the Hires azimuth """
         command_string="XQ#%s,%s" % ('GETHRAZ', '7')
         return self._do_status_query(command_string)
     
     def get_foc(self):
+        """ Return the focus position """
         command_string="XQ#%s,%s" % ('GETFOC', '7')
         return self._do_status_query(command_string)
     
     def get_ges(self):
+        """ Return the disperser slide status """
         command_string="XQ#%s,%s" % ('GETGES2', '7')
         return self._do_status_query(command_string)
         
     def get_flsim(self):
+        """ Return the FLS imager pickoff position """
         command_string="XQ#%s,%s" % ('GETFLSI', '7')
         return self._do_status_query(command_string)
         
     def set_filter(self, filter):
+        """ Select a filter position """
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
         return self._do_motion_command(command_class, command_string)
     
     def set_loel(self, position):
+        """ Set the Lores elevation """
         command_class='LREL'
         command_string="a[<threadID>]=%s;XQ#SETLRTL,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
         
     def set_hrel(self, position):
+        """ Set the Hires elevation """
         command_class='HREL'
         command_string="a[<threadID>]=%s;XQ#SETHRTL,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
     
     def set_hraz(self, position):
+        """ Set the Hires azimuth """
         command_class='HRAZ'
         command_string="a[<threadID>]=%s;XQ#SETHRAZ,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
     
     def set_foc(self, position):
+        """ Set the focus value """
         command_class='FOCUS'
         command_string="a[<threadID>]=%s;XQ#SETFOC,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
@@ -547,46 +692,65 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         return self._do_motion_command(command_class, command_string)
     
     def insert_filter(self, *args):
+        """
+        Command the insertion of the current filter
+        
+        Note that FILTER automatically inserts and removes as needed. This is a 
+        debugging convenience routine.
+        """
         command_class='FILTER'
         command_string="XQ#INFESIN,<threadID>"
         return self._do_motion_command(command_class, command_string)
     
     def remove_filter(self, *args):
+        """
+        Command the removal of the current filter
+        
+        Note that FILTER automatically inserts and removes as needed. This is a
+        debugging convenience routine.
+        """
         command_class='FILTER'
         command_string="XQ#RMFESIN,<threadID>"
         return self._do_motion_command(command_class, command_string)
     
     def insert_flsim(self, *args):
+        """ Command the insertion of the FLS imager pickoff """
         command_class='FLSIM'
         command_string="XQ#INFLSIN,<threadID>"
         return self._do_motion_command(command_class, command_string)
     
     def remove_flsim(self, *args):
+        """ Command the retraction of the FLS imager pickoff """
         command_class='FLSIM'
         command_string="XQ#RMFLSIN,<threadID>"
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_lrel(self, *args):
+        """ Force calibration of the Lores elevation axis """
         command_class='LREL'
         command_string="XQ#CALLRT,<threadID>"
         return self._do_motion_command(command_class, command_string)
         
     def calibrate_hrel(self, *args):
+        """ Force calibration of the Hires elevation axis """
         command_class='HREL'
         command_string="XQ#CALHRTL,<threadID>"
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_hraz(self, *args):
+        """ Force calibration of the Hires azimuth axis """
         command_class='HRAZ'
         command_string="XQ#CALHRAZ,<threadID>"
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_ges(self, *args):
+        """ Force calibration of the disperser slide """
         command_class='GES'
         command_string="XQ#CALGES,<threadID>"
         return self._do_motion_command(command_class, command_string)
     
     def nudge_ges(self, amount):
+        """ Move the disperser slide by amount """
         command_class='GES'
         command_string="a[<threadID>]=%s;XQ#NUDGGES,<threadID>" % amount
         return self._do_motion_command(command_class, command_string)

@@ -355,8 +355,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 return response
         except IOError, e:
             return "ERROR: "+str(e)
-        except AttributeError:
-            import pdb; pdb.set_trace()
     
     def _command_class_blocked(self, name):
         blockingThreads=filter(lambda x:

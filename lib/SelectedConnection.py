@@ -184,8 +184,7 @@ class SelectedConnection(object):
                 raise WriteError(err)
         if message=='':
             return
-        if message[-1] !='\n':
-            message=message+'\n'
+        message=self._terminateMessage(message)
         self.out_buffer=message
         if responseCallback is not None:
             self.responseCallback=responseCallback
@@ -217,8 +216,7 @@ class SelectedConnection(object):
             raise WriteError(err)
         if not message:
             return
-        if message[-1]!='\n':
-            message+='\n'
+        message=self._terminateMessage(message)
         try:
             count=self._implementationSpecificBlockingSend(message)
             msg=("Attempted write '%s', wrote '%s' to %s" %
@@ -230,6 +228,12 @@ class SelectedConnection(object):
         except WriteError,err:
             self.handle_error(err)
             raise WriteError(str(err))
+    
+    def _terminateMessage(self, message):
+        """ Append a '\n' to message if it is missing and return """
+        if message[-1]!='\n':
+            message+='\n'
+        return message
     
     def receiveMessageBlocking(self, nBytes=0, timeout=None):
         """

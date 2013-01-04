@@ -214,7 +214,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Count the number of commands
         num_colons_expected=command_string.count(';')+1
         #Send the command
-        self.sendMessageBlocking(command_string)
+        self.sendMessageBlocking(command_string, connect=False)
         #Deal with the response
         if num_colons_expected>1:
             #More than 1 command, assume the commands only result in : or ?
@@ -257,42 +257,14 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                     self.receiveMessageBlocking(nBytes=1)
         return response.strip()
     
-    def sendMessageBlocking(self, message):
-        """
-        Send the string message immediately.
-        
-        If the connection is not open, an attempt will be made to establish a
-        connection by the standard procedure.
-        
-        In the message is empty noting is trasmitted. If message is not \n
-        terminated a \n will be appended.
-        
-        
-        If connected, but message cannot be sent or is only sent in part
-        handle_error is called (which implies self.errorCallback if set) and
-        WriteError is raised. This is probably NOT is ideal behavior, probably
-        should just raise the WriteError. TODO: think/test
-        """
-        """ Send a string immediately, appends string terminator if needed"""
-        if not self.isOpen():
-            message="Connect before sending '%s' to %s" % (message,self.addr_str())
-            self.logger.error(message)
-            raise SelectedConnection.WriteError(message)
-        if not message:
-            return
+    def _terminateMessage(self, message):
+        """ Override default: Galil requires \r without a preceeding ; """
         if message[-1]==';':
             message=message[:-1]+'\r'
         elif message[-1] != '\r':
             message+='\r'
-        try:
-            count=self.connection.write(message)
-            self.connection.flush()
-            self.logger.debug("BlockingSend sent: %s" % 
-                message.replace('\r','\\r').replace('\n','\\n'))
-        except serial.SerialException, e:
-            self.handle_error(e)
-            raise SelectedConnection.WriteError(str(e))
-    
+        return message
+
     def _update_executing_threads_and_commands(self):
         """Retrieve and update the list of thread statuses from the galil"""
         #Ask galil for thread statuses
@@ -417,7 +389,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             # update and that carries all the extra logic required to pick which
             # axis you want to toggle 
             if val != 0:
-                self.sendMessageBlocking('MO*;SHA;MOA;MG _TA3')
+                self.sendMessageBlocking('MO*;SHA;MOA;MG _TA3', connect=False)
                 try:
                     val=int(float(self.receiveMessageBlocking().split()[-2]))
                     return val != 0
@@ -489,7 +461,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #Make sure galil is initialized
             self._initialize_galil()
             #Send the command to the galil
-            self.sendMessageBlocking(command_string)
+            self.sendMessageBlocking(command_string, connect=False)
             response=self.receiveMessageBlocking(nBytes=1024)
             response=response.replace('\r','\\r').replace('\n','\\n')
             #Update galil thread statuses

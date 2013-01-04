@@ -190,20 +190,32 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     def _send_command_to_gail(self, command_string):
         """
-        Send a command string to the galil and wait for the : or ? responses
+        Send a command string to the galil, wait for immediate response
 
-        send multiple commands in one string at your own peril!
+        Silently ignore an empty command.
         
-        If ? is in response or don't get number of : expected for 
-        command string then raise GalilCommandNotAcknowledgedError
+        The command_string must not include spurrious ; or pathological commands
+        such as MG ":::".
         
-        Galil acknowledges valid commands with a colon and invalid commands
-        with a question mark and allows multiple commands to be sent seperated
-        by semicolons. By enforcing no ; on end of command we can determine the 
-        number of : expected by count(;) in command +1
+        Raise GalilCommandNotAcknowledgedError if the galil does not acknowledge
+        any part of the command.
         
-        There be Gibberish and stupid stuff here! TODO sort it out
+        The Galil may be sent multiple commands at a time as cmd1;cmd2;...cmdN.
+        Each command will generate a : or ? indicating acceptance or an issue,
+        respectively. Commands may cause the galil to response with data, in
+        which case the response will take the form "data\r\n:".
+        So for the example format above we might get ?foobar\r\n:...:
+
+        Procedure is as follows:
+        Send the command string to the galil
+        grab a singe byte from the galil and if it isn't a : or a ? listen for 
+        a \n delimeted response followed by a :.
+        Repeat this for each of the commands in the command_string
         
+        Return a merged string of the responses to the individual commands. 
+        Note the : ? are cons considered responses. ? gets the exception and :
+        gets an empty string. The responses are stripped of whitespace before
+        merging but will include \r\n between responses.
         """
         #No command, return
         if not command_string:
@@ -211,51 +223,54 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Make sure no unnecessary ;
         if command_string[-1]==';':
             command_string=command_string[:-1]
-        #Count the number of commands
+        #Count the number of commands, ignore pathological case of MG ";"
         num_colons_expected=command_string.count(';')+1
-        #Send the command
+        #Send the command(s)
         self.sendMessageBlocking(command_string, connect=False)
-        #Deal with the response
-        if num_colons_expected>1:
-            #More than 1 command, assume the commands only result in : or ?
-            #not necessarily the case if the user is using the raw command
-            response=self.receiveMessageBlocking(nBytes=num_colons_expected)
-            #This error may be in error if commands didn't all elicit simple : or ?
-            if '?' in response or response.count(':') !=num_colons_expected:
-                raise GalilCommandNotAcknowledgedError(
-                    "Galil did not acknowledge command '%s'" % command_string )
-            response=''
-        #Command is XQ get either : or ?
-        elif command_string[:2]=='XQ':
-            if ':' != self.receiveMessageBlocking(nBytes=1):
-                raise GalilCommandNotAcknowledgedError(
-                    "Galil did not acknowledge command '%s'" % command_string )
-            response=''
-        #MG command
-        elif command_string[:2]=='MG':
-            #we should get something, followed by a line ending, then just a ':'
-            # if command is bad we may get some stuff and finally get a '?'
-            response=self.receiveMessageBlocking()
-            if ':' not in response:
-                self.receiveMessageBlocking(nBytes=1)
-        #All other commands
-        else:
-            #Check for a ?
+        #Initialize the for loop
+        acknowledgements=0 #acknowledgements for commands sent in command_string
+        commandReplies=num_colons_expected*[''] #store for replies beyond :|? 
+        galilReply=''
+        for i in range(0,num_colons_expected):
+            #Get the first byte from the galil, typically this will be it
             response=self.receiveMessageBlocking(nBytes=1)
+            # 3 cases :, ?, or stuff followed by /r/n:
+            #case 1, command succeeds but returns nothing, return
             if response ==':':
-                #command complete fine
-                response=''
+                acknowledgements+=1
+            #command fails
             elif response =='?':
-                #command failed
-                raise GalilCommandNotAcknowledgedError(
-                    "Galil did not acknowledge command '%s'" % command_string )
+                pass
+            #command is returning something
             else:
-                #there is more to the response so do a blocking receive
+                #do a blocking receive on \n
                 response=response+self.receiveMessageBlocking()
-                # ... and check to see if we finally got our :
-                if response[-1]!=':':
-                    self.receiveMessageBlocking(nBytes=1)
-        return response.strip()
+                #...and a single byte read to grab the :
+                confByte=self.receiveMessageBlocking(nBytes=1)
+                if confByte==':':
+                    acknowledgements+=1
+                    commandReplies[i]=response.strip()
+                else:
+                    #Consider it a failure, but set a flag to log it once we've
+                    # got everything. Add the byte to the response for logging
+                    galilProtocolError=True
+                    response+=confByte
+            #Build up a record of everything we get from the galil in response
+            # to command string incase we need to log it
+            galilReply+=response
+        #warn that something was fishy with the galil
+        if galilProtocolError:
+            self.logger.warning(
+                "Galil did not adhere to protocol '%s' got '%s'" %
+                (command_string, galilReply) )
+        #We didn't get acknowledgements for all the commands, fail
+        if acknowledgements != num_colons_expected:
+            raise GalilCommandNotAcknowledgedError(
+                "Galil did not acknowledge command '%s' (%s)" %
+                (command_string, galilReply) )
+        #Join all of replies from the commands and return them as a single
+        # string
+        return ''.join(commandReplies)
     
     def _terminateMessage(self, message):
         """ Override default: Galil requires \r without a preceeding ; """

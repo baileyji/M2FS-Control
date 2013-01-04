@@ -407,7 +407,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.connection.close()
             self.connect()
             return 'OK'
-        except IOError, e:
+        except (IOError, serial.SerialException), e:
             return str(e)
     
     def shutdown(self):

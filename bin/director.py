@@ -366,6 +366,7 @@ class Director(Agent):
         """
         command_name,junk,args=command.string.partition(' ')
         RorB,junk,args=args.partition(' ')
+        galil_command=command_name+' '+args
         if RorB =='R':
             self.galilAgentR_Connection.sendMessage(galil_command,
                 responseCallback=command.setReply,

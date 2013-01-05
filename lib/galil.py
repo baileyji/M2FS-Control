@@ -656,36 +656,56 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         
     def set_filter(self, filter):
         """ Select a filter position """
+        if filter not in ['1','2','3','4','5','6','7','8','9','10']:
+            return '!ERROR: Valid fliter choices are 1-10. 9=None 10=load.'
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
         return self._do_motion_command(command_class, command_string)
     
     def set_loel(self, position):
         """ Set the Lores elevation """
+        try:
+            int(position)
+        except ValueError:
+            return '!ERROR: Lores elevation must be specified as an integer.'
         command_class='LREL'
         command_string="a[<threadID>]=%s;XQ#SETLRTL,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
         
     def set_hrel(self, position):
         """ Set the Hires elevation """
+        try:
+            int(position)
+        except ValueError:
+            return '!ERROR: Hires elevation must be specified as an integer.'
         command_class='HREL'
         command_string="a[<threadID>]=%s;XQ#SETHRTL,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
     
     def set_hraz(self, position):
         """ Set the Hires azimuth """
+        try:
+            int(position)
+        except ValueError:
+            return '!ERROR: Hires azimuth must be specified as an integer.'
         command_class='HRAZ'
         command_string="a[<threadID>]=%s;XQ#SETHRAZ,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
     
     def set_foc(self, position):
         """ Set the focus value """
+        try:
+            float(position)
+        except ValueError:
+            return '!ERROR: Focus must be specified as a number.'
         command_class='FOCUS'
         command_string="a[<threadID>]=%s;XQ#SETFOC,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
     
     def set_ges(self, position):
         """Position should be either HIRES, LORES, or LRSWAP"""
+        if position not in ['HIRES','LORES','LRSWAP']:
+            return '!ERROR: %s is not one of HIRES, LORES, or LRSWAP' % position
         if 'LRSWAP' in position:
             command_class='GES LREL'
         else:
@@ -753,6 +773,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     def nudge_ges(self, amount):
         """ Move the disperser slide by amount """
+        try:
+            int(amount)
+        except ValueError:
+            return '!ERROR: GES nudge amount must be specified as an integer.'
         command_class='GES'
         command_string="a[<threadID>]=%s;XQ#NUDGGES,<threadID>" % amount
         return self._do_motion_command(command_class, command_string)

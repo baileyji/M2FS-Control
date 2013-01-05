@@ -223,7 +223,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         Return a merged string of the responses to the individual commands. 
         Note the : ? are cons considered responses. ? gets the exception and :
         gets an empty string. The responses are stripped of whitespace before
-        merging but will include \r\n between responses.
+        merging and will run together.
         """
         #No command, return
         if not command_string:
@@ -309,10 +309,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         particular command class should be blocked. 
         """
         #Ask galil for thread statuses
+        # The Expected response is of the form:
+        # 'HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000'
         response=self._send_command_to_gail(
             'MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
-        #response='HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000\r\n:'
-        if response[-1] == '?' or response[0:3] !='HX=' or '\r' not in response:
+        if response[-1] == '?' or response[0:3] !='HX=':
             raise GalilThreadUpdateException("Could not update galil threads.")
         #Extract the part we care about
         response=response[4:response.find('\r')]

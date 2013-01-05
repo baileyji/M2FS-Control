@@ -316,7 +316,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         if response[-1] == '?' or response[0:3] !='HX=':
             raise GalilThreadUpdateException("Could not update galil threads.")
         #Extract the part we care about
-        response=response[4:response.find('\r')]
+        response=response[4:]
         #Update threads are no longer running
         for thread_number, thread_status in enumerate(response.split(' ')):
             if '0.' in thread_status:

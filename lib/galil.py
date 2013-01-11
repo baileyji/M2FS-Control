@@ -453,12 +453,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         return blockingThreads!=[]
     
     def check_abort_switch(self):
-        """ 
-        Return True if abort switch engaged
-        
-        This doesn't work reliably due to poorly defined issues with the 
-        underlying hardware.
-        """
+        """ Return true if abort switch engaged """
         try:
             val=int(float(self._send_command_to_gail('MG _AB')))
         except ValueError,e:
@@ -467,32 +462,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     def check_elo_switch(self):
         """
-        Return True if elo switch engaged
+        Returns true if Electronic Lockout switch is engaged
         
-        This doesn't work reliably due to poorly defined issues with the
-        underlying hardware. TODO need to verify this routine won't cause a
-        fault while a command is running (because of MO*).
+        The ELO input is bridged with DI7. 1 is disengaged 0 is engaged.
         """
-        try:
-            val=int(float(self._send_command_to_gail('MG _TA3')))
-            #Galil doesn't reset the ELO status automatically, need to do
-            #MO*;SHA;MOA;MG _TA3 to confirm the reading
-            # This means that we may also return false negatives, but there is
-            # no good way to check you need to turn an axis on to make the bit
-            # update and that carries all the extra logic required to pick which
-            # axis you want to toggle 
-            if val != 0:
-                self.sendMessageBlocking('MO*;SHA;MOA;MG _TA3', connect=False)
-                try:
-                    val=int(float(self.receiveMessageBlocking().split()[-2]))
-                    return val != 0
-                except IndexError, e:
-                    raise IOError(str(e))
-                #Discard the last :
-                self.receiveMessageBlocking(nBytes=1)
-        except ValueError,e:
-            raise IOError(str(e))
-        return val != 0
+        return 0==int(float(self._send_command_to_gail('MG@IN[7]')))
     
     def reset(self):
         """ Reset the galil

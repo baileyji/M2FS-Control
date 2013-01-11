@@ -152,11 +152,11 @@ class SelectedConnection(object):
         WriteError is raised if there is no defaultErrorCallback or
         errorCallback.
         
-        If defined, errorCallback will be used for the next error or until
-        disconnect at which time the defaultErrorCallback will be restored. If
+        If defined, errorCallback will be used for any errors that occur prior
+        to the responseCallback being called. If the responseCallback is not 
+        defined then it will be used until an error or disconnect, whichever 
+        comes first. Once called the defaultErrorCallback will be restored. If
         out_buffer was not empty self.errorCallback is not updated.
-        Perhaps the error callback should be replaced with the default if the
-        message is sucessfully sent as well. TODO: Consider revising 
         
         Finally, the message is placed in the output buffer and the response 
         and message sent callbacks are updated if defined. They revert to their
@@ -350,9 +350,9 @@ class SelectedConnection(object):
         Read with _implementationSpecificRead, appending data to in_buffer
         If '\n' is in the in_buffer leftstrip the in_buffer through the first
         '/n'
-        Then call the responseCallback (if defined) with the stripped data, 
-        excluding the '\n'.
-        Reset responseCallback to the default
+        Then, if defined, call the responseCallback with the stripped data,
+        excluding the '\n', reset responseCallback and errorCallbacks to the
+        defaults
         
         If a ReadError is encountered, call error_handler
         """
@@ -370,6 +370,7 @@ class SelectedConnection(object):
                 if self.responseCallback:
                     callback=self.responseCallback
                     self.responseCallback=self.defaultResponseCallback
+                    self.errorCallback=self.defaultErrorCallback
                     callback(self, message_str[:-1])
         except ReadError, err:
             self.handle_error(err)

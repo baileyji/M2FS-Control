@@ -215,15 +215,6 @@ class SlitController(Agent):
         This is an excellent example of difficulties with the current arch.
         I've implemented the same function with blocking IO a little later in 
         this file.
-        
-        NB Calling the connect with the callback as the errorhandler carries a 
-        risk I haven't figured out how to mitigate well:
-        call send message with erroCallback=onReply
-        command completes sucessfully, response callback gets galled all is well
-        BUT the connection now will now call onReply on the next error on the 
-        connection. This doesn't seem to crash the controller, but isn't good
-        flow. I need a way to retire the command handler at the time the 
-        responseCallback is called. 
         """
         #Getting the state is simple, grab and return ON or OFF
         if '?' in command.string:

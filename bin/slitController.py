@@ -61,13 +61,13 @@ class SlitController(Agent):
     def status_command_handler(self, command):
         #First check Red shoe for motion
         try:
-            self.shoeAgentR_Connection.sendMessageBlocking('SLITS_STATUS')
+            self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
             statusR=self.shoeAgentR_Connection.receiveMessageBlocking()
         except IOError:
             statusR='Disconnected'
         #Then check Blue show for motion
         try:
-            self.shoeAgentB_Connection.sendMessageBlocking('SLITS_STATUS')
+            self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
             statusB=self.shoeAgentB_Connection.receiveMessageBlocking()
         except IOError:
             statusB='Disconnected'

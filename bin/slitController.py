@@ -43,8 +43,14 @@ class SlitController(Agent):
             #'SLITS_IMAGSET':self.not_implemented_command_handler,
             #'SLITS_PROJSET':self.not_implemented_command_handler})
     
-    def listenOn(self):
-        return ('localhost', self.PORT)
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return "This is the slit controller agent"
     
     def get_version_string(self):
         return 'Slit Controller Version 0.1'

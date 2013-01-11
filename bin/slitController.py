@@ -59,21 +59,23 @@ class SlitController(Agent):
         return SLIT_CONTROLLER_VERSION_STRING
     
     def status_command_handler(self, command):
+        """ Report the status of the shoes """
         #First check Red shoe for motion
         try:
             self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
             statusR=self.shoeAgentR_Connection.receiveMessageBlocking()
         except IOError:
-            statusR='Disconnected'
+            statusR='ShoeAgentR Offline'
         #Then check Blue show for motion
         try:
             self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
             statusB=self.shoeAgentB_Connection.receiveMessageBlocking()
         except IOError:
-            statusB='Disconnected'
+            statusB='ShoeAgentR Offline'
         status=("Closed-loop:%s\rShoeA:%s\rShoeB:%s" %
             ('On' if self.closed_loop else 'Off', statusR, statusB))
-        command.setReply(status+'\n')
+        reply='%s: %s %s' % (self.get_version_string(), self.cookie, status)
+        command.setReply(reply)
     
     def pass_along_command_handler(self, command):
         """ 

@@ -99,7 +99,7 @@ class SlitController(Agent):
                     response=self.shoeAgentR_Connection.receiveMessageBlocking()
                     command.setReply(response)
                 except IOError:
-                    command.setReply('Shoe R Disconnected')
+                    command.setReply('ShoeAgentR Offline')
             elif 'B'==RorB:
                 shoe_command='%s %s' % (command_name, args)
                 try:
@@ -107,7 +107,7 @@ class SlitController(Agent):
                     response=self.shoeAgentB_Connection.receiveMessageBlocking()
                     command.setReply(response)
                 except IOError:
-                    command.setReply('Shoe B Disconnected')
+                    command.setReply('ShoeAgentB Offline')
     
     def SLITS_comand_handler(self, command):
         """ Handle a SLITS command """

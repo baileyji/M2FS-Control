@@ -15,6 +15,9 @@ class LEDserial(SelectedConnection.SelectedSerial):
         """ Turn the LED off whenever the agent connects (known state)"""
         self.connection.write('\x00')
         self.connection.flush()
+    
+    def _terminateMessage(self, message):
+        return message
 
 class ShackHartmanAgent(Agent):
     def __init__(self):

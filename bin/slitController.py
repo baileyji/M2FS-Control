@@ -163,11 +163,16 @@ class SlitController(Agent):
             command.setReply('OK')
             return
         def onReply(source, string):
-            if string.split(' ')[-1] !=0:
+            """
+            Set command reply to error if string indicates motion; otherwise,
+            define a callback and ask ShoeAgentB if any slits are moving, with
+            the callback as the message response callback.
+            """
+            if 'moving' in string.lower():
                 command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
             else:
                 def onReply2(source, string):
-                    if string.split(' ')[-1] !=0:
+                    if 'moving' in string.lower():
                         command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
                     else:
                         command.setReply('OK')
@@ -192,7 +197,7 @@ class SlitController(Agent):
         try:
             self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
             status_msg=self.shoeAgentR_Connection.receiveMessageBlocking()
-            if status_msg.split(' ')[-1] !=0:
+            if 'moving' in string.lower():
                 command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
                 return
         except IOError:
@@ -201,7 +206,7 @@ class SlitController(Agent):
         try:
             self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
             status_msg=self.shoeAgentB_Connection.receiveMessageBlocking()
-            if status_msg.split(' ')[-1] !=0:
+            if 'moving' in string.lower():
                 command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
                 return
         except IOError:

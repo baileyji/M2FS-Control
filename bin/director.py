@@ -343,7 +343,7 @@ class Director(Agent):
         requests to each agent. If an agent doesnt respond report it's status as 
         unknown. TODO make the agent name reported meaningful to the end used.
         """
-        reply='%s: %s/r' % (self.get_version_string(),self.cookie)
+        reply='%s: %s\r' % (self.get_version_string(),self.cookie)
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')

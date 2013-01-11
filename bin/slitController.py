@@ -8,6 +8,8 @@ from agent import Agent
 from command import Command
 from m2fsConfig import m2fsConfig
 
+SLIT_CONTROLLER_VERSION_STRING='Slit Controller v0.1'
+
 class SlitController(Agent):
     def __init__(self):
         Agent.__init__(self,'SlitController')
@@ -53,7 +55,8 @@ class SlitController(Agent):
         return "This is the slit controller agent"
     
     def get_version_string(self):
-        return 'Slit Controller Version 0.1'
+        """ Return a string with the version."""
+        return SLIT_CONTROLLER_VERSION_STRING
     
     def status_command_handler(self, command):
         #First check Red shoe for motion

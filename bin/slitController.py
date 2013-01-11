@@ -30,9 +30,9 @@ class SlitController(Agent):
             """
             """ Get/Set the positions of all 8 of the R or B slits """
             'SLITS':self.SLITS_comand_handler,
-            """ Toggle closed loop positioning or get status """
-            'SLITS_CLOSEDLOOP':self.SLITS_CLOSEDLOOP_command_handler_blocking,
-            """ Get/Set wheather to leave tetris motors on after a move """
+            #Toggle closed loop positioning or get status """
+            'SLITS_CLOSEDLOOP':self.SLITS_CLOSEDLOOP_command_handler,
+            #Get/Set whether to leave tetris motors on after a move """
             'SLITS_ACTIVEHOLD':self.SLITS_ACTIVEHOLD_command_handler,
             """ Pass command along to appropriate shoe """
             'SLITSRAW':self.pass_along_command_handler,

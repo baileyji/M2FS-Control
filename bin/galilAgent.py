@@ -9,6 +9,7 @@ from command import Command
 from galil import GalilSerial
 
 GALIL_AGENT_VERSION_STRING='Galil Agent v0.2'
+GALIL_AGENT_VERSION_STRING_SHORT='v0.2'
 
 class GalilAgent(Agent):
     """
@@ -168,7 +169,8 @@ class GalilAgent(Agent):
             state="Connected"
         else:
             state="Disconnected"
-        reply='%s: %s %s' % (self.get_version_string(), self.cookie, state)
+        name=self.name+' '+GALIL_AGENT_VERSION_STRING_SHORT
+        reply='%s: %s %s' % (name, self.cookie, state)
         command.setReply(reply)
 
     

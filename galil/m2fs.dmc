@@ -756,7 +756,7 @@ JS#ZS;IF(_JS<1);ed4=_ED4;JS#NUDGGES(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Make sure commanded move is sane
 IF((-10000>^b)|(^b>10000));^h=ECRAZY;ENDIF
 'Convert to absolute
-~a=^a;^b=^b+TD~a
+~a=^a;^b=^b+_TD~a
 'If we are good to go, MOVE!
 IF(^h=0);JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
 ~a=^a;IF((SC~a=2)|(SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF

@@ -74,6 +74,8 @@ class Director(Agent):
             'PLUGMODE': self.plugmode_command_handler,
             #Enable/Disable Stowed shutdown
             'STOWEDSHUTDOWN': self.stowedshutdown_command_handler,
+            #Report the state of the cradles
+            'CRADLESTATE': self.cradlestate_command_handler,
             #Galil Agent (R & B) Commands
             #
             #The director determines if the command is for the R or B galilAgent
@@ -216,6 +218,25 @@ class Director(Agent):
             command.setReply('OK')
         else:
             self.bad_command_handler(command)
+    
+    def cradlestate_command_handler(self, command):
+        """
+        Report the state of the cradles
+        
+        """
+        if os.path.exists('/dev/shoeBincradleR'):
+            rstate='CRADLE_R=SHOE_B'
+        elif os.path.exists('/dev/shoeR'):
+            rstate='CRADLE_R=SHOE_R'
+        else:
+            rstate='CRADLE_R=NONE'
+        if os.path.exists('/dev/shoeRincradleB'):
+            bstate='CRADLE_B=SHOE_R'
+        elif os.path.exists('/dev/shoeB'):
+            bstate='CRADLE_B=SHOE_B'
+        else:
+            bstate='CRADLE_B=NONE'
+        command.setReply('%s %s' % (rstate, bstate))
     
     def shackhartman_command_handler(self, command):
         """

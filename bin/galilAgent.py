@@ -23,7 +23,7 @@ class GalilAgent(Agent):
         Agent.__init__(self,'GalilAgent')
         #Update the list of command handlers
         self.command_handlers.update({
-            #Send the command string directely to the Galil
+            #Send the command string directly to the Galil
             'GALILRAW':self.galil_command_handler,
             #Reset the Galil to its power-on state
             'GALILRESET':self.reset_command_handler,

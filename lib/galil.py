@@ -482,7 +482,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.connect()
             return 'OK'
         except (IOError, serial.SerialException), e:
-            return str(e)
+            return 'ERROR: %s' % str(e)
     
     def shutdown(self):
         """

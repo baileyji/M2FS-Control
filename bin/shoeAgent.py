@@ -1,43 +1,39 @@
 #!/usr/bin/env python2.7
 import sys, time
 sys.path.append(sys.path[0]+'/../lib/')
-import argparse
-import logging
-import logging.handlers
-import serial
 import SelectedConnection
 from agent import Agent
-from command import Command
 
+EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.4'
+SHOE_AGENT_VERSION_STRING='Shoe Agent v0.3'
+SHOE_AGENT_VERSION_STRING_SHORT='v0.3'
+
+import serial
 import termios
 class ShoeSerial(SelectedConnection.SelectedSerial):
     def _postConnect(self):
         """
-        Called after establishing a connection.
-        
-        Subclass may implement and throw and exception if the connection
-        is in any way unsuitable. Any return values are ignored. Exception text
-        will be raised as a connect error.
+        Implement the post-connect hook
+
+        With the shoe we need to do a few things prior to actually accepting
+        the connection as healthy:
+        1) Query the shoe for the software version. If if doesn't match the
+        expected version fail with a ConnectError
         """
-        expected_version_string='Fibershoe v0.4'
-        #Shoe takes a minute to boot
+        #Shoe takes a few seconds to boot
         time.sleep(2)
         self.sendMessageBlocking('PV\n')
         response=self.receiveMessageBlocking().replace(':','')
-        #response=expected_version_string #DEBUGGING LINE OF CODE
-        if response != expected_version_string:
+        if response != EXPECTED_FIBERSHOE_INO_VERSION:
             if 'Powered Down' in response:
                 error_message="Shoe locking nut disengaged"
             else:
-                error_message=("Incompatible Firmware."+
-                    "Shoe reported '%s' , expected '%s'." %
-                    (response,expected_version_string))
-            self.connection.close()
-            self.connection=None
+                error_message=("Incompatible Firmware, Shoe reported '%s' , expected '%s'."  %
+                (response,expected_version_string))
             raise SelectedConnection.ConnectError(error_message)
     
-    def implementationSpecificDisconnect(self):
-        """disconnection specific to serial"""
+    def _implementationSpecificDisconnect(self):
+        """ Disconnect the serial connection """
         try:
             self.connection.write('DS\n')
             time.sleep(.25) #just in case the shoe resets on close, 
@@ -47,7 +43,7 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
             self.connection.close()
         except Exception, e:
             pass
-    
+
 
 class ShoeAgent(Agent):
     def __init__(self):
@@ -68,36 +64,36 @@ class ShoeAgent(Agent):
             'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
             'SLITS_HARDSTOP':self.HARDSTOP_command_handler})
     
-    def listenOn(self):
-        return ('localhost', self.PORT)
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return "This is the shoe agent. It takes shoe commands via \
+        a socket connection or via CLI arguments."
     
-    def initialize_cli_parser(self):
-        """Configure the command line interface"""
-        #Create a command parser with the default agent commands
-        helpdesc="This is the shoe agent. It takes shoe commands via \
-            a socket connection or via CLI arguments."
-        cli_parser = argparse.ArgumentParser(
-                    description=helpdesc,
-                    add_help=True)
-        cli_parser.add_argument('--version',
-                                action='version',
-                                version=self.get_version_string())
-        cli_parser.add_argument('--device', dest='DEVICE',
-                                action='store', required=False, type=str,
-                                help='the device to control')
-        cli_parser.add_argument('--side', dest='SIDE',
-                                action='store', required=False, type=str,
-                                help='R or B',
-                                default='R')
-        cli_parser.add_argument('-p','--port', dest='PORT',
-                                action='store', required=False, type=int,
-                                help='the port on which to listen')
-        cli_parser.add_argument('command',nargs='*',
+    def add_additional_cli_arguments(self):
+        """
+        Additional CLI arguments may be added by implementing this function.
+        
+        Arguments should be added as:
+        self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
+        """
+        self.cli_parser.add_argument('--side', dest='SIDE',
+                                     action='store', required=False, type=str,
+                                     help='R or B',
+                                     default='R')
+        self.cli_parser.add_argument('--device', dest='DEVICE',
+                                     action='store', required=False, type=str,
+                                     help='the device to control')
+        self.cli_parser.add_argument('command',nargs='*',
                                 help='Agent command to execute')
-        self.cli_parser=cli_parser
     
     def get_version_string(self):
-        return 'Shoe Agent Version 0.2'
+        """ Return a string with the version."""
+        return SHOE_AGENT_VERSION_STRING
 
     def simpleSend(self, msg, command):
         """ Try sending msg to the shoe, close out command. 

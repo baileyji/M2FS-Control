@@ -277,7 +277,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #We didn't get acknowledgements for all the commands, fail
         if acknowledgements != num_colons_expected:
             raise GalilCommandNotAcknowledgedError(
-                "Galil did not acknowledge command '%s' (%s)" %
+                "ERROR: Galil did not acknowledge command '%s' (%s)" %
                 (command_string, galilReply) )
         #Join all of replies from the commands and return them as a single
         # string

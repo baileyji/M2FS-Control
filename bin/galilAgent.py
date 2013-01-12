@@ -1,11 +1,7 @@
 #!/usr/bin/env python2.7
-import sys, time
+import sys
 sys.path.append(sys.path[0]+'/../lib/')
-import argparse
-import logging
-import logging.handlers
 from agent import Agent
-from command import Command
 from galil import GalilSerial
 
 GALIL_AGENT_VERSION_STRING='Galil Agent v0.2'

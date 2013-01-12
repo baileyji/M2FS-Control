@@ -475,14 +475,17 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         the galil has entered some weird state. 
         """
         try:
+            #ensure the connection is open
             self.connection.open()
-            self.connection.write('RS\r')
-            self.connection.flush()
+            #send the command
+            self._send_command_to_gail('RS')
+            #close the connection
             self.connection.close()
+            #connect like normal
             self.connect()
             return 'OK'
         except (IOError, serial.SerialException), e:
-            return 'ERROR: %s' % str(e)
+            return 'ERROR: Reset may have failed (%s)' % str(e)
     
     def shutdown(self):
         """

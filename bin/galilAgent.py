@@ -163,7 +163,7 @@ class GalilAgent(Agent):
         """ Return a string with the version."""
         return GALIL_AGENT_VERSION_STRING
         
-    def STATUS_command_handler(self, command):
+    def status_command_handler(self, command):
         """ Report the status of the galil """
         if self.galil.isOpen():
             state="Connected"

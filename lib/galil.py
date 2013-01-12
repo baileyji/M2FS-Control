@@ -3,6 +3,8 @@ import SelectedConnection
 from m2fsConfig import m2fsConfig
 
 EXPECTED_M2FS_DMC_VERSION='0.1000'
+#Timeout to use if we must force oopen a connection to the galil to do a reset
+GALIL_RESET_CONNECTION_TIMEOUT=0.5
 
 class GalilThreadUpdateException(IOError):
     """ Unable to update list of threads executing on the Galil """
@@ -475,12 +477,17 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         the galil has entered some weird state. 
         """
         try:
-            #ensure the connection is open
-            self.connection.open()
+            #If the connection isn't open force open a connection,
+            # disregarding normal procedures (something screwy could be up,
+            # hence the reset. We will close the connection right away anyway so
+            # it doesn't matter
+            if not self.isOpen():
+                self.connection=serial.Serial(self.port, baudrate=self.baudrate,
+                                          timeout=GALIL_RESET_CONNECTION_TIMEOUT)
             #send the command
             self._send_command_to_gail('RS')
             #close the connection
-            self.connection.close()
+            self.close()
             #connect like normal
             self.connect()
             return 'OK'

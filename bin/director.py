@@ -342,7 +342,7 @@ class Director(Agent):
         The gracefull way to handle this is to queue the motions and only fail 
         to enter PLUGMODE if they don't complete after some timeout.
         Again given the current arch, this isn't straightforward to implement, 
-        at least to me.  
+        at least to me.
         """
         if '?' in command.string:
             #Check to see if we've made it into plug mode sucess
@@ -366,7 +366,7 @@ class Director(Agent):
                 command.setReply('ERROR: Could not set pickoff position')
         else:
             self.bad_command_handler(command)
-
+    
     def status_command_handler(self, command):
         """ 
         Report the status of all instrument subsystems 

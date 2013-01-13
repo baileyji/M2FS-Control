@@ -4,9 +4,13 @@ sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
 
-EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.4'
-SHOE_AGENT_VERSION_STRING='Shoe Agent v0.3'
-SHOE_AGENT_VERSION_STRING_SHORT='v0.3'
+EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.5'
+SHOE_AGENT_VERSION_STRING='Shoe Agent v0.4'
+SHOE_AGENT_VERSION_STRING_SHORT='v0.4'
+
+class ShoeCommandNotAcknowledgedError(IOError):
+    """ Shoe fails to acknowledge a command, e.g. didn't respond with ':' """
+    pass
 
 import serial
 import termios
@@ -23,14 +27,16 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         #Shoe takes a few seconds to boot
         time.sleep(2)
         self.sendMessageBlocking('PV\n')
-        response=self.receiveMessageBlocking().replace(':','')
+        response=self.receiveMessageBlocking()
+        self.receiveMessageBlocking(nBytes=1) #discard the :
         if response != EXPECTED_FIBERSHOE_INO_VERSION:
             if 'Powered Down' in response:
                 error_message="Shoe locking nut disengaged"
             else:
                 error_message=("Incompatible Firmware, Shoe reported '%s' , expected '%s'."  %
-                (response,expected_version_string))
+                (response,EXPECTED_FIBERSHOE_INO_VERSION))
             raise SelectedConnection.ConnectError(error_message)
+        self
     
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection """
@@ -44,8 +50,27 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         except Exception, e:
             pass
 
+def longTest(s):
+    """ Return true if s can be cast as a long, false otherwise """
+    try:
+        long(s)
+        return True
+    except ValueError:
+        return False
 
 class ShoeAgent(Agent):
+    """
+    This control program is responsible for controlling the fiber shoe for one
+    side of the spectrograph. Two instances are run, one for the R side
+    and one for the B side.
+    
+    Low level device functionality is handled by the Arduino microcontroller 
+    embedded in the shoe itself. The C++ code run on the shoe is found in the
+    file fibershoe.ino and its libraries in ../Arduino/libraries
+    
+    The agent supports two simultaneous connections to allow the datalogger to
+    request the shoe temperature.
+    """
     def __init__(self):
         Agent.__init__(self,'ShoeAgent')
         #Initialize the shoe
@@ -53,15 +78,25 @@ class ShoeAgent(Agent):
             self.args.DEVICE='/dev/shoe'+self.args.SIDE
         self.shoe=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         self.devices.append(self.shoe)
+        #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
         self.command_handlers.update({
+            #Send the command string directly to the shoe
             'SLITSRAW':self.RAW_command_handler,
+            #Get/Set the active slit on all 8 tetri. The move is carried out
+            # openloop based on the defined step positions for each slit.
             'SLITS':self.SLITS_command_handler,
+            #Get/Set the step position corresponding to a slit on a tetris
             'SLITS_SLITPOS':self.SLITPOS_command_handler,
+            #Get the current step position of a tetris 
             'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
+            #Turn active holding of the slit position on or off
             'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
+            #Get the temperature of the shoe
             'SLITS_TEMP':self.TEMP_command_handler,
+            #Tell the shoe to move a tetris a number of steps
             'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
+            #Tell shoe to drive a tetris to the hardstop, calibrating it
             'SLITS_HARDSTOP':self.HARDSTOP_command_handler})
     
     def get_cli_help_string(self):
@@ -95,61 +130,159 @@ class ShoeAgent(Agent):
         """ Return a string with the version."""
         return SHOE_AGENT_VERSION_STRING
 
-    def simpleSend(self, msg, command):
-        """ Try sending msg to the shoe, close out command. 
-            Good for commands which have a simple confirmation and nothing more"""
-        try:
-            self.shoe.connect()
-            self.shoe.sendMessageBlocking(msg)
-            response=self.shoe.receiveMessageBlocking(nBytes=2)
-            self.logger.debug("SimpleSend got:'%s'"%response.replace('\n','\\n'))
-            if response == ':':
-                command.setReply('OK\n')
+    def _send_command_to_shoe(self, command_string):
+        """
+        Send a command string to the shoe, wait for immediate response
+        
+        Silently ignore an empty command.
+        
+        Raise ShoeCommandNotAcknowledgedError if the shoe does not acknowledge
+        any part of the command.
+        
+        Procedure is as follows:
+        Send the command string to the shoe
+        grab a singe byte from the shoe and if it isn't a : or a ? listen for
+        a \n delimeted response followed by a :.
+        
+        Return a string of the response to the commands.
+        Note the : ? are not considered responses. ? gets the exception and :
+        gets an empty string. The response is stripped of whitespace.
+        """
+        #No command, return
+        if not command_string:
+            return ''
+        #Send the command(s)
+        self.shoe.sendMessageBlocking(command_string)
+        #Get the first byte from the galil, typically this will be it
+        response=self.shoe.receiveMessageBlocking(nBytes=1)
+        # 3 cases:, :, ?, or stuff followed by \r\n:
+        #case 1, command succeeds but returns nothing, return
+        if response ==':':
+            return ''
+        #command fails
+        elif response =='?':
+            raise ShoeCommandNotAcknowledgedError(
+                "ERROR: Shoe did not acknowledge command '%s' (%s)" %
+                (command_string, response) )
+        #command is returning something
+        else:
+            #do a blocking receive on \n
+            response=response+self.shoe.receiveMessageBlocking()
+            #...and a single byte read to grab the :
+            confByte=self.shoe.receiveMessageBlocking(nBytes=1)
+            if confByte==':':
+                return response.strip()
             else:
-                command.setReply('!ERROR: Shoe did not acknowledge command.\n')
-        except IOError, e:
-            command.setReply('ERROR: Shoe%s Disconnected'%self.args.SIDE)
-            
-    def simpleSendWithResponse(self, msg, command):
+                #Consider it a failure, but log it. Add the byte to the
+                # response for logging
+                response+=confByte
+                err=("Shoe did not adhere to protocol. '%s' got '%s'" %
+                    (command_string, response))
+                self.logger.warning(err)
+                raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
+    
+    def _do_online_only_command(self, command):
+        """
+        Execute a command that requires the shoe to be online
+        
+        This command wraps command with an attempt to bring the shoe online.
+        If the shoe won't come online an appropriate error response is returned
+        and the command is not attempted.
+        If the command fails the error is returned.
+        If the command succeeds but returns nothing 'OK' is returned.
+        """
         try:
-            self.shoe.connect()
-            self.shoe.sendMessageBlocking(msg)
-            response=self.shoe.receiveMessageBlocking()
-            if ':' in response:
-                command.setReply(response.replace(':','\n'))
-            else:
-                command.setReply('ERROR: Shoe did not acknowledge command.\n')
+            self._send_command_to_shoe('CS')
+        except ShoeCommandNotAcknowledgedError:
+            return 'ERROR: Tighten locking nuts on cradle %s' % self.args.SIDE
+        except IOError:
+            return 'ERROR: Shoe not in cradle %s' % self.args.SIDE
+        try:
+            response=self._send_command_to_shoe(command)
+            if not response:
+                response='OK'
+            return response
         except IOError, e:
-            command.setReply('ERROR: Shoe%s Disconnected'%self.args.SIDE)
+            return str(e)
+    
+    def status_command_handler(self, command):
+        """
+        Report the status of the shoe
+        
+        Status is reported as 4 bytes with the form
+        Byte 1) [DontcareX5][shoeOnline][shieldIsR][shieldIsOn]
+        Byte 2) [tetris7on]...[tetris0on]
+        Byte 3) [tetris7calibrated]...[tetris0calibrated]
+        Byte 4) [tetris7moving]...[tetris0moving]
+        """
+        try:
+            response=self._send_command_to_shoe('TS')
+            try:
+                state=' '.join( map( lambda x:'0b{0:08b}'.format(x),
+                        map(int, response.split())))
+            except Exception:
+                state='Shoe not responding properly to status request'
+        except IOError, e:
+            state='Disconnected'
+        name=self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT
+        reply='%s: %s %s' % (name, self.cookie, state)
+        command.setReply(reply)
     
     def RAW_command_handler(self, command):
-        """ pass raw data along to the shoe and wait for a response"""
-        msg=command.string.partition(' ')
-        response=''
-        if len(msg)==3:
+        """ 
+        Send a raw string to the shoe and wait for a response
+        
+        NB the PC command can generate more than 1024 bytes of data
+        """
+        junk,junk,arg=command.string.partition(' ')
+        if arg:
             try:
-                self.shoe.connect()
-                self.shoe.sendMessageBlocking(msg[2]+'\n')
-                response=self.shoe.receiveMessageBlocking(nBytes=1024)
+                self.shoe.sendMessageBlocking(arg)
+                response=self.shoe.receiveMessageBlocking(nBytes=2048)
+                response=response.replace('\r','\\r').replace('\n','\\n')
             except IOError, e:
-                command.setReply('!ERROR: Shoe IOError. %s\n'%e)
-
-        if response:
-            command.setReply(response+'\n')
+                response='ERROR: %s' % str(e)
+            command.setReply(response)
         else:
-            command.setReply('No Response\n')
+            self.bad_command_handler(command)
     
     def TEMP_command_handler(self, command):
-        """ Handle requesting the temperature from the shoe """
-        self.simpleSendWithResponse('TE\n', command) 
+        """
+        Get the current shoe temperature
+        
+        Responds with the temp or UNKNOWN
+        """
+        try:
+            response=self._send_command_to_shoe('TE')
+        except IOError, e:
+            response='UNKNOWN'
+        command.setReply(response)
     
     def SLITS_command_handler(self, command):
-        """ Handle geting/setting the slit """
+        """
+        Get/Set the active slit on all 8 tetri.
+        
+        Command is of the form
+        SLITS {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} 
+        or 
+        SLITS ?
+        
+        If setting, the command instructs the shoe to move each tetris to the 
+        requested slit position, openloop, using the defined step position for
+        that slit. It is an error to set the slits when they are uncalibrated 
+        or a move is in progress. If done the error '!ERROR: Can not set slits at
+        this time. will be generated.' TODO integrate with TS command to provide 
+        informative reason for falure. NB The shoe just returns ?
+        
+        If getting, respond in the from TETRIS0, ..., TETRIS7
+        where TETRISi is one of UNKNOWN INTERMEDIATE MOVING or {1-7}, 7
+        representing the closed position.
+        """
         if '?' in command.string:
-            """ retrieve the current slits """
-            self.simpleSendWithResponse('SG*\n', command)
+            #Command the shoe to report the active slit for all 8 tetri
+            command.setReply(self._do_online_only_command('SG*'))
         else:
-            """ command tetri to move to set slit positions """
+            #Vet the command
             command_parts=command.string.replace(',',' ').split(' ')
             if (len(command_parts)==9 and 
                 len(command_parts[1])==1 and command_parts[1] in '1234567' and
@@ -160,99 +293,145 @@ class ShoeAgent(Agent):
                 len(command_parts[6])==1 and command_parts[6] in '1234567' and
                 len(command_parts[7])==1 and command_parts[7] in '1234567' and
                 len(command_parts[8])==1 and command_parts[8] in '1234567'):
-                self.simpleSend('SL'+''.join(command_parts[1:])+'\n', command)
+                #First check to make sure the command is allowed (all are
+                # calibrated and none are moving
+                response=''
+                try:
+                    status=self._send_command_to_shoe('TS')
+                    if '255255' != ''.join((status.split())[2:4]):
+                        response='!ERROR: Tetri must be calibrated and not moving.'
+                except IOError:
+                    #odds are the shoe is disconnected, in whcih case the error
+                    # to SL will be as informative as it gets
+                    # if the shoe gets connected in the interim then it will
+                    # fail with an (less) informative error message
+                    pass
+                if not response:
+                    #Command the shoe to reconfigure the tetrii
+                    response=self._do_online_only_command(
+                        'SL'+''.join(command_parts[1:]))
+                command.setReply(response)
             else:
-                command.setReply('!ERROR: Improperly formatted command.\n')
-                return
+                self.bad_command_handler(command)
     
     def SLITPOS_command_handler(self, command):
-        """ Handle geting/setting the nominal slit position in steps """
-        def longTest(s):
-            try:
-                long(s)
-                return True
-            except ValueError:
-                return False
+        """
+        Retrieve or set the step position of a slit
+        
+        This command has three arguments: the tetris, 1-8; the slit 1-7
+        (7=closed); and the slit position or a question mark.
+        
+        The set position only affects subsequent moves.
+        """
+        #Vet the command
         command_parts=command.string.split(' ')
         if (len(command_parts)>3 and 
             len(command_parts[1])==1 and command_parts[1] in '12345678' and
             len(command_parts[2])==1 and command_parts[2] in '1234567' and 
             ('?' in command_parts[3] or  longTest(command_parts[3]))):
+            #Extract the tetris ID
             tetrisID='ABCDEFGH'[int(command_parts[1])-1]
+            #...and the slit
             slit=command_parts[2]
+            #If getting
+            if '?' in command.string:
+                #Get the step position of the slit from the requested tetris
+                try:
+                    response=self._send_command_to_shoe('SD'+tetrisID+slit)
+                except IOError:
+                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
+            else:
+                """ Set the position """
+                pos=command_parts[3]
+                try:
+                    self._send_command_to_shoe('SS'+tetrisID+slit+pos)
+                except IOError:
+                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
+            command.setReply(response)
         else:
-            command.setReply('!ERROR: Improperly formatted command.\n')
-            return
-        if '?' in command.string:
-            """ Get the position """
-            self.simpleSendWithResponse('SD'+tetrisID+slit+'\n', command)
-        else:
-            """ Set the position """
-            pos=command_parts[3]
-            self.simpleSend('SS'+tetrisID+slit+pos+'\n',command)
-    
+            self.bad_command_handler(command)
+
     def CURRENTPOS_command_handler(self, command):
-        """ handle command to fetch the current step position of the tetris"""
+        """
+        Respond with the current step position of the tetris
+        
+        This command has one argument: the tetris, 1-8
+        """
         command_parts=command.string.split(' ')
+        #Vet the command
         if (len(command_parts)>1 and 
             len(command_parts[1])==1 and 
             command_parts[1] in '12345678'):
+            #Extract the tetris ID
             tetrisID='ABCDEFGH'[int(command_parts[1])-1]
+            #Get the step position from the shoe
+            response=self._do_online_only_command('TD'+tetrisID)
+            command.setReply(response)
         else:
-            command.setReply('!ERROR: Improperly formatted command.\n')
-            return
-        msg='TD'+tetrisID+'\n'
-        self.simpleSendWithResponse('TD'+tetrisID+'\n', command)
-
+            self.bad_command_handler(command)
+    
     def ACTIVEHOLD_command_handler(self, command):
-        """ handle switching between motors on while idle and motors off"""
+        """
+        Turn active holding on or off or query the state.
+        
+        ACTIVEHOLD [ON|OFF|?]
+        
+        Active holding leaves the tetris motors energized after a move is
+        completed. Note there is no way for the motors to be backdriven
+        (The output shaft will shear off before this will happen), so this
+        doesn't really do anything other than waste power though it just might
+        possibly help repeatability.
+        """
         if '?' in command.string:
-            self.simpleSendWithResponse('GH\n', command)
+            try:
+                response=self._send_command_to_shoe('GH')
+            except IOError, e:
+                response=str(e)
+            command.setReply(response)
         else:
             if 'ON' in command.string and 'OFF' not in command.string:
-                self.simpleSend('AH\n', command)
+                command.setReply(self._do_online_only_command('AH'))
             elif 'OFF' in command.string and 'ON' not in command.string:
-                self.simpleSend('PH\n', command)
+                command.setReply(self._do_online_only_command('PH'))
             else:
-                command.setReply('!ERROR: Improperly formatted command.\n')
+                self.bad_command_handler(command)
     
     def HARDSTOP_command_handler(self, command):
-        """ handle switching between motors on while idle and motors off"""
+        """
+        Command a tetris to drive to the hardstop, thus calibrating it
+        
+        This command has one argument: the tetris, 1-8
+        """
         command_parts=command.string.split(' ')
         if (len(command_parts)>1 and 
             len(command_parts[1])==1 and 
             command_parts[1] in '12345678'):
             tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            self.simpleSend('DH'+tetrisID+'\n', command)
+            command.setReply(self._do_online_only_command('DH'+tetrisID))
         else:
-            command.setReply('!ERROR: Improperly formatted command.\n')
+            self.bad_command_handler(command)
     
     def MOVESTEPS_command_handler(self, command):
-        """ handle commanding a single tetris to move X steps"""
+        """
+        Command a tetris to move a specified number of steps
+        
+        This command has two argument: the tetris, 1-8, and the number of steps
+        to move. The full range of travel of a tetris corresponds to about 
+        7000 +/-1000 steps. The hardstop is in the positive direction. The
+        spring is compressed in the negative direction
+        """
         command_parts=command.string.split(' ')
+        #Vet the command
         if (len(command_parts)>2 and 
-            len(command_parts[1])==1 and command_parts[1] in '12345678' and
-            command_parts[2].isdigit()):
+            len(command_parts[1])==1 and
+            command_parts[1] in '12345678' and
+            longTest(command_parts[2])):
             tetrisID='ABCDEFGH'[int(command_parts[1])-1]
             steps=command_parts[2]
+            command.setReply(self._do_online_only_command('PR'+tetrisID+steps))
         else:
-            command.setReply('!ERROR: Improperly formatted command.\n')
-            return
-        self.simpleSend('PR'+tetrisID+steps+'\n', command)
-
-    def status_command_handler(self, command):
-        """report status"""
-        """xxxxxx[shieldR][shieldOn] [t7on]...[t0on] [t7calib]...[t0calib] [t7moving]...[t0moving]"""
-        try:
-            self.shoe.connect()
-            self.shoe.sendMessageBlocking('TS\n')
-            response=self.shoe.receiveMessageBlocking()
-            if ':' in response:
-                command.setReply(response.replace(':','\n'))
-            else:
-                command.setReply('ERROR: Shoe did not acknowledge command.\n')
-        except IOError, e:
-            command.setReply('Disconnected')
+            self.bad_command_handler(command)
+        
 
 if __name__=='__main__':
     agent=ShoeAgent()

@@ -160,7 +160,7 @@ class Agent(object):
                 time.sleep(SERVER_RETRY_TIME)
                 self.initialize_socket_server(tries=tries-1)
             else:
-                self.handle_server_error(error=msg)
+                self.handle_server_error(error=str(e))
     
     def listenOn(self):
         """

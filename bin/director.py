@@ -332,6 +332,17 @@ class Director(Agent):
 
         Considering the FLS system isn't yet operational, this command is 
         just a dummy to excersise the FLS Pickoffs
+        
+        TODO When this really matters I need to take into accout that the 
+        FLSIM OUT and FLSIM IN commands might result in an ERROR, which I would
+        need to trap a and handle. The most likely cause, which is also expected
+        behavior would be to have the instrument be entering plugmode right as
+        the gratings and disperser are being reconfigured, perhaps causing the
+        galils to temporarily not have a free thread to execute FLSIM.
+        The gracefull way to handle this is to queue the motions and only fail 
+        to enter PLUGMODE if they don't complete after some timeout.
+        Again given the current arch, this isn't straightforward to implement, 
+        at least to me.  
         """
         if '?' in command.string:
             #Check to see if we've made it into plug mode sucess
@@ -341,7 +352,7 @@ class Director(Agent):
             #Turn plugmode off
             try:
                 self.galilAgentR_Connection.sendMessage('FLSIM OUT')
-                self.galilAgentR_Connection.sendMessage('FLSIM OUT')
+                self.galilAgentB_Connection.sendMessage('FLSIM OUT')
                 command.setReply('OK')
             except WriteError:
                 command.setReply('ERROR: Could not set pickoff position')
@@ -349,7 +360,7 @@ class Director(Agent):
             #Turn plugmode on
             try:
                 self.galilAgentR_Connection.sendMessage('FLSIM IN')
-                self.galilAgentR_Connection.sendMessage('FLSIM IN')
+                self.galilAgentB_Connection.sendMessage('FLSIM IN')
                 command.setReply('OK')
             except WriteError:
                 command.setReply('ERROR: Could not set pickoff position')

@@ -1,0 +1,14 @@
+Python-PyNUT is an abstraction class written in Python to access NUT (Network UPS Tools) servers.
+
+You can use it in Python programs to access NUT without having to manually connect to NUT
+using a telnetlib connection or something similar. You have not to know how to speak the NUT
+protocol too (PyNUT knows it for you ;) )
+
+To import it on Python programs you have to use the following (case sensitive) :
+
+'import PyNUT'
+
+
+Have fun.
+
+David Goncalves <david@lestat.st>

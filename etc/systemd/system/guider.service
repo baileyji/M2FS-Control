@@ -1,5 +1,5 @@
 [Unit]
-Description=M2FS Sharck-Hartman
+Description=M2FS Guider
 
 [Install]
 WantedBy=director.service

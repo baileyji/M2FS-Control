@@ -31,7 +31,18 @@ class ShackHartmanAgent(Agent):
             'TEMP':self.TEMP_command_handler})
     
     def get_version_string(self):
+        """ Return a string with the version."""
         return SHACKHARTMAN_AGENT_VERSION_STRING
+    
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return ("This is the Shack-Hartman agent. It controlls the lenslet & "+
+            "calibration LED")
     
     def SHLED_command_handler(self, command):
         """ Handle geting/setting the LED illumination value """
@@ -85,8 +96,7 @@ class ShackHartmanAgent(Agent):
             ledStatus='Disconnected'
         state=('Lenslet:%s %s Led:%s Temp:%s' %
                          (lensStatus, err, ledStatus, temp))
-        name=SHACKHARTMAN_AGENT_VERSION_STRING
-        reply='%s: %s %s' % (name, self.cookie, state)
+        reply='%s: %s %s' % (self.get_version_string(), self.cookie, state)
         command.setReply(reply)
     
     def getErrorStatus(self):

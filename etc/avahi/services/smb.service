@@ -4,7 +4,7 @@
 <!-- See avahi.service(5) for more information about this configuration file -->
 
 <service-group>
-    <name replace-wildcards="yes">Samba Shares on %h</name>
+    <name>M2FS</name>
     <service>
         <type>_smb._tcp</type>
         <port>445</port>

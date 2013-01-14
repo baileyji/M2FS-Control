@@ -27,8 +27,8 @@ class Director(Agent):
         processing them when self.main() is called
         """
         Agent.__init__(self,'Director')
-        #Enable stowed shutdown by default
-        m2fsConfig.enableStowedShutdown()
+        #Disable stowed shutdown by default
+        m2fsConfig.disableStowedShutdown()
         #Fetch the agent ports
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents

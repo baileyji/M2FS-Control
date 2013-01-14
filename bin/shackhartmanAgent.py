@@ -82,9 +82,9 @@ class ShackHartmanAgent(Agent):
             self.shled.sendMessage(chr(self.shledValue))
             ledStatus='%i' % self.shledValue
         except IOError:
-            ledStatus='ERROR'
-        state=('Lenslet:%s Led:%s Temp:%s Err:%s' %
-                         (lensStatus, ledStatus, temp, err))
+            ledStatus='Disconnected'
+        state=('Lenslet:%s %s Led:%s Temp:%s' %
+                         (lensStatus, err, ledStatus, temp))
         name=SHACKHARTMAN_AGENT_VERSION_STRING
         reply='%s: %s %s' % (name, self.cookie, state)
         command.setReply(reply)
@@ -101,8 +101,10 @@ class ShackHartmanAgent(Agent):
             #for bit meanings se simple_motor_controllers.pdf
             err=hex(256*ord(response[1])+ord(response[0]))
             return err
-        except Exception, e:
-            return str(e)
+        except IOError:
+            return 'ERROR'
+        except Exception:
+            return 'Unable to parse microcontroller response'
     
     def getTemp(self):
         """

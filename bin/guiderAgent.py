@@ -1,14 +1,10 @@
 #!/usr/bin/env python2.7
-import sys, time
+import sys
 sys.path.append(sys.path[0]+'/../lib/')
-import argparse
-import logging
-import logging.handlers
-from agent import Agent
-sys.path.append('../lib/')
 import SelectedConnection
-from command import Command
+from agent import Agent
 
+GUIDER_AGENT_VERSION_STRING='Guider Agent v-0.1'
 
 class GuiderAgent(Agent):
     def __init__(self):
@@ -16,16 +12,24 @@ class GuiderAgent(Agent):
         self.guider=SelectedConnection.SelectedSerial('/dev/guider', 115200)
         self.devices.append(self.guider)
         self.command_handlers.update({
-            """ Get/Set the guider filter (1, 2, 3, or 4) """
+            #Get/Set the guider filter (1, 2, 3, or 4)
             'GFILTER':self.GFILTER_command_handler,
-            """ Get/Set the guider focus value """
+            #Get/Set the guider focus value
             'GFOCUS':self.GFILTER_command_handler})
-    
-    def listenOn(self):
-        return ('localhost', self.PORT)
 
     def get_version_string(self):
-        return 'Guider Agent Version 0.1'
+        """ Return a string with the version."""
+        return SHACKHARTMAN_AGENT_VERSION_STRING
+    
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return ("This is the guider agent. It controls the guider filter "+
+            "wheel & guider focus.")
     
     def GFILTER_command_handler(self, command):
         """ Handle geting/setting the LED illumination value """
@@ -48,8 +52,9 @@ class GuiderAgent(Agent):
         filterStatus=self.determineFilter()
         focusStatus=self.determineFocusPosition()
         err=self.getErrorStatus()
-        command.setReply('%s Filter:%s Focus:%s Err:%s' %
-                         (self.cookie, filterStatus, focusStatus, err))
+        state='Filter:%s Focus:%s Err:%s' % (filterStatus, focusStatus, err)
+        reply='%s: %s %s' % (self.get_version_string(), self.cookie, state)
+        command.setReply(reply)
 
     def determineFilter(self):
         return '1'

@@ -86,7 +86,7 @@ class SlitController(Agent):
             statusB=self.shoeAgentB_Connection.receiveMessageBlocking()
         except IOError:
             statusB='ShoeAgentR Offline'
-        status=("Closed-loop:%s\rShoeA:%s\rShoeB:%s" %
+        status=("Closed-loop:%s\r%s\r%s" %
             ('On' if self.closed_loop else 'Off', statusR, statusB))
         reply='%s: %s %s' % (self.get_version_string(), self.cookie, status)
         command.setReply(reply)

@@ -1,10 +1,10 @@
 #!/usr/bin/env python2.7
-import sys, time, socket, os
+import sys, socket, os
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 import SelectedConnection
-from command import Command
 from m2fsConfig import m2fsConfig
+import PyNUT
 
 DIRECTOR_VERSION_STRING='Director v0.5'
 
@@ -375,7 +375,14 @@ class Director(Agent):
         requests to each agent. If an agent doesnt respond report it's status as 
         unknown. TODO make the agent name reported meaningful to the end used.
         """
-        reply='%s: %s\r' % (self.get_version_string(),self.cookie)
+        try:
+            nut=PyNUT.PyNUTClient(login="monitor", password="1")
+            upsstate=nut.GetUPSVars('myups')
+            batstate=('Battery: %s Runtime (s): %s ' %
+                      (upsstate['ups.status'], upsstate['battery.runtime']) )
+        except Exception:
+            batstate='Battery: UNKNOWN'
+        reply='%s: %s %s\r' % (self.get_version_string(),self.cookie, batstate)
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')

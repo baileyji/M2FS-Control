@@ -1,14 +1,10 @@
 #!/usr/bin/env python2.7
-import sys, time
+import sys
 sys.path.append(sys.path[0]+'/../lib/')
-import argparse
-import logging
-import logging.handlers
-from agent import Agent
-sys.path.append('../lib/')
 import SelectedConnection
-from command import Command
+from agent import Agent
 
+SHACKHARTMAN_AGENT_VERSION_STRING='Shack-Hartman Agent v0.2'
 
 class LEDserial(SelectedConnection.SelectedSerial):
     def _postConnect(self):
@@ -22,6 +18,8 @@ class LEDserial(SelectedConnection.SelectedSerial):
 class ShackHartmanAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'ShackHartmanAgent')
+        #Allow two connections so the datalogger agent can poll for temperature
+        self.max_clients=2
         self.shled=LEDserial('/dev/shLED', 115200)
         self.shlenslet=SelectedConnection.SelectedSerial('/dev/shLenslet', 115200)
         self.devices.append(self.shlenslet)
@@ -32,11 +30,8 @@ class ShackHartmanAgent(Agent):
             'SHLENS':self.SHLENS_command_handler,
             'TEMP':self.TEMP_command_handler})
     
-    def listenOn(self):
-        return ('localhost', self.PORT)
-
     def get_version_string(self):
-        return 'Shack-Hartman Agent Version 0.1'
+        return SHACKHARTMAN_AGENT_VERSION_STRING
     
     def SHLED_command_handler(self, command):
         """ Handle geting/setting the LED illumination value """
@@ -88,8 +83,11 @@ class ShackHartmanAgent(Agent):
             ledStatus='%i' % self.shledValue
         except IOError:
             ledStatus='ERROR'
-        command.setReply('Lenslet:%s Led:%s Temp:%s Err:%s' %
+        state=('Lenslet:%s Led:%s Temp:%s Err:%s' %
                          (lensStatus, ledStatus, temp, err))
+        name=SHACKHARTMAN_AGENT_VERSION_STRING
+        reply='%s: %s %s' % (name, self.cookie, state)
+        command.setReply(reply)
     
     def getErrorStatus(self):
         """

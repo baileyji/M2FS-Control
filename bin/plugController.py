@@ -4,9 +4,10 @@ sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
 from agent import Agent
-from command import Command
 from plate import Plate
 from m2fsConfig import m2fsConfig
+
+PLUG_CONTROLLER_VERSION_STRING='Plugging Controller v0.1'
 
 def getListOfPlateFiles(dir):
     try:
@@ -109,31 +110,34 @@ class PlateManager(threading.Thread):
 class PlugController(Agent):
     def __init__(self):
         Agent.__init__(self,'PlugController')
-        self.max_clients=1
-        #self.agent_ports=m2fsConfig.getAgentPorts()
-        
         #Watch for platefiles
         platefile_path=m2fsConfig.getPlateDirectory()
         self.plateManager=PlateManager(platefile_path)
         self.plateManager.start()
         self.active_plate=Plate(None)
         self.command_handlers.update({
-            """ Return a list of all known plates """
+            #Return a list of all known plates
             'PLATELIST': self.PLATELIST_command_handler,
-            """ Get/set the current plate, setting returns number of setups """
+            #Get/set the current plate, setting returns number of setups
             'PLATE': self.PLATE_command_handler,
-            """ Get/Set the setup on the current plate """
+            #Get/Set the setup on the current plate
             'PLATESETUP': self.PLATESETUP_command_handler,
-            """ Return a list of plate hole IDs for all 256 fibers, ordered """
+            #Return a list of plate hole IDs for all 256 fibers, ordered
             'PLUGPOS': self.PLUGPOS_command_handler,
-            """ Enter/Leave plugging mode """ 
+            #Enter/Leave plugging mode
             'PLUGMODE': self.PLUGMODE_command_handler})
     
-    def listenOn(self):
-        return ('localhost', self.PORT)
-    
     def get_version_string(self):
-        return 'Plugging Controller Version 0.1'
+        return PLUG_CONTROLLER_VERSION_STRING
+    
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return "This is the M2FS Plugplate manager & plugging controller"
     
     def PLATELIST_command_handler(self, command):
         """

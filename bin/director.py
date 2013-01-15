@@ -7,6 +7,7 @@ from m2fsConfig import m2fsConfig
 import PyNUT
 
 DIRECTOR_VERSION_STRING='Director v0.5'
+LINUX_SHUTDOWN_COMMAND='/usr/local/ups/sbin/upsmon -c fsd'
 
 class Director(Agent):
     """
@@ -196,7 +197,7 @@ class Director(Agent):
         """
         m2fsConfig.disableStowedShutdown()
         command.setReply('OK')
-        os.system('upsmon -c fsd')
+        os.system(LINUX_SHUTDOWN_COMMAND)
     
     def stowedshutdown_command_handler(self, command):
         """
@@ -217,7 +218,7 @@ class Director(Agent):
         """
         m2fsConfig.enableStowedShutdown()
         command.setReply('OK')
-        os.system('upsmon -c fsd')
+        os.system(LINUX_SHUTDOWN_COMMAND)
     
     def cradlestate_command_handler(self, command):
         """

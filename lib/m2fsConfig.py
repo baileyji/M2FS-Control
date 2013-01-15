@@ -38,7 +38,8 @@ class m2fsConfig:
     @staticmethod
     def disableStowedShutdown():
         """ Disable Stowed Shutdown """
-        os.system('rm /var/run/M2FS_do_stowed_shutdown')
+        if os.path.exists('/var/run/M2FS_do_stowed_shutdown'):
+            os.system('rm /var/run/M2FS_do_stowed_shutdown')
     
     @staticmethod
     def enableStowedShutdown():

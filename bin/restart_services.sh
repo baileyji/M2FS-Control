@@ -13,4 +13,5 @@ systemctl restart galilB.service
 systemctl restart slitController.service
 systemctl restart shackhartman.service
 systemctl restart plugController.service
+systemctl restart guider.service
 systemctl restart director.service

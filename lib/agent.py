@@ -373,8 +373,15 @@ class Agent(object):
         Handle a status request, reply with version & cookie
         
         Agents will generally override this command handler
+        Staus responses shall be in the form of Key:value paiars, with the
+        first pair the name of the agent with version and the value the agent's
+        cookie. Keys and values must use _ in lieu of spaces. Pairs are to be 
+        seperated by spaces. Any \r or \n in the response should be escaped, 
+        except for when joining status responses of child agents, in which case
+        they are to be seperated by a \r.
         """
-        command.setReply('%s: %s' % (self.get_version_string(), self.cookie))
+        reply='%s:%s' % (self.get_version_string(), self.cookie)
+        command.setReply(reply.replace(' ','_'))
     
     def do_select(self):
         """

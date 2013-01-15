@@ -1,0 +1,4 @@
+Copy new plates into this directory to send them to M2FS. Valid
+plate files will be moved into the plates directory. Invalid plate
+files will be moved to the rejected directory. Files that are not 
+plate files or are larger than 1MB will be summarily deleted. 

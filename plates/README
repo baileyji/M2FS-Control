@@ -1,0 +1,5 @@
+This directory contains all of the valid plate files that have been
+uploaded to M2FS via the upload directory. Place new plate files into the
+upload directory. They will be vetted and moved into this directory or 
+the rejected directory. If a plate file has the same name as an existing plate
+file it will be rejected.

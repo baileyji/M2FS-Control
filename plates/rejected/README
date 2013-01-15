@@ -1,0 +1,8 @@
+Any uploaded plates that are contain invalid syntax
+will be moved from the upload directory into this directory.
+
+sample.plate may be used as a reference to find syntax errors
+in your files.
+
+The folder is read only so we have a log of what sort of file
+errors we get.

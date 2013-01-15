@@ -27,8 +27,6 @@ class Director(Agent):
         processing them when self.main() is called
         """
         Agent.__init__(self,'Director')
-        #Disable stowed shutdown by default
-        m2fsConfig.disableStowedShutdown()
         #Fetch the agent ports
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
@@ -67,13 +65,13 @@ class Director(Agent):
             #
             #Notify the instrument the GUI is about to close """
             'GUICLOSING':self.guiclose_command_handler,
-            #Shut the instrument down, all axes move to stowed positions
+            #Shut the instrument down
             'SHUTDOWN':self.shutdown_command_handler,
+            #Shut the instrument down, moving all axes to stowed positions
+            'STOWEDSHUTDOWN': self.stowedshutdown_command_handler,
             #Enable/Disable plugging mode.
             #Involves GalilAgents, PlugController, & SlitController.
             'PLUGMODE': self.plugmode_command_handler,
-            #Enable/Disable Stowed shutdown
-            'STOWEDSHUTDOWN': self.stowedshutdown_command_handler,
             #Report the state of the cradles
             'CRADLESTATE': self.cradlestate_command_handler,
             #Galil Agent (R & B) Commands
@@ -189,13 +187,14 @@ class Director(Agent):
         Start instrument power down
         
         Initiate what Network UPS Tools calls a forced shutdown
-        upsmon should start the norma systemd shutdown procedure
+        upsmon should start the normal systemd shutdown procedure
         and then, after systemd indicates ready to power off (which entails
         waiting for all agents to shutdown,
         instruct the UPS to kill the load, disabling power to the instrument.
         The instrument power button must be pressed to start it back
         TODO: TEST AND VERIFY FUNCTIONALITY
         """
+        m2fsConfig.disableStowedShutdown()
         command.setReply('OK')
         os.system('upsmon -c fsd')
     
@@ -203,21 +202,22 @@ class Director(Agent):
         """
         Enable/Disable/Query Stowed shutdown
         
-        Default is set in __init__. If enabled, when the instrument is powered
-        down, whether by the UPS or by user command every agent's
-        _stowedShutdown hook will be called. If an individual agent is killed
-        (barring SIGKILL) that agent will call its stowed shutdown hook. 
+        Initiate what Network UPS Tools calls a forced shutdown
+        upsmon should start the normal systemd shutdown procedure
+        and then, after systemd indicates ready to power off (which entails
+        waiting for all agents to shutdown,
+        instruct the UPS to kill the load, disabling power to the instrument.
+        The instrument power button must be pressed to start it back
+        
+        In addition the the stowed shutdown flag is set, which will result in
+        every agent calling its _stowedShutdown hook as it shuts down.
+        TODO: Test that power stays on for long enough for everything to close 
+        out. TODO make sure the systemd timeouts for exiting agents are long 
+        enough 
         """
-        if '?' in command.string:
-            command.setReply('ON' if m2fsConfig.doStowedShutdown() else 'OFF')
-        elif 'ON' in command.string and 'OFF' not in command.string:
-            m2fsConfig.enableStowedShutdown()
-            command.setReply('OK')
-        elif 'OFF' in command.string and 'ON' not in command.string:
-            m2fsConfig.disableStowedShutdown()
-            command.setReply('OK')
-        else:
-            self.bad_command_handler(command)
+        m2fsConfig.enableStowedShutdown()
+        command.setReply('OK')
+        os.system('upsmon -c fsd')
     
     def cradlestate_command_handler(self, command):
         """

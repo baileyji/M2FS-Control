@@ -4,7 +4,7 @@ sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
 
-GUIDER_AGENT_VERSION_STRING='Guider Agent v-0.1'
+GUIDER_AGENT_VERSION_STRING='Guider Agent v0.1'
 
 class GuiderAgent(Agent):
     def __init__(self):
@@ -19,7 +19,7 @@ class GuiderAgent(Agent):
 
     def get_version_string(self):
         """ Return a string with the version."""
-        return SHACKHARTMAN_AGENT_VERSION_STRING
+        return GUIDER_AGENT_VERSION_STRING
     
     def get_cli_help_string(self):
         """

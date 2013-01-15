@@ -134,7 +134,7 @@ class ShackHartmanAgent(Agent):
             except ValueError:
                 self.bad_command_handler(command)
             except IOError, e:
-                command.setReply('ERROR: %s' % str(e))
+                command.setReply('ERROR: LED Disconnected')
     
     def SHLENS_command_handler(self, command):
         """ 
@@ -150,7 +150,7 @@ class ShackHartmanAgent(Agent):
             command.setReply(position)
         else:
             err=self.getErrorStatus()
-            if err !='0x0':
+            if err !=NO_POLOLU_ERRORS:
                 command.setReply('ERROR: %s' % err)
             else:
                 #See simple_motor_controllers.pdf p64-65 for commands
@@ -165,8 +165,8 @@ class ShackHartmanAgent(Agent):
                         command.setReply('OK')
                     else:
                         self.bad_command_handler(command)
-                except IOError, e:
-                    command.setReply('ERROR: %s' % e)
+                except IOError:
+                    command.setReply('ERROR: Lenslet Disconnected')
     
     def TEMP_command_handler(self, command):
         """ Report the temp of the lenslet controller in deg C, below 0 = 0 """
@@ -176,9 +176,8 @@ class ShackHartmanAgent(Agent):
         """ 
         Report the status of the SH systems
         
-        Report the Key:Value pairs Lenslet:position, Led:value, & Temp:value 
-        pairs. If there is an error reported by the lenslet controler it will be 
-        included in an LensletError:value pair. 
+        Report the Key:Value pairs Lenslet:position, Led:value, Temp:value, &
+        ErrByte:value pairs.
         """
         lensStatus=self.determineLensletPosition()
         temp=self.getTemp()
@@ -187,10 +186,14 @@ class ShackHartmanAgent(Agent):
             self.shled.sendMessage(chr(self.shledValue))
             ledStatus='%i' % self.shledValue
         except IOError:
-            ledStatus='Disconnected'
-        state=('Lenslet:%s Led:%s Temp:%s' %
-                         (lensStatus, ledStatus, temp))
-        reply='%s:%s %s' % (self.get_version_string(), self.cookie, state)
+            ledStatus='LED Disconnected'
+        lensStatus=('Lenslet:%s' % lensStatus).replace(' ','_')
+        ledStatus=('Led:%s' % ledStatus).replace(' ','_')
+        tempStatus=('Temp:%s' % temp).replace(' ','_')
+        errStatus=('ErrByte:%s' % err).replace(' ','_')
+        name=('%s:%s' % (self.get_version_string(), self.cookie))
+        reply=('%s %s %s %s %s' % (name, lensStatus,
+                ledStatus, tempStatus, errStatus))
         command.setReply(reply)
     
     def getErrorStatus(self):
@@ -212,9 +215,9 @@ class ShackHartmanAgent(Agent):
             err='0x{0:02x}'.format(convertUnsigned16bit(response) & ERROR_BITS)
             return err
         except IOError:
-            return 'ERROR: IOError'
+            return 'ERROR: Lenslet Disconnected'
         except Exception:
-            return 'ERROR: Unable to parse microcontroller response'
+            return 'ERROR: Unable to parse lenslet response'
     
     def getTemp(self):
         """
@@ -239,8 +242,7 @@ class ShackHartmanAgent(Agent):
         
         responds IN, OUT, MOVING, INTERMEDIATE, or ERROR
         Queries the controller for the value of the current speed of the motor
-        and gets the error byte. If the speed in nonzero and there are no errors
-        returns MOVING.
+        and gets the error byte. If the speed in nonzero we return MOVING.
         
         Otherwise we check the values of both limits and report IN if 
         analog1 is greater than a threshold. OUT if analog2 is greater, ERROR if
@@ -256,18 +258,20 @@ class ShackHartmanAgent(Agent):
             ANALOG_THRESHOLD=1024
             self.shlenslet.sendMessageBlocking(REQUEST_MOTOR_SPEED)
             response=self.shlenslet.receiveMessageBlocking(nBytes=2)
-            err=self.getErrorStatus()
-            if convertSigned16bit(response) != 0 and err == NO_POLOLU_ERRORS:
+            if convertSigned16bit(response) != 0:
                 return 'MOVING'
             else:
                 #Check IN limit
                 self.shlenslet.sendMessageBlocking(REQUEST_ANALOG1_RAW_VALUE)
                 response=self.shlenslet.receiveMessageBlocking(nBytes=2)
-                limINtripped=convertUnsigned16bit(response)>ANALOG_THRESHOLD
+                limINValue=convertUnsigned16bit(response)
+                limINtripped=limINValue>ANALOG_THRESHOLD
                 #Check OUT limit
                 self.shlenslet.sendMessageBlocking(REQUEST_ANALOG2_RAW_VALUE)
                 response=self.shlenslet.receiveMessageBlocking(nBytes=2)
-                limOUTtripped=convertUnsigned16bit(response)>ANALOG_THRESHOLD
+                limOUTValue=convertUnsigned16bit(response)
+                limOUTtripped=limOUTValue>ANALOG_THRESHOLD
+                #Determine the state
                 if limINtripped and not limOUTtripped:
                     return 'IN'
                 elif limOUTtripped and not limINtripped:
@@ -275,11 +279,11 @@ class ShackHartmanAgent(Agent):
                 elif not limINtripped and not limOUTtripped:
                     return 'INTERMEDIATE'
                 else:
-                    return 'ERROR: Limit swtich failed'
+                    return 'ERROR: Both limits tripped'
         except IOError:
-            return 'ERROR: IOError'
+            return 'ERROR: Lenslet Disconnected'
         except ValueError:
-            return 'ERROR: Pololu did not adhere to protocol' 
+            return 'ERROR: Lenslet did not adhere to protocol' 
 
 if __name__=='__main__':
     agent=ShackHartmanAgent()

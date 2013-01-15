@@ -215,9 +215,9 @@ class ShackHartmanAgent(Agent):
             err='0x{0:02x}'.format(convertUnsigned16bit(response) & ERROR_BITS)
             return err
         except IOError:
-            return 'ERROR: Lenslet Disconnected'
+            return 'Lenslet Disconnected'
         except Exception:
-            return 'ERROR: Unable to parse lenslet response'
+            return 'Unable to parse lenslet response'
     
     def getTemp(self):
         """

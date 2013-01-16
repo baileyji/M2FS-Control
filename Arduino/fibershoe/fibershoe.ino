@@ -324,10 +324,12 @@ void shoeOnlineMain() {
     //Stress testing code
     if (stresscycles>0 && !tetris[0].moving()) {
         stresscycles--;
-        if (tetris[0].currentPosition()==stressTopP)
-            tetris[0].positionAbsoluteMove(stressBottomP);
-        else
-            tetris[0].positionAbsoluteMove(stressTopP);
+        for (char i=0;i<8;i++) {
+          if (tetris[i].currentPosition()==stressTopP)
+              tetris[i].positionAbsoluteMove(stressBottomP);
+          else
+              tetris[i].positionAbsoluteMove(stressTopP);
+        }
     }
     //Call run on each tetris
     #ifdef DEBUG_RUN_TIME
@@ -608,11 +610,9 @@ bool SLcommand() {
 
     unsigned char slit=convertCharToSlit(command_buffer[3]);
     if ( slit>6 ) return false;
-
-    bool cont=true;
-    if(axis==0) for(int i=0;i<8;i++) cont&=tetris[i].isCalibrated();
-    else cont=tetris[axis-1].isCalibrated();
-    if (!cont) return false;
+    
+    if(axis==0) for(int i=0;i<8;i++) {if (!tetris[i].isCalibrated()) return false;}
+    else if (!tetris[axis-1].isCalibrated()) return false;
 
     if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
     else if (tetris[axis-1].moving()) return false;
@@ -628,9 +628,7 @@ bool SLcommand() {
       if (slit[i]>6) return false;
     }
     
-    bool cont=true;
-    for(int i=0;i<8;i++) cont&=tetris[i].isCalibrated();
-    if (!cont) return false;
+    for(int i=0;i<8;i++) {if (!tetris[i].isCalibrated()) return false;}
     
     for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
 
@@ -694,10 +692,8 @@ bool PAcommand() {
        command_buffer[4] >='0' && command_buffer[4]<='9' ))) return false;
   long param=atol(command_buffer+3);
 
-  bool cont=false;
-  if(axis==0) for(int i=0;i<8;i++) cont&=tetris[i].isCalibrated();
-  else cont=tetris[axis-1].isCalibrated();
-  if (!cont) return false;
+  if(axis==0) for(int i=0;i<8;i++) {if (!tetris[i].isCalibrated()) return false;}
+  else if (!tetris[axis-1].isCalibrated()) return false;
   
   if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
   else if (tetris[axis-1].moving()) return false;

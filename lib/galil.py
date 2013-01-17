@@ -532,8 +532,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return "!ERROR: %s not a valid setting" % settingName
         try:
             self.connect()
-            self._send_command_to_gail('MG '+variableName)
-            val=self.receiveMessageBlocking(nBytes=20)
+            val=self._send_command_to_gail('MG '+variableName)
             if val=='':
                 val="ERROR: Galil failed to return value"
             return val

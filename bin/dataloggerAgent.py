@@ -1,15 +1,13 @@
 #!/usr/bin/env python2.7
 import sys, time, threading
 sys.path.append(sys.path[0]+'/../lib/')
-import logging
-import logging.handlers
-import atexit
 from agent import Agent
-from command import Command
 import cPickle
 import datalogger
 from m2fsConfig import m2fsConfig
 import SelectedConnection
+
+DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
 
 class DataloggerAgent(Agent):
     def __init__(self):
@@ -38,21 +36,24 @@ class DataloggerAgent(Agent):
         tempLog,accelLog=m2fsConfig.getDataloggerLogfileNames()
         self.tempsFile=open(tempLog,'a')
         self.accelsFile=open(accelLog,'a')
-
-    
-    def listenOn(self):
-        return ('localhost', self.PORT)
     
     def on_exit(self, arg):
         """Prepare to exit"""
-        #TODO close and save data file
         self.tempsFile.close()
         self.accelsFile.close()
         Agent.on_exit(self, arg)
-
     
     def get_version_string(self):
-        return 'Datalogger Agent Version 0.1'
+        return DATALOGGER_VERSION_STRING
+    
+    def get_cli_help_string(self):
+        """
+        Return a brief help string describing the agent.
+        
+        Subclasses shuould override this to provide a description for the cli
+        parser
+        """
+        return "This is the M2FS datalogger"
     
     def TEMPS_command_handler(self, command):
         """ report the current temperatures """

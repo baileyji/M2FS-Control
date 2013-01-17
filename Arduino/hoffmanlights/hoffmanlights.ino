@@ -26,19 +26,14 @@
   the end that is the begining of the arrows (data connection)--->
   
   If you have a 4-pin connection:
-  Blue = 5V
-  Red = SDI
-  Green = CKI
-  Black = GND
-  
-  If you have a split 5-pin connection:
-  2-pin Red+Black = 5V/GND
-  Green = CKI
-  Red = SDI
+  Blue = CKI
+  Red = 5V
+  Green = SDI
+  Yellow = GND
  */
 
-int SDI = 2; //Red wire (not the red 5V wire!)
-int CKI = 3; //Green wire
+int SDI = 2; 
+int CKI = 3; 
 int ledPin = 13; //On board LED
 
 #define STRIP_LENGTH 32 //32 LEDs on this strip
@@ -129,5 +124,5 @@ void post_frame (void) {
 
   //Pull clock low to put strip into reset/post mode
   digitalWrite(CKI, LOW);
-  delayMicroseconds(500); //Wait for 500us to go into reset
+  delayMicroseconds(1000); //Wait for 500us to go into reset
 }

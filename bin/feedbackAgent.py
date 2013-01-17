@@ -35,10 +35,20 @@ class FeedbackAgent(Agent):
             self.display.write('\x1F\x28\x61\x40\x00')
         except Exception, e:
             self.status['Display']='disconnected'
-
-    def status_command_handler(self, command):
-        command.setReply('%s %s'%(self.displayStatus, self.speakerStatus))
-
+    
+    def get_status_list(self):
+        """
+        Return a list of two element tuples to be formatted into a status reply
+        
+        Report the Key:Value pairs name:cookie, Display:status, &
+        Speaker:status.
+        """
+        displayStatus='Not Installed'
+        speakerStatus='Not Installed'
+        return [(self.get_version_string(),self.cookie),
+                ('Display',displayStatus),
+                ('Speaker',speakerStatus)]
+    
     def MISPLUG_command_handler(self, command):
         """ Play sound on side and display message
 

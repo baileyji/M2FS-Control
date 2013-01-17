@@ -72,24 +72,28 @@ class SlitController(Agent):
         """ Return a string with the version."""
         return SLIT_CONTROLLER_VERSION_STRING
     
-    def status_command_handler(self, command):
-        """ Report the status of the shoes """
-        #First check Red shoe for motion
+    def get_status_list(self):
+        """
+        Return a list of tuples & strings to be formatted into a status reply
+        
+        Report the Key:Value pairs name:cookie, Closed-loop:status, and the 
+        status of the shoe agents.
+        """
+        #First check Red shoe status
         try:
             self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
             statusR=self.shoeAgentR_Connection.receiveMessageBlocking()
         except IOError:
-            statusR='ShoeAgentR Offline'
-        #Then check Blue show for motion
+            statusR=('ShoeAgentR', 'Offline')
+        #Then check Blue shoe status
         try:
             self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
             statusB=self.shoeAgentB_Connection.receiveMessageBlocking()
         except IOError:
-            statusB='ShoeAgentR Offline'
-        status=("Closed-loop:%s\r%s\r%s" %
-            ('On' if self.closed_loop else 'Off', statusR, statusB))
-        reply='%s: %s %s' % (self.get_version_string(), self.cookie, status)
-        command.setReply(reply)
+            statusB=('ShoeAgentR', 'Offline')
+        return [(self.get_version_string(), self.cookie),
+                ('Closed-loop','On' if self.closed_loop else 'Off'),
+                statusR, statusB]
     
     def pass_along_command_handler(self, command):
         """ 

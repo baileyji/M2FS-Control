@@ -370,18 +370,53 @@ class Agent(object):
     
     def status_command_handler(self,command):
         """
-        Handle a status request, reply with version & cookie
+        Handle a status request
         
-        Agents will generally override this command handler
-        Staus responses shall be in the form of Key:value paiars, with the
+        Calls the get_status_list method to retrieve a list of key value tuples,
+        which are then formatted into a response per the agreed upon protocol.
+        
+        Staus responses shall be in the form of key:value pairs, with the
         first pair the name of the agent with version and the value the agent's
         cookie. Keys and values must use _ in lieu of spaces. Pairs are to be 
         seperated by spaces. Any \r or \n in the response should be escaped, 
         except for when joining status responses of child agents, in which case
         they are to be seperated by a \r.
         """
-        reply='%s:%s' % (self.get_version_string(), self.cookie)
-        command.setReply(reply.replace(' ','_'))
+        list=self.get_status_list()
+        reply=''
+        for i in list:
+            if len(i)==1:
+                reply+='\r'+i
+            else:
+                item="%s:%s" % (k.replace(':','_'), v.replace(':',' '))
+                item=item.encode('string_escape') #escape non-printable characters
+                item=replace(' ','_')
+                reply+=item
+        command.setReply()
+
+    def get_status_list(self):
+        """
+        Return a list of tuples & strings to be formatted into a status reply
+        
+        Subclasses may implement this function to avoid worrying about status 
+        command reply syntax. It is called automatically by the agent base class
+        to get the contents of the status reply.
+        
+        The tuples in the list should consist of strings and two element tuples
+        of strings only, with strings listed after the tuples. The first tuple
+        should be a two element tuple with the agent name and cookie. Subsequent
+        tuples should be two element key value pairs reporting the status of the
+        agent. The keys and values will be coerced into obeying the status
+        syntax: spaces and colons will be replaced by underscores and \r & \n 
+        will be escaped. Non printable characters will be replaced with escaped
+        hexadecimal.
+        
+        Finally single element strings are to contain the properly formatted 
+        status replies from any child agents. Provided they were obtained 
+        via the STATUS command to the child agent, they will a meet all
+        requirements.
+        """
+        return [(self.get_version_string(), self.cookie)]
     
     def do_select(self):
         """

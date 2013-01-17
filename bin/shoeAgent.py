@@ -205,9 +205,11 @@ class ShoeAgent(Agent):
         except IOError, e:
             return str(e)
     
-    def status_command_handler(self, command):
+    def get_status_list(self):
         """
-        Report the status of the shoe
+        Return a list of two element tuples to be formatted into a status reply
+        
+        Report the Key:Value pairs name:cookie, ShoeR (or B):status
         
         Status is reported as 4 bytes with the form
         Byte 1) [DontcareX5][shoeOnline][shieldIsR][shieldIsOn]
@@ -224,9 +226,8 @@ class ShoeAgent(Agent):
                 state='Shoe not responding properly to status request'
         except IOError, e:
             state='Disconnected'
-        name=self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT
-        reply='%s: %s %s' % (name, self.cookie, state)
-        command.setReply(reply)
+        return [(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT, self.cookie),
+                ('Shoe'+self.ags.SIDE, state)]
     
     def RAW_command_handler(self, command):
         """ 

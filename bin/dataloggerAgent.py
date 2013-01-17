@@ -61,10 +61,13 @@ class DataloggerAgent(Agent):
         temps=self.currentTemps.values()
         command.setReply(''.join((len(temps)*"%f ")%temps))
     
-    def status_command_handler(self, command):
-        """ report status info """
-        #TODO: compile status info
-        command.setReply('TODO: current state of the dataloggers.')
+    def get_status_list(self):
+        """
+        Return a list of two element tuples to be formatted into a status reply
+        
+        Report the Key:Value pair name:cookie
+        """
+        return [(self.get_version_string(),self.cookie)]
     
     def run(self):
         """ execute once per loop, after select has run & before command closeout """

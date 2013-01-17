@@ -47,15 +47,21 @@ class GuiderAgent(Agent):
         else:
             command.setReply('OK')
     
-    def status_command_handler(self, command):
-        """report status"""
+    def get_status_list(self):
+        """ 
+        Return a list of two element tuples to be formatted into a status reply
+        
+        Report the Key:Value pairs name:cookie, Filter:position, Focus:value,
+        & ErrByte:value pairs.
+        """
         filterStatus=self.determineFilter()
         focusStatus=self.determineFocusPosition()
         err=self.getErrorStatus()
-        state='Filter:%s Focus:%s Err:%s' % (filterStatus, focusStatus, err)
-        reply='%s: %s %s' % (self.get_version_string(), self.cookie, state)
-        command.setReply(reply)
-
+        return [(self.get_version_string(), self.cookie),
+                ('Filter',filterStatus),
+                ('Focus', focusStatus),
+                ('ErrByte', err)]
+    
     def determineFilter(self):
         return '1'
     

@@ -159,16 +159,18 @@ class GalilAgent(Agent):
         """ Return a string with the version."""
         return GALIL_AGENT_VERSION_STRING
         
-    def status_command_handler(self, command):
-        """ Report the status of the galil """
+    def get_status_list(self):
+        """
+        Return a list of two element tuples to be formatted into a status reply
+        
+        Report the Key:Value pairs name:cookie, Galil:connected.
+        """
         if self.galil.isOpen():
             state="Connected"
         else:
             state="Disconnected"
-        name=self.name+' '+GALIL_AGENT_VERSION_STRING_SHORT
-        reply='%s: %s %s' % (name, self.cookie, state)
-        command.setReply(reply)
-
+        return [(self.name+' '+GALIL_AGENT_VERSION_STRING_SHORT, self.cookie),
+                ('Galil',state)]
     
     def defaults_command_handler(self, command):
         """

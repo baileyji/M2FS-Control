@@ -8,6 +8,8 @@ import PyNUT
 
 DIRECTOR_VERSION_STRING='Director v0.5'
 LINUX_SHUTDOWN_COMMAND='/usr/local/ups/sbin/upsmon -c fsd'
+NUT_LOGIN="monitor"
+NUT_PASSWORD="1"
 
 class Director(Agent):
     """
@@ -367,31 +369,33 @@ class Director(Agent):
                 command.setReply('ERROR: Could not set pickoff position')
         else:
             self.bad_command_handler(command)
-    
-    def status_command_handler(self, command):
-        """ 
-        Report the status of all instrument subsystems 
-        
-        Return a '\r' delimited set of strings containing the results of STATUS 
-        requests to each agent. If an agent doesnt respond report it's status as 
-        unknown. TODO make the agent name reported meaningful to the end used.
+
+    def get_status_list(self):
         """
+        Report the status of all instrument subsystems
+        
+        Return a list of key:value pairs plus the status responses resulting
+        from STATUS requests to each agent. If an agent doesnt respond report 
+        it's status it is listed as Offline.
+        TODO make the agent name reported meaningful to the end used.
+        """
+        status=[(self.get_version_string(),self.cookie)]
+        #Get the battery backup state
         try:
-            nut=PyNUT.PyNUTClient(login="monitor", password="1")
+            nut=PyNUT.PyNUTClient(login=NUT_LOGIN, password=NUT_PASSWORD)
             upsstate=nut.GetUPSVars('myups')
-            batstate=('Battery: %s Runtime (s): %s ' %
-                      (upsstate['ups.status'], upsstate['battery.runtime']) )
+            status.extend([('Battery',upsstate['ups.status']),
+                           ('Runtime(s)',upsstate['battery.runtime'])])
         except Exception:
-            batstate='Battery: UNKNOWN'
-        reply='%s: %s %s\r' % (self.get_version_string(),self.cookie, batstate)
+            status.append(('Battery','Faild to query NUT for status'))
+        #Poll all the agents for their status
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')
-                statusmsg=d.receiveMessageBlocking()+'\r'
-                reply=reply+statusmsg
+                status.append(d.receiveMessageBlocking()+'\r')
             except IOError:
-                reply=reply+('%s: UNKNOWN\r' % d.addr_str())
-        command.setReply(reply)
+                status.append('%s: Offline\r' % d.addr_str())
+        return status
     
     def galil_command_handler(self, command):
         """ 

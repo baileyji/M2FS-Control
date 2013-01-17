@@ -172,12 +172,12 @@ class ShackHartmanAgent(Agent):
         """ Report the temp of the lenslet controller in deg C, below 0 = 0 """
         command.setReply(self.getTemp())
     
-    def status_command_handler(self, command):
+    def get_status_list(self):
         """ 
-        Report the status of the SH systems
+        Return a list of two element tuples to be formatted into a status reply
         
-        Report the Key:Value pairs Lenslet:position, Led:value, Temp:value, &
-        ErrByte:value pairs.
+        Report the Key:Value pairs name:cookie, Lenslet:position, Led:value, 
+        Temp:value, & ErrByte:value pairs.
         """
         lensStatus=self.determineLensletPosition()
         temp=self.getTemp()
@@ -187,14 +187,11 @@ class ShackHartmanAgent(Agent):
             ledStatus='%i' % self.shledValue
         except IOError:
             ledStatus='LED Disconnected'
-        lensStatus=('Lenslet:%s' % lensStatus).replace(' ','_')
-        ledStatus=('Led:%s' % ledStatus).replace(' ','_')
-        tempStatus=('Temp:%s' % temp).replace(' ','_')
-        errStatus=('ErrByte:%s' % err).replace(' ','_')
-        name=('%s:%s' % (self.get_version_string(), self.cookie))
-        reply=('%s %s %s %s %s' % (name, lensStatus,
-                ledStatus, tempStatus, errStatus))
-        command.setReply(reply)
+        return [(self.get_version_string(), self.cookie),
+                ('Lenslet',lensStatus),
+                ('Led', ledStatus),
+                ('Temp', temp),
+                ('ErrByte', err)]
     
     def getErrorStatus(self):
         """

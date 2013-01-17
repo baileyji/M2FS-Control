@@ -137,7 +137,7 @@ class Director(Agent):
             'SLITS_SLITPOS':self.SLITS_comand_handler,
             'SLITS_CURRENTPOS':self.SLITS_comand_handler,
             'SLITS_ACTIVEHOLD':self.SLITS_comand_handler,
-            'SLITS_MOVSTEPS':self.SLITS_comand_handler,
+            'SLITS_MOVESTEPS':self.SLITS_comand_handler,
             'SLITS_HARDSTOP':self.SLITS_comand_handler,
             #Plugging Commands
             #

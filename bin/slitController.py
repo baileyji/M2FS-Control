@@ -50,7 +50,7 @@ class SlitController(Agent):
             'SLITS_ACTIVEHOLD':self.SLITS_ACTIVEHOLD_command_handler,
             #Pass command along to appropriate shoe """
             'SLITSRAW':self.pass_along_command_handler,
-            'SLITS_MOVSTEPS':self.pass_along_command_handler,
+            'SLITS_MOVESTEPS':self.pass_along_command_handler,
             'SLITS_HARDSTOP':self.pass_along_command_handler,
             'SLITS_SLITPOS':self.pass_along_command_handler,
             'SLITS_CURRENTPOS':self.pass_along_command_handler})
@@ -106,7 +106,7 @@ class SlitController(Agent):
         RorB,junk,args=args.partition(' ')
         #Verify that it is ok to pass the command along
         if (self.closed_loop and self.closedLoopMoveInProgress and
-            command_name in ['SLITS_HARDSTOP','SLITS_MOVSTEPS']):
+            command_name in ['SLITS_HARDSTOP','SLITS_MOVESSTEPS']):
             command.setReply('ERROR: Closed loop move in progress.')
         else:
             if RorB!='R' and RorB !='B':

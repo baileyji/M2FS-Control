@@ -560,7 +560,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.connect()
             self._update_executing_threads_and_commands()
             #Check to see if the command is blocked
-            if self._command_class_blocked(settingNameCommandClasses[settingName]):
+            if self._command_class_blocked(
+                self.settingNameCommandClasses[settingName]):
                 return "ERROR: Command is blocked. Try again later."
             self._send_command_to_gail('%=%s' % (variableName, value))
             self.config[settingName]=value

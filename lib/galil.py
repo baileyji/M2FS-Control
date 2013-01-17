@@ -562,7 +562,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             if self._command_class_blocked(
                 self.settingNameCommandClasses[settingName]):
                 return "ERROR: Command is blocked. Try again later."
-            self._send_command_to_gail('%=%s' % (variableName, value))
+            self._send_command_to_gail('%s=%s' % (variableName, value))
             self.config[settingName]=value
             m2fsConfig.setGalilDefaults(self.SIDE, config)
             return 'OK'

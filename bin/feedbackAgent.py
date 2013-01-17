@@ -1,23 +1,12 @@
 #!/usr/bin/env python2.7
-import time
-import argparse
-import socket
-import signal
-import logging
-import logging.handlers
-import atexit
 import serial
 import sys
-import select
 sys.path.append('../lib/')
 import SelectedConnection
 from agent import Agent
-from command import Command
+from m2fsConfig import m2fsConfig
 
-MAX_CLIENTS=1
-
-import termios
-
+FEEDBACK_AGENT_VERSION_STRING='Feedback Agent Version 0.1'
 
 class FeedbackAgent(Agent):
     def __init__(self):
@@ -25,21 +14,20 @@ class FeedbackAgent(Agent):
         #Initialize the shoe
         self.misplugAudioFile=m2fsConfig.getMisplugAudioFilename()
         self.status='OK'
-        self.max_clients=1
         self.misplug_messages={}
-        self.command_handlers.update({'MISPLUG':self.MISPLUG_command_handler}
-                    'DISPLAYOFF':self.DISPLAYOFF_command_handler)
+        self.command_handlers.update(
+                    {'MISPLUG':self.MISPLUG_command_handler,
+                     'DISPLAYOFF':self.DISPLAYOFF_command_handler})
         try:
             self.display=serial.Serial('/dev/pluggingDisplay', 115200)
             self.display.write('\x14') #cursor off
             # Set brightness to 200% (25-200% set by changing final byte from 1-8)
             self.display.write('\x1F\x58\x08')
-            
-    def listenOn(self):
-        return ('localhost', self.PORT)
+        except Exception:
+            pass
     
     def get_version_string(self):
-        return 'Feedback Agent Version 0.1'
+        return FEEDBACK_AGENT_VERSION_STRING
     
     def DISPLAYOFF_command_handler(self, command):
         command.setReply('OK')
@@ -68,7 +56,6 @@ class FeedbackAgent(Agent):
         if len(command_parts) != 2 and len(command_parts) < 4:
             self.bad_command_handler(command)
             return
-            
         if len(command_parts) == 2:
             self.misplug_messages.pop(command_parts[1],None)
             self.update_display_text()
@@ -88,7 +75,7 @@ class FeedbackAgent(Agent):
         """ Show the current misplug info on the display """
         self.display.write('\x1F\x28\x61\x40\x01') #display on
         self.display.sendMessageBlocking('\x0C') #cursor home
-        self.display.sendMessageBlocking(''.join(self.misplug_messages.values())
+        self.display.sendMessageBlocking(''.join(self.misplug_messages.values()))
     
     def play_misplug(self, pan):
         """ TODO: Play misplug sound with pan setting """
@@ -109,6 +96,7 @@ class FeedbackAgent(Agent):
         s.close()
         dsp.write(data)
         dsp.close()
+
 
 if __name__=='__main__':
     agent=FeedbackAgent()

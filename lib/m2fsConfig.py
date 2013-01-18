@@ -146,7 +146,7 @@ class m2fsConfig:
         Takes a setting name string and a string value.
         """
         #Get a dict with all the settings
-        defaults=getGalilDefaults(side)
+        defaults=m2fsConfig.getGalilDefaults(side)
         #Update/Add the value of the setting
         defaults[setting]=value
         #Update the defaults file

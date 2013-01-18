@@ -101,8 +101,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
         SelectedConnection.SelectedSerial.__init__(self,*args,**kwargs)
-        #TODO what is this for again
-        self.config={}
         #If we've sucessfully connected, go ahead and initialize the galil
         # see the command for what this means
         if self.isOpen():
@@ -543,12 +541,13 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         Set a new value for galil setting
         
-        make sure we are connected and update the currently executing threads
+        make sure we are connected, initialized, and update the currently
+        executing threads
         ensure the setting is a real setting
         ensure the setting isn't blocked by an executing thread
             return error message if so
-        Set the new value on the galil, in the config dict, and with m2fsConfig
-        No provision is made to ensure the value is suitable
+        Set the new value on the galil and with m2fsConfig
+        CAUTION: No provision is made to ensure the value is suitable
         return 'OK'
         """
         try:
@@ -557,14 +556,14 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return "!ERROR: %s not a valid setting" % settingName
         try:
             self.connect()
+            self._initialize_galil()
             self._update_executing_threads_and_commands()
             #Check to see if the command is blocked
             if self._command_class_blocked(
                 self.settingNameCommandClasses[settingName]):
                 return "ERROR: Command is blocked. Try again later."
             self._send_command_to_gail('%s=%s' % (variableName, value))
-            self.config[settingName]=value
-            m2fsConfig.setGalilDefaults(self.SIDE, self.config)
+            m2fsConfig.setGalilDefault(self.SIDE, settingName, value)
             return 'OK'
         except IOError, e:
             return str(e)

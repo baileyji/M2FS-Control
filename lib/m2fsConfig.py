@@ -122,9 +122,34 @@ class m2fsConfig:
         """ 
         Write the Galil defaults for side to the config galil file
         
-        Takes a dict settings. Any settings in the file, but not in the dict
-        WILL be erased. 
+        Takes a dictionary of settings. Any settings in the file but not in the
+        dict WILL be erased.
         """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.add_section('Defaults')
+        if side=='B':
+            file='m2fs_galilB.conf'
+        else:
+            file='m2fs_galilR.conf'
+        with open(m2fsConfig.getConfDir()+file,'w') as configfile:
+            for setting, value in defaults.items():
+                config.set('Defaults', setting, value)
+            config.write(configfile)
+            configfile.close()
+
+    @staticmethod
+    def setGalilDefault(side, setting, value):
+        """
+        Write the Galil default setting for side to the galil config file
+        
+        Takes a setting name string and a string value.
+        """
+        #Get a dict with all the settings
+        defaults=getGalilDefaults(side)
+        #Update/Add the value of the setting
+        defaults[setting]=value
+        #Update the defaults file
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.add_section('Defaults')

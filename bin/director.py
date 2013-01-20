@@ -392,9 +392,9 @@ class Director(Agent):
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')
-                status.append(d.receiveMessageBlocking()+'\r')
+                status.append(d.receiveMessageBlocking())
             except IOError:
-                status.append('%s: Offline\r' % d.addr_str())
+                status.append('%s:Offline' % d.addr_str().replace(':','_'))
         return status
     
     def galil_command_handler(self, command):

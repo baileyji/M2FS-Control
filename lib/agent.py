@@ -17,7 +17,8 @@ class Agent(object):
     the appropriate handler.
     It sends the command responses to the source of the sommand after the
         command has completed.
-    It runs the main event loop which uses select to read and write on all agent conections, whether inbound or outbound.
+    It runs the main event loop which uses select to read and write on all agent
+    conections, whether inbound or outbound.
     
     It is my intention to make either the individual connections or the commands
         themselves into their own threads, thereby removing the necessity of the
@@ -385,14 +386,18 @@ class Agent(object):
         list=self.get_status_list()
         reply=''
         for i in list:
-            if len(i)==1:
-                reply+='\r'+i
-            else:
-                item="%s:%s" % (k.replace(':','_'), v.replace(':',' '))
-                item=item.encode('string_escape') #escape non-printable characters
-                item=replace(' ','_')
-                reply+=item
-        command.setReply()
+            try:
+                if len(i)==1:
+                    reply+='\r'+i
+                else:
+                    item="%s:%s" % (i[0].replace(':','_'), i[1].replace(':','_'))
+                    item=item.encode('string_escape') #escape non-printable
+                    reply+=item.replace(' ','_')+' '
+            except Exception, e:
+                self.logger.warning(
+                'Caught exception while processing status key,'+
+                ' check get_status_list for bugs')
+        command.setReply(reply+'\n') # incase reply is empty, shouldn't be
 
     def get_status_list(self):
         """

@@ -387,7 +387,7 @@ class Agent(object):
         reply=''
         for i in list:
             try:
-                if len(i)==1:
+                if type(i)==str:
                     reply+='\r'+i
                 else:
                     item="%s:%s" % (i[0].replace(':','_'), i[1].replace(':','_'))

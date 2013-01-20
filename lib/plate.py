@@ -1,5 +1,25 @@
-class Plate(object):
+class NullPlate(object):
+    """ This is a null plate """
+    def __init__(self):
+        self.setups={}
+        self.name='NULL'
+        
 
+class Plate(object):
+    """
+    This is the M2FS plugplate class.
+    
+    Plates are metal 
+    
+    Has members
+    setups - setups shall support use of 'name' in setups to determine is said setup exists
+    gettterSetter for active setup
+    holes
+    attributes
+    name
+    pi
+    
+    """
     @staticmethod
     def _initFromFile(plate, file):
         plate.name=None
@@ -33,9 +53,11 @@ class Plate(object):
                         else:
                             new_setup.targets.append(target)
             except IndexError:
-                raise Exception('Bad file, "%s", line %i: "%s"' % (file, i, line.replace('\n','\\n')) )
+                raise Exception('Bad file, "%s", line %i: "%s"' %
+                                (file, i, line.replace('\n','\\n')) )
             except ValueError:
-                raise Exception('Bad file, "%s", line %i: "%s"' % (file, i, line.replace('\n','\\n')) )
+                raise Exception('Bad file, "%s", line %i: "%s"' %
+                                (file, i, line.replace('\n','\\n')) )
 
     def __init__(self, file):
         if not file:
@@ -48,6 +70,10 @@ class Plate(object):
             Plate._initFromFile(self, file)
 
 class Hole(object):
+    """ This class represents a hole drilled on a fiber plugplate
+    
+    Holes have x,y,z coordinates
+    """
     def __init__(self, x, y, r, optional_tag=None):
         self.x=float(x)
         self.y=float(y)

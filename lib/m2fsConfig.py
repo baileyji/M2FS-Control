@@ -10,10 +10,10 @@ class m2fsConfig:
     disableStowedShutdown
     enableStowedShutdown
     doStowedShutdown
-    getPlateDirectory
-    getRejectDirectory
+    getPlateDir
+    getPlateRejectDir
     getMisplugAudioFilename
-    getUploadDirectory
+    getPlateUploadDir
     getPort
     getAgentPorts
     getGalilDefaults
@@ -54,7 +54,7 @@ class m2fsConfig:
         return os.path.exists('/var/run/M2FS_do_stowed_shutdown')
     
     @staticmethod    
-    def getPlateDirectory():
+    def getPlateDir():
         """ Get the platefile directory from m2fs_paths.conf """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
@@ -62,7 +62,7 @@ class m2fsConfig:
         return config.get('Directories','plateFileDir')
     
     @staticmethod
-    def getRejectDirectory():
+    def getPlateRejectDir():
         """ Get the directory for bad platefiles from m2fs_paths.conf """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
@@ -78,7 +78,7 @@ class m2fsConfig:
         return config.get('Directories','misplugSound')
     
     @staticmethod    
-    def getUploadDirectory():
+    def getPlateUploadDir():
         """ Get the directory where users upload new plates """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str

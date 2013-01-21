@@ -657,7 +657,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """ Return the disperser slide status """
         command_string="XQ#%s,%s" % ('GETGES2', '7')
         reply=self._do_status_query(command_string)
-        func=lambda x: x in ('HIRES','LORES', 'LRSWAP')
+        func=lambda x: x[:5] in ('HIRES','LORES', 'LRSWAP')
         return self._lastknownPositionWrapper('GES', reply, func)
     
     def get_foc(self):

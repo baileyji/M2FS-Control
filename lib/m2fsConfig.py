@@ -163,7 +163,7 @@ class m2fsConfig:
         #Get a dict with all the values
         positions=m2fsConfig.getGalilLastPositions(side)
         #Update/Add/remove the value of the setting
-        if axis:
+        if value:
             positions[axis]=value
         else:
             positions.pop(axis,None)

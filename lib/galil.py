@@ -100,11 +100,26 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             '4':None,'5':None,'6':None,'7':None}
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
-        SelectedConnection.SelectedSerial.__init__(self,*args,**kwargs)
+        SelectedConnection.SelectedSerial.__init__(self, 115200, timeout=0.5,
+            default_message_received_callback=self._unsolicited_galil_message_handler)
         #If we've sucessfully connected, go ahead and initialize the galil
         # see the command for what this means
         if self.isOpen():
             self._initialize_galil()
+    
+    def _unsolicited_galil_message_handler(self, message):
+        """
+        Handle any unexpected messages from the Galil
+        
+        If the message indicates a command error occured, extract the offending
+        thread, figure out the command class and set a flag so the user is 
+        notified.
+        
+        Otherwise log and ignore
+        """
+        if 'CMDERR' in message:
+            #extract the error and handle
+            pass
     
     def _postConnect(self):
         """

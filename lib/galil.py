@@ -18,9 +18,9 @@ def stringIsNumber(string):
     """ Return true iff a string casts into a float sucessfully """
     try:
         float(string)
-        return true
+        return True
     except ValueError:
-        return false
+        return False
 
 def lastknownPositionWrapper(axis, reply, replyGoodFunc):
     """

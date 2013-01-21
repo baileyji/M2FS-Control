@@ -14,6 +14,30 @@ class GalilCommandNotAcknowledgedError(IOError):
     """ Gaili fails to acknowledge a command, e.g. didn't respond with ':' """
     pass
 
+def stringIsNumber(string):
+    """ Return true iff a string casts into a float sucessfully """
+    try:
+        float(string)
+        return true
+    except ValueError:
+        return false
+
+def lastknownPositionWrapper(axis, reply, replyGoodFunc):
+    """
+    """
+    if reply is 'UNCALIBRATED':
+        try:
+            lastknown=m2fsConfig.getGalilLastPosition(self.SIDE,axis)
+            return lastknown+' LASTKNOWN'
+        except ValueError:
+            return reply
+    elif replyGoodFunc(reply):
+        m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
+        return reply
+    else:
+        m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
+        return reply
+
 class GalilSerial(SelectedConnection.SelectedSerial):
     """ 
     Galil DMC-4183 Controller Class
@@ -603,31 +627,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     # to complete. The 'OK' returned only indicates that the move has begun
     #
     # Finally,
-    
-    def stringIsNumber(string):
-        """ Return true iff a string casts into a float sucessfully """
-        try:
-            float(string)
-            return true
-        except ValueError:
-            return false
-    
-    def lastknownPositionWrapper(axis, reply, replyGoodFunc):
-        """
-        """
-        if reply is 'UNCALIBRATED':
-            try:
-                lastknown=m2fsConfig.getGalilLastPosition(self.SIDE,axis)
-                return lastknown+' LASTKNOWN'
-            except ValueError:
-                return reply
-        elif replyGoodFunc(reply):
-            m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
-            return reply
-        else:
-            m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
-            return reply
-    
     def get_filter(self):
         """ Return the current filter position """
         command_string="XQ#%s,%s" % ('GETFILT', '7')

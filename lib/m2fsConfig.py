@@ -176,7 +176,7 @@ class m2fsConfig:
         else:
             file='m2fs_galilRLastKnown.conf'
         with open(m2fsConfig.getConfDir()+file,'w') as configfile:
-            for setting, value in defaults.items():
+            for setting, value in positions.items():
                 config.set('LastKnown', setting, value)
             config.write(configfile)
             configfile.close()

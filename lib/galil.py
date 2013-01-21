@@ -22,22 +22,6 @@ def stringIsNumber(string):
     except ValueError:
         return False
 
-def lastknownPositionWrapper(axis, reply, replyGoodFunc):
-    """
-    """
-    if reply is 'UNCALIBRATED':
-        try:
-            lastknown=m2fsConfig.getGalilLastPosition(self.SIDE,axis)
-            return lastknown+' LASTKNOWN'
-        except ValueError:
-            return reply
-    elif replyGoodFunc(reply):
-        m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
-        return reply
-    else:
-        m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
-        return reply
-
 class GalilSerial(SelectedConnection.SelectedSerial):
     """ 
     Galil DMC-4183 Controller Class
@@ -625,39 +609,56 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     # which thread is to be used.
     # Note that the setting routines may start a move which takes 10s of seconds
     # to complete. The 'OK' returned only indicates that the move has begun
-    #
-    # Finally,
+
+    # First the last known position wrapper
+    def _lastknownPositionWrapper(self, axis, reply, replyGoodFunc):
+        """
+        """
+        if reply is 'UNCALIBRATED':
+            try:
+                lastknown=m2fsConfig.getGalilLastPosition(self.SIDE,axis)
+                return lastknown+' LASTKNOWN'
+            except ValueError:
+                return reply
+        elif replyGoodFunc(reply):
+            m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
+            return reply
+        else:
+            m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
+            return reply
+    
+    # Finally, the galil command wrappers
     def get_filter(self):
         """ Return the current filter position """
         command_string="XQ#%s,%s" % ('GETFILT', '7')
         reply=self._do_status_query(command_string)
         func=lambda x: x in ('1','2','3','4','5','6','7','8','9','10')
-        return lastknownPositionWrapper('FILTER', reply, func)
+        return self._lastknownPositionWrapper('FILTER', reply, func)
     
     def get_loel(self):
         """ Return the Lores Elevation """
         command_string="XQ#%s,%s" % ('GETLRTL', '7')
         reply=self._do_status_query(command_string)
-        return lastknownPositionWrapper('LREL', reply, stringIsNumber)
+        return self._lastknownPositionWrapper('LREL', reply, stringIsNumber)
     
     def get_hrel(self):
         """ Return the Hires Elevation """
         command_string="XQ#%s,%s" % ('GETHRTL', '7')
         reply=self._do_status_query(command_string)
-        return lastknownPositionWrapper('HREL', reply, stringIsNumber)
+        return self._lastknownPositionWrapper('HREL', reply, stringIsNumber)
     
     def get_hraz(self):
         """ Return the Hires azimuth """
         command_string="XQ#%s,%s" % ('GETHRAZ', '7')
         reply=self._do_status_query(command_string)
-        return lastknownPositionWrapper('HRAZ', reply, stringIsNumber)
+        return self._lastknownPositionWrapper('HRAZ', reply, stringIsNumber)
     
     def get_ges(self):
         """ Return the disperser slide status """
         command_string="XQ#%s,%s" % ('GETGES2', '7')
         reply=self._do_status_query(command_string)
         func=lambda x: x in ('HIRES','LORES', 'LRSWAP')
-        return lastknownPositionWrapper('GES', reply, func)
+        return self._lastknownPositionWrapper('GES', reply, func)
     
     def get_foc(self):
         """ Return the focus position """

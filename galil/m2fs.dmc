@@ -560,7 +560,7 @@ IF(^h=ENONE);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 IF ((^h=ENONE)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
 IF(^h=ENONE);JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
-~a=^a;IF((SC~a=2)|(SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
+~a=^a;IF((_SC~a=2)|(_SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -615,7 +615,7 @@ IF(^h=0);JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
 IF ((^h=0)&(axiscal[^a]<>true));JS#CALHMAX(^a);^h=_JS;ENDIF
 'If we are good to go, MOVE!
 IF(^h=0);JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
-~a=^a;IF((SC~a=2)|(SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
+~a=^a;IF((_SC~a=2)|(_SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -759,7 +759,7 @@ IF((-10000>^b)|(^b>10000));^h=ECRAZY;ENDIF
 ~a=^a;^b=^b+_TD~a
 'If we are good to go, MOVE!
 IF(^h=0);JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
-~a=^a;IF((SC~a=2)|(SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
+~a=^a;IF((_SC~a=2)|(_SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
 ENDIF
 'Store status
 axiserr[^a]=^h
@@ -1035,7 +1035,6 @@ EN
 #PICKFIL
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
-
 'Hope for success, force filternum to an integer
 ^h=ENONE;axiserr[FESELAX]=ENONE;^a=@INT[^a]-1
 'Check for invalid filter id

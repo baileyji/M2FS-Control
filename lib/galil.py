@@ -14,6 +14,14 @@ class GalilCommandNotAcknowledgedError(IOError):
     """ Gaili fails to acknowledge a command, e.g. didn't respond with ':' """
     pass
 
+def stringIsNumber(string):
+    """ Return true iff a string casts into a float sucessfully """
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False
+
 class GalilSerial(SelectedConnection.SelectedSerial):
     """ 
     Galil DMC-4183 Controller Class
@@ -595,54 +603,80 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return "ERROR: "+str(e)
 
     #The remaining commands are wrappers for each of the galil tasks
-    #They generate a basic command string to be sent to the galil
+    # Each generates a basic command string to be sent to the galil
     # for the motion command, the thread ID is determined later and a
     # placeholder is used, which is filled in when _do_motion_command determines
     # which thread is to be used.
     # Note that the setting routines may start a move which takes 10s of seconds
     # to complete. The 'OK' returned only indicates that the move has begun
 
+    # First the last known position wrapper
+    def _lastknownPositionWrapper(self, axis, reply, replyGoodFunc):
+        """
+        """
+        if reply is 'UNCALIBRATED':
+            try:
+                lastknown=m2fsConfig.getGalilLastPosition(self.SIDE,axis)
+                return lastknown+' LASTKNOWN'
+            except ValueError:
+                return reply
+        elif replyGoodFunc(reply):
+            m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
+            return reply
+        else:
+            m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
+            return reply
+    
+    # Finally, the galil command wrappers
     def get_filter(self):
         """ Return the current filter position """
         command_string="XQ#%s,%s" % ('GETFILT', '7')
-        return self._do_status_query(command_string)
+        reply=self._do_status_query(command_string)
+        func=lambda x: x in ('1','2','3','4','5','6','7','8','9','10')
+        return self._lastknownPositionWrapper('FILTER', reply, func)
     
     def get_loel(self):
         """ Return the Lores Elevation """
         command_string="XQ#%s,%s" % ('GETLRTL', '7')
-        return self._do_status_query(command_string)
-        
+        reply=self._do_status_query(command_string)
+        return self._lastknownPositionWrapper('LREL', reply, stringIsNumber)
+    
     def get_hrel(self):
         """ Return the Hires Elevation """
         command_string="XQ#%s,%s" % ('GETHRTL', '7')
-        return self._do_status_query(command_string)
+        reply=self._do_status_query(command_string)
+        return self._lastknownPositionWrapper('HREL', reply, stringIsNumber)
     
     def get_hraz(self):
         """ Return the Hires azimuth """
         command_string="XQ#%s,%s" % ('GETHRAZ', '7')
-        return self._do_status_query(command_string)
+        reply=self._do_status_query(command_string)
+        return self._lastknownPositionWrapper('HRAZ', reply, stringIsNumber)
+    
+    def get_ges(self):
+        """ Return the disperser slide status """
+        command_string="XQ#%s,%s" % ('GETGES2', '7')
+        reply=self._do_status_query(command_string)
+        func=lambda x: x[:5] in ('HIRES','LORES', 'LRSWAP')
+        return self._lastknownPositionWrapper('GES', reply, func)
     
     def get_foc(self):
         """ Return the focus position """
         command_string="XQ#%s,%s" % ('GETFOC', '7')
         return self._do_status_query(command_string)
     
-    def get_ges(self):
-        """ Return the disperser slide status """
-        command_string="XQ#%s,%s" % ('GETGES2', '7')
-        return self._do_status_query(command_string)
-        
     def get_flsim(self):
         """ Return the FLS imager pickoff position """
         command_string="XQ#%s,%s" % ('GETFLSI', '7')
         return self._do_status_query(command_string)
-        
+    
     def set_filter(self, filter):
         """ Select a filter position """
         if filter not in ['1','2','3','4','5','6','7','8','9','10']:
             return '!ERROR: Valid fliter choices are 1-10. 9=None 10=load.'
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'FILTER', None)
         return self._do_motion_command(command_class, command_string)
     
     def set_loel(self, position):
@@ -653,6 +687,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Lores elevation must be specified as an integer.'
         command_class='LREL'
         command_string="a[<threadID>]=%s;XQ#SETLRTL,<threadID>" % position
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         return self._do_motion_command(command_class, command_string)
         
     def set_hrel(self, position):
@@ -663,6 +698,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Hires elevation must be specified as an integer.'
         command_class='HREL'
         command_string="a[<threadID>]=%s;XQ#SETHRTL,<threadID>" % position
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
         return self._do_motion_command(command_class, command_string)
     
     def set_hraz(self, position):
@@ -673,6 +709,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Hires azimuth must be specified as an integer.'
         command_class='HRAZ'
         command_string="a[<threadID>]=%s;XQ#SETHRAZ,<threadID>" % position
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
         return self._do_motion_command(command_class, command_string)
     
     def set_foc(self, position):
@@ -694,6 +731,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         else:
             command_class='GES'
         command_string="XQ#%s,<threadID>" % position
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)
     
     def insert_filter(self, *args):
@@ -705,6 +743,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         command_class='FILTER'
         command_string="XQ#INFESIN,<threadID>"
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'FILTER', None)
         return self._do_motion_command(command_class, command_string)
     
     def remove_filter(self, *args):
@@ -716,6 +755,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         command_class='FILTER'
         command_string="XQ#RMFESIN,<threadID>"
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'FILTER', None)
         return self._do_motion_command(command_class, command_string)
     
     def insert_flsim(self, *args):
@@ -734,24 +774,28 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """ Force calibration of the Lores elevation axis """
         command_class='LREL'
         command_string="XQ#CALLRT,<threadID>"
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         return self._do_motion_command(command_class, command_string)
         
     def calibrate_hrel(self, *args):
         """ Force calibration of the Hires elevation axis """
         command_class='HREL'
         command_string="XQ#CALHRTL,<threadID>"
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_hraz(self, *args):
         """ Force calibration of the Hires azimuth axis """
         command_class='HRAZ'
         command_string="XQ#CALHRAZ,<threadID>"
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_ges(self, *args):
         """ Force calibration of the disperser slide """
         command_class='GES'
         command_string="XQ#CALGES,<threadID>"
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)
     
     def nudge_ges(self, amount):
@@ -762,4 +806,5 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: GES nudge amount must be specified as an integer.'
         command_class='GES'
         command_string="a[<threadID>]=%s;XQ#NUDGGES,<threadID>" % amount
+        m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)

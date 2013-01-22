@@ -218,7 +218,7 @@ class m2fsConfig:
         Raise ValueError if no recorded positon for axis
         """
         try:
-            return m2fs.getGalilLastPositions(side)[axis]
+            return m2fsConfig.getGalilLastPositions(side)[axis]
         except KeyError:
             raise ValueError
     

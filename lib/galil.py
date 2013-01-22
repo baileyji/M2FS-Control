@@ -39,6 +39,14 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     changing a parameter with the same class would be blocked. The classes are
     FOCUS, FILTER, FLSIM, LREL, HREL, HRAZ, GES, & SHUTDOWN.
     
+    The class maintains the last known position of the lores elevation,
+    hires elevation, hires azimuth, and ges disperser slide, provided no errors
+    are encountered as a convenience to the observer. When one of these axes
+    is uncalibrated and reports as such the last known position will be reported
+    as normal with the string 'LASTKNOWN' appended. The position is only updated
+    when explicitly queired and is removed both whenever any response other than
+    uncalibrated is received and when a motion is started.
+    
     General flow is:
         initialize attributes
         initialize the SelectedSerial superclass
@@ -460,6 +468,39 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.thread_command_map.items())
         return blockingThreads!=[]
     
+    def _lastknownPositionWrapper(self, axis, reply, replyGoodFunc):
+        """
+        Process reply from status query for last known position monitoring
+        
+        Arguments
+        1)The axis for the position query reply being checked:
+        'LREL', 'HREL', 'HRAZ', or 'GES'
+        2) The reply string from the status query to the galil.
+        3) A function of one argument that returns true iff the reply string
+        reports a position that should be considered the 'last known' position
+        of the axis
+        
+        If the reply is the string UNCALIBRATED then, if available, the
+        last know position is retrieved from disk and returned with LASTKNOWN
+        appended. If not available then the raw reply is returned.
+        Otherwise, if replyGoodFunc(reply) evaluates to true then the last known
+        position for the specifed axis is updated on disk. If the function
+        evaluates to false then the lask known position is cleared. For both of
+        the latter cases reply is returned unmodified.
+        """
+        if reply=='UNCALIBRATED':
+            try:
+                lastknown=m2fsConfig.getGalilLastPosition(self.SIDE, axis)
+                return lastknown+' LASTKNOWN'
+            except ValueError:
+                return reply
+        elif replyGoodFunc(reply):
+            m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
+            return reply
+        else:
+            m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
+            return reply
+    
     def check_abort_switch(self):
         """ Return true if abort switch engaged """
         try:
@@ -515,6 +556,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         commands.        
         """
         try:
+            m2fsConfig.clearGalilLastPositions(self.SIDE)
             self._send_command_to_gail('HX3;XQ#SHTDWN,3')
             return 'OK'
         except IOError, e:
@@ -601,7 +643,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except IOError, e:
             self.logger.error(str(e))
             return "ERROR: "+str(e)
-
+    
     #The remaining commands are wrappers for each of the galil tasks
     # Each generates a basic command string to be sent to the galil
     # for the motion command, the thread ID is determined later and a
@@ -609,31 +651,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     # which thread is to be used.
     # Note that the setting routines may start a move which takes 10s of seconds
     # to complete. The 'OK' returned only indicates that the move has begun
-
-    # First the last known position wrapper
-    def _lastknownPositionWrapper(self, axis, reply, replyGoodFunc):
-        """
-        """
-        if reply is 'UNCALIBRATED':
-            try:
-                lastknown=m2fsConfig.getGalilLastPosition(self.SIDE,axis)
-                return lastknown+' LASTKNOWN'
-            except ValueError:
-                return reply
-        elif replyGoodFunc(reply):
-            m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
-            return reply
-        else:
-            m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
-            return reply
-    
-    # Finally, the galil command wrappers
     def get_filter(self):
         """ Return the current filter position """
         command_string="XQ#%s,%s" % ('GETFILT', '7')
-        reply=self._do_status_query(command_string)
-        func=lambda x: x in ('1','2','3','4','5','6','7','8','9','10')
-        return self._lastknownPositionWrapper('FILTER', reply, func)
+        return self._do_status_query(command_string)
     
     def get_loel(self):
         """ Return the Lores Elevation """
@@ -676,7 +697,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Valid fliter choices are 1-10. 9=None 10=load.'
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'FILTER', None)
         return self._do_motion_command(command_class, command_string)
     
     def set_loel(self, position):
@@ -728,10 +748,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: %s is not one of HIRES, LORES, or LRSWAP' % position
         if 'LRSWAP' in position:
             command_class='GES LREL'
+            m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
+            m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         else:
             command_class='GES'
+            m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         command_string="XQ#%s,<threadID>" % position
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)
     
     def insert_filter(self, *args):
@@ -743,7 +765,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         command_class='FILTER'
         command_string="XQ#INFESIN,<threadID>"
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'FILTER', None)
         return self._do_motion_command(command_class, command_string)
     
     def remove_filter(self, *args):
@@ -755,7 +776,6 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         command_class='FILTER'
         command_string="XQ#RMFESIN,<threadID>"
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'FILTER', None)
         return self._do_motion_command(command_class, command_string)
     
     def insert_flsim(self, *args):

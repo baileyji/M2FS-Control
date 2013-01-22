@@ -18,6 +18,10 @@ class m2fsConfig:
     getAgentPorts
     getGalilDefaults
     setGalilDefaults
+    setGalilLastPosition
+    clearGalilLastPositions
+    getGalilLastPositions
+    getGalilLastPosition
     getDataloggerLogfileNames
     """
     def __init__(self):
@@ -182,8 +186,18 @@ class m2fsConfig:
             configfile.close()
     
     @staticmethod
+    def clearGalilLastPositions(side):
+        """ Clear the recorded axis positions from the temp file """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.add_section('LastKnown')
+        with open(m2fsConfig.getConfDir()+file,'w') as configfile:
+            config.write(configfile)
+            configfile.close()
+    
+    @staticmethod
     def getGalilLastPositions(side):
-        """ Get dict of galil last known positions for galil R or B per side """
+        """ Get dict of last known galil positions for the R or B side """
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         if side=='B':
@@ -207,7 +221,7 @@ class m2fsConfig:
             return m2fs.getGalilLastPositions(side)[axis]
         except KeyError:
             raise ValueError
-
+    
     @staticmethod
     def getDataloggerLogfileNames():
         """

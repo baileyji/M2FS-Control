@@ -68,15 +68,17 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             if a parameter is changed, update it on the galil and in the conf
             file (via m2fsConfig
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, device, side):
         """
         Initialize the Galil object
         
-        Requires keyword argument SIDE to indicate which M2FS galil we are working
+        Requires argument side to indicate which M2FS galil we are working
         with ('R' or 'B') 
         Additional rguments are as defined in SelectedSerial
         """
-        self.SIDE=kwargs.pop('SIDE')
+        if side !='R' and side !='B':
+            raise ValueError('Side must be R or B')
+        self.SIDE=side
         #Register setting name to galil parameter map
         # It is done this way because we want readable parameter names
         # in the config file, but the galil limits us to 7 characters for
@@ -116,8 +118,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             '4':None,'5':None,'6':None,'7':None}
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
-        SelectedConnection.SelectedSerial.__init__(self, 115200, timeout=0.5,
-            default_message_received_callback=self._unsolicited_galil_message_handler)
+        SelectedConnection.SelectedSerial.__init__(self, device, 115200,
+            timeout=0.5, default_message_received_callback=
+                                        self._unsolicited_galil_message_handler)
         #If we've sucessfully connected, go ahead and initialize the galil
         # see the command for what this means
         if self.isOpen():

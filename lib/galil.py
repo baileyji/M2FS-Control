@@ -31,13 +31,24 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     misguided desire to abstract some stuff ouut of the galil agent.
     As is all sends and receives are performed using blocking sends and receives
     so it never really makes use of the whole Selected bit. It does get used as
-    it allows trapping of unsolicited messages from the galil, which would
-    otherwise clog things up. 
+    it allows trapping of unsolicited messages from the galil, which is useful
+    for trapping firmware execution errors.
+    
+    Firmware errors are trapped by setting the default_message_received_callback
+    to _unsolicited_galil_message_handler. This handler logs the unexpected 
+    message and checks the message to see if it indicates an error. If it does 
+    it sets an error flag so that the next incomming command gets a message 
+    about the error. An attempt is made to keep the error targeted to the 
+    original source, but this is not possible in all cases. (e.g. only a filter 
+    command would see an error that happend while the galil was executing filter
+    related code. See _getErrorMessage and _setErrorFlag for more info.
     
     The controller uses the concept of command classes to keep track of which
     commands block other commands. E.g. if a command in class GES is executing 
     changing a parameter with the same class would be blocked. The classes are
-    FOCUS, FILTER, FLSIM, LREL, HREL, HRAZ, GES, & SHUTDOWN.
+    FOCUS, FILTER, FLSIM, LREL, HREL, HRAZ, GES, & SHUTDOWN. UNKNOWN is used in
+    the situations where a thread is running but the specific command class is
+    not known. It blocks all command classes
     
     The class maintains the last known position of the lores elevation,
     hires elevation, hires azimuth, and ges disperser slide, provided no errors
@@ -55,6 +66,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         initialize the galil with all the user parameters stored in the 
             appropriate m2fs_galil (R|B) conf file.
         get a command
+            check for any outstanding command related or general errors
+                abort and return the error if it exists, else continue
             connect if not connected
             check what threads are running
             initialize galil if necessary (initializeg sets a parmaeter to 0
@@ -113,9 +126,21 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Initialize the dict of which commands are executing on which
         # Galil hardware threads. The first three automatically run: the galil
         # starts #AUTO at power-on and #AUTO starts #ANAMAF and #MOMONI
+        # the values are set to None if nothing is executing and a tuple
+        # consisting of the command_class and the specific command (or None if
+        # not known). In such situations where there was a command already
+        # executing on the galil but it began prior to the connection with the
+        # galil, the command_class is set to UNKNOWN and the specific command is
+        # set to None. Commands may be made to block multiple command classes by
+        # setting the first element of the tuple to a list of command class
+        # strings blocked by the command.
         self.thread_command_map={
-            '0':'AUTO','1':'ANAMAF','2':'MOMONI','3':None,
-            '4':None,'5':None,'6':None,'7':None}
+            '0':('AUTO','XQ#AUTO,0'),
+            '1':('ANAMAF','#ANAMAF'),
+            '2':('MOMONI','#MOMONI'),
+            '3':None, '4':None, '5':None, '6':None, '7':None}
+        # Error flag store
+        self.errorFlags={}
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
         SelectedConnection.SelectedSerial.__init__(self, device, 115200,
@@ -126,20 +151,87 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         if self.isOpen():
             self._initialize_galil()
     
-    def _unsolicited_galil_message_handler(self, message):
+    def _unsolicited_galil_message_handler(self, message_source, message):
         """
         Handle any unexpected messages from the Galil
         
-        If the message indicates a command error occured, extract the offending
-        thread, figure out the command class and set a flag so the user is 
-        notified.
+        The only expected uncolicited message would be caused by the #CMDERR
+        subroutine executing due to a bug in m2fs.dmc. These errors report
+        an error code (see comref.pdf, TC), the thread which encountered the
+        error, and the line number (as reported by the LS command). To obtain a
+        listing of the code run the script download_galil_code.sh.
         
-        Otherwise log and ignore
+        If the message indicates a command error occured, extract the details, 
+        figure out the command class and set a flag so the user will be notified
+        by the _getErrorMessage call.
+        
+        Command error messages take the form 
+        '#!CMDERR:ERR <#> (thread <#> line <#>):\r\n'
+        
+        If the message isn't a command error log a warning.
         """
         if 'CMDERR' in message:
-            #extract the error and handle
-            pass
+            #extract the error
+            parts=message.split()
+            errno=str(int(float(parts[1])))
+            threadno=str(int(float(parts[3])))
+            lineno,junk,junk=parts[5].partition(')')
+            lineno=str(int(float(lineno)))
+            offending_cmd_info=self.thread_command_map[threadno]
+            #Generate an error message, try to make it informative, log it
+            if errno=='22':
+                errmsg='Limit switch error while attempting '
+            else:
+                errmsg=(('Galil firmware encountered error %s on line %s' %
+                    (errno, lineno)) +' while executing ')
+            if offending_cmd_info:
+                specific_cmd_str=offending_cmd_info[1]
+                cmd_class_str=offending_cmd_info[0]
+                if specific_cmd_str:
+                    errmsg+=specific_cmd_str.replace('<threadID>',threadno)
+                elif cmd_class_str == 'UNKNOWN':
+                    errmsg+='an unknown command.'
+                else:
+                    errmsg+='a'+cmd_class_str+'command.'
+                self.logger.error(errmsg)
+            else:
+                errmsg+='a thread on which nothing was believed to be running.'
+                self.logger.critical(errmsg)
+            #Set a flag so the next time a related function is called the error
+            # is reported (if we know what was running)
+            if offending_cmd_info:
+                self._setErrorFlag(cmd_class_str, errmsg)
+        else:
+            self.logger.warning("Got unexpected, unsolicited message '%s'"
+                % message)
     
+    def _setErrorFlag(self, command_class, err):
+        """
+        Flag the specified command class for an out of band error
+        """
+        self.errorFlags[command_class]=err
+
+    def _getErrorMessage(self, command_class):
+        """
+        Return message set by _setErrorFlag for the class or raise ValueError
+        
+        If _setErrorFlag has set an error affecting the passed command class
+        then that message is returned and the error is cleared. Otherwise 
+        ValueError is raised. command_class may be a command class or a list of
+        classes. Errors specific to the command class are returned prior to 
+        general errors. If multiple classes are passed the return of errors is
+        prioritized by order. Only one error is returned per call. At most one
+        error exists for a given command class.
+        """
+        if type(command_class)==str:
+            command_class=[command_class]
+        for cclass in command_class:
+            if cclass in self.errorFlags.keys():
+                return self.errorFlags.pop(cclass)
+        if 'UNKNOWN' in self.errorFlags.keys():
+            return self.errorFlags.pop('UNKNOWN')
+        raise ValueError
+
     def _postConnect(self):
         """
         Implement the post-connect hook
@@ -363,8 +455,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 else:
                     #Can't actually query what is running so block
                     # all the command classes
-                    self.thread_command_map["%i"%thread_number]=(
-                        'FOCUS FILTER FLSIM LREL HREL HRAZ GES')
+                    self._add_galil_command_to_executing_commands(
+                        None, 'UNKNOWN', thread_number)
     
     def _get_motion_thread(self):
         """
@@ -379,13 +471,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 return i
         return None
             
-    def _add_galil_command_to_executing_commands(self, command, thread):
+    def _add_galil_command_to_executing_commands(self, command,
+                                                 command_class, thread):
         """
         Mark command as executing on thread.
-        
-        Honestly, a function for this!
         """
-        self.thread_command_map[thread]=command
+        self.thread_command_map[str(thread)]=(command_class, command)
     
     def _do_motion_command(self, command_class, command_string):
         """
@@ -433,7 +524,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return "ERROR: "+str(e)
         finally:
             # assume that the command is blocked anyway
-            self._add_galil_command_to_executing_commands(command_class, thread_number)
+            self._add_galil_command_to_executing_commands(
+                command_string, command_class, thread_number)
     
     def _do_status_query(self, command_string):
         """
@@ -480,10 +572,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         Look through thread_command_map and find all threads running the
         command class cclass or 'SHUTDOWN' (which blocks everything).
         If any threads were found return true. 
+        See __init__ for the format of thread_command_map
         """
-        blockingThreads=filter(lambda x: x[1] and
-                               (cclass in x[1] or 'SHUTDOWN' in x[1]),
-            self.thread_command_map.items())
+        func=lambda x: x and (cclass in x[0] or
+                              'SHUTDOWN' in x[0] or
+                              'UNKNOWN' in x[0])
+        blockingThreads=filter(func, self.thread_command_map.values())
         return blockingThreads!=[]
     
     def _lastknownPositionWrapper(self, axis, reply, replyGoodFunc):
@@ -580,7 +674,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except IOError, e:
             return str(e)
         finally:
-            self._add_galil_command_to_executing_commands('SHUTDOWN', 3)
+            self._add_galil_command_to_executing_commands('HX3;XQ#SHTDWN,3',
+                                                          'SHUTDOWN', 3)
 
     def getDefault(self, settingName):
         """
@@ -671,30 +766,55 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     # to complete. The 'OK' returned only indicates that the move has begun
     def get_filter(self):
         """ Return the current filter position """
+        command_class='FILTER'
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         command_string="XQ#%s,%s" % ('GETFILT', '7')
         return self._do_status_query(command_string)
     
     def get_loel(self):
         """ Return the Lores Elevation """
+        command_class='LREL'
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         command_string="XQ#%s,%s" % ('GETLRTL', '7')
         reply=self._do_status_query(command_string)
         return self._lastknownPositionWrapper('LREL', reply, stringIsNumber)
     
     def get_hrel(self):
         """ Return the Hires Elevation """
+        command_class='HREL'
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         command_string="XQ#%s,%s" % ('GETHRTL', '7')
         reply=self._do_status_query(command_string)
         return self._lastknownPositionWrapper('HREL', reply, stringIsNumber)
     
     def get_hraz(self):
         """ Return the Hires azimuth """
+        command_class='HRAZ'
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         command_string="XQ#%s,%s" % ('GETHRAZ', '7')
         reply=self._do_status_query(command_string)
         return self._lastknownPositionWrapper('HRAZ', reply, stringIsNumber)
     
     def get_ges(self):
         """ Return the disperser slide status """
+        command_class='GES'
         command_string="XQ#%s,%s" % ('GETGES2', '7')
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         reply=self._do_status_query(command_string)
         func=lambda x: x[:5] in ('HIRES','LORES', 'LRSWAP')
         return self._lastknownPositionWrapper('GES', reply, func)
@@ -706,7 +826,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     def get_flsim(self):
         """ Return the FLS imager pickoff position """
+        command_class='FLSIM'
         command_string="XQ#%s,%s" % ('GETFLSI', '7')
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         return self._do_status_query(command_string)
     
     def set_filter(self, filter):
@@ -715,6 +840,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Valid fliter choices are 1-10. 9=None 10=load.'
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         return self._do_motion_command(command_class, command_string)
     
     def set_loel(self, position):
@@ -725,6 +854,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Lores elevation must be specified as an integer.'
         command_class='LREL'
         command_string="a[<threadID>]=%s;XQ#SETLRTL,<threadID>" % position
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         return self._do_motion_command(command_class, command_string)
         
@@ -736,6 +869,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Hires elevation must be specified as an integer.'
         command_class='HREL'
         command_string="a[<threadID>]=%s;XQ#SETHRTL,<threadID>" % position
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
         return self._do_motion_command(command_class, command_string)
     
@@ -747,6 +884,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Hires azimuth must be specified as an integer.'
         command_class='HRAZ'
         command_string="a[<threadID>]=%s;XQ#SETHRAZ,<threadID>" % position
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
         return self._do_motion_command(command_class, command_string)
     
@@ -758,6 +899,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: Focus must be specified as a number.'
         command_class='FOCUS'
         command_string="a[<threadID>]=%s;XQ#SETFOC,<threadID>" % position
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         return self._do_motion_command(command_class, command_string)
     
     def set_ges(self, position):
@@ -765,11 +910,19 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         if position not in ['HIRES','LORES','LRSWAP']:
             return '!ERROR: %s is not one of HIRES, LORES, or LRSWAP' % position
         if 'LRSWAP' in position:
-            command_class='GES LREL'
+            command_class=['GES', 'LREL']
+            try:
+                return self._getErrorMessage(command_class)
+            except ValueError:
+                pass
             m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
             m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         else:
             command_class='GES'
+            try:
+                return self._getErrorMessage(command_class)
+            except ValueError:
+                pass
             m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         command_string="XQ#%s,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
@@ -783,6 +936,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         command_class='FILTER'
         command_string="XQ#INFESIN,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         return self._do_motion_command(command_class, command_string)
     
     def remove_filter(self, *args):
@@ -794,24 +951,40 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         command_class='FILTER'
         command_string="XQ#RMFESIN,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         return self._do_motion_command(command_class, command_string)
     
     def insert_flsim(self, *args):
         """ Command the insertion of the FLS imager pickoff """
         command_class='FLSIM'
         command_string="XQ#INFLSIN,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         return self._do_motion_command(command_class, command_string)
     
     def remove_flsim(self, *args):
         """ Command the retraction of the FLS imager pickoff """
         command_class='FLSIM'
         command_string="XQ#RMFLSIN,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_lrel(self, *args):
         """ Force calibration of the Lores elevation axis """
         command_class='LREL'
         command_string="XQ#CALLRT,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         return self._do_motion_command(command_class, command_string)
         
@@ -819,6 +992,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """ Force calibration of the Hires elevation axis """
         command_class='HREL'
         command_string="XQ#CALHRTL,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
         return self._do_motion_command(command_class, command_string)
     
@@ -826,6 +1003,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """ Force calibration of the Hires azimuth axis """
         command_class='HRAZ'
         command_string="XQ#CALHRAZ,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
         return self._do_motion_command(command_class, command_string)
     
@@ -833,6 +1014,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """ Force calibration of the disperser slide """
         command_class='GES'
         command_string="XQ#CALGES,<threadID>"
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)
     
@@ -844,5 +1029,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return '!ERROR: GES nudge amount must be specified as an integer.'
         command_class='GES'
         command_string="a[<threadID>]=%s;XQ#NUDGGES,<threadID>" % amount
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
         m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)

@@ -32,68 +32,146 @@
   Yellow = GND
  */
 
-int SDI = 2; 
-int CKI = 3; 
-int ledPin = 13; //On board LED
+#define SDI 2 
+#define CKI 3 
+#define LEDPIN 13
+#define SWITCHPIN 12
+#define STRIP_LENGTH 25
+#define WRITE_WAIT_US 1000
+#define OFF 0
+#define WHITE 1
+#define TRIPPY 2
 
-#define STRIP_LENGTH 32 //32 LEDs on this strip
+#define DEBOUNCE_MS 50
+
+uint8_t mode=OFF;
+uint8_t activeMode=TRIPPY;
+
+int lastButtonState = LOW;   // the previous reading from the input pin
+int buttonState;
+long lastDebounceTime = 0;  // the last time the output pin was toggled
+long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
+
 long strip_colors[STRIP_LENGTH];
 
 void setup() {
   pinMode(SDI, OUTPUT);
   pinMode(CKI, OUTPUT);
-  pinMode(ledPin, OUTPUT);
+  pinMode(LEDPIN, OUTPUT);
+  pinMode(SWITCHPIN, INPUT);
+  digitalWrite(SWITCHPIN, HIGH);
   
   //Clear out the array
-  for(int x = 0 ; x < STRIP_LENGTH ; x++)
-    strip_colors[x] = 0;
-    
-  randomSeed(analogRead(0));
+  for(int x = 0 ; x < STRIP_LENGTH ; x++) strip_colors[x] = 0;
   
-  //Serial.begin(9600);
-  //Serial.println("Hello!");
+  //Seed random generator
+  randomSeed(analogRead(0));
+
+  Serial.begin(115200);
 }
 
 void loop() {
-  //Pre-fill the color array with known values
-  strip_colors[0] = 0xFF0000; //Bright Red
-  strip_colors[1] = 0x00FF00; //Bright Green
-  strip_colors[2] = 0x0000FF; //Bright Blue
-  strip_colors[3] = 0x010000; //Faint red
-  strip_colors[4] = 0x800000; //1/2 red (0x80 = 128 out of 256)
-  post_frame(); //Push the current color frame to the strip
   
-  delay(2000);
-
-  while(1){ //Do nothing
-    addRandom();
-    post_frame(); //Push the current color frame to the strip
-
-    digitalWrite(ledPin, HIGH);   // set the LED on
-    delay(250);                  // wait for a second
-    digitalWrite(ledPin, LOW);    // set the LED off
-    delay(250);                  // wait for a second
+  //Monitor operating mode
+  // read the state of the switch into a local variable:
+  int reading = digitalRead(SWITCHPIN);
+  // If the switch changed, due to noise or pressing, reset the debouncing timer
+  if (reading != lastButtonState)
+    lastDebounceTime = millis();
+  //If the time since state chage exceeds the debounceDelay then the button
+  // was pressed or released
+  if ((millis() - lastDebounceTime) > DEBOUNCE_MS) {
+    //If it was pressed go to the next mode
+    if (reading==LOW && buttonState==HIGH) {
+      mode=(mode+1) % 3;
+      Serial.print("Mode is now:");Serial.println((long)mode);
+    }
+    buttonState=reading;
   }
+  // save the reading.  Next time through the loop,
+  // it'll be the lastButtonState:
+  lastButtonState = reading;
+  
+  
+  switch (mode) {
+   case OFF:
+       lightsOut();
+       break;
+   case WHITE:
+       lightsOn();
+       break;
+   case TRIPPY:
+       rave();
+       break;
+  } 
+  
+}
+
+void lightsOut(void) {
+  if (activeMode !=0) {
+    for(int x = (STRIP_LENGTH - 1) ; x >= 0 ; x--) strip_colors[x] = 0;
+    post_frame();
+    activeMode=0;
+  }
+}
+
+void lightsOn(void) {
+    for(int x = (STRIP_LENGTH - 1) ; x >= 0 ; x--) strip_colors[x] = 0xFFFFFF;
+    post_frame();
+    activeMode=1;
+}
+
+void rave(void) {
+  addRandom();
+  post_frame();
+  activeMode=2;
 }
 
 //Throws random colors down the strip array
 void addRandom(void) {
-  int x;
   
   //First, shuffle all the current colors down one spot on the strip
-  for(x = (STRIP_LENGTH - 1) ; x > 0 ; x--)
+  for(int x = (STRIP_LENGTH - 1) ; x > 0 ; x--)
     strip_colors[x] = strip_colors[x - 1];
     
   //Now form a new RGB color
-  long new_color = 0;
-  for(x = 0 ; x < 3 ; x++){
+  long new_color = newRandomColor();
+  /*for(int x = 0 ; x < 3 ; x++){
     new_color <<= 8;
     new_color |= random(0xFF); //Give me a number from 0 to 0xFF
     //new_color &= 0xFFFFF0; //Force the random number to just the upper brightness levels. It sort of works.
-  }
+  }*/
   
   strip_colors[0] = new_color; //Add the new random color to the strip
 }
+
+
+long newRandomColor() {
+
+    int h1 = random(6);
+
+    float r, g, b;
+  
+    float s = 0.65 + (random(101)/100.0) * 0.35; // Quite saturated
+    float l = 0.5;
+  
+    float c = (1 - abs(2 * l - 1)) * s; // Chroma.
+
+    float m = l - c/2;
+    
+    float x = c * (1 - abs(h1 % 2 - 1));    
+
+    if (h1 < 1) { r=c; g=x; b=0;}
+    else if (h1<2) { r=x; g=c; b=0;}
+    else if (h1<3) { r=0; g=c; b=x;}
+    else if (h1<4) { r=0; g=x; b=c;}
+    else if (h1<5) { r=x; g=0; b=c;}
+    else { r=c; g=0; b=x;}
+    
+    return ( ( (long) ((r + m)*255) ) <<16) | (( (long) ((g + m)*255) ) <<8) | ( (long) ((b + m)*255) );
+}
+
 
 //Takes the current strip color array and pushes it out
 void post_frame (void) {
@@ -124,5 +202,5 @@ void post_frame (void) {
 
   //Pull clock low to put strip into reset/post mode
   digitalWrite(CKI, LOW);
-  delayMicroseconds(1000); //Wait for 500us to go into reset
+  delayMicroseconds(WRITE_WAIT_US);
 }

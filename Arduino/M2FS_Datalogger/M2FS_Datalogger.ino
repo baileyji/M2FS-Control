@@ -38,14 +38,15 @@ FUSES:
 #define ID_SIZE 4
 
 #define DEBUG_POWERDOWN
+#define DEBUG_RAM
 //#define DEBUG_STARTUP //Passes
-//#define DEBUG_PROTOCOL
+#define DEBUG_PROTOCOL
 //#define DEBUG_STAY_POWERED
 //#define DEBUG_ACCEL
 //#define DEBUG_TEMP
-#define DEBUG_RTC
+//#define DEBUG_RTC
 //#define DEBUG_FAKE_SLEEP
-//#define DEBUG_SLEEP
+#define DEBUG_SLEEP
 //#define DEBUG_LOGFILE
 
 //#############################
@@ -70,7 +71,6 @@ FUSES:
 #define TEMP_UPDATE_TIMER 'T'
 #define TEMP_POLL_TIMER   'P'
 #define RTC_TIMER         'R'
-#define MESSAGE_TIMER     'M'
 #define BATTERY_TIMER     'B'
 #define MSTIMER2_DELTA                       2	      // should be less than smallest timeout interval
 #define MESSAGE_CONFIRMATION_TIMEOUT_MS      250      //MUST be less than the ADXL FIFO period
@@ -82,7 +82,7 @@ FUSES:
 #define RTC_UPDATE_INTERVAL_MS               36000    //Once per hour
 
 #define NUM_NAP_RELATED_TIMERS   4 //must be <= NUM_TIMERS
-#define NUM_TIMERS               7
+#define NUM_TIMERS               6
 
 Timer batteryCheckTimer(BATTERY_TIMER, BATTERY_TEST_INTERVAL_MS);
 Timer logSyncTimer(LOG_TIMER, LOG_SYNC_TIME_INTERVAL_MS);
@@ -90,13 +90,11 @@ Timer updateTempsTimer(TEMP_UPDATE_TIMER, TEMP_UPDATE_INTERVAL_MS);
 Timer accelTimer(ADXL_POLL_TIMER, ADXL_FIFO_RATE);
 Timer pollTempsTimer(TEMP_POLL_TIMER, DS18B20_10BIT_MAX_CONVERSION_TIME_MS);
 Timer updateRTCTimer(RTC_TIMER, RTC_UPDATE_INTERVAL_MS);
-//How long do we wiat after sending a message before panicing and going into offline mode
-Timer messageConfTimer(MESSAGE_TIMER, MESSAGE_CONFIRMATION_TIMEOUT_MS);
 
 //Timers that should not be used in determining nap times must be placed at the end of the array 
 Timer* const timers[NUM_TIMERS]={
   &logSyncTimer, &updateTempsTimer, &pollTempsTimer, &accelTimer, //Nap related
-  &updateRTCTimer, &batteryCheckTimer, &messageConfTimer};        //Not nap related
+  &updateRTCTimer, &batteryCheckTimer};        //Not nap related
 
 #pragma mark -
 #pragma mark Globals
@@ -117,6 +115,8 @@ DallasTemperature dallasSensors(&oneWire);  // Instantiate Dallas Temp sensors o
 
 ArduinoOutStream cout(Serial);  // Serial print stream
 
+bool messageResponseExpected=false;
+
 uint8_t systemStatus=0;   //x,newheader,header,accel,temps,RTC,sd,logfile
 #define SYS_NOMINAL     0x3F
 #define SYS_FILE_OK     0x01
@@ -134,17 +134,17 @@ uint32_t Logfile_Data_Start;
 
 int16_t accel[3];
 float temps[N_TEMP_SENSORS];
-boolean powered=false;
-boolean updateRTCPending=false;
-volatile boolean asleep=false;
+bool powered=false;
+bool updateRTCPending=false;
+volatile bool asleep=false;
 uint32_t msgID=0;
 
 uint32_t resetTime;
 
-volatile boolean inactive=false;
+volatile bool inactive=false;
 volatile uint8_t accelerometerInterrupt = 0;
-volatile boolean accelerometerCausedWakeup = false;
-volatile boolean retrieve_fifo_accels=true;
+volatile bool accelerometerCausedWakeup = false;
+volatile bool retrieve_fifo_accels=true;
 volatile uint8_t n_in_fifo=0;
 
 // Date/time format operator
@@ -527,7 +527,7 @@ void setup(void)
     setTimerUpdateSourceToMsTimer2();
   }
 
-  #ifdef DEBUG_STARTUP
+  #ifdef DEBUG_STARTUP | DEBUG_RAM
     cout<<pstr("#Free RAM: ")<<FreeRam()<<endl;
   #endif
   
@@ -552,24 +552,23 @@ void errorLoop(void) {
 
 void loop(void){
 
-  boolean dataFromLogfile=false;
+  bool dataFromLogfile=false;
   uint32_t availableNaptimeMS;
   SleepMode sleepMode;
 
   // Serial Monitoring
   // Any and all responses should be in the buffer
   // possible responses: '!', '#', '#t'uint32_t, & 't'uint32_t
+  if (messageResponseExpected && !Serial.available()) delay(MESSAGE_CONFIRMATION_TIMEOUT_MS);
+  
   if(Serial.available()) {
     #ifdef DEBUG_PROTOCOL
       uint8_t temp=Serial.peek();
       Serial.print(F("#Byte In:"));Serial.println(temp);
-      if (!messageConfTimer.expired()){
-        Serial.print(F("#Conf mID "));Serial.println(msgID);
-      }
+      Serial.print(F("#Conf mID "));Serial.println(msgID);
     #endif
 
-    messageConfTimer.stop();
-    messageConfTimer.reset();
+    messageResponseExpected=false;
     uint8_t byteIn=Serial.read();
     
     if (byteIn=='#') {
@@ -592,12 +591,10 @@ void loop(void){
     Serial.flush();
     
   }
-  else if (messageConfTimer.expired())  {
+  else if(messageResponseExpected) {
     #ifdef DEBUG_PROTOCOL
       Serial.print(F("#T/O mID "));Serial.println(msgID);
     #endif
-    messageConfTimer.stop();
-    messageConfTimer.reset();
     #ifdef DEBUG_STAY_POWERED
       bufferRewind();
       Serial.println(F("#Skipping PD"));
@@ -778,17 +775,16 @@ void loop(void){
       if (updateRTCTimer.expired()) {
         cout<<"t";msgID++;
         updateRTCPending=true;
-        messageConfTimer.reset();
-        messageConfTimer.start();
+        messageResponseExpected=true;
       }
     }
   }
       
   
   // Determine how much time we can sleep
-  if (messageConfTimer.running() || messageConfTimer.expired()) {
+  if (messageResponseExpected) {
     sleepMode=SLEEP_IDLE;
-    availableNaptimeMS=messageConfTimer.value();
+    availableNaptimeMS=0;
   }
   else {
     sleepMode=SLEEP_HARD;
@@ -824,15 +820,11 @@ void loop(void){
       cout<<"#Overslept: "<<millis()-timepoint-availableNaptimeMS<<" ms.\n";
   #endif
   
-  //The message confirmation timer must expire before next loop to ensure the
-  // buffer is handled, this will contribute slightly to powered up time, but
-  // in general we don't ofter have a message out while unpowered
-  while(messageConfTimer.running());   
 }
 
 
 
-boolean needToResetMillis() {
+bool needToResetMillis() {
   DateTime now=RTC.now();
   if ( (now.unixtime() % 86400 == 0) && resetTime!=now.unixtime()){
     resetTime=now.unixtime();
@@ -848,7 +840,7 @@ boolean needToResetMillis() {
 //  grabbed, false otherwise.
 //  Requires buff.width() >= longest log message
 //=======================================
-boolean getLogDataFromFile() {
+bool getLogDataFromFile() {
   
   if (readPos!=writePos) {
     
@@ -999,9 +991,7 @@ void sendData() {
   
   Serial.write('L');
   Serial.write(bufferGetRecordPtr(), bufferGetRecordSize());
-
-  messageConfTimer.reset();
-  messageConfTimer.start();
+  messageResponseExpected=true;
 }
 
 
@@ -1099,7 +1089,7 @@ void powerDown(void) {
 // and use to set the RTC time
 // returns true if RTC time was sucessfully set
 //=============================
-boolean setRTCFromSerial() {
+bool setRTCFromSerial() {
   uint32_t unixtime=0;
   uint8_t byteIn=0;
   uint8_t numBytes;

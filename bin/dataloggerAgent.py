@@ -71,61 +71,6 @@ class DataloggerAgent(Agent):
     
     def run(self):
         """ execute once per loop, after select has run & before command closeout """
-        #Temp handling
-        if self.dataloggerR.have_unfetched_temps():
-            data=self.dataloggerR.fetch_temps()
-            self.currentTemps['dataloggerR']=data
-            timestamps,temps=data
-            if timestamps[0]>self.most_current_dataloggerR_timestamp:
-                self.most_current_dataloggerR_timestamp=timestamps[0]
-                self.currentTemps['R']=temps
-            self.logger.debug("TempsR: %s:%s" % 
-                (time.asctime(time.localtime(long(timestamps[0]))), temps))
-            cPickle.dump(('R',data), self.tempsFile, -1)
-        
-        if self.dataloggerC.have_unfetched_temps():
-            data=self.dataloggerC.fetch_temps()
-            self.currentTemps['dataloggerC']=data
-            timestamps,temps=data
-            if timestamps[0]>self.most_current_dataloggerC_timestamp:
-                self.most_current_dataloggerC_timestamp=timestamps[0]
-                self.currentTemps['C']=temps
-            self.logger.debug("TempsC: %s:%s" % 
-                (time.asctime(time.localtime(long(timestamps[0]))), temps))
-            cPickle.dump(('C',data), self.tempsFile, -1)
-        
-        if self.dataloggerB.have_unfetched_temps():
-            data=self.dataloggerB.fetch_temps()
-            self.currentTemps['dataloggerB']=data
-            timestamps,temps=data
-            if timestamps[0]>self.most_current_dataloggerB_timestamp:
-                self.most_current_dataloggerB_timestamp=timestamps[0]
-                self.currentTemps['B']=temps
-            self.logger.debug("TempsB: %s:%s" % 
-                (time.asctime(time.localtime(long(timestamps[0]))), temps))
-            cPickle.dump(('B',data), self.tempsFile, -1)
-        
-        #Accelerometer handling
-        if self.dataloggerC.have_unfetched_accels():
-            data=self.dataloggerC.fetch_accels()
-            timestamps,accels=data
-            self.logger.debug("AccelsC: %s:%s" % 
-                (time.asctime(time.localtime(long(timestamps[0]))), len(accels)))
-            cPickle.dump(('C',data), self.accelsFile,-1)
-            
-        if self.dataloggerR.have_unfetched_accels():
-            data=self.dataloggerR.fetch_accels()
-            timestamps,accels=data
-            self.logger.debug("AccelsR: %s:%s" %
-                              (time.asctime(time.localtime(long(timestamps[0]))), len(accels)))
-            cPickle.dump(('R',data), self.accelsFile,-1)
-        if self.dataloggerB.have_unfetched_accels():
-            data=self.dataloggerB.fetch_accels()
-            timestamps,accels=data
-            self.logger.debug("AccelsB: %s:%s" %
-                              (time.asctime(time.localtime(long(timestamps[0]))), len(accels)))
-            cPickle.dump(('B',data), self.accelsFile,-1)
-        
         #check that the dataloggers are online
         try:
             #self.dataloggerR.connect()

@@ -2,8 +2,152 @@ import time, re
 from construct import *
 import SelectedConnection
 
-class DataloggerStartupException(Exception):
-    pass
+class PlateManager(threading.Thread):
+  """
+    Class for Managing database of plates
+    
+    Runs as a daemon thread, automatically maintaining
+    database of plates. The manager check the plate upload directory every
+    UPLOAD_CHECK_INTERVAL seconds for files, exclusive of dotfiles, README,
+    sample.plate, symlinks, & directories. If it finds any it attempts deletion
+    of those larger than 1MB or not ending in .plate (case-insensitive).
+    
+    Of the remaining files, it verifies that they are valid plates (e.g.
+    Plate(file) does not throw an exception). Valid plates are moved to the
+    plates directory, while enforcing lowercase files names, and added to the
+    plate database (I use the term loosely). Invalid plates are moved to the
+    rejected directory and a file named platefile.reject is created with an
+    explanation of why the plate was rejected. A plate with the same name as
+    an existing plate is considered invalid.
+    """
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.daemon=True
+        self.lock=threading.Lock()
+        self.initialize_logger()
+        self._plates={}
+        self._plateDir=m2fsConfig.getPlateDir()
+        self._rejectDir=m2fsConfig.getPlateRejectDir()
+        self._uploadDir=m2fsConfig.getPlateUploadDir()
+        #Load all of the existing platefiles as filenames
+        for file in glob(self._plateDir+'*.plate'):
+          self._plates[os.basename(file)]=file
+        self.logger.info("Plates database initialized with %i plates" %
+                         len(self._plates))
+
+    def initialize_logger(self):
+        """ Configure logging"""
+        #create the logger
+        self.logger=logging.getLogger('PlateManager')
+        self.logger.setLevel(logging.DEBUG)
+        # create formatter
+        formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')
+        # create console handler and set level to debug
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        # add formatter to handlers
+        ch.setFormatter(formatter)
+        # add handlers to logger
+        self.logger.addHandler(ch)
+  
+  def run(self):
+    """
+      Main loop for the plate manager thread
+      
+      Run forever, monitoring the upload directory for files, when found
+      (Barring the readme or sample plate) they are:
+      1) If ending in .plate and <1MB, checked for validity and and moved to
+      either the plate repository or the rejected plates directory. Valid
+      plates are also added to the database of known plates.
+      2) If not ending in .plate or >1MB they are deleted.
+      """
+    while True:
+      #Get list of files in upload directory
+      try:
+        #Get list of all non dotfiles, non symlink files in upload dir
+        # not having name in EXCLUDE_FILES. Search any subdirectories
+        os.chdir(self._uploadDir)
+        files=os.listdir('.')
+        files=filter(files, lambda x: not (fnmatch(n, '.*') or
+                                           fnmatch(n, 'README') or
+                                           fnmatch(n, 'sample.plate') or
+                                           os.path.isdir(x) or
+                                           os.path.islink(x)))
+      except OSError:
+        files=[]
+      #Filter on size, type and functionality
+      rejectFiles=[]
+      trashFiles=[]
+      goodFiles=[]
+      for fname in files:
+        try:
+          if (len(fname) < 6 or
+              fname[-6].lower() != '.plate' or
+              os.path.getsize(fname) > FILE_SIZE_LIMIT_BYTES):
+            trashFiles.append(f)
+          else:
+            try:
+              #Reject if plate isn't a valid plate, or plate by
+              # same name already exists, file case is ignored
+              # for name comparison. All plates are copied
+              # in lower case
+              Plate(f)
+              if os.path.exists(self._goodDir+fname.lower()):
+                raise Exception('Plate already exists.')
+              goodFiles.append(f)
+            except Exception, e:
+              rejectFiles.append((f,e))
+        except Exception:
+          trashFiles.append(f)
+      #Delete all files >1MB or not ending in plate
+      for f in trashFiles:
+        try:
+          os.remove(f)
+        except:
+          pass
+      #Log and move bad files to reject directory, with reason
+      for f,reason in rejectFiles:
+        logger.info("%s has issue %s" % (f,str(reason)))
+        try:
+          shutil.move(f, rejectDir)
+          reasonFile=file(rejectDir+fname+'.reject',"w")
+          reasonFile.write(str(reason))
+          reasonFile.close()
+        except Exception, e:
+          self.logger.error('Caught while rejecting plate: %s' % str(e))
+      #Log and move good files into plates directory, add to database
+      for f in goodFiles:
+        self.logger.info("Plate %s added to database." % f)
+        try:
+          importpath=self._goodDir+f.lower()
+          shutil.move(f, importPath)
+          self.lock.acquire(True)
+          #Store plate with name as key, fully qualified path as item
+          self._plates[f.lower()[:-6]]=importPath
+        except Exception, e:
+          self.logger.error('Caught while importing plate: %s' % str(e))
+        finally:
+          self.lock.release()
+  
+
+    def have_unfetched_temps(self):
+        self.lock.acquire(True)
+        ret=self._have_unfetched_temps
+        self.lock.release()
+        return ret
+    
+    def have_unfetched_accels(self):
+        return self._have_unfetched_accels
+
+    def fetch_temps(self):
+        self._have_unfetched_temps=False
+        return (self.temps_timestamp, self.current_temps)
+
+    def fetch_accels(self):
+        self._have_unfetched_accels=False
+        return (self.accels_timestamp, self.current_accels)
+
+
 
 class Datalogger(SelectedConnection.SelectedSerial):
     """ Datalogger  Controller Class """
@@ -17,7 +161,7 @@ class Datalogger(SelectedConnection.SelectedSerial):
         self._have_unfetched_temps=False
         self._have_unfetched_accels=False
         SelectedConnection.SelectedSerial.__init__(self, device, 115200)
-    
+  
     def handle_read(self):
         """Read from serial. Call callback"""
         try:
@@ -48,14 +192,14 @@ class Datalogger(SelectedConnection.SelectedSerial):
             #self.logger.debug("Received message of length %i on %s" % 
             #    (self.length_of_incomming_message, self))
             if self.messageHandler:
+                self.connection.write('\x23');self.logger.debug("Send #")
                 callback=self.messageHandler
                 self.messageHandler=None
-                callback(message_str)
+                #callback(message_str)
             self.mode='default'
         if self.mode=='listen/n':
             count=self.in_buffer.find('\n')
             if count is not -1:
-                self.connection.write('\x23')
                 message_str=self.in_buffer[0:count+1]
                 self.in_buffer=self.in_buffer[count+1:]
                 #self.logger.debug("Received message '%s'" % message_str.encode('string_escape'))
@@ -69,8 +213,6 @@ class Datalogger(SelectedConnection.SelectedSerial):
         #self.logger.debug("ByteIn:%s"%byteIn)
         if  byteIn == 't':
             self.send_time_to_datalogger()
-        elif byteIn == '?':
-            self.connection.write('!')
         elif byteIn == 'B':
             self.length_of_incomming_message=X #TODO
             self.mode=='listenN'

@@ -327,7 +327,11 @@ class PlugController(Agent):
         return 'OFF'
     
     def get_fiber_plug_positions(self):
-        """ Report the states of all 256 fibers """
+        """ 
+        Report the states of all 256 fibers
+        
+        Red CCD first followed by the B CCD.
+        """
         return 256*'UNKNOWN '
 
 

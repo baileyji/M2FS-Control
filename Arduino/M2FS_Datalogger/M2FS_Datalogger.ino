@@ -37,10 +37,13 @@ FUSES:
 #define ID "v0.1"
 #define ID_SIZE 4
 
+#define DEBUG_POWERDOWN
 //#define DEBUG_STARTUP //Passes
-#define DEBUG_PROTOCOL
+//#define DEBUG_PROTOCOL
 //#define DEBUG_STAY_POWERED
 //#define DEBUG_ACCEL
+//#define DEBUG_TEMP
+#define DEBUG_RTC
 //#define DEBUG_FAKE_SLEEP
 //#define DEBUG_SLEEP
 //#define DEBUG_LOGFILE
@@ -67,7 +70,6 @@ FUSES:
 #define TEMP_UPDATE_TIMER 'T'
 #define TEMP_POLL_TIMER   'P'
 #define RTC_TIMER         'R'
-#define POWER_TIMER       'O'
 #define MESSAGE_TIMER     'M'
 #define BATTERY_TIMER     'B'
 #define MSTIMER2_DELTA                       2	      // should be less than smallest timeout interval
@@ -77,11 +79,10 @@ FUSES:
 #define ADXL_FIFO_RATE                       1280     //ADXL_CONVERSION_RATE*32
 #define LOG_SYNC_TIME_INTERVAL_MS            300000   //Once every five minutes???????????
 #define TEMP_UPDATE_INTERVAL_MS              30000    //Once per minute
-#define RTC_UPDATE_INTERVAL_MS               36000  //Once per hour
-#define EXTERNAL_POWER_TEST_INTERVAL_MS      30000    //120000	//Once every two minutes
+#define RTC_UPDATE_INTERVAL_MS               36000    //Once per hour
 
-#define NUM_NAP_RELATED_TIMERS   5 //must be <= NUM_TIMERS
-#define NUM_TIMERS               8
+#define NUM_NAP_RELATED_TIMERS   4 //must be <= NUM_TIMERS
+#define NUM_TIMERS               7
 
 Timer batteryCheckTimer(BATTERY_TIMER, BATTERY_TEST_INTERVAL_MS);
 Timer logSyncTimer(LOG_TIMER, LOG_SYNC_TIME_INTERVAL_MS);
@@ -89,15 +90,13 @@ Timer updateTempsTimer(TEMP_UPDATE_TIMER, TEMP_UPDATE_INTERVAL_MS);
 Timer accelTimer(ADXL_POLL_TIMER, ADXL_FIFO_RATE);
 Timer pollTempsTimer(TEMP_POLL_TIMER, DS18B20_10BIT_MAX_CONVERSION_TIME_MS);
 Timer updateRTCTimer(RTC_TIMER, RTC_UPDATE_INTERVAL_MS);
-//How often do we check to see if we've be brought online
-Timer pollForPowerTimer(POWER_TIMER, EXTERNAL_POWER_TEST_INTERVAL_MS);
 //How long do we wiat after sending a message before panicing and going into offline mode
 Timer messageConfTimer(MESSAGE_TIMER, MESSAGE_CONFIRMATION_TIMEOUT_MS);
 
 //Timers that should not be used in determining nap times must be placed at the end of the array 
 Timer* const timers[NUM_TIMERS]={
-  &logSyncTimer, &updateTempsTimer, &pollTempsTimer, &pollForPowerTimer, &accelTimer, //Nap related
-  &updateRTCTimer, &batteryCheckTimer, &messageConfTimer};               //Not nap related
+  &logSyncTimer, &updateTempsTimer, &pollTempsTimer, &accelTimer, //Nap related
+  &updateRTCTimer, &batteryCheckTimer, &messageConfTimer};        //Not nap related
 
 #pragma mark -
 #pragma mark Globals
@@ -259,7 +258,7 @@ void accelerometerISR(void) {
     }
     
     //freefall
-    //activity ,(surpurfolous)
+    //activity (superfluous)
     if ( accelerometerInterrupt & ADXL_INT_ACTIVITY )
       retrieve_fifo_accels=true;
 
@@ -522,7 +521,6 @@ void setup(void)
   // Initialize power mode
   powered=START_POWERED;
   if (!powered) {
-    pollForPowerTimer.start();
     setTimerUpdateSourceToWDT();
   } 
   else {
@@ -564,8 +562,7 @@ void loop(void){
   if(Serial.available()) {
     #ifdef DEBUG_PROTOCOL
       uint8_t temp=Serial.peek();
-      Serial.print(F("#Byte In: '"));
-      Serial.print((uint16_t)temp);Serial.println("'");
+      Serial.print(F("#Byte In:"));Serial.println(temp);
       if (!messageConfTimer.expired()){
         Serial.print(F("#Conf mID "));Serial.println(msgID);
       }
@@ -573,31 +570,24 @@ void loop(void){
 
     messageConfTimer.stop();
     messageConfTimer.reset();
-    switch (Serial.read()) {
-	
-      case '!': //We've got Power!!
-        powerUp();
-        break;
-
-      case '#': //Message sucessfully sent, may also have a time update pending
-        bufferRewind();
-        if (Serial.peek()!='t')
-          break;
-        else
-          Serial.read();
-
-      case 't': //timeupdate
-        updateRTCTimer.reset();
-        updateRTCTimer.start();
-        updateRTCPending=false;
-        setRTCFromSerial();
-        break;
-
-      default:
-        bufferRewind(); //Why is this here???
-        break;
+    uint8_t byteIn=Serial.read();
+    
+    if (byteIn=='#') {
+      //Message sucessfully sent, may also have a time update pending
+      bufferRewind();
+      if (Serial.peek()=='t')
+        byteIn=Serial.read();
     }
-
+    
+    if (byteIn=='t') {
+      updateRTCTimer.reset();
+      updateRTCTimer.start();
+      updateRTCPending=false;
+      setRTCFromSerial();
+    }
+    
+    bufferRewind(); //Just assume the message was confirmed
+    
     // Make sure no garbage builds up
     Serial.flush();
     
@@ -630,7 +620,7 @@ void loop(void){
   // Reset millis()
   if (needToResetMillis()) {
     resetMillis();
-    bufferPut(temps, N_TEMP_SENSORS*sizeof(float)); //Resend temp date as a time sync
+    //bufferPut(temps, N_TEMP_SENSORS*sizeof(float)); //Resend temp date as a time sync, why???
   }
     
   /*
@@ -641,15 +631,6 @@ void loop(void){
     batteryCheckTimer.start();
   }
   */
-
-  // Periodically check for a connection while unpowered
-  if (!powered && pollForPowerTimer.expired()) {
-    cout<<"?";msgID++;
-    messageConfTimer.reset();
-    messageConfTimer.start();
-    pollForPowerTimer.reset();
-    pollForPowerTimer.start();
-  }
 
   // Temperature Conversion
   if (updateTempsTimer.expired()) {
@@ -667,14 +648,14 @@ void loop(void){
   // Handle case where we are no longer powered
   //  but there is a message in the buffer
   if (!powered && !bufferIsEmpty() ) {
-    if (!dataFromLogfile) {
-      logData();
-    }
-    else {
-      ungetLogDataFromFile();
-    }
+    if (!dataFromLogfile) logData();
+    else ungetLogDataFromFile();
+    bufferRewind();
   } 
 
+  /////////////////////////////////////////////
+  // bufferPut calls should go after here ?? //
+  /////////////////////////////////////////////
   
   // Temperature Monitoring
   if (pollTempsTimer.expired()) {
@@ -710,10 +691,12 @@ void loop(void){
     
     retrieve_fifo_accels=false;
     
-    if (n_in_fifo < 32) {
+    if (n_in_fifo < 28) {
       delay(40*(32-n_in_fifo)+10);  //40 is for sample rate of 25Hz
       ADXL345.readRegister(ADXL_FIFO_STATUS, 1, (char*) &n_in_fifo );
     }
+    if (n_in_fifo>32)
+      n_in_fifo=32; //There is an error fifo is only 32 deep
     for (uint8_t i=0; i<n_in_fifo;i++) {
       ADXL345.getRawAccelerations(accel);
       bufferPut(accel,6);
@@ -739,6 +722,9 @@ void loop(void){
     accelerometerISR();
   }
   
+  /////////////////////////////////////////////
+  // bufferPut calls should go prior to here //
+  /////////////////////////////////////////////
   
   // Upload old data
   if (powered && bufferIsEmpty()) {
@@ -821,23 +807,27 @@ void loop(void){
     }
   }
 
+  
+  if (!retrieve_fifo_accels)
+    availableNaptimeMS=0;
+  
   // Go to sleep to conserve power
-  if (!retrieve_fifo_accels) {
-    #ifdef DEBUG_SLEEP
-      cout<<"#Sleep "<<availableNaptimeMS<<" ms.\n";
-      uint32_t timepoint; timepoint=millis();
-    #endif
+  #ifdef DEBUG_SLEEP
+    cout<<"#Sleep "<<sleepMode<<availableNaptimeMS<<" ms.\n";
+    uint32_t timepoint; timepoint=millis();
+  #endif
 
-    goSleep(availableNaptimeMS, sleepMode);
+  goSleep(availableNaptimeMS, sleepMode);
 
-    #ifdef DEBUG_SLEEP
-      if (availableNaptimeMS < 0) 
-        cout<<"#Overslept: "<<millis()-timepoint-availableNaptimeMS<<" ms.\n";
-    #endif
-  }
+  #ifdef DEBUG_SLEEP
+    if (availableNaptimeMS < 0) 
+      cout<<"#Overslept: "<<millis()-timepoint-availableNaptimeMS<<" ms.\n";
+  #endif
   
-  while(messageConfTimer.running()); //MUST expire before next loop or bad things happen
-  
+  //The message confirmation timer must expire before next loop to ensure the
+  // buffer is handled, this will contribute slightly to powered up time, but
+  // in general we don't ofter have a message out while unpowered
+  while(messageConfTimer.running());   
 }
 
 
@@ -903,8 +893,6 @@ void ungetLogDataFromFile() {
   //Update the file header
   logfile.seekSet(Logfile_Data_Start-2*sizeof(writePos));
   logfile.write((void*)&readPos,sizeof(readPos));
-  
-  bufferRewind();
 } 
 
 
@@ -918,42 +906,52 @@ void logData() {
     return;	// Nothing to log
   }
   uint32_t futurePos=writePos + bufferGetRecordSize();
-  
-      //can wp be < rp && (fp overflow || fp >= max filesize) 
-  if ( writePos >= readPos || futurePos < writePos) {
-    if (futurePos < MAX_LOGFILE_SIZE_BYTES && futurePos > writePos ) {
     
-      #ifdef DEBUG_LOGFILE
-        cout<<pstr("#Logging (rp<=wp)")<<(uint16_t)bufferGetRecordSize()<<pstr(" bytes at")
-        <<writePos<<endl;
-      #endif
-    
-      logfile.seekSet(writePos);
-      logfile.write(bufferGetRecordPtr(), bufferGetRecordSize());
-      logSyncTimer.start();
-      
-      // Update the file write pointer and extents
-      writePos=logfile.curPosition();
-      Logfile_End=Logfile_End > writePos ? Logfile_End:writePos;
-      
-      // Update the file header
-      logfile.seekSet(Logfile_Data_Start-3*sizeof(writePos));
-      logfile.write((void*)&writePos,sizeof(writePos));
-      logfile.seekCur(sizeof(readPos));//logfile.write((void*)&readPos,sizeof(readPos));
-      logfile.write((void*)&Logfile_End,sizeof(Logfile_End));
-	  
-      bufferRewind();
-	  
-      return;
-    }
-    else {
-      logfile.seekSet(Logfile_Data_Start); 
-      writePos=logfile.curPosition();
-      futurePos=writePos+bufferPos();
-    }
+  //Check to see if writing requires looping around
+  // buffer is not large enough to loop AND pass writePos
+  // Forces cases:
+  //-----read*?----write*--read*?--eof---maxsize----futurew*--LONGOVERFLOW
+  //--read*?--futurew*----read*?----write*--read*?--eof--maxsize--LONGOVERFLOW
+  // into case
+  //write*----read*?---futurew*--------read*?------eof--maxsize--LONGOVERFLOW
+  if (futurePos > MAX_LOGFILE_SIZE_BYTES || futurePos < writePos) {
+    logfile.seekSet(Logfile_Data_Start);
+    writePos=logfile.curPosition();
+    futurePos=writePos+bufferPos();
   }
-	
-  if (futurePos<readPos) {
+
+  //Possible cases:
+  //-read*?--write*--read*?---futurew*-----read*?----eof--maxsize--LONGOVERFLOW
+
+  //-read*--write*-----futurew*-------eof--maxsize--LONGOVERFLOW
+  if ( writePos >= readPos) {
+    
+    #ifdef DEBUG_LOGFILE
+    cout<<pstr("#Logging (rp<=wp)")<<(uint16_t)bufferGetRecordSize()<<pstr(" bytes at")
+    <<writePos<<endl;
+    #endif
+
+    logfile.seekSet(writePos);
+    logfile.write(bufferGetRecordPtr(), bufferGetRecordSize());
+    logSyncTimer.start();
+
+    // Update the file write pointer and extents
+    writePos=logfile.curPosition();
+    Logfile_End=Logfile_End > writePos ? Logfile_End:writePos;
+
+    // Update the file header
+    logfile.seekSet(Logfile_Data_Start-3*sizeof(writePos));
+    logfile.write((void*)&writePos,sizeof(writePos));
+    logfile.seekCur(sizeof(readPos));//logfile.write((void*)&readPos,sizeof(readPos));
+    logfile.write((void*)&Logfile_End,sizeof(Logfile_End));
+
+  }
+  //Possible cases:
+  //---write*--read*?---futurew*-----read*?----eof--maxsize--LONGOVERFLOW
+
+  
+  //---write*-----futurew*-----read*----eof--maxsize--LONGOVERFLOW
+  else if (futurePos<readPos) {
   
     #ifdef DEBUG_LOGFILE
       cout<<pstr("#Logging (wp<rp)")<<(uint16_t)bufferGetRecordSize()<<pstr(" bytes at")
@@ -973,12 +971,12 @@ void logData() {
     logfile.write((void*)&writePos,sizeof(writePos));
     //logfile.write((void*)&readPos,sizeof(readPos));
     //logfile.write((void*)&Logfile_End,sizeof(Logfile_End));
-	
-    bufferRewind();
   }
+  //One possible case left, log is full
+  //---write*--read*?---futurew*-------eof--maxsize--LONGOVERFLOW
   else {
     cout<<pstr("#Logfile Full\n");
-    bufferRewind();  //log message is lost
+    //log message is lost
   }
   
 }
@@ -1016,7 +1014,10 @@ void sendData() {
 //  it sleeps for that long
 //=============================
 void goSleep(uint32_t duration_ms, SleepMode mode) {
-
+  
+  if (duration_ms==0)
+    return;
+  
   //Log the data so SD card powers down
   logfile.sync();
   logSyncTimer.stop();
@@ -1070,8 +1071,6 @@ void powerUp(void ) {
     #endif
     powered=true;
     WDT.queueCallbackSwitchToMsTimer2();
-    pollForPowerTimer.reset();
-    pollForPowerTimer.stop();
   }
 }
 
@@ -1083,12 +1082,11 @@ void powerUp(void ) {
 //=============================
 void powerDown(void) {
   if (powered) {
-    #ifdef DEBUG_PROTOCOL | DEBUG_SLEEP
+    #ifdef DEBUG_PROTOCOL | DEBUG_SLEEP | DEBUG_POWERDOWN
       cout<<pstr("#PD\n");
     #endif
     powered=false;
     setTimerUpdateSourceToWDT();
-    pollForPowerTimer.start();
     updateRTCPending=false;
   }
 }
@@ -1110,7 +1108,7 @@ boolean setRTCFromSerial() {
   numBytes=Serial.available();
 
   #ifdef DEBUG_RTC
-    cout<<pstr("#Bytes avail: ")<<(uint16_t)numBytes<<endl;
+    cout<<pstr("#Avail:")<<(uint16_t)numBytes<<endl;
   #endif
 
   uint8_t i=0;
@@ -1122,19 +1120,19 @@ boolean setRTCFromSerial() {
   DateTime now(unixtime);
 
   #ifdef DEBUG_RTC
-    cout<<pstr("#Total bytes in: ")<<(uint16_t)i<<endl;
-    cout<<"# Recieved Time: ";Serial.print(unixtime,HEX);cout<<" "<<now<<endl;      
+    cout<<pstr("#Total in:")<<(uint16_t)i<<endl;
+    cout<<pstr("#Times:");Serial.println(unixtime,HEX);//cout<<" "<<now<<endl;
   #endif
 
   if (now.year()>2010 && now.year()<2030) {
     #ifdef DEBUG_RTC
-      cout<<pstr("#Set RTC to: ")<<now<<endl;
+      cout<<pstr("#RTC set\n");
     #endif 
     RTC.adjust(now);
     return true;
   }
   else {
-    cout<<pstr("#Bad RTC data.\n");
+    cout<<pstr("#Bad data.\n");
     return false;
   }
 

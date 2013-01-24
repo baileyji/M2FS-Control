@@ -3,7 +3,7 @@ import sys, time, threading
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 import cPickle
-import datalogger
+from datalogger import Datalogger
 from m2fsConfig import m2fsConfig
 import SelectedConnection
 
@@ -13,9 +13,9 @@ class DataloggerAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'DataloggerAgent')
         #Initialize the dataloggers
-        self.dataloggerR=datalogger.Datalogger('/dev/dataloggerR', 115200)
-        self.dataloggerB=datalogger.Datalogger('/dev/dataloggerB', 115200)
-        self.dataloggerC=datalogger.Datalogger('/dev/dataloggerC', 115200)
+        self.dataloggerR=Datalogger('/dev/dataloggerR')
+        self.dataloggerB=Datalogger('/dev/dataloggerB')
+        self.dataloggerC=Datalogger('/dev/dataloggerC')
         self.devices.append(self.dataloggerR)
         self.devices.append(self.dataloggerB)
         self.devices.append(self.dataloggerC)
@@ -128,8 +128,8 @@ class DataloggerAgent(Agent):
         
         #check that the dataloggers are online
         try:
-            self.dataloggerR.connect()
-            self.dataloggerB.connect()
+            #self.dataloggerR.connect()
+            #self.dataloggerB.connect()
             self.dataloggerC.connect()
         except IOError:
             pass

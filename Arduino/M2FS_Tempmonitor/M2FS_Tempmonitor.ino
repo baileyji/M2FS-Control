@@ -31,7 +31,7 @@ FUSES:
 #define N_TEMP_SENSORS           5
 #define ID "v0.1"
 #define ID_SIZE 4
-#define MESSAGE_CONFIRMATION_TIMEOUT_MS      1000
+#define MESSAGE_CONFIRMATION_TIMEOUT_MS      100
 #define TEMP_RESOLUTION 12
 #define DS18B20_MAX_CONVERSION_TIME_MS 750
 
@@ -298,7 +298,7 @@ void loop(void){
       Serial.print(F("#Bytes Avail:"));Serial.println(Serial.available());
       Serial.print(F("#Byte In:"));Serial.println(temp);
       Serial.print(F("#Conf mID "));Serial.println(msgID);
-      Serial.print(F("#Time: "));Serial.print(millis());
+      Serial.print(F("#Time: "));Serial.println(millis());
     #endif
 
     messageResponseExpected=false;

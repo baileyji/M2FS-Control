@@ -23,6 +23,7 @@ WatchdogSleeper::WatchdogSleeper(void) {
   _config=SLEEP_HARD;
   _disable_BOD=true;
   _prescaler=0;
+  _sleepIsFake=false;
   
 	_switchUpdateSourceToMsTimer2Queued=false;
 	
@@ -90,6 +91,9 @@ int32_t WatchdogSleeper::sleep(uint32_t sleepDuration_ms) {
     fakeSleep(sleepDuration_ms);
   }
   else {
+    
+    _sleepIsFake=false;
+    
     //How many cycles shall we sleep
     sleepCycles=MS2WDTCycles(sleepDuration_ms);
 
@@ -121,11 +125,11 @@ void WatchdogSleeper::fakeSleep(uint32_t sleepDuration_ms) {
   ADCSRA &= ~(1<<ADEN);
 
   _sleepCanceled=false;
+  _sleepIsFake=true;
   while(sleepDuration_ms > 0 && !_sleepCanceled) {
-    delay(1);
-    sleepDuration_ms-=1;
-    if (_WDT_Callback_Enabled) 
-      __WDT_Callback_Func(1);
+    delay(FAKE_SLEEP_INTERVAL_MS);
+    sleepDuration_ms--;
+    if (_WDT_Callback_Enabled) __WDT_Callback_Func();
   }
   
   // Modules to former state

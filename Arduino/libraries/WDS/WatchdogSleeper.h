@@ -28,12 +28,13 @@
 #define WDT_CALIBRATION_PRESCALE_V 1
 #define WDT_CALIBRATION_PRESCALE_V_MS_OVERESTIMATE 45
 #define MAX_PRESCALER 9
+#define FAKE_SLEEP_INTERVAL_MS 1
 
 extern "C" void WDT_vect(void);
 
 typedef enum SleepMode { SLEEP_IDLE,  SLEEP_HARD } TokenType;
 
-typedef void(*callback_t)(uint32_t);
+typedef void(*callback_t)();
 
 class WatchdogSleeper {
   
@@ -41,13 +42,13 @@ private:
 
   
   volatile callback_t __WDT_Callback_Func;
-  volatile boolean _WDT_Callback_Enabled;
-  volatile boolean _WDT_ISR_Called;
-  volatile boolean _update_timer0_millis;
+  volatile bool _WDT_Callback_Enabled;
+  volatile bool _WDT_ISR_Called;
+  volatile bool _update_timer0_millis;
   volatile uint32_t _WDT_timer0_millis_increment;
   volatile uint8_t _WDT_timer0_overflow_count_increment;
-  volatile boolean _sleepCanceled;
-	volatile boolean _autorestart;
+  volatile bool _sleepCanceled;
+	volatile bool _autorestart;
   volatile uint8_t _prescaler;
 	
 	volatile boolean _switchUpdateSourceToMsTimer2Queued;
@@ -56,7 +57,7 @@ private:
   boolean _disable_BOD;
 
   volatile float _cycles2ms;
-  
+  volatile bool _sleepIsFake;
 
 
 
@@ -124,6 +125,10 @@ public:
     return _WDT_timer0_millis_increment;
   }  
   uint32_t readPrescalerAsMS(void);
+  
+  inline uint32_t getTimerCallbackIntervalMS(void) {
+    return _sleepIsFake ? FAKE_SLEEP_INTERVAL_MS : _WDT_timer0_millis_increment;
+  }  
   
   
   void calibrate(void);

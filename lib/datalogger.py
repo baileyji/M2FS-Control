@@ -33,7 +33,8 @@ class DataloggerRecord(object):
             self._have_unfetched_temps=True
             self.current_temps=tempsParser(data[0:-8])
         else:
-            raise ValueError('Malformed Record')
+            raise ValueError("Malformed Record: '%s'" %
+                             data.encode('string_escape'))
         self.timestamp=(unsigned32BitParser(data[-8:-4]),
                         unsigned32BitParser(data[-4:]))
 
@@ -54,7 +55,8 @@ class DataloggerConnection(Serial):
         """ send the current time to the datalogger"""
         s='t'+UBInt32("f").build(int(time.time()))
         #self.logger.debug('Sending time as %s' % s.encode('string_escape'))
-        #this is what it took to send the time in testing, oh if only self.connection.write(s) would work
+        #this is what it took to send the time in testing,
+        # oh if only self.connection.write(s) would work
         self.write(s[0])
         self.write('\x00'+s[1])
         self.write('\x00'+s[2])
@@ -93,6 +95,7 @@ class DataloggerListener(threading.Thread):
                     byte=self.datalogger.read(1)
                     if byte == 't':
                         self.datalogger.telltime()
+                        self.logger.debug('Handled time query')
                     elif byte == 'L':
                         logdata=self.datalogger.readLogData()
                         self.datalogger.write('#')
@@ -123,6 +126,7 @@ class Datalogger(object):
             kind,data = self.queue.get()
             self.queue.task_done()
             if kind =='record':
+                self.logger.debug("Returning log data")
                 return DataloggerRecord(data)
             elif kind =='debug':
                 self.logger.debug(data)

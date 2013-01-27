@@ -28,15 +28,26 @@ class DataloggerRecord(object):
                             unsigned32BitParser(data[-4:]))
         elif len(data)==ACCEL_RECORD_LENGTH:
             self.temps=None
-            self.current_accels=accelsParser(data[0:-8])
+            self.accels=accelsParser(data[0:-8])
         elif len(data)==TEMP_RECORD_LENGTH:
-            self._have_unfetched_temps=True
-            self.current_temps=tempsParser(data[0:-8])
+            self.temps=tempsParser(data[0:-8])
+            self.accels=None
         else:
             raise ValueError("Malformed Record: '%s'" %
                              data.encode('string_escape'))
         self.timestamp=(unsigned32BitParser(data[-8:-4]),
                         unsigned32BitParser(data[-4:]))
+
+    def __str__(self):
+        if not self.temps:
+            string="Accel Record"
+        elif not self.accels:
+            string="Temps Record"
+        else:
+            string="Combo Record"
+        timestr=time.strftime("%a, %d %b %Y %H:%M:%S +0000",
+                              time.localtime(self.timestamp[0]))
+        return ' '.join([string,timestr,str(self.timestamp[1])])
 
 class DataloggerConnection(Serial):
     """ Datalogger Connection Class """
@@ -110,6 +121,8 @@ class DataloggerListener(threading.Thread):
                         pass
                 except SerialException:
                     pass
+                except OSError:
+                    pass
 
 class Datalogger(object):
     """ Datalogger  Controller Class """
@@ -127,7 +140,12 @@ class Datalogger(object):
             self.queue.task_done()
             if kind =='record':
                 self.logger.debug("Returning log data")
-                return DataloggerRecord(data)
+                try:
+                    record=DataloggerRecord(data)
+                except ValueError, e:
+                    record=str(e)
+                self.logger.debug(record)
+                return record
             elif kind =='debug':
                 self.logger.debug(data)
             elif kind =='error':

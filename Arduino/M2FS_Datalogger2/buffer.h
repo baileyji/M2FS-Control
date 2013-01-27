@@ -28,9 +28,8 @@ inline uint8_t* bufferGetRecordPtr() {
 }
 
 inline uint8_t bufferGetRecordSize() {
-  if (thebuffer[0]==0xFF) 
-    Serial.println("Record Size overflow\n");
-	return thebuffer[0]+1;
+  if (thebuffer[0]==0xFF) Serial.println(F("#RSO"));
+  return thebuffer[0]+1;
 }
 
 
@@ -64,7 +63,9 @@ void bufferPut(void * data, buffsize_t n_bytes){
   if (n_bytes > bufferSpaceRemaining() ) {
     memcpy(bufferWritePtr(), data, bufferSpaceRemaining() );
     bufferIncrementWritePtr(bufferSpaceRemaining());
-    Serial.print("#Buffer Overflew!\n");
+    #ifdef DEBUG_BUFFER
+      Serial.print("Buffer overflew\n");
+    #endif
   }
   /*else if (bufferIsEmpty()) {
     bufferPut('!');bufferPut('!');

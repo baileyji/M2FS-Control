@@ -12,13 +12,11 @@ DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
 class DataloggerAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'DataloggerAgent')
+        self.setupLoggerFiles()
         #Initialize the dataloggers
-        self.dataloggerR=Datalogger('/dev/dataloggerR')
-        self.dataloggerB=Datalogger('/dev/dataloggerB')
+        #self.dataloggerR=Datalogger('/dev/dataloggerR')
+        #self.dataloggerB=Datalogger('/dev/dataloggerB')
         self.dataloggerC=Datalogger('/dev/dataloggerC')
-        self.devices.append(self.dataloggerR)
-        self.devices.append(self.dataloggerB)
-        self.devices.append(self.dataloggerC)
         agent_ports=m2fsConfig.getAgentPorts()
         self.shoeR=SelectedConnection.SelectedSocket('localhost', 
             agent_ports['ShoeAgentR'])
@@ -26,7 +24,7 @@ class DataloggerAgent(Agent):
             agent_ports['ShoeAgentB'])
         #self.devices.append(self.shoeR)
         #self.devices.append(self.shoeB)
-        self.setupLoggerFiles()
+
         self.currentTemps={}
         self.command_handlers.update({
             """ Return a list of the temperature values """
@@ -57,9 +55,12 @@ class DataloggerAgent(Agent):
     
     def TEMPS_command_handler(self, command):
         """ report the current temperatures """
-        #gather current temps
+        command.setReply(self.getStringOfCurrentTemps())
+    
+    def getStringOfCurrentTemps(self):
+        """ Return a space delimited list of the current temperatures """
         temps=self.currentTemps.values()
-        command.setReply(''.join((len(temps)*"%f ")%temps))
+        return ''.join((len(temps)*"%f ")%temps)
     
     def get_status_list(self):
         """
@@ -71,13 +72,7 @@ class DataloggerAgent(Agent):
     
     def run(self):
         """ execute once per loop, after select has run & before command closeout """
-        #check that the dataloggers are online
-        try:
-            #self.dataloggerR.connect()
-            #self.dataloggerB.connect()
-            self.dataloggerC.connect()
-        except IOError:
-            pass
+        record=self.dataloggerC.fetch()
     
     def queryShoeTemps(self):
         try:

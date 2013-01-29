@@ -20,7 +20,7 @@ boolean ADXL345Class::init(uint8_t csPin) {
   writeRegister(ADXL_DATA_FORMAT, _dataFormat);  //0x23
   
   // Use the FIFO in stream mode
-  writeRegister(ADXL_FIFO_CTL,ADXL_FIFO_STREAM | 0x1F); 
+  writeRegister(ADXL_FIFO_CTL, ADXL_FIFO_STREAM | 0x1F);
   
   
   // Set the measurement rate
@@ -29,32 +29,27 @@ boolean ADXL345Class::init(uint8_t csPin) {
   // Configure interrupts
   writeRegister(ADXL_INT_ENABLE, 0); //Disable interrupts
   
-  uint8_t interrupts= ADXL_INT_FREEFALL |
-					  ADXL_INT_ACTIVITY  | ADXL_INT_INACTIVITY;
-  
   //Send the Activity and Freefall Interrupts to INT1 pin, rest to INT2 pin
-  writeRegister(ADXL_INT_MAP, ~interrupts );
+  writeRegister(ADXL_INT_MAP, ~(ADXL_INT_FREEFALL | ADXL_INT_WATERMARK |
+                                ADXL_INT_ACTIVITY  | ADXL_INT_INACTIVITY) );
   
   // Configure freefall interrupt
   writeRegister(ADXL_THRESH_FF, 0x08);	// Threshold to around 500 mg.
   writeRegister(ADXL_TIME_FF, 0x46);    //Duration to 350ms
   
   //Set activity and inactivity detection mode to AC, all axes included
-  writeRegister(ADXL_ACT_INACT_CTL, 0b11111111);
+  writeRegister(ADXL_ACT_INACT_CTL, 0xFF);
   writeRegister(ADXL_THRESH_ACT, 0x06); //activity threshold, .25g~0x04, About 1.5g as 255*1.5/16~0x18
   writeRegister(ADXL_THRESH_INACT, 0x05); //*62.5mg inactivity threshold
   writeRegister(ADXL_TIME_INACT, 5);	  // inactivity duration (seconds)
   //Set the activity threshold that must be reached
 
-
   // Enable interrupts
-  writeRegister(ADXL_INT_ENABLE, interrupts);
-
-  // Clear the interrupts by reading
-  getInterruptSource(); 
+  writeRegister(ADXL_INT_ENABLE, ADXL_INT_FREEFALL | ADXL_INT_ACTIVITY |
+                                  ADXL_INT_INACTIVITY);
 
   // Link, Measurement mode, autosleep, 8Hz rate
-  writeRegister(ADXL_POWER_CTL, 0b00101000);
+  writeRegister(ADXL_POWER_CTL, ADXL_LINK_MODE | ADXL_MEASURE_MODE );
 
   return true;
 }

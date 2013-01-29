@@ -72,6 +72,8 @@
 #define ADXL_INT_WATERMARK    0x02
 #define	ADXL_INT_OVERRUN      0x01
 
+#define ADXL_LINK_MODE 0x20
+#define ADXL_MEASURE_MODE 0x08
 
 #define	ADXL_LINK		5
 #define	ADXL_AUTOSLEEP  4

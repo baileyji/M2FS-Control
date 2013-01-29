@@ -134,6 +134,9 @@ class Datalogger(object):
              #testData=['test1','test2','test3','test4','test5','test6'])
         self.dataloggerthread.start()
     
+    def restart(self):
+        self.dataloggerthread=DataloggerListener(device, self.queue)
+    
     def fetch(self):
         try:
             kind,data = self.queue.get()
@@ -149,7 +152,7 @@ class Datalogger(object):
             elif kind =='debug':
                 self.logger.debug(data)
             elif kind =='error':
-                self.logger.error(data)
+                self.logger.error(data.encode('string_escape'))
         except Queue.Empty:
             pass
         return None

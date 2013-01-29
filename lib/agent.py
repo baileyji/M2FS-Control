@@ -439,7 +439,7 @@ class Agent(object):
         self.update_select_maps(read_map, write_map, error_map)
         try:
             readers, writers, errors = select.select(
-                read_map.keys(),write_map.keys(),error_map.keys(), 5)
+                read_map.keys(),write_map.keys(),error_map.keys(), .125)
         except select.error, err:
             if err[0] != EINTR:
                 raise

@@ -436,11 +436,7 @@ void setup(void)
         systemStatus|=SYS_RTC_OK;
         
         //Set millis counter to proper point in day
-        DateTime now=RTC.now();
-        resetTime=now.unixtime();
-        cli();
-        timer0_millis=(now.unixtime()%86400)*1000;
-        sei();
+        resetMillis();
         
         #ifdef DEBUG_STARTUP
             Serial.println(F("done"));
@@ -1065,16 +1061,6 @@ void goSleep(uint32_t duration_ms, SleepMode mode) {
 
 
 
-bool needToResetMillis() {
-    DateTime now=RTC.now();
-    if ( (now.unixtime() % 86400 == 0) && resetTime!=now.unixtime()){
-        resetTime=now.unixtime();
-        return true;
-    }
-    else
-        return false;
-}
-
 //=============================
 // powerDown - Sets timer update source to
 //  WDT, starts poll for power timer,
@@ -1166,6 +1152,7 @@ bool setRTCFromSerial() {
             cout<<pstr("#RTC set\n");
         #endif
         RTC.adjust(now);
+        resetMillis()
         return true;
     }
     else {
@@ -1209,12 +1196,24 @@ void setTimerUpdateSourceToMsTimer2(void) {
 
 
 //=============================
-// resetMillis - Resets the millis counter
+// resetMillis - Resets the millis counter to the current point in the day
 //=============================
 void resetMillis() {
-    uint8_t oldSREG = SREG;
+    uint8_t oldSREG;
+    uint32_t new_timer0_millis;
+    DateTime now=RTC.now();
+    
+    resetTime=now.unixtime();
+    new_timer0_millis=(resetTime % 86400) * 1000;
+    
+    oldSREG = SREG;
     cli();
-    timer0_millis = 0;
+    timer0_millis = new_timer0_millis;
     SREG = oldSREG;
 }
 
+
+bool needToResetMillis() {
+    DateTime now=RTC.now();
+    return ( (now.unixtime() % 86400 == 0) && resetTime!=now.unixtime()) ;
+}

@@ -45,9 +45,9 @@ class DataloggerRecord(object):
             string="Temps Record"
         else:
             string="Combo Record"
-        timestr=time.strftime("%a, %d %b %Y %H:%M:%S +0000",
+        timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
                               time.localtime(self.timestamp[0]))
-        return ' '.join([string,timestr,str(self.timestamp[1])])
+        return ' '.join([string,timestr,str(self.timestamp[1]/1000.0)])
 
 class DataloggerConnection(Serial):
     """ Datalogger Connection Class """

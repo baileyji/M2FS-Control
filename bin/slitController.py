@@ -106,7 +106,7 @@ class SlitController(Agent):
         RorB,junk,args=args.partition(' ')
         #Verify that it is ok to pass the command along
         if (self.closed_loop and self.closedLoopMoveInProgress and
-            command_name in ['SLITS_HARDSTOP','SLITS_MOVESSTEPS']):
+            command_name in ['SLITS_HARDSTOP','SLITS_MOVESTEPS']):
             command.setReply('ERROR: Closed loop move in progress.')
         else:
             if RorB!='R' and RorB !='B':

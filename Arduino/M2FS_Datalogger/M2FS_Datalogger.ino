@@ -1152,7 +1152,7 @@ bool setRTCFromSerial() {
             cout<<pstr("#RTC set\n");
         #endif
         RTC.adjust(now);
-        resetMillis()
+        resetMillis();
         return true;
     }
     else {

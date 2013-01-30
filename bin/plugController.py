@@ -16,9 +16,12 @@ FILE_SIZE_LIMIT_BYTES=1048576
 import contextlib
 @contextlib.contextmanager
 def working_directory(path):
-    """A context manager which changes the working directory to the given
+    """
+    A context manager which changes the working directory to the given
     path, and then changes it back to its previous value on exit.
-    Taken from http://code.activestate.com/recipes/576620-changedirectory-context-manager/#c3 for possible future use    
+    Taken from http://code.activestate.com/recipes/576620-changedirectory-context-manager/#c3
+    
+    NB This isn't used, but I might try to learn more about it
     """
     prev_cwd = os.getcwd()
     os.chdir(path)
@@ -46,10 +49,14 @@ class PlateManager(threading.Thread):
     an existing plate is considered invalid.
     """
     def __init__(self):
+        """
+        Initialize the plate manager thread
+        """
         threading.Thread.__init__(self)
         self.daemon=True
         self.lock=threading.Lock()
-        self.initialize_logger()
+        self.logger=logging.getLogger('PlateManager')
+        self.logger.setLevel(logging.DEBUG)
         self._plates={}
         self._plateDir=m2fsConfig.getPlateDir()
         self._rejectDir=m2fsConfig.getPlateRejectDir()
@@ -60,20 +67,68 @@ class PlateManager(threading.Thread):
         self.logger.info("Plates database initialized with %i plates" %
             len(self._plates))
     
-    def initialize_logger(self):
-        """ Configure logging"""
-        #create the logger
-        self.logger=logging.getLogger('PlateManager')
-        self.logger.setLevel(logging.DEBUG)
-        # create formatter
-        formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')
-        # create console handler and set level to debug
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        # add formatter to handlers
-        ch.setFormatter(formatter)
-        # add handlers to logger
-        self.logger.addHandler(ch)
+    def _lsUploadDir(self):
+        """
+        Return a list of all files in _uploadDir that we care to process
+        
+        This list includes all files EXCEPT: dotfiles, symlinks, README,
+        and sample.plate. It does not include directories.
+        """
+        try:
+            os.chdir(self._uploadDir)
+            files=os.listdir('.')
+            files=filter(files, lambda x: not (fnmatch(n, '.*') or
+                                               fnmatch(n, 'README') or
+                                               fnmatch(n, 'sample.plate') or
+                                               os.path.isdir(x) or
+                                               os.path.islink(x)))
+        except OSError:
+            files=[]
+
+    def _catergorizeUploads(self, files):
+        """
+        Divide files into three groups good files, trash files, & reject files
+        
+        Returns a dict with keys 'good', 'trash', & 'reject'
+        Values are (possibly empty) lists of:
+        good: file names
+        trash: file names
+        reject: two element tuples containing ( file name, rejection exception)
+        
+        Files are trash if they are do not end in .plate (ignoring case), 
+        do not have a name, or are larger than the file size limit.
+        
+        Files are rejects if they can not be loaded into a Plate via 
+        Plate(file) or a plate already exists with the same name.
+        
+        Files are good if they are in neither previous category, that is, they 
+        are new, valid plates.
+        """
+        rejectFiles=[]
+        trashFiles=[]
+        goodFiles=[]
+        os.chdir(self._uploadDir)
+        for fname in files:
+            try:
+                if (len(fname) < 6 or
+                    fname[-6].lower() != '.plate' or
+                    os.path.getsize(fname) > FILE_SIZE_LIMIT_BYTES):
+                    trashFiles.append(f)
+                else:
+                    try:
+                        #Reject if plate isn't a valid plate, or plate by
+                        # same name already exists, file case is ignored
+                        # for name comparison. All plates are stored
+                        # in lower case, so use lower for comparison
+                        Plate(f)
+                        if os.path.exists(self._goodDir+fname.lower()):
+                            raise Exception('Plate already exists.')
+                        goodFiles.append(f)
+                    except Exception, e:
+                        rejectFiles.append((f,e))
+            except Exception:
+                trashFiles.append(f)
+        return {'good':goodFiles,'trash':trashFiles,'reject':rejectFiles}
     
     def run(self):
         """
@@ -85,53 +140,26 @@ class PlateManager(threading.Thread):
         either the plate repository or the rejected plates directory. Valid 
         plates are also added to the database of known plates.
         2) If not ending in .plate or >1MB they are deleted.
+        
+        TODO: add removal of directories in upload directory if we finalize
+        decision not to support uploading folders on new plate files. At present
+        they won't be copied, but they also won't be removed.
         """
         while True:
             #Get list of files in upload directory
-            try:
-                #Get list of all non dotfiles, non symlink files in upload dir
-                # not having name in EXCLUDE_FILES. Search any subdirectories
-                os.chdir(self._uploadDir)
-                files=os.listdir('.')
-                files=filter(files, lambda x: not (fnmatch(n, '.*') or
-                                                   fnmatch(n, 'README') or
-                                                   fnmatch(n, 'sample.plate') or
-                                                   os.path.isdir(x) or
-                                                   os.path.islink(x)))
-            except OSError:
-                files=[]
-            #Filter on size, type and functionality
-            rejectFiles=[]
-            trashFiles=[]
-            goodFiles=[]
-            for fname in files:
-                try:
-                    if (len(fname) < 6 or
-                        fname[-6].lower() != '.plate' or
-                        os.path.getsize(fname) > FILE_SIZE_LIMIT_BYTES):
-                        trashFiles.append(f)
-                    else:
-                        try:
-                            #Reject if plate isn't a valid plate, or plate by
-                            # same name already exists, file case is ignored
-                            # for name comparison. All plates are copied
-                            # in lower case
-                            Plate(f)
-                            if os.path.exists(self._goodDir+fname.lower()):
-                                raise Exception('Plate already exists.')
-                            goodFiles.append(f)
-                        except Exception, e:
-                            rejectFiles.append((f,e))
-                except Exception:
-                    trashFiles.append(f)
-            #Delete all files >1MB or not ending in plate
-            for f in trashFiles:
+            files=self._lsUploadDir()
+            #Sort the uploads by good, trash, & reject
+            categorizedFiles=self._catergorizeUploads(files)
+            #Delete trash files
+            os.chdir(self._uploadDir)
+            for f in categorizedFiles['trash']:
                 try:
                     os.remove(f)
                 except:
+                    self.logger.warn('Faild to delete trash: %s' % f)
                     pass
             #Log and move bad files to reject directory, with reason
-            for f,reason in rejectFiles:
+            for f,reason in categorizedFiles['reject']:
                 logger.info("%s has issue %s" % (f,str(reason)))
                 try:
                     shutil.move(f, rejectDir)
@@ -141,7 +169,7 @@ class PlateManager(threading.Thread):
                 except Exception, e:
                     self.logger.error('Caught while rejecting plate: %s' % str(e))
             #Log and move good files into plates directory, add to database
-            for f in goodFiles:
+            for f in categorizedFiles['good']:
                 self.logger.info("Plate %s added to database." % f)
                 try:
                     importpath=self._goodDir+f.lower()
@@ -183,6 +211,18 @@ class PlateManager(threading.Thread):
         return have_plate
 
 class PlugController(Agent):
+    """
+    This is the M2FS plugging controller, at present, it doesn't do much because
+    the slugging subsystem is nowhere near finished.
+    
+    It is responsible for the instruments awareness of the fiber positions and 
+    plug plates. This is accomplished by requiring that the observer upload
+    new plates to the instrument (via a samba share or, perhaps in the future, a
+    web interface) and pick the plate and setup they are observing via the 
+    instrument GUI. It combines this information with the plugging feedback 
+    system to generate determine where fibers are plugged and to which targets
+    they map.
+    """
     def __init__(self):
         Agent.__init__(self,'PlugController')
         #Start the plate manager
@@ -202,6 +242,7 @@ class PlugController(Agent):
             'PLUGMODE': self.PLUGMODE_command_handler})
     
     def get_version_string(self):
+        """ Return the version string """
         return PLUG_CONTROLLER_VERSION_STRING
     
     def get_cli_help_string(self):
@@ -215,11 +256,15 @@ class PlugController(Agent):
     
     def PLATELIST_command_handler(self, command):
         """
-        Get the list of available plates and their setups
-        Must not be spaces in plate file names
+        Reply with a space delimited list of available plates and their setups.
+        Spaces in plate names are escaped with _
+        
+        The list of available plates is maintained by the plate manager.
         """
         plateList=self.plateManager.getPlateNames()
-        command.setReply(' '.join(plateList)+'\n')#append \n to force sending of empty response if no plates are found
+        plateList=[ plate.replace(' ', '_') for plate in plateList]
+        #\n is required to force sending of empty response if needed
+        command.setReply(' '.join(plateList)+'\n')
     
     def PLATE_command_handler(self, command):
         """
@@ -227,6 +272,7 @@ class PlugController(Agent):
         
         If getting, return the name of the plate
         If setting return the number of setups on the plate
+        An invalid platename returns an !ERROR
         """
         if '?' in command.string:
             command.setReply(self.active_plate.name)
@@ -263,19 +309,24 @@ class PlugController(Agent):
     
     def PLUGPOS_command_handler(self, command):
         """
-        Report the current plut positions of the fibers.
+        Report the current plug positions of the fibers.
             
-        UNKNOWN, UNPLUGGED, holeID/star? TODO: Decide on this with Mario
+        Response consists of a space delimited list of 256 items, UNKNOWN,
+        UNPLUGGED, or a HoleUUID
         """
         command.setReply(self.get_fiber_plug_positions())
     
     def PLUGMODE_command_handler(self, command):
         """
-        Control/Report the plugging mode.
+        Start/Stop determination of fiber plug positions.
         
         Not this does not control the FLS pickoff, the secondary calibration
         unit, or the shoes. It only deals with getting the projector and imager
-        working.
+        working. The director is responsible for notifying the Galils to insert
+        the FLS pickof mirrors and ensuring they complete sucessfully before 
+        telling us to begin plugging. Similarly, the GUI is responsible for 
+        telling the calibration unit to insert and telling the instrument to 
+        cancel if it fails. 
         """
         if '?' in command.string:
             command.setReply(self.get_plugmode_status())
@@ -329,6 +380,9 @@ class PlugController(Agent):
     def get_fiber_plug_positions(self):
         """ 
         Report the states of all 256 fibers
+        
+        Response consists of a space delimited list of 256 items, UNKNOWN, 
+        UNPLUGGED, or a HoleUUID
         
         Red CCD first followed by the B CCD.
         """

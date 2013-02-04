@@ -166,8 +166,7 @@ class DataloggerListener(threading.Thread):
             if self.datalogger.isOpen():
                 try:
                     reader, junk, errors=select.select([self.datalogger],
-                                                       [self.datalogger],
-                                                    [self.datalogger], .5)
+                                    [self.datalogger], [self.datalogger], .5)
                     if reader:
                         byte=self.datalogger.read(1)
                         if byte == 't':
@@ -176,13 +175,13 @@ class DataloggerListener(threading.Thread):
                         elif byte == 'L':
                             logdata=self.datalogger.readLogData()
                             self.datalogger.write('#')
-                            self.queue.put(('record',logdata))
+                            self.queue.put(DataloggerRecord(logdata))
                         elif byte == 'E':
                             msg=self.datalogger.readline()
-                            self.queue.put(('error',msg))
+                            self.logger.error(msg)
                         elif byte == '#':
                             msg=self.datalogger.readline()
-                            self.queue.put(('debug',msg))
+                            self.logger.debug(msg)
                         else:
                             pass
                 except SerialException:
@@ -197,7 +196,6 @@ class Datalogger(object):
         self.logger.setLevel(logging.DEBUG)
         self.queue=Queue.Queue()
         self.dataloggerthread=DataloggerListener(device, self.queue)
-             #testData=['test1','test2','test3','test4','test5','test6'])
         self.dataloggerthread.start()
     
     def restart(self):

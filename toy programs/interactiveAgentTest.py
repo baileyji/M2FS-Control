@@ -2,7 +2,8 @@ import socket
 SHOE_R=('localhost',42000)
 SLITCONTROLLER=('localhost',48000)
 GALIL_R=('localhost',40000)
-DIRECTOR=(socket.gethostname(),51800)#socket.gethostname(),50000)
+DATALOGGER=('localhost',45000)
+DIRECTOR=(socket.gethostname(),51800)
 
 def cg():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -18,6 +19,12 @@ def cs():
 def csc():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(SLITCONTROLLER)
+    s.settimeout(1)
+    return s
+
+def cda():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(DATALOGGER)
     s.settimeout(1)
     return s
 

@@ -42,9 +42,8 @@ class Fiber(object):
 
 
 class Setup(object):
-    def __init__(self, generalinfo, targetstringlist):
-        pass
-        #self.name=''
+    def __init__(self, generalinfodict, targetstringlist):
+        self.name=generalinfodict['name']
         #self.plugPos=( (Fiber(), Hole()), (Fiber(), Hole()))
         #self.targets=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
         #self.shobject=(Hole(), CelestialObject())
@@ -173,6 +172,7 @@ class Plate(object):
         """
         plate.name=plateConfig.get('Plate', 'name')
         plate.setups={}
+        plate.n_setups=len(plateConfig.setup_sections())
         for setup in plateConfig.setup_sections():
             plate.setups[setup]=Setup(
                 dict(plateConfig.items(setup)),
@@ -185,3 +185,10 @@ class Plate(object):
         file must be a string file path.
         """
         Plate._initFromFile(self, file)
+
+    def getSetup(self, setup):
+        """
+        Return the Setup or raise ValueError
+        Returns a Setup object
+        """
+        return self.setups[setup]

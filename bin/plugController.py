@@ -295,12 +295,12 @@ class PlugController(Agent):
         Get/Set the current plate setup 
         """
         if '?' in command.string:
-            command.setReply(str(self.active_plate.active_setup))
+            command.setReply(self.active_setup.name)
         else:
             arg=command.string.partition(' ')[2]
             if self.active_plate:
                 try:
-                    self.active_plate.setActiveSetup(arg)
+                    self.active_setup=self.active_plate.getSetup(arg)
                     command.setReply('OK')
                 except ValueError:
                     command.setReply('!ERROR: Invalid Setup.')

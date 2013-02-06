@@ -1,0 +1,39 @@
+# This is a sample plate file. Lines beginning with # or ; are
+# comments and may go anywhere. Empty lines are ignored
+#
+# The plate file is into two primary sections:
+# 1) A header with global plate information
+# 2) One or more setup sections. Each composed of a section 
+# header with general setup information followed by a section
+# listing the targets in that particular setup.
+#
+# The Header sections are composed of key = value pairs
+
+
+[Plate]
+# This global header must always include the keys ...
+name = test1
+key = value
+
+[Setup1]
+# This header specifies information particular to this setup
+PI = Mario L. Mateo
+key = value
+
+[Setup1:Targets]
+# The targets for the setup consist of comma delimited values, the first 
+# seven (or more, if we need) of which must be specified. After which the remaining columns 
+# are optional and, if included, give ...
+# The allowed values for type are...
+# each row shall begin with T:
+#targetname	ra	dec	equinox	holeX	holeY	HoleZ	type	spectral_type
+T: HR8511 4:30.12	30	J2000	3.18	49.2	-1.20	Calibrator	 
+
+[Setup2]
+COIs = Mateo, M. L. & Bailey, J. I.
+key = value
+
+
+[Setup2:Targets]
+#targetname	ra	dec	equinox	holeX	holeY	HoleZ	type	spectral_type
+T: AGTriA	4:30.12	30	J2000	3.18	49.2	-1.20	star

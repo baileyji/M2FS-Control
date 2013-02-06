@@ -223,13 +223,14 @@ class m2fsConfig:
             raise ValueError
     
     @staticmethod
-    def getDataloggerLogfileNames():
+    def getDataloggerLogfileName():
         """
-        Return tuple of temp logfile and acceleration logfile
+        Return the fully qualified datalogger logfile path
         
         
-        Logfiles returned should exist and have r/w permissions for the 
-        process.
+        Files returned should have r/w permissions for the process.
         """
-        #return ('/var/log/tempLogfile.pickle','/var/log/accelLogfile.pickle')
-        return ('/Users/one/Desktop/tempLogfile.pickle','/Users/one/Desktop/accelLogfile.pickle')
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        return config.get('Directories','dataloggerDir')

@@ -1,18 +1,23 @@
 #!/usr/bin/env python2.7
-import sys, time, threading
+import sys, time, threading, Queue
+from itertools import groupby
 from operator import attrgetter
 from threading import Timer
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
-import cPickle
-from datalogger import Datalogger
+from datalogger import DataloggerListener
+from datalogger import ECHELLE_INDEX, PRISIM_INDEX, LORES_INDEX
 from m2fsConfig import m2fsConfig
 from SelectedConnection import SelectedSocket
+import logging
+LOGGING_LEVEL=logging.ERROR
 
 DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
-POLL_SHOE_INTERVAL=60.0
-POLL_SH_INTERVAL=60.0
+POLL_AGENTS_INTERVAL=60.0
+READING_EXPIRE_INTERVAL=75.0
 
+class Unmergable(Exception):
+    pass
 
 class LoggerRecord(object):
     """
@@ -24,7 +29,8 @@ class LoggerRecord(object):
     
     Has the attributes:
     temps - None or a list of floats in the order sent by the datalogger
-    accels - None or a numpy 32x3 array of accelerations in Gs with the FIRST?LAST?TODO
+    accels - None or a numpy 32x3 array of accelerations in Gs with the 
+    FIRST?LAST?TODO
     taken at approximately the timestamp and the remainder preceeding at
     intervals of 40 ms. 3 element dimension consists of x, y, & z axes.
     unixtime - The unixtime the of the record
@@ -32,87 +38,112 @@ class LoggerRecord(object):
     
     Implements the magic function __str__
     """
-    def __init__(self, timestamp,
-                        shackhartmanTemp=None,
-                        cradleRTemp=None,
-                        cradleBTemp=None,
-                        echelleRTemp=None,
-                        echelleBTemp=None,
-                        prismRTemp=None,
-                        prismBTemp=None,
-                        loresRTemp=None,
-                        loresBTemp=None,
-                        accelsR=None,
-                        accelsB=None):
-        self.unixtime=timestamp
-        self.shackhartmanTemp=shackhartmanTemp
-        self.cradleRTemp=cradleRTemp
-        self.cradleBTemp=cradleBTemp
-        self.echelleRTemp=echelleRTemp
-        self.echelleBTemp=echelleBTemp
-        self.prismRTemp=prismRTemp
-        self.prismBTemp=prismBTemp
-        self.loresRTemp=loresRTemp
-        self.loresBTemp=loresBTemp
-        self.accelsR=accelsR
-        self.accelsB=accelsB
-    
     @staticmethod
     def fromDataloggerRecord(side, dlRecord):
+        if dlRecord.temps:
+            echelleTemp=dlRecord.temps[ECHELLE_INDEX]
+            prismTemp=dlRecord.temps[PRISIM_INDEX]
+            loresTemp=dlRecord.temps[LORES_INDEX]
+        else:
+            echelleTemp=None
+            prismTemp=None
+            loresTemp=None
+        
         if side=='R':
             return LoggerRecord(dlRecord.unixtime,
-                                echelleRTemp=dlRecord.temps[ECHELLE_INDEX],
-                                prismRTemp=dlRecord.temps[PRISIM_INDEX],
-                                loresRTemp=dlRecord.temps[LORES_INDEX],
+                                echelleRTemp=echelleTemp,
+                                prismRTemp=prismTemp,
+                                loresRTemp=loresTemp,
                                 accelsR=dlRecord.accels)
         elif side =='B':
             return LoggerRecord(dlRecord.unixtime,
-                                echelleBTemp=dlRecord.temps[ECHELLE_INDEX],
-                                prismBTemp=dlRecord.temps[PRISIM_INDEX],
-                                loresBTemp=dlRecord.temps[LORES_INDEX],
+                                echelleBTemp=echelleTemp,
+                                prismBTemp=prismTemp,
+                                loresBTemp=loresTemp,
                                 accelsB=dlRecord.accels)
         raise ValueError('Side must be R or B')
     
+    def __init__(self, timestamp, shackhartmanTemp=None,
+                        cradleRTemp=None, cradleBTemp=None,
+                        echelleRTemp=None, echelleBTemp=None,
+                        prismRTemp=None, prismBTemp=None,
+                        loresRTemp=None, loresBTemp=None,
+                        accelsR=None, accelsB=None):
+        self.unixtime=timestamp
+        self.shackhartmanTemp=shackhartmanTemp
+        self.sideR={'cradleTemp':cradleRTemp, 'echelleTemp':echelleRTemp,
+            'prismTemp':prismRTemp, 'loresTemp':loresRTemp, 'accels':accelsR}
+        self.sideB={'cradleTemp':cradleBTemp, 'echelleTemp':echelleBTemp,
+            'prismTemp':prismBTemp, 'loresTemp':loresBTemp, 'accels':accelsB}
+    
     def __str__(self):
-        kind
-        
         timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
                               time.localtime(self.unixtime))
-        return ' '.join([string,timestr,str(self.millis/1000.0)])
+        temps=self.tempsString()
+        accels=self.accelsString()
+        return ' '.join([timestr, temps, accels])
+    
+    def accelsString(self):
+        """ Return a space delimited string of acceleration values with side """
+        if self.sideB['accels'] != None:
+            return 'B\n'+str(self.sideB['accels'])
+        elif self.sideR['accels'] != None:
+            return 'R\n'+str(self.sideR['accels'])
+        else:
+            return 'No Accels'
     
     def tempsString(self):
         """ Return a space deleimted string of the temps or 'None' """
         return ' '.join(map(str, [self.shackhartmanTemp,
-                                  self.cradleRTemp,
-                                  self.cradleBTemp,
-                                  self.echelleRTemp,
-                                  self.echelleBTemp,
-                                  self.prismRTemp,
-                                  self.prismBTemp,
-                                  self.loresRTemp,
-                                  self.loresBTemp])
+                                  self.sideR['cradleTemp'],
+                                  self.sideB['cradleTemp'],
+                                  self.sideR['echelleTemp'],
+                                  self.sideB['echelleTemp'],
+                                  self.sideR['prismTemp'],
+                                  self.sideB['prismTemp'],
+                                  self.sideR['loresTemp'],
+                                  self.sideB['loresTemp']]))
     
-    def merge(self, other):
+    def recordsMergable(self, other):
+        """
+        Combines the records if they record different data, are both for the
+        same minute. If they both contain accelerometer data, then they may not
+        be merged
+        """
+        if self.shackhartmanTemp and other.shackhartmanTemp:
+            return False
+        for k in self.sideR.keys():
+            if self.sideR[k] != None and other.sideR[k] != None:
+                return False
+        for k in self.sideB.keys():
+            if self.sideB[k] != None and other.sideB[k] != None:
+                return False
+        #Ensure both don't contain acceleration data
+        if (self.sideR['accels'] and other.sideB['accels'] or
+            self.sideB['accels'] and other.sideR['accels']):
+            return False
+        if int(other.unixtime)/60 != int(self.unixtime)/60:
+            return False
+        return True
+    
+    def merge(self, other, force=False):
         """
         Merge other with this record if appropriate or throw ValueError
         
-        Combines the records if they record different data, are both for the
-        same minute. If they both contain accelerometer data, then they may not
-        be merged        
+        If Force is true (default false) all set values are merged into self
         """
-        for attribute in other != None
-            if attribute in self != None:
-                raise ValueError('Records record same data')
-        if self.accelsR and other.accelsB or self.accelsB and other.accelsR:
-                raise ValueError('Records both record acceleration data')
-        
-        if int(other.unixtime)/60 == int(self.unixtime)/60:
-             # acceleration timestamp has priority
-            if other.accelsB or other.accelsR:
+        if not force and not self.recordsMergable(other):
+            raise Unmergable()
+        # acceleration timestamp has priority
+        if (not force and (other.sideR['accels'] != None or
+                          other.sideB['accels'] != None)):
                 self.unixtime=other.unixtime
-            for attribute in other !=None:
-                set attribute in self to value of attribute in other
-
+        for k,v in other.sideB.items():
+            if v != None:
+                self.sideB[k]=v
+        for k,v in other.sideR.items():
+            if v != None:
+                self.sideR[k]=v
 
 class DataloggerAgent(Agent):
     """
@@ -124,18 +155,23 @@ class DataloggerAgent(Agent):
         Agent.__init__(self,'DataloggerAgent')
         #Initialize the dataloggers
         self.dataloggerRQueue=Queue.Queue()
-        DataloggerListener('/dev/dataloggerR', self.dataloggerRQueue)
+        self.dataloggerR=DataloggerListener('/dev/dataloggerR', self.dataloggerRQueue)
+        self.dataloggerR.start()
         self.dataloggerBQueue=Queue.Queue()
-        DataloggerListener('/dev/dataloggerB', self.dataloggerBQueue)
+        self.dataloggerB=DataloggerListener('/dev/dataloggerB', self.dataloggerBQueue)
+        self.dataloggerB.start()
         agent_ports=m2fsConfig.getAgentPorts()
         self.agentsQueue=Queue.Queue()
         self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
-        self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB']),
-        self.shackHartman=SelectedSocket('localhost', agent_ports['ShackHartman'])
-        self.logFile=open(=m2fsConfig.getDataloggerLogfileName(),'a')
+        self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
+        self.shackHartman=SelectedSocket('localhost',
+                                         agent_ports['ShackHartmanAgent'])
+        self.logfile=m2fsConfig.getDataloggerLogfileName()
+        self.currentRecord=LoggerRecord(time.time())
         self.command_handlers.update({
             #Return a list of the temperature values
             'TEMPS':self.TEMPS_command_handler})
+        #self.logger.setLevel(LOGGING_LEVEL)
     
     def get_version_string(self):
         return DATALOGGER_VERSION_STRING
@@ -151,7 +187,7 @@ class DataloggerAgent(Agent):
     
     def TEMPS_command_handler(self, command):
         """ Report the current temperatures """
-        command.setReply(self.getStringOfCurrentTemps())
+        command.setReply(self.currentRecord.tempsString())
     
     def get_status_list(self):
         """
@@ -160,11 +196,6 @@ class DataloggerAgent(Agent):
         Report the Key:Value pair name:cookie
         """
         return [(self.get_version_string(),self.cookie)]
-    
-    def getStringOfCurrentTemps(self):
-        """ Return a space delimited list of the current temperatures """
-        temps=self.currentTemps.values()
-        return ''.join((len(temps)*"%f ")%temps)
     
     def runSetup(self):
         """ execute before main loop """
@@ -186,20 +217,19 @@ class DataloggerAgent(Agent):
         try:
             while True:
                 records.append(LoggerRecord.fromDataloggerRecord(
-                                'B', dataloggerBQueue.get_nowait()))
+                                'B', self.dataloggerBQueue.get_nowait()))
         except Queue.Empty:
             pass
         try:
             while True:
                 records.append(LoggerRecord.fromDataloggerRecord(
-                                 'R', dataloggerRQueue.get_nowait()))
+                                 'R', self.dataloggerRQueue.get_nowait()))
         except Queue.Empty:
             pass
-        
         #Get all the agent records, this should never be more that one
         try:
             while True:
-                records.append(self.agentsQueue.get_nowait()))
+                records.append(self.agentsQueue.get_nowait())
         except Queue.Empty:
             pass
         #Cases
@@ -210,42 +240,55 @@ class DataloggerAgent(Agent):
         # be merged, update current state with most recent of each source, and
         #log
         records.sort(key=attrgetter('unixtime'))
-        for minute, group in groupby(records, lambda x: int(x.unixtime)/60)
+        for minute, group in groupby(records, lambda x: int(x.unixtime)/60):
+            recordGroup=list(group)
             #Cases:
             # 1) One record this minute, do nothing, we will log it later
             # 2) Multiple records this minute, attempt to merge, keep merged and
             # any that don't merge
-            if len(group) == 1:
+            if len(recordGroup) == 1:
                 pass
             else:
-                for record in group[1:]:
+                for record in recordGroup[1:]:
                     try:
-                        group[0].merge(record)
+                        recordGroup[0].merge(record)
                         records.drop(record)
-                    except ValueError:
+                    except Unmergable:
                         pass
-            mostRecentRecord=group[0]
+            mostRecentRecord=recordGroup[0]
         if records:
             self.updateCurrentReadingsWith(mostRecentRecord)
             self.logRecords(records)
             
-    def updateCurrentReadingsWith(self,record):
+    def updateCurrentReadingsWith(self, record):
         """
         Update the live state with the data in the record. Ignore old records.
         
         Sensor readings are updated with values in the record if they have newer
         timestamps. Time stamps of records are maintained on a per sensor basis.
         
-          READING_EXPIRE_TIME current if it is within a minute of the
+        READING_EXPIRE_INTERVAL current if it is within a minute of the
         current record timestaonlythe readings, extract it and add
         """
-        pass
+        self.logger.debug('Prep update current record: %s' % str(self.currentRecord))
+        timeDelta=record.unixtime-self.currentRecord.unixtime
+        if timeDelta > READING_EXPIRE_INTERVAL:
+            self.currentRecord=record
+        elif timeDelta >= 0:
+            self.currentRecord.merge(record,force=True)
+        else:
+            self.logger.debug('No update to record') #we don't wan't old data
+            return
+        self.logger.info('Current record now: %s' % str(self.currentRecord))
     
     def logRecords(self, records):
         """
         Write all the LoggerRecords in records to the log file
-        
-        
+        """
+        with open(self.logfile,'a') as file:
+            for r in records:
+                self.logger.debug('Logging: %s' % str(r))
+                file.write(str(r)+'\n')
     
     def queryAgentTemps(self):
         try:
@@ -281,14 +324,9 @@ class DataloggerAgent(Agent):
                                          cradleRTemp=cradleRTemp,
                                          cradleBTemp=cradleBTemp))
         #Do it again in in a few
-        self.queryAgentsTimer=Timer(POLL_AGENT_INTERVAL, self.queryAgentTemps)
+        self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.queryAgentTemps)
         self.queryAgentsTimer.daemon=True
         self.queryAgentsTimer.start()
-        
-    def on_exit(self, arg):
-        """Prepare to exit"""
-        self.logFile.close()
-        Agent.on_exit(self, arg)
 
 if __name__=='__main__':
     agent=DataloggerAgent()

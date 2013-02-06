@@ -1,4 +1,4 @@
-import time, re
+import time, re, select
 from construct import UBInt32, StrictRepeater, LFloat32, SLInt16, ULInt32
 from serial import Serial, SerialException
 import threading
@@ -7,9 +7,15 @@ import logging
 import logging.handlers
 import numpy
 
+
+LOGGING_LEVEL=logging.ERROR
 #Lengths of the message parts in bytes
 
 N_TEMP_SENSORS=5
+ECHELLE_INDEX=0
+PRISIM_INDEX=1
+LORES_INDEX=2
+
 
 TEMPERATURE_BYTES=4
 ACCELERATION_BYTES=2
@@ -20,6 +26,7 @@ ACCELS_TO_GEES=0.00390625
 ACCEL_RECORD_LENGTH=TIMESTAMP_LENGTH + NUM_AXES*ACCELERATION_BYTES*ADXL_FIFO_LENGTH
 TEMP_RECORD_LENGTH=TIMESTAMP_LENGTH + TEMPERATURE_BYTES*N_TEMP_SENSORS
 COMPOSITE_RECORD_LENGTH=ACCEL_RECORD_LENGTH+TEMP_RECORD_LENGTH-TIMESTAMP_LENGTH
+
 
 
 #These are constructs which take the raw binary data for the accelerations or
@@ -135,7 +142,7 @@ class DataloggerListener(threading.Thread):
         self.queue=queue
         self.datalogger=DataloggerConnection(device)
         self.logger=logging.getLogger('DataloggerListener')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(LOGGING_LEVEL)
         self.logger.info("Listener started")
     
     def run(self):
@@ -175,7 +182,9 @@ class DataloggerListener(threading.Thread):
                         elif byte == 'L':
                             logdata=self.datalogger.readLogData()
                             self.datalogger.write('#')
-                            self.queue.put(DataloggerRecord(logdata))
+                            record=DataloggerRecord(logdata)
+                            self.logger.debug(str(record))
+                            self.queue.put(record)
                         elif byte == 'E':
                             msg=self.datalogger.readline()
                             self.logger.error(msg)
@@ -193,7 +202,7 @@ class Datalogger(object):
     """ Datalogger  Controller Class """
     def __init__(self, device):
         self.logger=logging.getLogger('Datalogger')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.ERROR)
         self.queue=Queue.Queue()
         self.dataloggerthread=DataloggerListener(device, self.queue)
         self.dataloggerthread.start()

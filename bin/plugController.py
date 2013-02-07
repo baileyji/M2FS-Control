@@ -323,7 +323,11 @@ class PlugController(Agent):
         Response consists of a space delimited list of 256 items, UNKNOWN,
         UNPLUGGED, or a HoleUUID
         """
-        command.setReply(self.get_fiber_plug_positions())
+        side=command.string.partition(' ')[2]
+        if side !='R' and side != 'B':
+            self.bad_command_handler(command)
+        else:
+            command.setReply(self.get_fiber_plug_positions(side))
     
     def PLUGMODE_command_handler(self, command):
         """
@@ -386,17 +390,59 @@ class PlugController(Agent):
         """ Tell whether plugmode is on off or in some fault state """
         return 'OFF'
     
-    def get_fiber_plug_positions(self):
+    def get_fiber_plug_positions(self, side):
         """ 
-        Report the states of all 256 fibers
+        Report the states of the 128 fibers connected to side 'R' or 'B'
         
-        Response consists of a space delimited list of 256 items, UNKNOWN, 
-        UNPLUGGED, or a HoleUUID
+        Response consists of a space delimited list of 128 items, UNKNOWN,
+        Tetris#:Groove#:[UNPLUGGED,HoleUUID, UNKNOWN]:[FiberID, UNKNOWN]
+        fiberID is unknown if the show is unplugged
         
         Red CCD first followed by the B CCD.
         """
-        return 256*'UNKNOWN '
+        fiberStates=['{0}:{1}:{2}:{3}'.format(tetris, groove,
+                        holeID_by_tetris_groove_side(tetris, groove, side),
+                        fiberID_by_tetris_groove_side(tetris, groove, side))
+                        for tetris in range(1,8) for groove in range(1,16) ]
+        return ' '.join(fiberStates)
 
+def fiberID_by_tetris_groove_side(tetris, groove, side):
+    """
+    Return the fiberID (e.g. R-04-15) based on the tetris, groove, & side
+    If shoes aren't swapped the mapping is direct, if shoes are, it is 
+    flipped.
+    """
+    if side=='R':
+        if os.path.exists('/dev/shoeR'):
+            if not os.path.exists('/dev/shoeBincradleR'):
+                fiberColor='R'
+            else:
+                fiberColor='B'
+        else:
+            fiberColor='UNKNOWN'
+    elif side=='B':
+        if os.path.exists('/dev/shoeB'):
+            if not os.path.exists('/dev/shoeRincradleB'):
+                fiberColor='B'
+            else:
+                fiberColor='R'
+        else:
+            fiberColor='UNKNOWN'
+    else:
+        raise ValueError('Side must be R or B')
+    return '{0}-{1:02}-{2:02}'.format(fiberColor,tetris, groove)
+
+def holeID_by_tetris_groove_side(tetris, groove, side):
+    """
+    Return [UNKNOWN, UNPLUGGED, <HoleUUID>] for specified fiber.
+    
+    Fiber is specified by tetris - a number from 1-8, fiber - a number 1 - 
+    16, and side, the side of the spectrograph. For instance, a return value
+    of <holeUUID> to tetris 1, groove 15, side 'R', indicates that 
+    <holeUUID> will illuminate the R side CCD via the fiber in tetris 1
+    groove 15. The color of the shoe is not relevant to this determination.
+    """
+    return 'UNKNOWN'
 
 if __name__=='__main__':
     agent=PlugController()

@@ -233,4 +233,7 @@ class m2fsConfig:
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
-        return config.get('Directories','dataloggerDir')
+        import time
+        monthyear=time.strftime("%b%Y", time.localtime(time.time()))
+        dir=config.get('Directories','dataloggerDir')
+        return dir+'datalogger_'+monthyear+'.log'

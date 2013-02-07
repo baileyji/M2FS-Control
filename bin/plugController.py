@@ -4,10 +4,11 @@ sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
 from agent import Agent
-from plate import Plate, NullPlate
+import plate
 from m2fsConfig import m2fsConfig
 from fnmatch import fnmatch
 from glob import glob
+import shutil
 
 PLUG_CONTROLLER_VERSION_STRING='Plugging Controller v0.1'
 UPLOAD_CHECK_INTERVAL=5
@@ -58,12 +59,12 @@ class PlateManager(threading.Thread):
         self.logger=logging.getLogger('PlateManager')
         self.logger.setLevel(logging.DEBUG)
         self._plates={}
-        self._plateDir=m2fsConfig.getPlateDir()
-        self._rejectDir=m2fsConfig.getPlateRejectDir()
-        self._uploadDir=m2fsConfig.getPlateUploadDir()
+        self._plateDir=os.getcwd()+os.sep+m2fsConfig.getPlateDir()
+        self._rejectDir=os.getcwd()+os.sep+m2fsConfig.getPlateRejectDir()
+        self._uploadDir=os.getcwd()+os.sep+m2fsConfig.getPlateUploadDir()
         #Load all of the existing platefiles as filenames
         for file in glob(self._plateDir+'*.plate'):
-            self._plates[os.basename(file)]=file
+            self._plates[os.path.basename(file)]=file
         self.logger.info("Plates database initialized with %i plates" %
             len(self._plates))
     
@@ -77,11 +78,12 @@ class PlateManager(threading.Thread):
         try:
             os.chdir(self._uploadDir)
             files=os.listdir('.')
-            files=filter(files, lambda x: not (fnmatch(n, '.*') or
-                                               fnmatch(n, 'README') or
-                                               fnmatch(n, 'sample.plate') or
-                                               os.path.isdir(x) or
-                                               os.path.islink(x)))
+            def filterFunc(file):
+                return not (fnmatch(file, '.*') or fnmatch(file, 'README') or
+                            fnmatch(file, 'sample.plate') or
+                            os.path.isdir(file) or os.path.islink(file))
+            files=filter(filterFunc, files)
+            return files
         except OSError:
             files=[]
 
@@ -110,24 +112,26 @@ class PlateManager(threading.Thread):
         os.chdir(self._uploadDir)
         for fname in files:
             try:
-                if (len(fname) < 6 or
-                    fname[-6].lower() != '.plate' or
+                if (len(fname) < 6 or fname[-6:].lower() != '.plate' or
                     os.path.getsize(fname) > FILE_SIZE_LIMIT_BYTES):
-                    trashFiles.append(f)
+                    trashFiles.append(fname)
                 else:
                     try:
                         #Reject if plate isn't a valid plate, or plate by
                         # same name already exists, file case is ignored
                         # for name comparison. All plates are stored
                         # in lower case, so use lower for comparison
-                        Plate(f)
-                        if os.path.exists(self._goodDir+fname.lower()):
+                        plate.Plate(fname)
+                        if os.path.exists(self._plateDir+fname.lower()):
                             raise Exception('Plate already exists.')
-                        goodFiles.append(f)
-                    except Exception, e:
-                        rejectFiles.append((f,e))
-            except Exception:
-                trashFiles.append(f)
+                        goodFiles.append(fname)
+                    except plate.InvalidPlate, e:
+                        rejectFiles.append((fname,e))
+                    except IOError, e:
+                        rejectFiles.append((fname,e))
+            except Exception, e:
+                self.logger.debug(str(e))
+                trashFiles.append(fname)
         return {'good':goodFiles,'trash':trashFiles,'reject':rejectFiles}
     
     def run(self):
@@ -147,6 +151,7 @@ class PlateManager(threading.Thread):
         """
         while True:
             #Get list of files in upload directory
+            #import pdb;pdb.set_trace()
             files=self._lsUploadDir()
             #Sort the uploads by good, trash, & reject
             categorizedFiles=self._catergorizeUploads(files)
@@ -170,24 +175,28 @@ class PlateManager(threading.Thread):
                     self.logger.error('Caught while rejecting plate: %s' % str(e))
             #Log and move good files into plates directory, add to database
             for f in categorizedFiles['good']:
-                self.logger.info("Plate %s added to database." % f)
                 try:
-                    importpath=self._goodDir+f.lower()
+                    importPath=self._plateDir+f.lower()
                     shutil.move(f, importPath)
-                    self.lock.acquire(True)
-                    #Store plate with name as key, fully qualified path as item
-                    self._plates[f.lower()[:-6]]=importPath
+                    try:
+                        self.lock.acquire(True)
+                        #Store plate with name as key, fully qualified path as item
+                        self._plates[f.lower()[:-6]]=importPath
+                        self.logger.info("Plate %s added to database." % f)
+                    except Exception, e:
+                        raise e
+                    finally:
+                        self.lock.release()
                 except Exception, e:
-                    self.logger.error('Caught while importing plate: %s' % str(e))
-                finally:
-                    self.lock.release()
+                    self.logger.error('Caught while importing plate: %s' % str(e))                
+                
             time.sleep(UPLOAD_CHECK_INTERVAL)
     
     def getPlate(self, name):
         """ Return a plate by name, raise KeyError if no such plate"""
         self.lock.acquire(True)
         try:
-            return Plate(self._plates[name])
+            return plate.Plate(self._plates[name])
         except IOError:
             err='Platefile %s has gone missing.' % self._plates[name]
             self.logger.error(err)
@@ -228,7 +237,7 @@ class PlugController(Agent):
         #Start the plate manager
         self.plateManager=PlateManager()
         self.plateManager.start()
-        self.active_plate=NullPlate()
+        self.active_plate=plate.Plate(None)
         self.command_handlers.update({
             #Return a list of all known plates
             'PLATELIST': self.PLATELIST_command_handler,
@@ -270,7 +279,7 @@ class PlugController(Agent):
         """
         Get/Set the current plate 
         
-        If getting, return the name of the plate
+        If getting, return the name of the currently selected plate
         If setting return the number of setups on the plate
         An invalid platename returns an !ERROR
         """
@@ -298,7 +307,7 @@ class PlugController(Agent):
             command.setReply(self.active_setup.name)
         else:
             arg=command.string.partition(' ')[2]
-            if self.active_plate:
+            if self.active_plate != plate.NullPlate:
                 try:
                     self.active_setup=self.active_plate.getSetup(arg)
                     command.setReply('OK')
@@ -367,7 +376,7 @@ class PlugController(Agent):
             outputs of the local processing. how the two communicate is not yet
             determined.
         """
-        pass
+        raise Exception('Not implemented')
     
     def exit_plug_mode(self):
         """ Finish Plugging. Consider determined positions of fibers final """

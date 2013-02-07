@@ -2,15 +2,17 @@ import ConfigParser
 
 REQUIRED_SECTIONS = ['Plate', 'Setup1']
 REQUIRED_PLATE_KEYS = ['name']
-REQUIRED_SETUP_KEYS = []
+REQUIRED_SETUP_KEYS = ['name']
 
 
-class NullPlate(object):
-    """ This is a null plate """
+class CelestialObject(object):
     def __init__(self):
-        self.setups={}
-        self.name='NULL'
-        
+        self.names=['']
+        self.ra=0.0
+        self.dec=0.0
+        self.equinox='J2000'
+        self.mag=0.0
+        self.magV=0.0
 
 class Hole(object):
     """
@@ -34,32 +36,35 @@ class Hole(object):
                 self.radius == other.radius)
 
 class Fiber(object):
+    """
+    An M2FS fiber. An object wrapper for the fiber name.
+    
+    Fibers are named, Fibers are equal if they have the same name.
+    """
     def __init__(self, name):
         self.name=name
     
     def __eq__(self,other):
         return self.name == other.name
 
+    def __str__(self):
+        return self.name
 
 class Setup(object):
-    def __init__(self, generalinfodict, targetstringlist):
-        self.name=generalinfodict['name']
+    """
+    This is an M2FS plugplate setup.
+    
+    It has the attributes:
+    name
+    TODO
+    """
+    def __init__(self, name, setupAttributes, targetsList):
+        self.name=name
         #self.plugPos=( (Fiber(), Hole()), (Fiber(), Hole()))
         #self.targets=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
         #self.shobject=(Hole(), CelestialObject())
         #self.guideobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
         #self.acquisitionobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
-
-
-class CelestialObject(object):
-    def __init__(self):
-        self.names=['']
-        self.ra=0.0
-        self.dec=0.0
-        self.equinox='J2000'
-        self.mag=0.0
-        self.magV=0.0
-
 
 class InvalidPlate(Exception):
     """
@@ -68,13 +73,49 @@ class InvalidPlate(Exception):
     """
     pass
 
-class Plate(object):
+
+def Plate(file):
+    if file !=None:
+        return PlugPlate(file)
+    else:
+        return NullPlate()
+
+class NullPlate(object):
+    """ This is a null plate """
+    def __init__(self):
+        self.n_setups=0
+        self.name='NULL'
+    
+    def getSetup(self, setup):
+        raise KeyError
+
+class PlugPlate(object):
     """
     This is the M2FS plugplate class.
     
-    Plates are real. Plates are metal.
+    Plates are real. Plates are metal. Each plate hase a number of holes
+    drilled into it in which the M2FS fibers are plugged. Typically a plate 
+    is drilled with many more holes than there are fibers and so only a 
+    subset of the holes are populated for any given scientific observation.
+    These groups of hole which are plugged together are referred to as Setups.
+    Each setup has its own field center, shack hartman star, guide stars, etc. 
     
-    the file sample.plate describes the plate file file sturcture
+    There are four types of holes on a plate.
+    1) Science fiber holes, which accept the M2FS fibers, are used for 
+    the guider acquisition stars (with the small guide fibers), sky, and science
+    targets. There may be more than 1000 of these holes on a plate.
+    2) Guide fiber holes , which accept a spatially coherent imaging fiber 
+    bundle. There are 1 or 2 per setup.
+    3) Guide fiber locator holes. These are small diameter locating pin holes 
+    used to orient the guide fibers.
+    4) The central hole for the shack-hartman star. One per plate, does not get
+    a fiber.
+
+    A plate object has the following attributes:
+    name - A string, the plate name.
+    n_setups - The number of setups on the plate
+
+    The file sample.plate describes the plate file file sturcture
     """
     @staticmethod
     def _vetPlateSection(plateConfig):
@@ -107,15 +148,11 @@ class Plate(object):
         plateConfig.optionxform=str
         errors=[]
         #Read in the plate file
-        try:
-            f=open(file,'r')
-            plateConfig.readfp(f)
-        except ConfigParser.ParsingError as e:
-            errors.append(str(e))
-        except Exception as e:
-            errors.append(str(e))
-        finally:
-            f.close()
+        with open(file,'r') as configFile:
+            try:
+                plateConfig.readfp(configFile)
+            except ConfigParser.ParsingError as e:
+                errors.append(str(e))
         if errors:
             raise InvalidPlate('\n'.join(errors))
         #Monkey patch the plate config to support grabbing a list of all
@@ -155,14 +192,14 @@ class Plate(object):
         # The file isn't guarnateed valid yet, as there could still be invalid
         # data for a particular key
         #Validate the plate section data
-        errors.extend(Plate._vetPlateSection(plateConfig))
+        errors.extend(PlugPlate._vetPlateSection(plateConfig))
         #Validate the setup sections data
-        errors.extend(Plate._vetSetups(plateConfig))
+        errors.extend(PlugPlate._vetSetups(plateConfig))
         #Check for errors
         if errors:
             raise InvalidPlate('\n'.join(errors))
         #initialize the plate
-        return Plate._initFromVettedPlateConfig(plate, plateConfig)
+        return PlugPlate._initFromVettedPlateConfig(plate, plateConfig)
     
     @staticmethod
     def _initFromVettedPlateConfig(plate, plateConfig):
@@ -173,10 +210,11 @@ class Plate(object):
         plate.name=plateConfig.get('Plate', 'name')
         plate.setups={}
         plate.n_setups=len(plateConfig.setup_sections())
-        for setup in plateConfig.setup_sections():
-            plate.setups[setup]=Setup(
-                dict(plateConfig.items(setup)),
-                dict(plateConfig.items(setup+':Targets')).values())
+        for i, setup in enumerate(plateConfig.setup_sections()):
+            name=str(i)
+            setupAttributes=dict(plateConfig.items(setup))
+            targetsList=dict(plateConfig.items(setup+':Targets')).values()
+            plate.setups[setup]=Setup(name, setupAttributes, targetsList)
     
     def __init__(self, file):
         """
@@ -184,8 +222,8 @@ class Plate(object):
         
         file must be a string file path.
         """
-        Plate._initFromFile(self, file)
-
+        PlugPlate._initFromFile(self, file)
+    
     def getSetup(self, setup):
         """
         Return the Setup or raise ValueError

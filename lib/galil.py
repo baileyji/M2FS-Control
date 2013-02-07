@@ -248,14 +248,14 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         self._update_executing_threads_and_commands()
         if self.thread_command_map['0']==None:
             try:
-                self._send_command_to_gail('XQ#AUTO,0')
+                self._send_command_to_galil('XQ#AUTO,0')
                 self.logger.warning("Executing #AUTO manually")
                 self._update_executing_threads_and_commands()
             except GalilCommandNotAcknowledgedError:
                 error_message="Galil not programed"
                 raise SelectedConnection.ConnectError(error_message)
         #Get the software version
-        response=self._send_command_to_gail('MG m2fsver')
+        response=self._send_command_to_galil('MG m2fsver')
         if response != EXPECTED_M2FS_DMC_VERSION:
             error_message=("Incompatible Firmware, Galil reported '%s', expected '%s'." % (response,expected_version))
             raise SelectedConnection.ConnectError(error_message)
@@ -282,7 +282,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         
         Raise IOError if the defaults can not be programmed.
         """
-        bootup1=self._send_command_to_gail('MG bootup1')
+        bootup1=self._send_command_to_galil('MG bootup1')
         if bootup1=='0.0000':
             return
         self.logger.info("Programming galil defaults.")
@@ -299,10 +299,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 'Rebuilding from hardcoded defaults.')
             try:
                 for settingName, variableName in self.settingName_to_variableName_map.items():
-                    config[settingName]=self._send_command_to_gail('MG '+variableName)
+                    config[settingName]=self._send_command_to_galil('MG '+variableName)
                 m2fsConfig.setGalilDefaults(self.SIDE, config)
                 self.config=config
-                self._send_command_to_gail('bootup1=0')
+                self._send_command_to_galil('bootup1=0')
                 config={}
                 self.logger.warning('Galil'+self.SIDE+' configFile rebuilt.')
                 return
@@ -316,13 +316,13 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 # settings are not blocked by some executing thread
                 for settingName, value in config.items():
                     variableName=self.settingName_to_variableName_map[settingName]
-                    self._send_command_to_gail('%s=%s' % (variableName, value))
+                    self._send_command_to_galil('%s=%s' % (variableName, value))
                 self.config=config
-                self._send_command_to_gail('bootup1=0')
+                self._send_command_to_galil('bootup1=0')
             except IOError, e:
                 raise IOError("Can not set galil defaults.") 
     
-    def _send_command_to_gail(self, command_string):
+    def _send_command_to_galil(self, command_string):
         """
         Send a command string to the galil, wait for immediate response
 
@@ -437,7 +437,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Ask galil for thread statuses
         # The Expected response is of the form:
         # 'HX= 1.0000 1.0000 1.0000 0.0000 0.0000 0.0000 0.0000 0.0000'
-        response=self._send_command_to_gail(
+        response=self._send_command_to_galil(
             'MG "HX=",_HX0,_HX1,_HX2,_HX3,_HX4,_HX5,_HX6,_HX7')
         if response[-1] == '?' or response[0:3] !='HX=':
             raise GalilThreadUpdateException("Could not update galil threads.")
@@ -517,7 +517,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return "ERROR: "+str(e)
         try:
             #Send the command to the galil
-            self._send_command_to_gail(
+            self._send_command_to_galil(
                 command_string.replace('<threadID>', thread_number))
             return 'OK'
         except IOError, e:
@@ -549,7 +549,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #Update galil thread statuses
             self._update_executing_threads_and_commands()
             #Send the command to the galil
-            self._send_command_to_gail(command_string)
+            self._send_command_to_galil(command_string)
             response=self.receiveMessageBlocking()
             if response is '':
                 raise IOError('No response received from galil. Consider retrying.')
@@ -616,7 +616,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def check_abort_switch(self):
         """ Return true if abort switch engaged """
         try:
-            val=int(float(self._send_command_to_gail('MG _AB')))
+            val=int(float(self._send_command_to_galil('MG _AB')))
         except ValueError,e:
                 raise IOError(str(e))
         return val != 1
@@ -627,7 +627,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         
         The ELO input is bridged with DI7. 1 is disengaged 0 is engaged.
         """
-        return 0==int(float(self._send_command_to_gail('MG@IN[7]')))
+        return 0==int(float(self._send_command_to_galil('MG@IN[7]')))
     
     def reset(self):
         """ Reset the galil
@@ -644,7 +644,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 self.connection=serial.Serial(self.port, baudrate=self.baudrate,
                                           timeout=GALIL_RESET_CONNECTION_TIMEOUT)
             #send the command
-            self._send_command_to_gail('RS')
+            self._send_command_to_galil('RS')
             #close the connection
             self.close()
             #connect like normal
@@ -669,7 +669,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         try:
             m2fsConfig.clearGalilLastPositions(self.SIDE)
-            self._send_command_to_gail('HX3;XQ#SHTDWN,3')
+            self._send_command_to_galil('HX3;XQ#SHTDWN,3')
             return 'OK'
         except IOError, e:
             return str(e)
@@ -693,7 +693,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             return "!ERROR: %s not a valid setting" % settingName
         try:
             self.connect()
-            val=self._send_command_to_gail('MG '+variableName)
+            val=self._send_command_to_galil('MG '+variableName)
             if val=='':
                 val="ERROR: Galil failed to return value"
             return val
@@ -725,7 +725,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             if self._command_class_blocked(
                 self.settingNameCommandClasses[settingName]):
                 return "ERROR: Command is blocked. Try again later."
-            self._send_command_to_gail('%s=%s' % (variableName, value))
+            self._send_command_to_galil('%s=%s' % (variableName, value))
             m2fsConfig.setGalilDefault(self.SIDE, settingName, value)
             return 'OK'
         except IOError, e:

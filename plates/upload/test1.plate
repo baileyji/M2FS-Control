@@ -18,7 +18,7 @@ key = value
 [Setup1]
 # This header specifies information particular to this setup
 PI = Mario L. Mateo
-key = value
+name = 1
 
 [Setup1:Targets]
 # The targets for the setup consist of comma delimited values, the first 
@@ -31,8 +31,7 @@ T: HR8511 4:30.12	30	J2000	3.18	49.2	-1.20	Calibrator
 
 [Setup2]
 COIs = Mateo, M. L. & Bailey, J. I.
-key = value
-
+name=2
 
 [Setup2:Targets]
 #targetname	ra	dec	equinox	holeX	holeY	HoleZ	type	spectral_type
@@ -41,7 +40,7 @@ T: AGTriA	4:30.12	30	J2000	3.18	49.2	-1.20	star
 
 [Setup3]
 COIs = Mateo, M. L. & Bailey, J. I.
-key = value
+name =3
 
 
 [Setup3:Targets]

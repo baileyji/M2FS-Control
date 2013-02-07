@@ -23,7 +23,7 @@ TIMESTAMP_LENGTH=8
 ADXL_FIFO_LENGTH=32
 NUM_AXES=3
 ACCELS_TO_GEES=0.00390625
-ACCEL_RECORD_LENGTH=TIMESTAMP_LENGTH + NUM_AXES*ACCELERATION_BYTES*ADXL_FIFO_LENGTH
+ACCEL_RECORD_LENGTH=TIMESTAMP_LENGTH+NUM_AXES*ACCELERATION_BYTES*ADXL_FIFO_LENGTH
 TEMP_RECORD_LENGTH=TIMESTAMP_LENGTH + TEMPERATURE_BYTES*N_TEMP_SENSORS
 COMPOSITE_RECORD_LENGTH=ACCEL_RECORD_LENGTH+TEMP_RECORD_LENGTH-TIMESTAMP_LENGTH
 
@@ -46,7 +46,8 @@ class DataloggerRecord(object):
     
     Has the attributes:
     temps - None or a list of floats in the order sent by the datalogger
-    accels - None or a numpy 32x3 array of accelerations in Gs with the FIRST?LAST?TODO 
+    accels - None or a numpy 32x3 array of accelerations in Gs with the 
+        FIRST?LAST? TODO 
         taken at approximately the timestamp and the remainder preceeding at
         intervals of 40 ms. 3 element dimension consists of x, y, & z axes.
     unixtime - The unixtime the of the record
@@ -165,7 +166,6 @@ class DataloggerListener(threading.Thread):
         while True:
             if not self.datalogger.isOpen():
                 try:
-                    #self.logger.debug('Attempting connect %s' % self.datalogger.port)
                     self.datalogger.open()
                 except SerialException:
                     time.sleep(1)
@@ -197,35 +197,3 @@ class DataloggerListener(threading.Thread):
                     pass
                 except OSError:
                     pass
-
-class Datalogger(object):
-    """ Datalogger  Controller Class """
-    def __init__(self, device):
-        self.logger=logging.getLogger('Datalogger')
-        self.logger.setLevel(logging.ERROR)
-        self.queue=Queue.Queue()
-        self.dataloggerthread=DataloggerListener(device, self.queue)
-        self.dataloggerthread.start()
-    
-    def restart(self):
-        self.dataloggerthread=DataloggerListener(device, self.queue)
-    
-    def fetch(self):
-        try:
-            kind,data = self.queue.get()
-            self.queue.task_done()
-            if kind =='record':
-                self.logger.debug("Returning log data")
-                try:
-                    record=DataloggerRecord(data)
-                except ValueError, e:
-                    record=str(e)
-                self.logger.debug(record)
-                return record
-            elif kind =='debug':
-                self.logger.debug(data)
-            elif kind =='error':
-                self.logger.error(data.encode('string_escape'))
-        except Queue.Empty:
-            pass
-        return None

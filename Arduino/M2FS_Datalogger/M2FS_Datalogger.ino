@@ -29,7 +29,7 @@
 //       General Defines
 //#############################
 #define N_TEMP_SENSORS           5
-#define ID "v0.1"
+#define ID "v0.5"
 #define ID_SIZE 4
 #define LOGFILE_DATA_START (ID_SIZE + 13)  //Header size
 #define MESSAGE_CONFIRMATION_TIMEOUT_MS      100
@@ -46,7 +46,7 @@
 //       Debug Defines
 //#############################
 //#define DEBUG_POWERDOWN
-#define DEBUG_RAM
+//#define DEBUG_RAM
 //#define DEBUG_STARTUP //Passes
 //#define DEBUG_PROTOCOL
 //#define DEBUG_ACCEL
@@ -282,8 +282,9 @@ void accelerometerISR(void) {
         inactive=1;
         //Turn on activity and freefall interrupts, leave watermark enabled, so
         //we get rest of data and turn off inactivity
-        interrupts = ADXL_INT_FREEFALL | ADXL_INT_ACTIVITY |ADXL_INT_WATERMARK;
-        ADXL345.writeRegister(ADXL_INT_ENABLE, interrupts);
+        //interrupts = ADXL_INT_FREEFALL | ADXL_INT_ACTIVITY |
+        //             ADXL_INT_WATERMARK | ADXL_INT_INACTIVITY;
+        //ADXL345.writeRegister(ADXL_INT_ENABLE, interrupts);
     }
     
     

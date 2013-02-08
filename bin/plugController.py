@@ -64,7 +64,8 @@ class PlateManager(threading.Thread):
         self._uploadDir=os.getcwd()+os.sep+m2fsConfig.getPlateUploadDir()
         #Load all of the existing platefiles as filenames
         for file in glob(self._plateDir+'*.plate'):
-            self._plates[os.path.basename(file)]=file
+            name=os.path.splitext(os.path.basename(file))[0]
+            self._plates[name]=file
         self.logger.info("Plates database initialized with %i plates" %
             len(self._plates))
     
@@ -123,7 +124,7 @@ class PlateManager(threading.Thread):
                         # in lower case, so use lower for comparison
                         plate.Plate(fname)
                         if os.path.exists(self._plateDir+fname.lower()):
-                            raise Exception('Plate already exists.')
+                            raise plate.InvalidPlate('Plate already exists.')
                         goodFiles.append(fname)
                     except plate.InvalidPlate, e:
                         rejectFiles.append((fname,e))

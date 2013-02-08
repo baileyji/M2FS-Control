@@ -87,7 +87,19 @@ class LoggerRecord(object):
         temps=self.tempsString()
         accels=self.accelsString()
         return ' '.join([timestr, temps, accels])
-    
+
+    def prettyStr(self):
+        timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
+                              time.localtime(self.unixtime))
+        temps=self.tempsString()
+        if self.sideB['accels'] != None or self.sideR['accels'] != None:
+            accels='Accels '
+        if self.sideB['accels'] != None:
+            accels+='B'
+        if self.sideR['accels'] != None:
+            accels+='R'
+        return ' '.join([timestr, temps, accels])
+
     def accelsString(self):
         """ Return a space delimited string of acceleration values with side """
         if self.sideB['accels'] != None:
@@ -122,8 +134,8 @@ class LoggerRecord(object):
             if self.sideB[k] != None and other.sideB[k] != None:
                 return False
         #Ensure both don't contain acceleration data
-        if (self.sideR['accels'] and other.sideB['accels'] or
-            self.sideB['accels'] and other.sideR['accels']):
+        if (self.sideR['accels']!=None and other.sideB['accels']!=None or
+            self.sideB['accels']!=None and other.sideR['accels']!=None):
             return False
         if int(other.unixtime)/60 != int(self.unixtime)/60:
             return False
@@ -163,8 +175,8 @@ class DataloggerAgent(Agent):
         self.dataloggerBQueue=Queue.Queue()
         self.dataloggerB=DataloggerListener('/dev/dataloggerB', self.dataloggerBQueue)
         self.dataloggerB.start()
-        agent_ports=m2fsConfig.getAgentPorts()
         self.agentsQueue=Queue.Queue()
+        agent_ports=m2fsConfig.getAgentPorts()
         self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
         self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
         self.shackHartman=SelectedSocket('localhost',
@@ -242,6 +254,11 @@ class DataloggerAgent(Agent):
         #3) Got something from multiple sources, sort them, merge any that can
         # be merged, update current state with most recent of each source, and
         #log
+        if records:
+            logMerge=True
+            self.logger.debug('Have {} records'.format(len(records)))
+        else:
+            logMerge=False
         records.sort(key=attrgetter('unixtime'))
         for minute, group in groupby(records, lambda x: int(x.unixtime)/60):
             recordGroup=list(group)
@@ -255,14 +272,15 @@ class DataloggerAgent(Agent):
                 for record in recordGroup[1:]:
                     try:
                         recordGroup[0].merge(record)
-                        records.drop(record)
+                        records.remove(record)
                     except Unmergable:
                         pass
-            mostRecentRecord=recordGroup[0]
+        if logMerge:
+            self.logger.debug('Have {} records after merging'.format(len(records)))
         if records:
-            self.updateCurrentReadingsWith(mostRecentRecord)
+            self.updateCurrentReadingsWith(records[-1])
             self.logRecords(records)
-            
+    
     def updateCurrentReadingsWith(self, record):
         """
         Update the live state with the data in the record. Ignore old records.
@@ -293,7 +311,7 @@ class DataloggerAgent(Agent):
         """
         with open(self.logfile,'a') as file:
             for r in records:
-                self.logger.debug('Logging: %s' % str(r))
+                self.logger.debug('Logging: %s' % r.prettyStr())
                 file.write(str(r)+'\n')
     
     def queryAgentTemps(self):

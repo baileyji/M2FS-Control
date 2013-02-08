@@ -166,7 +166,7 @@ class PlateManager(threading.Thread):
                     pass
             #Log and move bad files to reject directory, with reason
             for f,reason in categorizedFiles['reject']:
-                logger.info("%s has issue %s" % (f,str(reason)))
+                self.logger.info("%s has issue %s" % (f,str(reason)))
                 try:
                     shutil.move(f, rejectDir)
                     reasonFile=file(rejectDir+fname+'.reject',"w")
@@ -189,8 +189,7 @@ class PlateManager(threading.Thread):
                     finally:
                         self.lock.release()
                 except Exception, e:
-                    self.logger.error('Caught while importing plate: %s' % str(e))                
-                
+                    self.logger.error('Caught while importing plate: %s' % str(e))
             time.sleep(UPLOAD_CHECK_INTERVAL)
     
     def getPlate(self, name):
@@ -296,7 +295,8 @@ class PlugController(Agent):
                 else:
                     try:
                         self.active_plate=self.plateManager.getPlate(plate_name)
-                        command.setReply(str(self.active_plate.n_setups))
+                        setups="'"+"' '".join(self.active_plate.listSetups())+"'"
+                        command.setReply(setups)
                     except KeyError, e:
                         command.setReply('ERROR: %s' % str(e))
     
@@ -308,11 +308,11 @@ class PlugController(Agent):
             command.setReply(self.active_setup.name)
         else:
             arg=command.string.partition(' ')[2]
-            if self.active_plate != plate.NullPlate:
+            if self.active_plate.name != plate.Plate(None).name:
                 try:
                     self.active_setup=self.active_plate.getSetup(arg)
                     command.setReply('OK')
-                except ValueError:
+                except KeyError:
                     command.setReply('!ERROR: Invalid Setup.')
             else:
                 command.setReply('!ERROR: Select a plate before picking a setup.')

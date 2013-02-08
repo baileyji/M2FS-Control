@@ -210,11 +210,11 @@ class PlugPlate(object):
         plate.name=plateConfig.get('Plate', 'name')
         plate.setups={}
         plate.n_setups=len(plateConfig.setup_sections())
-        for i, setup in enumerate(plateConfig.setup_sections()):
-            name=str(i)
+        for setup in plateConfig.setup_sections():
             setupAttributes=dict(plateConfig.items(setup))
             targetsList=dict(plateConfig.items(setup+':Targets')).values()
-            plate.setups[setup]=Setup(name, setupAttributes, targetsList)
+            plate.setups[setupAttributes['name']]=Setup(setupAttributes['name'],
+                                      setupAttributes, targetsList)
     
     def __init__(self, file):
         """
@@ -226,7 +226,11 @@ class PlugPlate(object):
     
     def getSetup(self, setup):
         """
-        Return the Setup or raise ValueError
+        Return the Setup or raise KeyError
         Returns a Setup object
         """
         return self.setups[setup]
+
+    def listSetups(self):
+        """ return a list of setup names """
+        return self.setups.keys()

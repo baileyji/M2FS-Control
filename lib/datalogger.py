@@ -8,15 +8,20 @@ import logging.handlers
 import numpy
 
 
-LOGGING_LEVEL=logging.ERROR
+LOGGING_LEVEL=logging.DEBUG
+
+#Temp sensor quantity and order
+N_TEMP_SENSORS=3
+
+ECHELLE_INDEX_B=2
+PRISM_INDEX_B=1
+LORES_INDEX_B=0
+
+ECHELLE_INDEX_R=1
+PRISM_INDEX_R=2
+LORES_INDEX_R=0
+
 #Lengths of the message parts in bytes
-
-N_TEMP_SENSORS=5
-ECHELLE_INDEX=0
-PRISIM_INDEX=1
-LORES_INDEX=2
-
-
 TEMPERATURE_BYTES=4
 ACCELERATION_BYTES=2
 TIMESTAMP_LENGTH=8
@@ -31,7 +36,7 @@ COMPOSITE_RECORD_LENGTH=ACCEL_RECORD_LENGTH+TEMP_RECORD_LENGTH-TIMESTAMP_LENGTH
 
 #These are constructs which take the raw binary data for the accelerations or
 # temps and parse them into lists of numbers
-tempsParser=StrictRepeater(N_TEMP_SENSORS, LFloat32("temps")).parse
+tempsParser =StrictRepeater(N_TEMP_SENSORS, LFloat32("temps")).parse
 accelsParser=StrictRepeater(ADXL_FIFO_LENGTH*NUM_AXES, SLInt16("accel")).parse
 unsigned32BitParser=ULInt32("foo").parse
 
@@ -182,9 +187,12 @@ class DataloggerListener(threading.Thread):
                         elif byte == 'L':
                             logdata=self.datalogger.readLogData()
                             self.datalogger.write('#')
-                            record=DataloggerRecord(logdata)
-                            self.logger.debug(str(record))
-                            self.queue.put(record)
+                            try:
+                                record=DataloggerRecord(logdata)
+                                self.logger.debug(str(record))
+                                self.queue.put(record)
+                            except ValueError:
+                                self.logger.error('Got malformed record')
                         elif byte == 'E':
                             msg=self.datalogger.readline()
                             self.logger.error(msg)

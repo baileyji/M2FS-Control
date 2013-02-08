@@ -6,11 +6,12 @@ from threading import Timer
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 from datalogger import DataloggerListener
-from datalogger import ECHELLE_INDEX, PRISIM_INDEX, LORES_INDEX
+from datalogger import ECHELLE_INDEX_B, PRISM_INDEX_B, LORES_INDEX_B
+from datalogger import ECHELLE_INDEX_R, PRISM_INDEX_R, LORES_INDEX_R
 from m2fsConfig import m2fsConfig
 from SelectedConnection import SelectedSocket
 import logging
-LOGGING_LEVEL=logging.ERROR
+LOGGING_LEVEL=logging.DEBUG
 
 DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
 POLL_AGENTS_INTERVAL=60.0
@@ -41,14 +42,18 @@ class LoggerRecord(object):
     @staticmethod
     def fromDataloggerRecord(side, dlRecord):
         if dlRecord.temps:
-            echelleTemp=dlRecord.temps[ECHELLE_INDEX]
-            prismTemp=dlRecord.temps[PRISIM_INDEX]
-            loresTemp=dlRecord.temps[LORES_INDEX]
+            if side == 'R':
+                echelleTemp=dlRecord.temps[ECHELLE_INDEX_R]
+                prismTemp=dlRecord.temps[PRISM_INDEX_R]
+                loresTemp=dlRecord.temps[LORES_INDEX_R]
+            else:
+                echelleTemp=dlRecord.temps[ECHELLE_INDEX_B]
+                prismTemp=dlRecord.temps[PRISM_INDEX_B]
+                loresTemp=dlRecord.temps[LORES_INDEX_B]
         else:
             echelleTemp=None
             prismTemp=None
             loresTemp=None
-        
         if side=='R':
             return LoggerRecord(dlRecord.unixtime,
                                 echelleRTemp=echelleTemp,
@@ -94,16 +99,14 @@ class LoggerRecord(object):
     
     def tempsString(self):
         """ Return a space deleimted string of the temps or 'None' """
-        return ' '.join(map(str, [self.shackhartmanTemp,
-                                  self.sideR['cradleTemp'],
-                                  self.sideB['cradleTemp'],
-                                  self.sideR['echelleTemp'],
-                                  self.sideB['echelleTemp'],
-                                  self.sideR['prismTemp'],
-                                  self.sideB['prismTemp'],
-                                  self.sideR['loresTemp'],
-                                  self.sideB['loresTemp']]))
-    
+        temps=[self.shackhartmanTemp,
+               self.sideR['cradleTemp'], self.sideB['cradleTemp'],
+               self.sideR['echelleTemp'], self.sideB['echelleTemp'],
+               self.sideR['prismTemp'], self.sideB['prismTemp'],
+               self.sideR['loresTemp'], self.sideB['loresTemp']]
+        temps=['{:.4f}'.format(t) if t != None else 'UNKNOWN' for t in temps]
+        return ' '.join(temps)
+
     def recordsMergable(self, other):
         """
         Combines the records if they record different data, are both for the
@@ -279,6 +282,9 @@ class DataloggerAgent(Agent):
         else:
             self.logger.debug('No update to record') #we don't wan't old data
             return
+        #Don't keep track of accelerations
+        self.currentRecord.sideB['accels']=None
+        self.currentRecord.sideR['accels']=None
         self.logger.info('Current record now: %s' % str(self.currentRecord))
     
     def logRecords(self, records):

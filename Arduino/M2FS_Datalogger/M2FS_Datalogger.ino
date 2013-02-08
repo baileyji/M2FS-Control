@@ -28,7 +28,7 @@
 //#############################
 //       General Defines
 //#############################
-#define N_TEMP_SENSORS           5
+#define N_TEMP_SENSORS           3
 #define ID "v0.5"
 #define ID_SIZE 4
 #define LOGFILE_DATA_START (ID_SIZE + 13)  //Header size
@@ -50,7 +50,7 @@
 //#define DEBUG_STARTUP //Passes
 //#define DEBUG_PROTOCOL
 //#define DEBUG_ACCEL
-//#define DEBUG_TEMP
+//define DEBUG_TEMP
 //#define DEBUG_RTC
 //#define DEBUG_FAKE_SLEEP
 //#define DEBUG_SLEEP
@@ -58,7 +58,7 @@
 //#define DEBUG_TIMERS
 //#define DEBUG_BUFFER
 //ArduinoOutStream cout(Serial);  // Serial print stream
-//*/
+
 
 
 //#############################
@@ -638,8 +638,13 @@ void loop(void){
         #ifdef DEBUG_TEMP
             cout<<"#Poll T\n";
         #endif
-        for (unsigned char i=0; i<N_TEMP_SENSORS; i++)
-            temps[i]=dallasSensors.getTempCByIndex(i); //NB Returns -127 if a temp sensor is disconnected
+        for (unsigned char i=0; i<N_TEMP_SENSORS; i++) {
+            temps[i]=dallasSensors.getTempCByIndex(i);
+            //NB Returns -127 if a temp sensor is disconnected
+            #ifdef DEBUG_TEMP
+                cout<<"#T["<<(uint16_t)i<<"]="<<temps[i]<<endl;
+            #endif
+        }
         bufferPut(temps, N_TEMP_SENSORS*sizeof(float));
         pollTempsTimer.reset();
     }

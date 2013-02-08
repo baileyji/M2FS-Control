@@ -234,7 +234,7 @@ class ShoeAgent(Agent):
         except IOError, e:
             state='Disconnected'
         return [(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT, self.cookie),
-                ('Shoe'+self.ags.SIDE, state)]
+                ('Shoe'+self.args.SIDE, state)]
     
     def RAW_command_handler(self, command):
         """ 

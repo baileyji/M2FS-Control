@@ -8,7 +8,7 @@ import logging.handlers
 import numpy
 
 
-LOGGING_LEVEL=logging.DEBUG
+LOGGING_LEVEL=logging.ERROR
 
 #Temp sensor quantity and order
 N_TEMP_SENSORS=3
@@ -204,4 +204,6 @@ class DataloggerListener(threading.Thread):
                 except SerialException:
                     pass
                 except OSError:
+                    pass
+                except IOError:
                     pass

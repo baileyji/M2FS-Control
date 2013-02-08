@@ -92,6 +92,7 @@ class LoggerRecord(object):
         timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
                               time.localtime(self.unixtime))
         temps=self.tempsString()
+        accels='No Accels'
         if self.sideB['accels'] != None or self.sideR['accels'] != None:
             accels='Accels '
         if self.sideB['accels'] != None:

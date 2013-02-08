@@ -569,16 +569,37 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """
         Return true if the command class is blocked by an executing thread
         
+        cclass may be a command class name or list of command class names.
+        
         Look through thread_command_map and find all threads running the
-        command class cclass or 'SHUTDOWN' (which blocks everything).
-        If any threads were found return true. 
+        command class cclass (or subset if list), 'SHUTDOWN', or 'UNKNOWN'. The
+        latter two blocks all command classes. If any threads are found return
+        true.
+        
         See __init__ for the format of thread_command_map
         """
-        func=lambda x: x and (cclass in x[0] or
-                              'SHUTDOWN' in x[0] or
-                              'UNKNOWN' in x[0])
-        blockingThreads=filter(func, self.thread_command_map.values())
-        return blockingThreads!=[]
+        def filterFunc(cmd_tuple):
+            """
+            Return true if cclass (or element, if list) is blocked by cmd_tuple.
+            
+            cmd_tuple must be a (command_class, command) tuple or None
+            from  self.thread_command_map.values().
+            command_class is either a singular class or a list of classes
+            """ 
+            if cmd_tuple!=None:
+                cmd_classes=cmd_tuple[0]
+                if 'SHUTDOWN' in cmd_classes or 'UNKNOWN' in cmd_classes:
+                    return True
+                else:
+                    if type(cclass)==list:
+                        for x in cclass:
+                            if x in cmd_classes:
+                                return True
+                    elif cclass in cmd_classes:
+                        return True
+            return False
+        blockingCommands=filter(filterFunc, self.thread_command_map.values())
+        return blockingCommands!=[]
     
     def _lastknownPositionWrapper(self, axis, reply, replyGoodFunc):
         """

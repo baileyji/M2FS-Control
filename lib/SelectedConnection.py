@@ -1,4 +1,4 @@
-import logging, sys
+import logging, sys, time
 
 class ReadError(IOError):
     pass
@@ -358,9 +358,11 @@ class SelectedConnection(object):
         """
         try:
             data = self._implementationSpecificRead()
-            self.logger.debug("Handle_Read got: %s" %
-                              data.replace('\n','\\n').replace('\r','\\r'))
+            #self.logger.debug("Handle_Read got: %s" %
+            #                  data.replace('\n','\\n').replace('\r','\\r'))
             self.in_buffer += data
+            self.logger.debug("Handle_Read buffer @ %s: %s" %
+                              (time.time(),data.replace('\n','\\n').replace('\r','\\r')))
             count=self.in_buffer.find('\n')
             if count is not -1:
                 message_str=self.in_buffer[0:count+1]
@@ -401,8 +403,8 @@ class SelectedConnection(object):
             if self.out_buffer:
                 # write a chunk
                 count = self._implementationSpecificWrite(self.out_buffer)
-                msg=('Attempted write "%s", wrote "%s" on %s' %
-                     (self.out_buffer, self.out_buffer[:count],self.addr_str())
+                msg=('Attempted write "%s", wrote "%s" on %s @ %s' %
+                     (self.out_buffer, self.out_buffer[:count],self.addr_str(), time.time())
                 ).replace('\n','\\n').replace('\r','\\r')
                 self.logger.debug(msg)
                 # and remove the sent data from the buffer

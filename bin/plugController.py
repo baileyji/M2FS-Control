@@ -169,7 +169,7 @@ class PlateManager(threading.Thread):
                 self.logger.info("%s has issue %s" % (f,str(reason)))
                 try:
                     shutil.move(f, self._rejectDir)
-                    reasonFile=file(self._rejectDir+fname+'.reject',"w")
+                    reasonFile=file(self._rejectDir+f+'.reject',"w")
                     reasonFile.write(str(reason))
                     reasonFile.close()
                 except Exception, e:

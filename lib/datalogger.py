@@ -178,7 +178,7 @@ class DataloggerListener(threading.Thread):
             if self.datalogger.isOpen():
                 try:
                     reader, junk, errors=select.select([self.datalogger],
-                                    [self.datalogger], [self.datalogger], .5)
+                                    [self.datalogger], [self.datalogger], 5)
                     if reader:
                         byte=self.datalogger.read(1)
                         if byte == 't':

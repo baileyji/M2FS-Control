@@ -406,7 +406,7 @@ class PlugController(Agent):
         fiberStates=['{0}:{1}:{2}:{3}'.format(tetris, groove,
                         holeID_by_tetris_groove_side(tetris, groove, side),
                         fiberID_by_tetris_groove_side(tetris, groove, side))
-                        for tetris in range(1,8) for groove in range(1,16) ]
+                        for tetris in range(1,9) for groove in range(1,17) ]
         return ' '.join(fiberStates)
 
 def fiberID_by_tetris_groove_side(tetris, groove, side):

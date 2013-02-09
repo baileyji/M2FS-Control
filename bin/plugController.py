@@ -168,8 +168,8 @@ class PlateManager(threading.Thread):
             for f,reason in categorizedFiles['reject']:
                 self.logger.info("%s has issue %s" % (f,str(reason)))
                 try:
-                    shutil.move(f, rejectDir)
-                    reasonFile=file(rejectDir+fname+'.reject',"w")
+                    shutil.move(f, self._rejectDir)
+                    reasonFile=file(self._rejectDir+fname+'.reject',"w")
                     reasonFile.write(str(reason))
                     reasonFile.close()
                 except Exception, e:

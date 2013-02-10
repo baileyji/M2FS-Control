@@ -257,6 +257,10 @@ class SelectedConnection(object):
         if message[-1]!='\n':
             message+='\n'
         return message
+        
+    def _cleanMessage(self, message):
+        """ Right strip whitespace from message """
+        return message.rstrip(' \t\n\r')
     
     def receiveMessageBlocking(self, nBytes=0, timeout=None):
         """
@@ -284,7 +288,7 @@ class SelectedConnection(object):
             response=self._implementationSpecificBlockingReceive(nBytes, timeout)
             self.logger.debug("BlockingReceive got: '%s'" % 
                 response.replace('\n','\\n').replace('\r','\\r'))
-            return response.rstrip(' \t\n\r')
+            return self._cleanMessage(response)
         except ReadError, e:
             self.handle_error(e)
             raise e

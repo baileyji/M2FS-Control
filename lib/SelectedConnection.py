@@ -229,12 +229,12 @@ class SelectedConnection(object):
                 self.connect()
             except ConnectError, err:
                 err=("Attempted to send '%s' to '%s' but coudn't connect." %
-                    (message, self.addr_str())).replace('\n','\\n').replace('\r','\\r')
+                    (message, self.addr_str())).encode('string_escape')
                 self.logger.error(err)
                 raise WriteError(err)
         elif not self.isOpen():
             err="Connect before sending '%s' to %s" % (message,self.addr_str())
-            err=err.replace('\n','\\n').replace('\r','\\r')
+            err=err.encode('string_escape')
             self.logger.error(err)
             raise WriteError(err)
         if not message:
@@ -244,7 +244,7 @@ class SelectedConnection(object):
             count=self._implementationSpecificBlockingSend(message)
             msg=("Attempted write '%s', wrote '%s' to %s" %
                  (message, message[:count], self.addr_str())
-                 ).replace('\n','\\n').replace('\r','\\r')
+                 ).encode('string_escape')
             self.logger.debug(msg)
             if count !=len(message):
                 raise WriteError('Could not send complete message.')

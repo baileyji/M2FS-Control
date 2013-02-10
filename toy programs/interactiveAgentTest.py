@@ -2,12 +2,18 @@ import socket
 SHOE_R=('localhost',42000)
 SLITCONTROLLER=('localhost',48000)
 GALIL_R=('localhost',40000)
+GUIDER=('localhost',49000)
 DATALOGGER=('localhost',45000)
 DIRECTOR=(socket.gethostname(),51800)
 
 def cg():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(GALIL_R)
+    return s
+
+def cgu():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(GUIDER)
     return s
     
 def cs():

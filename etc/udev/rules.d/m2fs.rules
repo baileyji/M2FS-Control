@@ -43,3 +43,6 @@ KERNELS=="1-2.?.2", ATTRS{serial}=="64935343433351713280", SYMLINK+="shoeRincrad
 #Shack-Hartman system rules 
 ATTRS{product}=="Pololu Simple High-Power Motor Controller 24v12", SYMLINK+="shLenslet"
 ATTRS{serial}=="FTEZU88I", SYMLINK+="shLED"
+
+#Guider rule
+ATTRS{product}=="Pololu Micro Maestro 6-Servo Controller", SYMLINK+="guider"

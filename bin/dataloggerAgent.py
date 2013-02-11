@@ -36,7 +36,7 @@ class DataloggerAgent(Agent):
         self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
         self.shackHartman=SelectedSocket('localhost',
                                          agent_ports['ShackHartmanAgent'])
-        self.logfile=m2fsConfig.getDataloggerLogfileName()
+        self.logfile=open(m2fsConfig.getDataloggerLogfileName(),'a')
         self.currentRecord=LoggerRecord(time.time())
         self.command_handlers.update({
             #Return a list of the temperature values
@@ -154,10 +154,13 @@ class DataloggerAgent(Agent):
         """
         Write all the LoggerRecords in records to the log file
         """
-        with open(self.logfile,'a') as file:
-            self.logger.debug('Logging {} records'.format(len(records)))
-            for r in records:
-                file.write(str(r)+'\n')
+        #with open(self.logfile,'a') as file:
+        self.logger.debug('Logging {} records'.format(len(records)))
+        for r in records:
+            logfile.write(str(r)+'\n')
+    
+    def _exitHook(self):
+        self.logfile.close()
     
     def queryAgentTemps(self):
         try:

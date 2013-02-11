@@ -347,7 +347,7 @@ class DataloggerAgent(Agent):
         except ValueError:
             shTemp=None
         #Create a record and stick it in the queue
-        self.agentsQueue.put(LoggerRecord(time.time(),
+        self.agentsQueue.put(LoggerRecord(time.mktime(time.gmtime()),
                                          shackhartmanTemp=shTemp,
                                          cradleRTemp=cradleRTemp,
                                          cradleBTemp=cradleBTemp))

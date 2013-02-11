@@ -25,7 +25,8 @@ class SelectedConnection(object):
     def __init__(self,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
-                default_message_error_callabck=None):
+                default_message_error_callabck=None,
+                loglevel=logging.WARNING):
         """ 
         Instantiate a SelectedConnection.
         
@@ -47,9 +48,12 @@ class SelectedConnection(object):
         is called directly (e.g. by a driver routine after select indicates an
         error).
         
+        loglevel defaults to logging.WARNING
+        
         The sent and received callbacks are called iff a message is sent or 
         recieved. If there is an error they will not be called. """
         self.logger=logging.getLogger('SelectedCon')
+        self.logger.setLevel(loglevel)
         self.defaultResponseCallback=default_message_received_callback
         self.defaultSentCallback=default_message_sent_callback
         self.defaultErrorCallback=default_message_error_callabck
@@ -190,7 +194,6 @@ class SelectedConnection(object):
         elif not self.isOpen():
             err="Connect before sending '%s' to %s" % (message,self.addr_str())
             err=err.replace('\n','\\n').replace('\r','\\r')
-            self.logger.error(err)
             #Query state because calling resets to default (possibly None)
             doRaise=self.errorCallback is None
             self.handle_error(error=err)
@@ -229,12 +232,13 @@ class SelectedConnection(object):
                 self.connect()
             except ConnectError, err:
                 err=("Attempted to send '%s' to '%s' but coudn't connect." %
-                    (message, self.addr_str())).encode('string_escape')
+                    (message, self.addr_str()))
+                err=err.replace('\n','\\n').replace('\r','\\r')
                 self.logger.error(err)
                 raise WriteError(err)
         elif not self.isOpen():
             err="Connect before sending '%s' to %s" % (message,self.addr_str())
-            err=err.encode('string_escape')
+            err=err.replace('\n','\\n').replace('\r','\\r')
             self.logger.error(err)
             raise WriteError(err)
         if not message:
@@ -244,7 +248,7 @@ class SelectedConnection(object):
             count=self._implementationSpecificBlockingSend(message)
             msg=("Attempted write '%s', wrote '%s' to %s" %
                  (message, message[:count], self.addr_str())
-                 ).encode('string_escape')
+                 ).replace('\n','\\n').replace('\r','\\r')
             self.logger.debug(msg)
             if count !=len(message):
                 raise WriteError('Could not send complete message.')
@@ -304,13 +308,13 @@ class SelectedConnection(object):
         happened and set errorCallback to defaultErrorCallback
         Close the connection via _disconnect.
         """
-        err=('ERROR: "%s" on %s.' %
+        err=('"%s" on %s.' %
             (str(error).replace('\n','\\n').replace('\r','\\r'), self.addr_str()))
         self.logger.error(err)
         if self.errorCallback !=None:
             callback=self.errorCallback
             self.errorCallback=self.defaultErrorCallback
-            callback(self,err)
+            callback(self, "ERROR: "+err)
         self._disconnect()
     
     def _disconnect(self):
@@ -328,7 +332,7 @@ class SelectedConnection(object):
         try:
             self._implementationSpecificDisconnect()
         except Exception, e:
-            self.logger.debug('_implementationSpecificDisconnect caused exception: %s'%str(e))
+            self.logger.error('_implementationSpecificDisconnect caused exception: %s'%str(e))
         self.connection = None
         self.sentCallback=self.defaultSentCallback
         self.responseCallback=self.defaultResponseCallback
@@ -366,7 +370,8 @@ class SelectedConnection(object):
             #                  data.replace('\n','\\n').replace('\r','\\r'))
             self.in_buffer += data
             self.logger.debug("Handle_Read buffer @ %s: %s" %
-                              (time.time(),data.replace('\n','\\n').replace('\r','\\r')))
+                              (time.time(),
+                               data.replace('\n','\\n').replace('\r','\\r')))
             count=self.in_buffer.find('\n')
             if count is not -1:
                 message_str=self.in_buffer[0:count+1]

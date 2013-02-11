@@ -314,7 +314,7 @@ class DataloggerAgent(Agent):
         Write all the LoggerRecords in records to the log file
         """
         with open(self.logfile,'a') as file:
-            self.logger.debug('Logging {} records' % len(records))
+            self.logger.debug('Logging {} records'.format(len(records)))
             for r in records:
                 file.write(str(r)+'\n')
     

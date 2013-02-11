@@ -191,10 +191,11 @@ class DataloggerAgent(Agent):
         except ValueError:
             shTemp=None
         #Create a record and stick it in the queue
-        self.recordQueue.put(LoggerRecord(time.time(),
-                                         shackhartmanTemp=shTemp,
-                                         cradleRTemp=cradleRTemp,
-                                         cradleBTemp=cradleBTemp))
+        if not (shTemp == None and cradleBTemp==None and cradleRTemp==None):
+            self.recordQueue.put(LoggerRecord(time.time(),
+                                             shackhartmanTemp=shTemp,
+                                             cradleRTemp=cradleRTemp,
+                                             cradleBTemp=cradleBTemp))
         #Do it again in in a few
         self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.queryAgentTemps)
         self.queryAgentsTimer.daemon=True

@@ -66,13 +66,13 @@ def fromDataloggerData(side, data):
     #Extract the sensor values
     if temps!=None:
         if side == 'R':
-            echelleTemp=dlRecord.temps[ECHELLE_INDEX_R]
-            prismTemp=dlRecord.temps[PRISM_INDEX_R]
-            loresTemp=dlRecord.temps[LORES_INDEX_R]
+            echelleTemp=temps[ECHELLE_INDEX_R]
+            prismTemp=temps[PRISM_INDEX_R]
+            loresTemp=temps[LORES_INDEX_R]
         else:
-            echelleTemp=dlRecord.temps[ECHELLE_INDEX_B]
-            prismTemp=dlRecord.temps[PRISM_INDEX_B]
-            loresTemp=dlRecord.temps[LORES_INDEX_B]
+            echelleTemp=temps[ECHELLE_INDEX_B]
+            prismTemp=temps[PRISM_INDEX_B]
+            loresTemp=temps[LORES_INDEX_B]
     else:
         echelleTemp=None
         prismTemp=None

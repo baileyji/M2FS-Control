@@ -59,7 +59,7 @@ def fromDataloggerData(side, data):
         raise ValueError("Malformed Record: '%s'" %
                          data.encode('string_escape'))
     unixtime=float(unsigned32BitParser(data[-8:-4]))
-    unixtime+=float(unsigned32BitParser(data[-4:]))/1000 % 86400
+    unixtime+=float(unsigned32BitParser(data[-4:]) % 1000) /1000
     #Convert the raw accelerometer data to Gs
     if accels !=None:
         accels=ACCELS_TO_GEES*numpyarray(accels).reshape([32,3])

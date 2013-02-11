@@ -147,6 +147,9 @@ class PlugPlate(object):
         plateConfig=ConfigParser.RawConfigParser()
         plateConfig.optionxform=str
         errors=[]
+        #Platefiles may not have spaces in their filenames
+        if ' ' in os.path.basename(file):
+            raise InvalidPlate('Filenames may not have spaces\n')
         #Read in the plate file
         with open(file,'r') as configFile:
             try:
@@ -182,12 +185,20 @@ class PlugPlate(object):
             setup,junk,junk=target.partition(':')
             if not plateConfig.has_section(setup):
                 errors.append('%s section is missing' % setup)
-        #Ensure required keys are in each setup section
+        #Ensure required keys are in each setup section and names are unique
+        setupNames=[]
         for setup in plateConfig.setup_sections():
+            #Verify all keys are there
             for key in REQUIRED_SETUP_KEYS:
                 if not plateConfig.has_option(setup, key):
                     errors.append('Required key %s missing from %s' %
                                   (key, setup))
+            #make sure name is unique
+            if plateConfig.has_option(setup, 'name'):
+                setupName=plateConfig.get(setup, 'name')
+                if setupName in setupNames:
+                    errors.append("Setup name '%' is not unique" % setupName)
+                setupNames.append(setupName)
         #At this point we know all the basic data is there
         # The file isn't guarnateed valid yet, as there could still be invalid
         # data for a particular key

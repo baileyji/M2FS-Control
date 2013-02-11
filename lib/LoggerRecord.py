@@ -35,6 +35,62 @@ unsigned32BitParser=ULInt32("foo").parse
 class Unmergable(Exception):
     pass
 
+
+def fromDataloggerData(side, data):
+    """
+    Create a LoggerRecord from the raw data string from the datalogger
+    
+    The raw string consists of the data following the L and record length
+    """
+    #Vet side
+    if side!='R' and side!='B':
+        raise ValueError('Side must be R or B')
+    #Parse the raw data
+    if len(data)==COMPOSITE_RECORD_LENGTH:
+        temps=tempsParser(data[0:4*N_TEMP_SENSORS+1])
+        accels=accelsParser(data[0:-8])
+    elif len(data)==ACCEL_RECORD_LENGTH:
+        temps=None
+        accels=accelsParser(data[0:-8])
+    elif len(data)==TEMP_RECORD_LENGTH:
+        temps=tempsParser(data[0:-8])
+        accels=None
+    else:
+        raise ValueError("Malformed Record: '%s'" %
+                         data.encode('string_escape'))
+    unixtime=float(unsigned32BitParser(data[-8:-4]))
+    unixtime+=float(unsigned32BitParser(data[-4:]))/1000 % 86400
+    #Convert the raw accelerometer data to Gs
+    if accels !=None:
+        accels=ACCELS_TO_GEES*numpyarray(self.accels).reshape([32,3])
+    #Extract the sensor values
+    if temps!=None:
+        if side == 'R':
+            echelleTemp=dlRecord.temps[ECHELLE_INDEX_R]
+            prismTemp=dlRecord.temps[PRISM_INDEX_R]
+            loresTemp=dlRecord.temps[LORES_INDEX_R]
+        else:
+            echelleTemp=dlRecord.temps[ECHELLE_INDEX_B]
+            prismTemp=dlRecord.temps[PRISM_INDEX_B]
+            loresTemp=dlRecord.temps[LORES_INDEX_B]
+    else:
+        echelleTemp=None
+        prismTemp=None
+        loresTemp=None
+    #Generate the logger record
+    if side=='R':
+        return LoggerRecord(unixtime,
+                            echelleRTemp=echelleTemp,
+                            prismRTemp=prismTemp,
+                            loresRTemp=loresTemp,
+                            accelsR=accels)
+    elif side =='B':
+        return LoggerRecord(unixtime,
+                            echelleBTemp=echelleTemp,
+                            prismBTemp=prismTemp,
+                            loresBTemp=loresTemp,
+                            accelsB=accels)
+
 class LoggerRecord(object):
     """
     A timestamped record containing temperatures and/or accelerations
@@ -56,58 +112,7 @@ class LoggerRecord(object):
     Side R & sideB accels are mutually exclusive
 
     Implements the magic function __str__
-    """
-    @staticmethod
-    def fromDataloggerData(side, data):
-        #Vet side
-        if side!='R' and side!='B':
-            raise ValueError('Side must be R or B')
-        #Parse the raw data
-        if len(data)==COMPOSITE_RECORD_LENGTH:
-            temps=tempsParser(data[0:4*N_TEMP_SENSORS+1])
-            accels=accelsParser(data[0:-8])
-        elif len(data)==ACCEL_RECORD_LENGTH:
-            temps=None
-            accels=accelsParser(data[0:-8])
-        elif len(data)==TEMP_RECORD_LENGTH:
-            temps=tempsParser(data[0:-8])
-            accels=None
-        else:
-            raise ValueError("Malformed Record: '%s'" %
-                             data.encode('string_escape'))
-        unixtime=float(unsigned32BitParser(data[-8:-4]))
-        unixtime+=float(unsigned32BitParser(data[-4:]))/1000 % 86400
-        #Convert the raw accelerometer data to Gs
-        if accels !=None:
-            accels=ACCELS_TO_GEES*numpyarray(self.accels).reshape([32,3])
-        #Extract the sensor values
-        if temps!=None:
-            if side == 'R':
-                echelleTemp=dlRecord.temps[ECHELLE_INDEX_R]
-                prismTemp=dlRecord.temps[PRISM_INDEX_R]
-                loresTemp=dlRecord.temps[LORES_INDEX_R]
-            else:
-                echelleTemp=dlRecord.temps[ECHELLE_INDEX_B]
-                prismTemp=dlRecord.temps[PRISM_INDEX_B]
-                loresTemp=dlRecord.temps[LORES_INDEX_B]
-        else:
-            echelleTemp=None
-            prismTemp=None
-            loresTemp=None
-        #Generate the logger record
-        if side=='R':
-            return LoggerRecord(unixtime,
-                                echelleRTemp=echelleTemp,
-                                prismRTemp=prismTemp,
-                                loresRTemp=loresTemp,
-                                accelsR=accels)
-        elif side =='B':
-            return LoggerRecord(unixtime,
-                                echelleBTemp=echelleTemp,
-                                prismBTemp=prismTemp,
-                                loresBTemp=loresTemp,
-                                accelsB=accels)
-    
+    """    
     def __init__(self, timestamp, shackhartmanTemp=None,
                         cradleRTemp=None, cradleBTemp=None,
                         echelleRTemp=None, echelleBTemp=None,

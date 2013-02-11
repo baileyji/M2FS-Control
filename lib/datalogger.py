@@ -110,7 +110,7 @@ class DataloggerListener(threading.Thread):
                             logdata=self.datalogger.readLogData()
                             self.datalogger.write('#')
                             try:
-                                record=LoggerRecord(self.side, logdata)
+                                record=LoggerRecord.fromDataloggerData(self.side, logdata)
                                 self.logger.debug(record.prettyStr())
                                 self.queue.put(record)
                             except ValueError:

@@ -26,13 +26,11 @@ class DataloggerAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'DataloggerAgent')
         #Initialize the dataloggers
-        self.dataloggerRQueue=Queue.Queue()
-        self.dataloggerR=DataloggerListener('R','/dev/dataloggerR', self.dataloggerRQueue)
+        self.recordQueue=Queue.Queue()
+        self.dataloggerR=DataloggerListener('R','/dev/dataloggerR', self.recordQueue)
         self.dataloggerR.start()
-        self.dataloggerBQueue=Queue.Queue()
-        self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.dataloggerBQueue)
+        self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.recordQueue)
         self.dataloggerB.start()
-        self.agentsQueue=Queue.Queue()
         agent_ports=m2fsConfig.getAgentPorts()
         self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
         self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
@@ -85,21 +83,10 @@ class DataloggerAgent(Agent):
         and add it to the database.
         """
         records=[]
-        #Get all the new Datalogger records into Logger records
+        #Get all the new records
         try:
             while True:
-                records.append(self.dataloggerBQueue.get_nowait())
-        except Queue.Empty:
-            pass
-        try:
-            while True:
-                records.append(self.dataloggerRQueue.get_nowait())
-        except Queue.Empty:
-            pass
-        #Get all the agent records, this should never be more that one
-        try:
-            while True:
-                records.append(self.agentsQueue.get_nowait())
+                records.append(self.recordQueue.get_nowait())
         except Queue.Empty:
             pass
         #Cases
@@ -201,7 +188,7 @@ class DataloggerAgent(Agent):
         except ValueError:
             shTemp=None
         #Create a record and stick it in the queue
-        self.agentsQueue.put(LoggerRecord(time.time(),
+        self.recordQueue.put(LoggerRecord(time.time(),
                                          shackhartmanTemp=shTemp,
                                          cradleRTemp=cradleRTemp,
                                          cradleBTemp=cradleBTemp))

@@ -143,6 +143,7 @@ class LoggerRecord(object):
         for k in self.sideB.keys():
             if self.sideB[k] != None:
                 return False
+        return True
     
     def prettyStr(self):
         timestr=time.strftime("%a, %d %b %Y %H:%M:%S",

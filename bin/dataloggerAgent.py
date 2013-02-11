@@ -255,7 +255,7 @@ class DataloggerAgent(Agent):
         #3) Got something from multiple sources, sort them, merge any that can
         # be merged, update current state with most recent of each source, and
         #log
-        if records:
+        if len(records) > 1:
             logMerge=True
             self.logger.debug('Have {} records'.format(len(records)))
         else:
@@ -307,15 +307,15 @@ class DataloggerAgent(Agent):
         #Don't keep track of accelerations
         self.currentRecord.sideB['accels']=None
         self.currentRecord.sideR['accels']=None
-        self.logger.info('Current record now: %s' % str(self.currentRecord))
+        self.logger.debug('Current record now: %s' % str(self.currentRecord))
     
     def logRecords(self, records):
         """
         Write all the LoggerRecords in records to the log file
         """
         with open(self.logfile,'a') as file:
+            self.logger.debug('Logging {} records' % len(records))
             for r in records:
-                self.logger.debug('Logging: %s' % r.prettyStr())
                 file.write(str(r)+'\n')
     
     def queryAgentTemps(self):

@@ -6,7 +6,7 @@ import logging
 import logging.handlers
 import LoggerRecord
 
-LOGGING_LEVEL=logging.ERROR
+LOGGING_LEVEL=logging.INFO
 
 
 class DataloggerConnection(Serial):
@@ -45,7 +45,7 @@ class DataloggerConnection(Serial):
         message to be received properly.
         """
         s='t'+UBInt32("f").build(int(time.time()))
-        self.logger.debug('Sending time as %s' % s.encode('string_escape'))
+        self.logger.info('Sending time as %s' % s.encode('string_escape'))
         self.write(s[0])
         self.write('\x00'+s[1])
         self.write('\x00'+s[2])

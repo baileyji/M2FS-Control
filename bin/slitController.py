@@ -183,7 +183,7 @@ class SlitController(Agent):
                 command.setReply('ERROR: Closed loop control not yet implemented.')
     
     def SLITS_CLOSEDLOOP_command_handler(self, command):
-        """
+        """ 
         Toggle the slit position control mode
         
         The position control mode may only be changed when the slits are not
@@ -191,77 +191,7 @@ class SlitController(Agent):
         We need to establish the state of slit motion on both shoes. A failure
         to query state is considered not moving (The shoe is disconnected or the
         agent has issues, either way any motion WILL have stopped but the time
-        a connection is reestablished). 
-
-        This routine uses nested callbacks. I have very mixed feelings about
-        the implementation, but short of blocking IO or spawning a thread (but
-        what would be the thread? I need a design patttern!) I've not got any
-        other ideas. To me this indicates a need for threaded commands or
-        something similar.
-        
-        Note that is anything had to change to set the mode at the agent level 
-        as well the neste callbacks would become branching nested callbacks,
-        which strikes me as gosh awfully inelegant.
-        
-        Flow is as follows for changing state:
-        Define callback 1
-        Send STATUS to ShoeAgentR with responseCallback, & errorCallback set to
-        callback 1
-        
-        Callback one (see below) defines callback two and parses the response
-        from ShoeAgentR (or deals with the error) and then asks ShoeAgentB for 
-        its status, using the new callback 2 the same way.
-        
-        Callback 2 checks the response from ShoeAgentB and, if all is well sets
-        the state of self.closed_loop control and responds to the original
-        command.
-        
-        This is an excellent example of difficulties with the current arch.
-        I've implemented the same function with blocking IO a little later in 
-        this file.
-        """
-        #Getting the state is simple, grab and return ON or OFF
-        if '?' in command.string:
-            command.setReply('ON' if self.closed_loop else 'OFF')
-            return
-        #Make sure the set command is unambiguous
-        if 'ON' in command.string and 'OFF' in command.string:
-            self.bad_command_handler(command)
-            return
-        #If we are already in this mode then our work here is done
-        modeSame=((self.closed_loop and 'ON' in command.string) or
-                  (not self.closed_loop and 'OFF' in command.string))
-        if modeSame:
-            command.setReply('OK')
-            return
-        # Change the mode if possible
-        def onReply(source, string):
-            """
-            Set command reply to error if string indicates motion; otherwise,
-            define a callback and ask ShoeAgentB if any slits are moving, with
-            the callback as the message response callback.
-            """
-            if 'moving' in string.lower():
-                command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
-            else:
-                def onReply2(source, string):
-                    if 'moving' in string.lower():
-                        command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
-                    else:
-                        command.setReply('OK')
-                        self.closed_loop= 'ON' in command.string
-                self.shoeAgentB_Connection.sendMessage('STATUS',
-                    responseCallback=onReply2, errorCallback=onReply2)
-        self.shoeAgentR_Connection.sendMessage('STATUS',
-            responseCallback=onReply, errorCallback=onReply)
-    
-    def SLITS_CLOSEDLOOP_command_handler_blocking(self, command):
-        """ 
-        Toggle the slit position control mode using blocking IO
-        
-        This function should be considered to have the exact same specification
-        as SLITS_CLOSEDLOOP_command_handler. The difference is that it uses
-        blocking IO. 
+        a connection is reestablished).
         """
         #Getting the state is simple, grab and return ON or OFF
         if '?' in command.string:

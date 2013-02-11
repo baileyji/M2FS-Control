@@ -281,8 +281,8 @@ class SlitController(Agent):
         #First check Red shoe for motion
         try:
             self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
-            status_msg=self.shoeAgentR_Connection.receiveMessageBlocking()
-            if 'moving' in string.lower():
+            response=self.shoeAgentR_Connection.receiveMessageBlocking()
+            if 'moving' in response.lower():
                 command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
                 return
         except IOError:
@@ -290,8 +290,8 @@ class SlitController(Agent):
         #Then check Blue shoe for motion
         try:
             self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
-            status_msg=self.shoeAgentB_Connection.receiveMessageBlocking()
-            if 'moving' in string.lower():
+            response=self.shoeAgentB_Connection.receiveMessageBlocking()
+            if 'moving' in response.lower():
                 command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
                 return
         except IOError:

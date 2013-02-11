@@ -62,7 +62,7 @@ def fromDataloggerData(side, data):
     unixtime+=float(unsigned32BitParser(data[-4:]))/1000 % 86400
     #Convert the raw accelerometer data to Gs
     if accels !=None:
-        accels=ACCELS_TO_GEES*numpyarray(self.accels).reshape([32,3])
+        accels=ACCELS_TO_GEES*numpyarray(accels).reshape([32,3])
     #Extract the sensor values
     if temps!=None:
         if side == 'R':

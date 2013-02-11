@@ -1,5 +1,6 @@
 import time, select
 from serial import Serial, SerialException
+from construct import UBInt32
 import threading
 import Queue
 import logging
@@ -45,7 +46,8 @@ class DataloggerConnection(Serial):
         message to be received properly.
         """
         s='t'+UBInt32("f").build(int(time.time()))
-        self.logger.info('Sending time as %s' % s.encode('string_escape'))
+        logging.getLogger('DataloggerListener').debug('Sending time as %s' %
+                                                     s.encode('string_escape'))
         self.write(s[0])
         self.write('\x00'+s[1])
         self.write('\x00'+s[2])
@@ -120,7 +122,7 @@ class DataloggerListener(threading.Thread):
                             self.logger.error(msg)
                         elif byte == '#':
                             msg=self.datalogger.readline()
-                            self.logger.debug(msg)
+                            self.logger.info(msg)
                         else:
                             pass
                 except SerialException:

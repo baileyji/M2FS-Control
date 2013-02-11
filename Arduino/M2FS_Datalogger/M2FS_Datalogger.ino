@@ -387,6 +387,7 @@ void setup(void)
     // Initialize timers
     updateTempsTimer.start();
     updateRTCTimer.start();
+    updateRTCTimer.increment(updateRTCTimer.duration());
     
     // Initialize Accelerometer
     #ifdef DEBUG_STARTUP
@@ -1150,15 +1151,16 @@ bool setRTCFromSerial() {
     
     #ifdef DEBUG_RTC
         cout<<pstr("#Total in:")<<(uint16_t)i<<endl;
-        cout<<pstr("#Times:");Serial.println(unixtime,HEX);//cout<<" "<<now<<endl;
+        cout<<pstr("#Times:");Serial.print(unixtime,HEX);cout<<" "<<now<<endl;
     #endif
     
     if (now.year()>2010 && now.year()<2030) {
-        #ifdef DEBUG_RTC
-            cout<<pstr("#RTC set\n");
-        #endif
         RTC.adjust(now);
         resetMillis();
+        #ifdef DEBUG_RTC
+            DateTime now=RTC.now();
+            cout<<pstr("#RTC set:")<<now<<endl;
+        #endif
         return true;
     }
     else {

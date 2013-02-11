@@ -157,7 +157,7 @@ class DataloggerAgent(Agent):
         #with open(self.logfile,'a') as file:
         self.logger.debug('Logging {} records'.format(len(records)))
         for r in records:
-            logfile.write(str(r)+'\n')
+            self.logfile.write(str(r)+'\n')
     
     def _exitHook(self):
         self.logfile.close()

@@ -261,6 +261,7 @@ class DataloggerAgent(Agent):
         else:
             logMerge=False
         records.sort(key=attrgetter('unixtime'))
+        toRemove=[]
         for minute, group in groupby(records, lambda x: int(x.unixtime)/60):
             recordGroup=list(group)
             #Cases:
@@ -273,9 +274,11 @@ class DataloggerAgent(Agent):
                 for record in recordGroup[1:]:
                     try:
                         recordGroup[0].merge(record)
-                        records.remove(record)
+                        toRemove.append(record)
                     except Unmergable:
                         pass
+        if toRemove:
+            map(records.remove, toRemove)
         if logMerge:
             self.logger.debug('Have {} records after merging'.format(len(records)))
         if records:

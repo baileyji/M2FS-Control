@@ -220,6 +220,10 @@ class Agent(object):
         """
         pass
     
+    def _exitHook(self):
+        """Called on agent exit, hook for subclass """
+        pass
+    
     def on_exit(self, arg):
         """
         Prepare to exit
@@ -230,6 +234,7 @@ class Agent(object):
         close all open connections
         wait 1 second to ensure all messages make it into the system log
         """
+        self._exitHook()
         if m2fsConfig.doStowedShutdown():
             self._stowShutdown()
         self.logger.info("exiting %s" % arg)

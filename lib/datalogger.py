@@ -1,94 +1,13 @@
-import time, re, select
-from construct import UBInt32, StrictRepeater, LFloat32, SLInt16, ULInt32
+import time, select
 from serial import Serial, SerialException
 import threading
 import Queue
 import logging
 import logging.handlers
-import numpy
-
+import LoggerRecord
 
 LOGGING_LEVEL=logging.ERROR
 
-#Temp sensor quantity and order
-N_TEMP_SENSORS=3
-
-ECHELLE_INDEX_B=2
-PRISM_INDEX_B=1
-LORES_INDEX_B=0
-
-ECHELLE_INDEX_R=1
-PRISM_INDEX_R=2
-LORES_INDEX_R=0
-
-#Lengths of the message parts in bytes
-TEMPERATURE_BYTES=4
-ACCELERATION_BYTES=2
-TIMESTAMP_LENGTH=8
-ADXL_FIFO_LENGTH=32
-NUM_AXES=3
-ACCELS_TO_GEES=0.00390625
-ACCEL_RECORD_LENGTH=TIMESTAMP_LENGTH+NUM_AXES*ACCELERATION_BYTES*ADXL_FIFO_LENGTH
-TEMP_RECORD_LENGTH=TIMESTAMP_LENGTH + TEMPERATURE_BYTES*N_TEMP_SENSORS
-COMPOSITE_RECORD_LENGTH=ACCEL_RECORD_LENGTH+TEMP_RECORD_LENGTH-TIMESTAMP_LENGTH
-
-
-
-#These are constructs which take the raw binary data for the accelerations or
-# temps and parse them into lists of numbers
-tempsParser =StrictRepeater(N_TEMP_SENSORS, LFloat32("temps")).parse
-accelsParser=StrictRepeater(ADXL_FIFO_LENGTH*NUM_AXES, SLInt16("accel")).parse
-unsigned32BitParser=ULInt32("foo").parse
-
-
-class DataloggerRecord(object):
-    """
-    A timestamped record containing temperatures and/or accelerations
-    
-    Initialize with the raw data string (following the L and num bytes sent)
-    sent from the datalogger. Throws ValueError if the data does not parse into
-    a valid record.
-    
-    Has the attributes:
-    temps - None or a list of floats in the order sent by the datalogger
-    accels - None or a numpy 32x3 array of accelerations in Gs with the 
-        FIRST?LAST? TODO 
-        taken at approximately the timestamp and the remainder preceeding at
-        intervals of 40 ms. 3 element dimension consists of x, y, & z axes.
-    unixtime - The unixtime the of the record
-    millis - The number of miliseconds into the day
-    
-    Implements the magic function __str__ 
-    """
-    def __init__(self, data):
-        if len(data)==COMPOSITE_RECORD_LENGTH:
-            self.temps=tempsParser(data[0:4*N_TEMP_SENSORS+1])
-            self.accels=accelsParser(data[0:-8])
-        elif len(data)==ACCEL_RECORD_LENGTH:
-            self.temps=None
-            self.accels=accelsParser(data[0:-8])
-        elif len(data)==TEMP_RECORD_LENGTH:
-            self.temps=tempsParser(data[0:-8])
-            self.accels=None
-        else:
-            raise ValueError("Malformed Record: '%s'" %
-                             data.encode('string_escape'))
-        if self.accels:
-            self.accels=ACCELS_TO_GEES*numpy.array(self.accels).reshape([32,3])
-        self.unixtime=float(unsigned32BitParser(data[-8:-4]))
-        self.millis=unsigned32BitParser(data[-4:])
-        self.unixtime+=float(self.millis)/1000 % 86400
-
-    def __str__(self):
-        if not self.temps:
-            string="Accel Record"
-        elif not self.accels:
-            string="Temps Record"
-        else:
-            string="Combo Record"
-        timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
-                              time.localtime(self.unixtime))
-        return ' '.join([string,timestr,str(self.millis/1000.0)])
 
 class DataloggerConnection(Serial):
     """
@@ -126,7 +45,7 @@ class DataloggerConnection(Serial):
         message to be received properly.
         """
         s='t'+UBInt32("f").build(int(time.time()))
-        #self.logger.debug('Sending time as %s' % s.encode('string_escape'))
+        self.logger.debug('Sending time as %s' % s.encode('string_escape'))
         self.write(s[0])
         self.write('\x00'+s[1])
         self.write('\x00'+s[2])
@@ -138,14 +57,17 @@ class DataloggerListener(threading.Thread):
     This is a thread class that handles communication with a datalogger and
     yields the reported data via a queue.
     """
-    def __init__(self, device, queue):
+    def __init__(self, side, device, queue):
         """
         Start a new thread to capture temperature and accelerometer data from
         an M2FS datalogger on device. Place data into the Queue passed in Queue.
         """
+        if side != 'R' and side != 'B':
+            raise Exception('Side must be R or B')
         threading.Thread.__init__(self)
         self.daemon=True
         self.queue=queue
+        self.side=side
         self.datalogger=DataloggerConnection(device)
         self.logger=logging.getLogger('DataloggerListener')
         self.logger.setLevel(LOGGING_LEVEL)
@@ -188,8 +110,8 @@ class DataloggerListener(threading.Thread):
                             logdata=self.datalogger.readLogData()
                             self.datalogger.write('#')
                             try:
-                                record=DataloggerRecord(logdata)
-                                self.logger.debug(str(record))
+                                record=LoggerRecord(self.side, logdata)
+                                self.logger.debug(record.prettyStr())
                                 self.queue.put(record)
                             except ValueError:
                                 self.logger.error('Got malformed record')

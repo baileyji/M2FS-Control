@@ -6,160 +6,16 @@ from threading import Timer
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 from datalogger import DataloggerListener
-from datalogger import ECHELLE_INDEX_B, PRISM_INDEX_B, LORES_INDEX_B
-from datalogger import ECHELLE_INDEX_R, PRISM_INDEX_R, LORES_INDEX_R
 from m2fsConfig import m2fsConfig
 from SelectedConnection import SelectedSocket
 import logging
+from LoggerRecord import *
+
 LOGGING_LEVEL=logging.DEBUG
 
 DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
 POLL_AGENTS_INTERVAL=60.0
 READING_EXPIRE_INTERVAL=75.0
-
-class Unmergable(Exception):
-    pass
-
-class LoggerRecord(object):
-    """
-    A timestamped record containing temperatures and/or accelerations
-    
-    Initialize with the raw data string (following the L and num bytes sent)
-    sent from the datalogger. Throws ValueError if the data does not parse into
-    a valid record.
-    
-    Has the attributes:
-    temps - None or a list of floats in the order sent by the datalogger
-    accels - None or a numpy 32x3 array of accelerations in Gs with the 
-    FIRST?LAST?TODO
-    taken at approximately the timestamp and the remainder preceeding at
-    intervals of 40 ms. 3 element dimension consists of x, y, & z axes.
-    unixtime - The unixtime the of the record
-    millis - The number of miliseconds into the day
-    
-    Implements the magic function __str__
-    """
-    @staticmethod
-    def fromDataloggerRecord(side, dlRecord):
-        if dlRecord.temps:
-            if side == 'R':
-                echelleTemp=dlRecord.temps[ECHELLE_INDEX_R]
-                prismTemp=dlRecord.temps[PRISM_INDEX_R]
-                loresTemp=dlRecord.temps[LORES_INDEX_R]
-            else:
-                echelleTemp=dlRecord.temps[ECHELLE_INDEX_B]
-                prismTemp=dlRecord.temps[PRISM_INDEX_B]
-                loresTemp=dlRecord.temps[LORES_INDEX_B]
-        else:
-            echelleTemp=None
-            prismTemp=None
-            loresTemp=None
-        if side=='R':
-            return LoggerRecord(dlRecord.unixtime,
-                                echelleRTemp=echelleTemp,
-                                prismRTemp=prismTemp,
-                                loresRTemp=loresTemp,
-                                accelsR=dlRecord.accels)
-        elif side =='B':
-            return LoggerRecord(dlRecord.unixtime,
-                                echelleBTemp=echelleTemp,
-                                prismBTemp=prismTemp,
-                                loresBTemp=loresTemp,
-                                accelsB=dlRecord.accels)
-        raise ValueError('Side must be R or B')
-    
-    def __init__(self, timestamp, shackhartmanTemp=None,
-                        cradleRTemp=None, cradleBTemp=None,
-                        echelleRTemp=None, echelleBTemp=None,
-                        prismRTemp=None, prismBTemp=None,
-                        loresRTemp=None, loresBTemp=None,
-                        accelsR=None, accelsB=None):
-        self.unixtime=timestamp
-        self.shackhartmanTemp=shackhartmanTemp
-        self.sideR={'cradleTemp':cradleRTemp, 'echelleTemp':echelleRTemp,
-            'prismTemp':prismRTemp, 'loresTemp':loresRTemp, 'accels':accelsR}
-        self.sideB={'cradleTemp':cradleBTemp, 'echelleTemp':echelleBTemp,
-            'prismTemp':prismBTemp, 'loresTemp':loresBTemp, 'accels':accelsB}
-    
-    def __str__(self):
-        timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
-                              time.localtime(self.unixtime))
-        temps=self.tempsString()
-        accels=self.accelsString()
-        return ' '.join([timestr, temps, accels])
-
-    def prettyStr(self):
-        timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
-                              time.localtime(self.unixtime))
-        temps=self.tempsString()
-        accels='No Accels'
-        if self.sideB['accels'] != None or self.sideR['accels'] != None:
-            accels='Accels '
-        if self.sideB['accels'] != None:
-            accels+='B'
-        if self.sideR['accels'] != None:
-            accels+='R'
-        return ' '.join([timestr, temps, accels])
-
-    def accelsString(self):
-        """ Return a space delimited string of acceleration values with side """
-        if self.sideB['accels'] != None:
-            return 'B\n'+str(self.sideB['accels'])
-        elif self.sideR['accels'] != None:
-            return 'R\n'+str(self.sideR['accels'])
-        else:
-            return 'No Accels'
-    
-    def tempsString(self):
-        """ Return a space deleimted string of the temps or 'None' """
-        temps=[self.shackhartmanTemp,
-               self.sideR['cradleTemp'], self.sideB['cradleTemp'],
-               self.sideR['echelleTemp'], self.sideB['echelleTemp'],
-               self.sideR['prismTemp'], self.sideB['prismTemp'],
-               self.sideR['loresTemp'], self.sideB['loresTemp']]
-        temps=['{:.4f}'.format(t) if t != None else 'UNKNOWN' for t in temps]
-        return ' '.join(temps)
-
-    def recordsMergable(self, other):
-        """
-        Combines the records if they record different data, are both for the
-        same minute. If they both contain accelerometer data, then they may not
-        be merged
-        """
-        if self.shackhartmanTemp and other.shackhartmanTemp:
-            return False
-        for k in self.sideR.keys():
-            if self.sideR[k] != None and other.sideR[k] != None:
-                return False
-        for k in self.sideB.keys():
-            if self.sideB[k] != None and other.sideB[k] != None:
-                return False
-        #Ensure both don't contain acceleration data
-        if (self.sideR['accels']!=None and other.sideB['accels']!=None or
-            self.sideB['accels']!=None and other.sideR['accels']!=None):
-            return False
-        if int(other.unixtime)/60 != int(self.unixtime)/60:
-            return False
-        return True
-    
-    def merge(self, other, force=False):
-        """
-        Merge other with this record if appropriate or throw ValueError
-        
-        If Force is true (default false) all set values are merged into self
-        """
-        if not force and not self.recordsMergable(other):
-            raise Unmergable()
-        # acceleration timestamp has priority
-        if (not force and (other.sideR['accels'] != None or
-                          other.sideB['accels'] != None)):
-                self.unixtime=other.unixtime
-        for k,v in other.sideB.items():
-            if v != None:
-                self.sideB[k]=v
-        for k,v in other.sideR.items():
-            if v != None:
-                self.sideR[k]=v
 
 class DataloggerAgent(Agent):
     """
@@ -171,10 +27,10 @@ class DataloggerAgent(Agent):
         Agent.__init__(self,'DataloggerAgent')
         #Initialize the dataloggers
         self.dataloggerRQueue=Queue.Queue()
-        self.dataloggerR=DataloggerListener('/dev/dataloggerR', self.dataloggerRQueue)
+        self.dataloggerR=DataloggerListener('R','/dev/dataloggerR', self.dataloggerRQueue)
         self.dataloggerR.start()
         self.dataloggerBQueue=Queue.Queue()
-        self.dataloggerB=DataloggerListener('/dev/dataloggerB', self.dataloggerBQueue)
+        self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.dataloggerBQueue)
         self.dataloggerB.start()
         self.agentsQueue=Queue.Queue()
         agent_ports=m2fsConfig.getAgentPorts()
@@ -232,14 +88,12 @@ class DataloggerAgent(Agent):
         #Get all the new Datalogger records into Logger records
         try:
             while True:
-                records.append(LoggerRecord.fromDataloggerRecord(
-                                'B', self.dataloggerBQueue.get_nowait()))
+                records.append(self.dataloggerBQueue.get_nowait())
         except Queue.Empty:
             pass
         try:
             while True:
-                records.append(LoggerRecord.fromDataloggerRecord(
-                                 'R', self.dataloggerRQueue.get_nowait()))
+                records.append(self.dataloggerRQueue.get_nowait())
         except Queue.Empty:
             pass
         #Get all the agent records, this should never be more that one

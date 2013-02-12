@@ -328,17 +328,20 @@ class ShoeAgent(Agent):
                 len(command_parts[8])==1 and command_parts[8] in '1234567'):
                 #First check to make sure the command is allowed (all are
                 # calibrated and none are moving
-                response=''
+                import pdb;pdb.set_trace()
                 try:
                     status=self._send_command_to_shoe('TS')
-                    if '0255' != ''.join(status.split()[2:4]):
+                    #Verify all tetri are calibrated and none are moving
+                    # see documentation of TS command in fibershoe.ino or
+                    # get_status_list
+                    if '2550' != ''.join(status.split()[2:4]):
                         response='!ERROR: Tetri must be calibrated and not moving.'
                 except IOError:
                     #odds are the shoe is disconnected, in whcih case the error
                     # to SL will be as informative as it gets
                     # if the shoe gets connected in the interim then it will
                     # fail with an (less) informative error message
-                    pass
+                    response=''
                 if not response:
                     #Command the shoe to reconfigure the tetrii
                     response=self._do_online_only_command(

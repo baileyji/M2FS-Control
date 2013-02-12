@@ -19,7 +19,7 @@ def longTest(s):
 
 def byte2bitNumberString(byte):
     """ Convert '10110000' to '5 6 8' """
-    bytestr='{0:08b}'.format(ord(byte))
+    bytestr='{0:08b}'.format(byte)
     return ' '.join([str(8-i) for i,bit in enumerate(bytestr) if bit=='1'][-1::-1])
 
 class ShoeCommandNotAcknowledgedError(IOError):
@@ -226,7 +226,7 @@ class ShoeAgent(Agent):
             name:cookie,
             Cradle<color>:Shoe<color> <Error if not responding properly>
             Drivers:[Powered| Off]
-            On: string of tetri numbers that are on e.g. '1 4 6'
+            On: string of tetri numbers that are on e.g. '1 4 6' or None
             Moving: string of tetri numbers that are moving
             Calibrated: string of tetri numbers that are calibrated 
             
@@ -243,16 +243,17 @@ class ShoeAgent(Agent):
                       self.cookie)]
         cradleState='Shoe'+m2fsConfig.getShoeColorInCradle(self.args.SIDE)
         try:
-            response=self._send_command_to_shoe('TS')
+            response=self._send_command_to_shoe('TS').split(' ')
             try:
-                shieldIsOn=ord(response[0]) & 0x01 == 1
-                tetriOnStr=byte2bitNumberString(response[1])
-                tetriCalibStr=byte2bitNumberString(response[2])
-                tetriMovingStr=byte2bitNumberString(response[3])
-                status_list.extend([('DriverBoard','On' if shieldIsOn else 'Off')
-                                    ('On',tetriOnStr),
-                                    ('Moving',tetriMovingStr),
-                                    ('Calibrated',tetriCalibStr)])
+                shieldIsOn=int(response[0]) & 0x01 == 1
+                tetriOnStr=byte2bitNumberString(int(response[1]))
+                tetriCalibStr=byte2bitNumberString(int(response[2]))
+                tetriMovingStr=byte2bitNumberString(int(response[3]))
+                status_list.extend([
+                    ('Drivers','On' if shieldIsOn else 'Off'),
+                    ('On',tetriOnStr if tetriOnStr else 'None'),
+                    ('Moving',tetriMovingStr if tetriMovingStr else 'None'),
+                    ('Calibrated',tetriCalibStr if tetriCalibStr else 'None')])
             except Exception:
                 cradleState+=' not responding properly to status request'
         except IOError, e:

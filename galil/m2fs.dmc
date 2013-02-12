@@ -240,7 +240,9 @@ gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
 
 'HiRes Alt & Az defines
 HRTLTLK=true;HRAZLK=true;'Start assuming locked
-LCKVOLT=2 ;'Determined empirically, > => locked 
+'Determined empirically, > => locked
+AZLCKV=2
+TLLCKV=2
 
 'LoRes Tilt defines
 lrthmos=20000;'Amount to move past home before moving back, must get off switch
@@ -384,8 +386,8 @@ JS#QUFELP
 'Idle forever
 #AUTO1
 ' Monitor the axis locks for the HiRes stage
-IF(@AN[7] > LCKVOLT);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
-IF(@AN[8] > LCKVOLT);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
+IF(@AN[7] > TLLCKV);HRTLTLK=true;ELSE;HRTLTLK=false;ENDIF
+IF(@AN[8] > AZLCKV);HRAZLK=true;ELSE;HRAZLK=false;ENDIF
 'Ensure the motor monitor routine is running
 IF(_HX2=0);XQ#MOMONI,2;ENDIF
 WT 1000;JP#AUTO1

@@ -108,7 +108,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'hiresEncoder':'geshrep','loresEncoder':'geslrep',
             'gesTolerance':'gesenct',
             'flsimInserted':'flsinsp','flsimRemoved':'flsremp',
-            'loresSwapStep':'gesgsp','loresSwapEncoder':'gesgsep'}
+            'loresSwapStep':'gesgsp','loresSwapEncoder':'gesgsep',
+            'hrtltlocked':'TLLCKV', 'hrazlocked':'AZLCKV'}
         #Define which variables are in which command classes
         self.settingNameCommandClasses={
             'filter1encoder':'FILTER','filter2encoder':'FILTER',
@@ -122,7 +123,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'hiresEncoder':'GES','loresEncoder':'GES',
             'gesTolerance':'GES',
             'flsimInserted':'FLSIM','flsimRemoved':'FLSIM',
-            'loresSwapStep':'GES','loresSwapEncoder':'GES'}
+            'loresSwapStep':'GES','loresSwapEncoder':'GES',
+            'hrtltlocked':None, 'hrazlocked':None}
         #Initialize the dict of which commands are executing on which
         # Galil hardware threads. The first three automatically run: the galil
         # starts #AUTO at power-on and #AUTO starts #ANAMAF and #MOMONI
@@ -576,8 +578,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         latter two blocks all command classes. If any threads are found return
         true.
         
+        None is never blocked.
+        
         See __init__ for the format of thread_command_map
         """
+        if cclass == None:
+            return False
         def filterFunc(cmd_tuple):
             """
             Return true if cclass (or element, if list) is blocked by cmd_tuple.

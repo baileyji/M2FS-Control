@@ -331,7 +331,7 @@ class ShoeAgent(Agent):
                 response=''
                 try:
                     status=self._send_command_to_shoe('TS')
-                    if '255255' != ''.join((status.split())[2:4]):
+                    if '0255' != ''.join(status.split()[2:4]):
                         response='!ERROR: Tetri must be calibrated and not moving.'
                 except IOError:
                     #odds are the shoe is disconnected, in whcih case the error

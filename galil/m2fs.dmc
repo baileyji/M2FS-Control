@@ -240,7 +240,7 @@ gesenct=7;'1st GUESS:0.5mm/(300mm/4096) TODO: finalize
 
 'HiRes Alt & Az defines
 HRTLTLK=true;HRAZLK=true;'Start assuming locked
-LCKVOLT=2 ;'Determined empirically, > => locked 
+LCKVOLT=3 ;'Determined empirically, > => locked 
 
 'LoRes Tilt defines
 lrthmos=20000;'Amount to move past home before moving back, must get off switch

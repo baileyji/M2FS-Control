@@ -237,7 +237,7 @@ class m2fsConfig:
         monthyear=time.strftime("%b%Y", time.localtime(time.time()))
         dir=config.get('Directories','dataloggerDir')
         return dir+'datalogger_'+monthyear+'.log'
-
+    
     @staticmethod
     def getShoeColorInCradle(color):
         """

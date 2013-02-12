@@ -1,5 +1,7 @@
 import logging, sys, time
 
+DEFAULT_LOG_LEVEL=logging.WARNING
+
 class ReadError(IOError):
     pass
 
@@ -10,6 +12,12 @@ class ConnectError(IOError):
     pass
 
 DEFAULT_SOCKET_TIMEOUT=5.0
+
+#This timeout is used for blocking receives if no timeout has been set
+BACKUP_TIMEOUT=0.125
+
+def escapeString(string):
+    return string.replace('\n','\\n').replace('\r','\\r')
 
 class SelectedConnection(object):
     """
@@ -27,7 +35,7 @@ class SelectedConnection(object):
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None,
-                loglevel=logging.WARNING):
+                loglevel=DEFAULT_LOG_LEVEL):
         """ 
         Instantiate a SelectedConnection.
         
@@ -171,8 +179,8 @@ class SelectedConnection(object):
         """
         #Check for a pending message
         if self.out_buffer!='':
-            err="Attempting to send %s on non-empty buffer" % message
-            err=err.replace('\n','\\n').replace('\r','\\r')
+            err="Attempting to send '%s' on non-empty buffer" % message
+            err=escapeString(err)
             self.logger.error(err)
             if errorCallback is not None:
                 errorCallback(self, 'ERROR: '+err)
@@ -186,7 +194,7 @@ class SelectedConnection(object):
             try:
                 self.connect()
             except ConnectError, err:
-                err="Unable to send '%s'" % message
+                err="Unable to send '%s'" % escapeString(message)
                 #Query state because calling resets to default (possibly None)
                 doRaise=self.errorCallback is None
                 self.handle_error(error=err)
@@ -194,7 +202,7 @@ class SelectedConnection(object):
                     raise WriteError(err)
         elif not self.isOpen():
             err="Connect before sending '%s' to %s" % (message,self.addr_str())
-            err=err.replace('\n','\\n').replace('\r','\\r')
+            err=escapeString(err)
             #Query state because calling resets to default (possibly None)
             doRaise=self.errorCallback is None
             self.handle_error(error=err)
@@ -234,12 +242,12 @@ class SelectedConnection(object):
             except ConnectError, err:
                 err=("Attempted to send '%s' to '%s' but coudn't connect." %
                     (message, self.addr_str()))
-                err=err.replace('\n','\\n').replace('\r','\\r')
+                err=escapeString(err)
                 self.logger.error(err)
                 raise WriteError(err)
         elif not self.isOpen():
             err="Connect before sending '%s' to %s" % (message,self.addr_str())
-            err=err.replace('\n','\\n').replace('\r','\\r')
+            err=escapeString(err)
             self.logger.error(err)
             raise WriteError(err)
         if not message:
@@ -247,12 +255,16 @@ class SelectedConnection(object):
         message=self._terminateMessage(message)
         try:
             count=self._implementationSpecificBlockingSend(message)
-            msg=("Attempted write '%s', wrote '%s' to %s" %
-                 (message, message[:count], self.addr_str())
-                 ).replace('\n','\\n').replace('\r','\\r')
+            msg="Attempted write '%s', wrote '%s' to %s @ %s' %
+            msg=escapeString(msg % (message,
+                                    message[:count],
+                                    self.addr_str(),
+                                    time.time()))
             self.logger.debug(msg)
             if count !=len(message):
-                raise WriteError('Could not send complete message.')
+                err="Blocking send only sent first {} of '{}'"
+                err=escapeString(err.format(count,message))
+                raise WriteError(err)
         except WriteError,err:
             self.handle_error(err)
             raise WriteError(str(err))
@@ -273,7 +285,9 @@ class SelectedConnection(object):
         
         Timeout sets a custom timeout to wait in seconds. Float ok.
         npytes sets the number of bytes for which to wait. See 
-        _implementationSpecificBlockingReceive for details.
+        _implementationSpecificBlockingReceive for details. Note that None
+        does not imply no timeout, rather it implies the default timout. If there
+        is no default timeout then hard coded timeout is used.
         
         If the connection is not open, an attempt will be made to establish a
         connection by the standard procedure. If it fails a ReadError is raised.
@@ -291,8 +305,11 @@ class SelectedConnection(object):
             raise ReadError(err)
         try:
             response=self._implementationSpecificBlockingReceive(nBytes, timeout)
-            self.logger.debug("BlockingReceive got: '%s'" % 
-                response.replace('\n','\\n').replace('\r','\\r'))
+            self.logger.debug("BlockingReceive got: '%s'" %
+                              escapeString(response))
+            if response=='':
+                self.logger.warning(
+                    'Blocking receive on %s timed out'% self.addr_str())
             return self._cleanMessage(response)
         except ReadError, e:
             self.handle_error(e)
@@ -309,8 +326,7 @@ class SelectedConnection(object):
         happened and set errorCallback to defaultErrorCallback
         Close the connection via _disconnect.
         """
-        err=('"%s" on %s.' %
-            (str(error).replace('\n','\\n').replace('\r','\\r'), self.addr_str()))
+        err="'%s' on %s." % (escapeString(str(error)), self.addr_str())
         self.logger.error(err)
         if self.errorCallback !=None:
             callback=self.errorCallback
@@ -333,7 +349,8 @@ class SelectedConnection(object):
         try:
             self._implementationSpecificDisconnect()
         except Exception, e:
-            self.logger.error('_implementationSpecificDisconnect caused exception: %s'%str(e))
+            self.logger.error(
+                '_implementationSpecificDisconnect caused exception: %s' % str(e))
         self.connection = None
         self.sentCallback=self.defaultSentCallback
         self.responseCallback=self.defaultResponseCallback
@@ -367,23 +384,25 @@ class SelectedConnection(object):
         """
         try:
             data = self._implementationSpecificRead()
-            #self.logger.debug("Handle_Read got: %s" %
-            #                  data.replace('\n','\\n').replace('\r','\\r'))
             self.in_buffer += data
-            self.logger.debug("Handle_Read buffer @ %s: %s" %
-                              (time.time(),
-                               data.replace('\n','\\n').replace('\r','\\r')))
             count=self.in_buffer.find('\n')
             if count is not -1:
                 message_str=self.in_buffer[0:count+1]
                 self.in_buffer=self.in_buffer[count+1:]
                 self.logger.debug("Received message '%s' on %s" % 
-                    (message_str.replace('\n','\\n').replace('\r','\\r'), self))
+                    (escapeString(message_str), self))
                 if self.responseCallback:
                     callback=self.responseCallback
                     self.responseCallback=self.defaultResponseCallback
                     self.errorCallback=self.defaultErrorCallback
                     callback(self, message_str[:-1])
+                remainingBackslashNs=self.in_buffer.count('\n')
+                if remainingBackslashNs > 0:
+                    self.logger.warn('%i additional messages in buffer' % remainingBackslashNs)
+            else:
+                msg="Handle_Read buffer @ %s: '%s'"
+                msg=msg % (time.time(), escapeString(self.in_buffer))
+                self.logger.debug(msg)
         except ReadError, err:
             self.handle_error(err)
     
@@ -413,9 +432,11 @@ class SelectedConnection(object):
             if self.out_buffer:
                 # write a chunk
                 count = self._implementationSpecificWrite(self.out_buffer)
-                msg=('Attempted write "%s", wrote "%s" on %s @ %s' %
-                     (self.out_buffer, self.out_buffer[:count],self.addr_str(), time.time())
-                ).replace('\n','\\n').replace('\r','\\r')
+                msg="Attempted write '%s', wrote '%s' to %s @ %s' %
+                msg=escapeString(msg % (self.out_buffer,
+                                        self.out_buffer[:count],
+                                        self.addr_str(),
+                                        time.time()))
                 self.logger.debug(msg)
                 # and remove the sent data from the buffer
                 self.out_buffer = self.out_buffer[count:]
@@ -467,7 +488,7 @@ class SelectedSerial(SelectedConnection):
         try:
             self.connect()
         except ConnectError, err:
-            self.logger.info('Could not connect to %s. %s' %
+            self.logger.info('Did not connect to %s at startup. err=%s' %
                 (self.addr_str(),str(err)))
     
     def addr_str(self):
@@ -504,7 +525,7 @@ class SelectedSerial(SelectedConnection):
         if type(timeout) in (int,float,long) and timeout>0:
             self.connection.timeout=timeout
         elif saved_timeout==None:
-            self.connection.timeout=0.125
+            self.connection.timeout=BACKUP_TIMEOUT
         try:
             if nBytes==0:
                 response=self.connection.readline()
@@ -621,8 +642,8 @@ class SelectedSocket(SelectedConnection):
             try:
                 self.connect()
             except ConnectError, err:
-                self.logger.info('Could not connect to %s. %s' % 
-                    (self.addr_str(),str(err)))
+                self.logger.info('Did not connect to %s at startup. err=%s' %
+                                 (self.addr_str(),str(err)))
     
     def addr_str(self):
         """ Report connection address. """
@@ -660,7 +681,7 @@ class SelectedSocket(SelectedConnection):
         if type(timeout) in (int,float,long) and timeout>0:
             self.connection.settimeout(timeout)
         elif saved_timeout==0.0:
-            self.connection.settimeout(.125)
+            self.connection.settimeout(BACKUP_TIMEOUT)
         try:
             if nBytes==0:
                 #Consider a line to be 1024 bytes

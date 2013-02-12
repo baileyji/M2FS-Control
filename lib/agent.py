@@ -6,6 +6,11 @@ from SelectedConnection import SelectedSocket
 from m2fsConfig import m2fsConfig
 
 SERVER_RETRY_TIME=10
+DEFAULT_LOG_LEVEL=logging.INFO
+
+def escapeString(string):
+    return string.replace('\n','\\n').replace('\r','\\r')
+
 class Agent(object):
     """
     Base Class for (nearly) all M2FS control programs
@@ -74,6 +79,8 @@ class Agent(object):
         #Register a terminate signal handler
         signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(0))
         signal.signal(signal.SIGINT, lambda signum, stack_frame: exit(0))
+        self.logger.info("----%s Startup Complete @ %s-----" %
+                         (self.name, self.cookie) )
     
     def initialize_logger(self):
         """
@@ -89,7 +96,7 @@ class Agent(object):
         formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')
         # create console handler and set level to debug
         ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
+        ch.setLevel(DEFAULT_LOG_LEVEL)
         # add formatter to handlers
         ch.setFormatter(formatter)
         # add handlers to logger
@@ -153,11 +160,13 @@ class Agent(object):
                                           socket.SO_REUSEADDR, 1)
             self.server_socket.bind(self.listenOn())
             self.server_socket.listen(1)
-            self.logger.info(" Waiting for connection on %s:%s..." %
+            self.logger.info("Waiting for connection on %s:%s..." %
                              self.listenOn())
         except socket.error, e:
             if tries > 0:
-                self.logger.info('Server socket error %s, retrying %s more times.'%(set(e),tries))
+                self.logger.error(
+                    'Server socket error %s, retrying %s more times.' %
+                    (set(e),tries))
                 time.sleep(SERVER_RETRY_TIME)
                 self.initialize_socket_server(tries=tries-1)
             else:
@@ -198,15 +207,19 @@ class Agent(object):
         """
         command_name=message_str.partition(' ')[0]
         command=Command(source, message_str)
-        existing_commands_from_source=filter(lambda x: x.source==source, self.commands)
+        existing_commands_from_source=filter(lambda x: x.source==source,
+                                             self.commands)
         if existing_commands_from_source:
-            warning=('Command "%s" received before command "%s" finished.' %
-                     (message_str, existing_commands_from_source[0])
-            ).replace('\n','\\n').replace('\r','\\r')
+            warning="Command '%s' received before command '%s' finished."
+            warning=escapeString(warning %
+                (message_str, existing_commands_from_source[0]))
             self.logger.warning(warning)
         else:
+            self.logger.info('Received command %s' % escapeString(command.string))
             self.commands.append(command)
-            self.command_handlers.get(command_name.upper(), self.bad_command_handler)(command)
+            cmdhandler=self.command_handlers.get(command_name.upper(),
+                                                 self.bad_command_handler)
+            cmdhandler(command)
     
     def get_version_string(self):
         """ Return a string with the version. Subclasses should override. """
@@ -237,7 +250,7 @@ class Agent(object):
         self._exitHook()
         if m2fsConfig.doStowedShutdown():
             self._stowShutdown()
-        self.logger.info("exiting %s" % arg)
+        self.logger.info("----%s exiting: %s-----" % (self.name, str(arg)))
         if self.server_socket:
             try:
                 self.server_socket.shutdown(socket.SHUT_WR)
@@ -276,8 +289,8 @@ class Agent(object):
             self.sockets.append(soc)
         else:
             connection.close()
-            self.logger.info(
-                'Rejecting connect from %s:%s' % (addr[0], addr[1]))
+            self.logger.info('Rejecting connection from %s:%s, have %s already.'
+                             % (addr[0], addr[1], self.max_clients))
     
     def handle_server_error(self, error=''):
         """
@@ -343,7 +356,7 @@ class Agent(object):
         """
         completed_commands=filter(lambda x: x.state=='complete',self.commands)
         for command in completed_commands:
-            self.logger.debug("Closing out command %s" % command)
+            self.logger.info("Closing out command %s" % command)
             try:
                 if command.reply=='':
                     #Force sending of the empty response
@@ -360,7 +373,7 @@ class Agent(object):
         
         Agents may use this command handler as a placeholder.
         """
-        command.setReply('!ERROR: Command not implemented.')
+        command.setReply('ERROR: Command not implemented.')
     
     def bad_command_handler(self, command):
         """
@@ -469,7 +482,7 @@ class Agent(object):
         
         Not used at present. Override in subclass
         """
-        self.logger.info('Command line commands not yet implemented.')
+        self.logger.critical('Command line commands not yet implemented.')
         sys.exit(0)
     
     def runSetup(self):

@@ -3,6 +3,7 @@ import sys, time
 sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
+from m2fsConfig import m2fsConfig
 
 EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.5'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v0.4'
@@ -15,6 +16,10 @@ def longTest(s):
         return True
     except ValueError:
         return False
+
+def byteString2bitNumberString(bytestr):
+    """ Convert '10110000' to '5 6 8' """
+    return ' '.join([str(8-i) for i,bit in enumerate(bytestr) if bit=='1'][-1::-1])
 
 class ShoeCommandNotAcknowledgedError(IOError):
     """ Shoe fails to acknowledge a command, e.g. didn't respond with ':' """
@@ -216,25 +221,43 @@ class ShoeAgent(Agent):
         """
         Return a list of two element tuples to be formatted into a status reply
         
-        Report the Key:Value pairs name:cookie, ShoeR (or B):status
-        
+        Report the Key:Value pairs:
+            name:cookie,
+            Cradle<color>:Shoe<color> <Error if not responding properly>
+            Drivers:[Powered| Off]
+            On: string of tetri numbers that are on e.g. '1 4 6'
+            Moving: string of tetri numbers that are moving
+            Calibrated: string of tetri numbers that are calibrated 
+            
         Status is reported as 4 bytes with the form
         Byte 1) [DontcareX5][shoeOnline][shieldIsR][shieldIsOn]
         Byte 2) [tetris7on]...[tetris0on]
         Byte 3) [tetris7calibrated]...[tetris0calibrated]
         Byte 4) [tetris7moving]...[tetris0moving]
+        NB we dont actually use the shieldIsR bit since udev is checking based
+        on serial numbers
         """
+        #Name & cookie
+        status_list=[(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT,
+                      self.cookie)]
+        cradleState='Shoe'+m2fsConfig.getShoeColorInCradle(self.args.SIDE)
         try:
             response=self._send_command_to_shoe('TS')
             try:
-                state=' '.join( map( lambda x:'0b{0:08b}'.format(x),
-                        map(int, response.split())))
+                shieldIsOn=ord(response[0]) & 0x01 == 1
+                tetriOnStr=byteString2bitNumberString(response[1])
+                tetriCalibStr=byteString2bitNumberString(response[2])
+                tetriMovingStr=byteString2bitNumberString(response[3])
+                status_list.extend([('DriverBoard','On' if shieldIsOn else 'Off')
+                                    ('On',tetriOnStr),
+                                    ('Moving',tetriMovingStr),
+                                    ('Calibrated',tetriCalibStr)])
             except Exception:
-                state='Shoe not responding properly to status request'
+                cradleState+=' not responding properly to status request'
         except IOError, e:
-            state='Disconnected'
-        return [(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT, self.cookie),
-                ('Shoe'+self.args.SIDE, state)]
+            cradleState='Disconnected'
+        status_list.insert(2, ('Cradle'+self.args.SIDE, cradleState))
+        return status_list
     
     def RAW_command_handler(self, command):
         """ 

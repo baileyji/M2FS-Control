@@ -17,8 +17,9 @@ def longTest(s):
     except ValueError:
         return False
 
-def byteString2bitNumberString(bytestr):
+def byte2bitNumberString(byte):
     """ Convert '10110000' to '5 6 8' """
+    bytestr='{0:08b}'.format(ord(byte))
     return ' '.join([str(8-i) for i,bit in enumerate(bytestr) if bit=='1'][-1::-1])
 
 class ShoeCommandNotAcknowledgedError(IOError):
@@ -245,9 +246,9 @@ class ShoeAgent(Agent):
             response=self._send_command_to_shoe('TS')
             try:
                 shieldIsOn=ord(response[0]) & 0x01 == 1
-                tetriOnStr=byteString2bitNumberString(response[1])
-                tetriCalibStr=byteString2bitNumberString(response[2])
-                tetriMovingStr=byteString2bitNumberString(response[3])
+                tetriOnStr=byte2bitNumberString(response[1])
+                tetriCalibStr=byte2bitNumberString(response[2])
+                tetriMovingStr=byte2bitNumberString(response[3])
                 status_list.extend([('DriverBoard','On' if shieldIsOn else 'Off')
                                     ('On',tetriOnStr),
                                     ('Moving',tetriMovingStr),

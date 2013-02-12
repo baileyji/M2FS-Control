@@ -1,4 +1,4 @@
-import ConfigParser
+import ConfigParser, os.path
 
 REQUIRED_SECTIONS = ['Plate', 'Setup1']
 REQUIRED_PLATE_KEYS = ['name']

@@ -94,11 +94,9 @@ class GuiderAgent(Agent):
         """
         filterStatus=self.getFilterPos()
         focusStatus=self.getFocusPos()
-        err=self.getErrorStatus()
         return [(self.get_version_string(), self.cookie),
                 ('Filter',filterStatus),
-                ('Focus', focusStatus),
-                ('ErrByte', err)]
+                ('Focus', focusStatus)]
     
     def GFILTER_command_handler(self, command):
         """

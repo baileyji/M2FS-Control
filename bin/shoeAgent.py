@@ -317,7 +317,7 @@ class ShoeAgent(Agent):
         else:
             #Vet the command
             command_parts=command.string.replace(',',' ').split(' ')
-            if (len(command_parts)==9 and 
+            if not (len(command_parts)==9 and
                 len(command_parts[1])==1 and command_parts[1] in '1234567' and
                 len(command_parts[2])==1 and command_parts[2] in '1234567' and
                 len(command_parts[3])==1 and command_parts[3] in '1234567' and
@@ -326,29 +326,29 @@ class ShoeAgent(Agent):
                 len(command_parts[6])==1 and command_parts[6] in '1234567' and
                 len(command_parts[7])==1 and command_parts[7] in '1234567' and
                 len(command_parts[8])==1 and command_parts[8] in '1234567'):
-                #First check to make sure the command is allowed (all are
-                # calibrated and none are moving
-                import pdb;pdb.set_trace()
-                try:
-                    status=self._send_command_to_shoe('TS')
-                    #Verify all tetri are calibrated and none are moving
-                    # see documentation of TS command in fibershoe.ino or
-                    # get_status_list
-                    if '2550' != ''.join(status.split()[2:4]):
-                        response='!ERROR: Tetri must be calibrated and not moving.'
-                except IOError:
-                    #odds are the shoe is disconnected, in whcih case the error
-                    # to SL will be as informative as it gets
-                    # if the shoe gets connected in the interim then it will
-                    # fail with an (less) informative error message
-                    response=''
-                if not response:
-                    #Command the shoe to reconfigure the tetrii
-                    response=self._do_online_only_command(
-                        'SL'+''.join(command_parts[1:]))
-                command.setReply(response)
-            else:
                 self.bad_command_handler(command)
+            #First check to make sure the command is allowed (all are
+            # calibrated and none are moving
+            try:
+                status=self._send_command_to_shoe('TS')
+                #Verify all tetri are calibrated and none are moving
+                # see documentation of TS command in fibershoe.ino or
+                # get_status_list
+                if '2550' != ''.join(status.split()[2:4]):
+                    command.setReply('ERROR: Tetri must be calibrated and not moving.')
+                    return
+            except IOError:
+                #odds are the shoe is disconnected, in which case the error
+                # _do_online_only_command will report it as such
+                # if the shoe gets connected in the interim then it will
+                # fail with an (less) informative error message
+                # as the shoe will reject the command (it won't be
+                # calibrated)
+                pass
+            #Command the shoe to reconfigure the tetrii
+            response=self._do_online_only_command('SL'+''.join(command_parts[1:]))
+            command.setReply(response)
+
     
     def SLITPOS_command_handler(self, command):
         """

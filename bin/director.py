@@ -227,18 +227,18 @@ class Director(Agent):
         Report the state of the cradles
         
         """
-        if os.path.exists('/dev/shoeBincradleR'):
-            rstate='CRADLE_R=SHOE_B'
-        elif os.path.exists('/dev/shoeR'):
-            rstate='CRADLE_R=SHOE_R'
+        rstate='CRADLE_R'
+        rcolor=m2fsConfig.getShoeColorInCradle('R')
+        if rcolor:
+            rstate+='SHOE_'+rcolor
         else:
-            rstate='CRADLE_R=NONE'
-        if os.path.exists('/dev/shoeRincradleB'):
-            bstate='CRADLE_B=SHOE_R'
-        elif os.path.exists('/dev/shoeB'):
-            bstate='CRADLE_B=SHOE_B'
+            rstate+='NONE'
+        bstate='CRADLE_B'
+        bcolor=m2fsConfig.getShoeColorInCradle('B')
+        if bcolor:
+            bstate+='SHOE_'+rcolor
         else:
-            bstate='CRADLE_B=NONE'
+            bstate+='NONE'
         command.setReply('%s %s' % (rstate, bstate))
     
     def shackhartman_command_handler(self, command):

@@ -414,25 +414,13 @@ def fiberID_by_tetris_groove_side(tetris, groove, side):
     Return the fiberID (e.g. R-04-15) based on the tetris, groove, & side
     If shoes aren't swapped the mapping is direct, if shoes are, it is 
     flipped.
+    Side must be R or B
     """
-    if side=='R':
-        if os.path.exists('/dev/shoeR'):
-            if not os.path.exists('/dev/shoeBincradleR'):
-                fiberColor='R'
-            else:
-                fiberColor='B'
-        else:
-            fiberColor='UNKNOWN'
-    elif side=='B':
-        if os.path.exists('/dev/shoeB'):
-            if not os.path.exists('/dev/shoeRincradleB'):
-                fiberColor='B'
-            else:
-                fiberColor='R'
-        else:
-            fiberColor='UNKNOWN'
-    else:
+    if side != 'R' and side !='B':
         raise ValueError('Side must be R or B')
+    fiberColor=m2fsConfig.getShoeColorInCradle(side)
+    if not fiberColor:
+        fiberColor='UNKNOWN'
     return '{0}-{1:02}-{2:02}'.format(fiberColor,tetris, groove)
 
 def holeID_by_tetris_groove_side(tetris, groove, side):

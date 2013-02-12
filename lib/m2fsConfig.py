@@ -237,3 +237,26 @@ class m2fsConfig:
         monthyear=time.strftime("%b%Y", time.localtime(time.time()))
         dir=config.get('Directories','dataloggerDir')
         return dir+'datalogger_'+monthyear+'.log'
+
+    @staticmethod
+    def getShoeColorInCradle(color):
+        """
+        Return 'R', 'B', or '' debending on the she in the specified cradle
+        """
+        if color=='R':
+            if os.path.exists('/dev/shoeR'):
+                if not os.path.exists('/dev/shoeBincradleR'):
+                    return 'R'
+                else:
+                    return 'B'
+            else:
+                return ''
+        elif color=='B':
+            if os.path.exists('/dev/shoeB'):
+                if not os.path.exists('/dev/shoeRincradleB'):
+                    return 'B'
+                else:
+                    return 'R'
+            else:
+                return ''
+

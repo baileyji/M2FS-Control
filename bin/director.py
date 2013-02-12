@@ -227,13 +227,13 @@ class Director(Agent):
         Report the state of the cradles
         
         """
-        rstate='CRADLE_R'
+        rstate='CRADLE_R='
         rcolor=m2fsConfig.getShoeColorInCradle('R')
         if rcolor:
             rstate+='SHOE_'+rcolor
         else:
             rstate+='NONE'
-        bstate='CRADLE_B'
+        bstate='CRADLE_B='
         bcolor=m2fsConfig.getShoeColorInCradle('B')
         if bcolor:
             bstate+='SHOE_'+rcolor

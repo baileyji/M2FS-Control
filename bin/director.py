@@ -236,7 +236,7 @@ class Director(Agent):
         bstate='CRADLE_B='
         bcolor=m2fsConfig.getShoeColorInCradle('B')
         if bcolor:
-            bstate+='SHOE_'+rcolor
+            bstate+='SHOE_'+bcolor
         else:
             bstate+='NONE'
         command.setReply('%s %s' % (rstate, bstate))

@@ -261,7 +261,7 @@ class SelectedConnection(object):
         if message[-1]!='\n':
             message+='\n'
         return message
-        
+    
     def _cleanMessage(self, message):
         """ Right strip whitespace from message """
         return message.rstrip(' \t\n\r')

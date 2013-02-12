@@ -255,7 +255,7 @@ class SelectedConnection(object):
         message=self._terminateMessage(message)
         try:
             count=self._implementationSpecificBlockingSend(message)
-            msg="Attempted write '%s', wrote '%s' to %s @ %s' %
+            msg="Attempted write '%s', wrote '%s' to %s @ %s'"
             msg=escapeString(msg % (message,
                                     message[:count],
                                     self.addr_str(),

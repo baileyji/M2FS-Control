@@ -122,6 +122,31 @@ class m2fsConfig:
             return {}
     
     @staticmethod
+    def getAgentForPort(port):
+        """ Return the agent on port or an empty string """
+        portAgentMapping={v:k for k, v in m2fsConfig.getAgentPorts().items()}
+        return portAgentMapping.get(port, '')
+    
+    @staticmethod
+    def nameFromAddrStr(addr_str):
+        """
+        Report the agent name for the address string if extant
+        
+        addr_str must be in the form of address:port for sucessful processing
+        
+        return addr_str if it doesn't correspond to an agent
+        """
+        try:
+            addr,port=addr_str.partition(':')[::2]
+            if addr=='localhost':
+                agentName=m2fsConfig.getAgentForPort(int(port))
+                if agentName:
+                    return agentName
+        except Exception:
+           pass
+        return addr_str
+    
+    @staticmethod
     def setGalilDefaults(side, defaults):
         """ 
         Write the Galil defaults for side to the config galil file

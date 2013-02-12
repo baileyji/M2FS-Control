@@ -394,7 +394,8 @@ class Director(Agent):
                 d.sendMessageBlocking('STATUS')
                 status.append(d.receiveMessageBlocking())
             except IOError:
-                status.append('%s:Offline' % d.addr_str().replace(':','_'))
+                agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
+                status.append('%s:Offline' % agentName.replace(':','_'))
         return status
     
     def galil_command_handler(self, command):

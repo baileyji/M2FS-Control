@@ -9,6 +9,7 @@ class WriteError(IOError):
 class ConnectError(IOError):
     pass
 
+DEFAULT_SOCKET_TIMEOUT=5.0
 
 class SelectedConnection(object):
     """
@@ -581,7 +582,8 @@ class SelectedSocket(SelectedConnection):
     def __init__(self, host, port, Live_Socket_To_Use=None,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
-                default_message_error_callabck=None):
+                default_message_error_callabck=None,
+                timeout=DEFAULT_SOCKET_TIMEOUT):
         """
         Create a new instance
         
@@ -594,6 +596,9 @@ class SelectedSocket(SelectedConnection):
         logged as information. The device could be unplugged or otherwise 
         temporarily unavailable. The attempt is not performed if a live socket
         is given.
+        
+        timeout may be specified to set a default timeout. The default is 
+        DEFAULT_SOCKET_TIMEOUT
         """
         SelectedConnection.__init__(self,
                 default_message_received_callback=default_message_received_callback,
@@ -601,6 +606,7 @@ class SelectedSocket(SelectedConnection):
                 default_message_error_callabck=default_message_error_callabck)
         self.host=host
         self.port=port
+        self.timeout=timeout
         creation_message='Creating SelectedSocket: '+self.addr_str()
         if isinstance(Live_Socket_To_Use, socket.socket):
             creation_message+=' with live socket.'
@@ -609,6 +615,7 @@ class SelectedSocket(SelectedConnection):
         self.logger.debug(creation_message)
         if Live_Socket_To_Use:
             self.connection=Live_Socket_To_Use
+            self.connection.settimeout(self.timeout)
         else:
             self.connection=None
             try:
@@ -674,6 +681,7 @@ class SelectedSocket(SelectedConnection):
         thesocket.connect((self.host, self.port))
         thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         thesocket.setblocking(0)
+        thesocket.settimeout(self.timeout)
         self.connection=thesocket
    
     def _implementationSpecificRead(self):

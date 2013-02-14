@@ -259,17 +259,17 @@ nfilt=8;' Number of filter slots
 ^a=nfilt+1;DM felencp[^a]
 
 REM Red side 12/15/12
-felencp[0]=79.5;'Valid +/-9.5
-felencp[1]=383.5;'Valid +/-4.5
-felencp[2]=667.5;'Valid +/-5.5
-felencp[3]=960;'Valid +/-8
-felencp[4]=1247;'Valid +/-5
-felencp[5]=1531;'Valid +/-4
-felencp[6]=1808;'Valid +/-5
-felencp[7]=2108.5;'Valid +/-6.5 2098.5 +/-2.5
+felencp[0]=75.5;'Valid +/-26.5
+felencp[1]=371;'Valid +/-26
+felencp[2]=665;'Valid +/-23
+felencp[3]=953.5;'Valid +/-21.5
+felencp[4]=1242.5;'Valid +/-20.5
+felencp[5]=1526;'Valid +/-23
+felencp[6]=1807;'Valid +/-24
+felencp[7]=2088;'Valid +/-25
 felencp[8]=3789;'Valid +/-40
 'Elevator tolerance (+/-) in encoder counts about filter position
-feselrg=2.5
+feselrg=10
 'Encoder pos above which it is always safe to move the inserter
 allsafep=3749
 '55.4 steps/cnt

@@ -6,3 +6,19 @@ SHF;SPF=10000;PRF=-64000;BGF and repeat until near position
 then repeat with smaller PRF=  (position relative moves) untill in position
 TDF
 set lrswapp= number reported
+
+
+
+Finding the set points for the filter elevator
+by hand:
+Load empty!! filters
+remove inserter top cover
+retract inserter
+adjust elevator to align key in filter 8 (lowest)
+try inserting, hunting for upper and lower limits of range which will allow insertion
+Use command 'GALILRAW R|B MG felanap', repeating 2 - 3 times until number is stable
+note number for both upper and lower end of range
+compute average and tolerance (e.g. nominal value +/- tolerance)
+repeat for each spot
+
+Update the values with the command

@@ -179,7 +179,8 @@ class SelectedConnection(object):
         """
         #Check for a pending message
         if self.out_buffer!='':
-            err="Attempting to send '%s' on non-empty buffer" % message
+            err=("Attempting to send '%s' on non-empty buffer '%s'" %
+                (message, self.out_buffer))
             err=escapeString(err)
             self.logger.error(err)
             if errorCallback is not None:

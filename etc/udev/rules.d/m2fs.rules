@@ -25,16 +25,12 @@ ATTRS{product}=="DMC-41x3", KERNELS=="1-2.?.4", SYMLINK+="galilR"
 ATTRS{serial}=="7493430303035121A172", SYMLINK+="shoeA172"
 ATTRS{serial}=="7413335343735111F0A2", SYMLINK+="shoeF0A2"
 #Installed in blue shoe (12/16/12)
-ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeF171"
+ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeF171 shoeB"
 #Installed in red shoe (12/16/12)
-ATTRS{serial}=="64935343433351713280", SYMLINK+="shoe3280"
+ATTRS{serial}=="64935343433351713280", SYMLINK+="shoe3280 shoeR"
 
 #Device nodes for the fiber shoes
 # Red is in port 1 of the spectrograph hub, blue in port 2.
-#Place the red shoe's serial in this rule
-KERNELS=="1-2.?.1", ATTRS{serial}=="64935343433351713280", SYMLINK+="shoeR"
-#Place the blue shoe's serial in this rule
-KERNELS=="1-2.?.2", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeB"
 #Place the blue shoe's serial in this rule
 KERNELS=="1-2.?.1", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeBincradleR"
 #Place the red shoe's serial in this rule

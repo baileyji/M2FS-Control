@@ -258,7 +258,7 @@ nfilt=8;' Number of filter slots
 'FES Elevator nominal filter positions in encoder counts
 ^a=nfilt+1;DM felencp[^a]
 
-REM Red side 12/15/12
+REM Red side 2/13/13
 felencp[0]=75.5;'Valid +/-26.5
 felencp[1]=371;'Valid +/-26
 felencp[2]=665;'Valid +/-23

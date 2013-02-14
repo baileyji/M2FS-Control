@@ -76,6 +76,7 @@ def main():
             ser.write('BP\r')
             ser.flush()
             time.sleep(10)
+            ser.write('RS\r')
         elif args.auto:
             ser.write('XQ#AUTO,0\r')
             ser.flush()

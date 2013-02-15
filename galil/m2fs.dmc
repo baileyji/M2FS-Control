@@ -156,9 +156,9 @@ axhmspd[HRTLTAX]=256
 axhmspd[HRAZAX]=256
 
 DM axspd[8];'Generic travel speed
-axspd[GESAX]=7000;'16215;'seems ok
+axspd[GESAX]=7000;'16215 seems ok
 axspd[FLSINAX]=1024
-axspd[FOCAX]=7000;'15000;'seems ok
+axspd[FOCAX]=7000;'15000 seems ok
 axspd[FESINAX]=1024
 axspd[FESELAX]=7000
 axspd[LRTLTAX]=10000;'seems ok (w/o grating) Max per DS: 30091
@@ -300,7 +300,7 @@ filmove=0
 
 'FESIN related defines
 fesinsp=9000 ;'The inserted position in steps of the FESIN arm
-fesremp=1;'The removed position in steps of the FESIN arm, must be >0
+fesremp=12;'The removed position in steps of the FESIN arm, must be >0
 
 'FLS related defines
 flsbkof=25;'The steps to backoff after inserting
@@ -886,7 +886,8 @@ JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], -axlmspd[^a]);^h=_JS
 IF ((_LFD=1)&(_LRD=0)&(^h=ENONE))
 'Move to the removed idle position
 ~a=^a;DP~a=0;JS#FANCYMV(^a,fesremp);~a=^a;MC~a
-~a=^a;IF(_SC~a<>1);^h=EFAIL;ENDIF
+'<>3 is a hack around unexpected behavior of the galil controller
+~a=^a;IF((_SC~a<>1)&(_SC~a<>3));^h=EFAIL;ENDIF
 ~a=^a;MO~a
 ELSE
 ^h=ELIMSWF;~a=^a;MC~a;~a=^a;MO~a

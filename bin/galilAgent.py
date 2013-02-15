@@ -215,7 +215,7 @@ class GalilAgent(Agent):
         analysis. I've not come up with anything better and it works.
         """
         command_name,junk,args=command.string.partition(' ')
-        query='?' in command.string
+        query='?' in command.string and not 'GALILRAW' in command.string
         
         if command_name=='FLSIM':
             if args=='IN':

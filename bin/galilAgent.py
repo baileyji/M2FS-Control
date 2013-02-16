@@ -180,7 +180,7 @@ class GalilAgent(Agent):
         """
         command_name,junk,args=command.string.partition(' ')
         #check if the command needs preprocessing
-        if command_name is 'FILTER_DEFENC':
+        if command_name == 'FILTER_DEFENC':
             command_name=command_name+' '+args.split(' ')[0]
         #double check this is a real config parameter
         if command_name not in self.command_settingName_map:

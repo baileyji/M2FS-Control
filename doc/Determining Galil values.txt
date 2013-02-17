@@ -21,4 +21,5 @@ note number for both upper and lower end of range
 compute average and tolerance (e.g. nominal value +/- tolerance)
 repeat for each spot
 
-Update the values with the command
+Update the values with the command FILTER_DEFENC R|B # position
+update the range with FILTER_DEFTOL R|B tolerance

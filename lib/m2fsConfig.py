@@ -268,20 +268,19 @@ class m2fsConfig:
         """
         Return 'R', 'B', or '' debending on the she in the specified cradle
         """
-        if color=='R':
-            if os.path.exists('/dev/shoeR'):
-                if not os.path.exists('/dev/shoeBincradleR'):
-                    return 'R'
-                else:
-                    return 'B'
+        if color not in ['R', 'B']:
+            raise ValueError
+        #Path only exists when something is in the cradle
+        if not os.path.exists('/dev/shoe'+color):
+            return ''
+        #Determine if what is in the cradle is matching
+        if color == 'R':
+            if os.path.exists('/dev/shoeBincradleR'):
+                return 'B'
             else:
-                return ''
-        elif color=='B':
-            if os.path.exists('/dev/shoeB'):
-                if not os.path.exists('/dev/shoeRincradleB'):
-                    return 'B'
-                else:
-                    return 'R'
+                return 'R'
+        if color == 'B':
+            if os.path.exists('/dev/shoeRincradleB'):
+                return 'R'
             else:
-                return ''
-
+                return 'B'

@@ -75,9 +75,9 @@ class SelectedConnection(object):
     def __str__(self):
         """ String form of connection to make easy status reporting """
         if self.isOpen():
-            return 'Open SelectedConnection '+self.addr_str()
+            return self.addr_str()
         else:
-            return 'Closed SelectedConnection '+self.addr_str()
+            return self.addr_str()+'(closed)'
     
     def addr_str(self):
         """ Report connection address. Implemented by subclass """

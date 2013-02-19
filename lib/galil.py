@@ -6,6 +6,9 @@ EXPECTED_M2FS_DMC_VERSION='0.1000'
 #Timeout to use if we must force oopen a connection to the galil to do a reset
 GALIL_RESET_CONNECTION_TIMEOUT=0.5
 
+def escapeString(string):
+    return string.replace('\n','\\n').replace('\r','\\r')
+
 class GalilThreadUpdateException(IOError):
     """ Unable to update list of threads executing on the Galil """
     pass
@@ -296,7 +299,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except KeyError:
             #The config file is corrupted, rebuild
             self.logger.critical('Galil'+self.SIDE+' configFile corrupted.'+
-                'Rebuilding from hardcoded defaults.')
+                'Rebuilding from hardcoded defaults. '+
+                'Side specific customizations have been lost and must be '+
+                'restored manually.')
             try:
                 for settingName, variableName in self.settingName_to_variableName_map.items():
                     config[settingName]=self._send_command_to_galil('MG '+variableName)
@@ -307,7 +312,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 self.logger.warning('Galil'+self.SIDE+' configFile rebuilt.')
                 return
             except IOError,e:
-                raise IOError("Failure during rebuild of defaults file.")
+                err="Failure '%e' during rebuild of defaults file." % str(e)
+                self.logger.critical(err)
+                raise IOError(err)
+                #TODO This error is fatal
         #Send the config to the galil
         if config:
             try:
@@ -770,7 +778,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #Send the command to the galil
             self.sendMessageBlocking(command_string, connect=False)
             response=self.receiveMessageBlocking(nBytes=1024)
-            response=response.replace('\r','\\r').replace('\n','\\n')
+            response=escapeString(response)
             #Update galil thread statuses
             self._update_executing_threads_and_commands()
             return response

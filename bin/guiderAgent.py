@@ -33,6 +33,8 @@ SET_TARGET='\x84{channel}{target}'
 GET_ERRORS='\xA1'
 GET_MOVING='\x93'
 
+MAESTRO_NOT_RESPONDING_STRING='Device not responding'
+
 
 class GuiderSerial(SelectedConnection.SelectedSerial):
     """
@@ -161,7 +163,7 @@ class GuiderAgent(Agent):
         try:
             state=self.getChannelState(FOCUS_CHANNEL)
         except IOError:
-            return 'ERROR: Maestro not responding'
+            return 'ERROR: '+MAESTRO_NOT_RESPONDING_STRING
         if state != 'MOVING':
             state=pwid2deg(state, MAX_FOC_ROTATION)
         return str(state)
@@ -188,7 +190,7 @@ class GuiderAgent(Agent):
         try:
             pwid=self.getChannelState(FILTER_CHANNEL)
         except IOError:
-            return 'ERROR: Maestro not responding'
+            return 'ERROR: '+MAESTRO_NOT_RESPONDING_STRING
         if pwid == 'MOVING':
             filter=pwid
         else:
@@ -207,7 +209,7 @@ class GuiderAgent(Agent):
         self.guider.sendMessageBlocking(GET_POSITION.format(channel=channel))
         bytes=self.guider.receiveMessageBlocking(nBytes=2)
         if len(bytes)!=2:
-            msg='Did not get 2 bytes for position from Maestro'
+            msg='Did not get expected response from controller.'
             self.logger.error(msg)
             raise IOError(msg)
         return bytes2pwid(bytes)

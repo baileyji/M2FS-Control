@@ -14,6 +14,10 @@ PLUG_CONTROLLER_VERSION_STRING='Plugging Controller v0.1'
 UPLOAD_CHECK_INTERVAL=5
 FILE_SIZE_LIMIT_BYTES=1048576
 
+PLATEMANAGER_LOG_LEVEL=logging.DEBUG
+
+CATERGORIZE_UPLOAD_WARNING='Exception encountered while sorting uploads: '
+
 import contextlib
 @contextlib.contextmanager
 def working_directory(path):
@@ -57,7 +61,7 @@ class PlateManager(threading.Thread):
         self.daemon=True
         self.lock=threading.Lock()
         self.logger=logging.getLogger('PlateManager')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(PLATEMANAGER_LOG_LEVEL)
         self._plates={}
         self._plateDir=os.getcwd()+os.sep+m2fsConfig.getPlateDir()
         self._rejectDir=os.getcwd()+os.sep+m2fsConfig.getPlateRejectDir()
@@ -66,7 +70,7 @@ class PlateManager(threading.Thread):
         for file in glob(self._plateDir+'*.plate'):
             name=os.path.splitext(os.path.basename(file))[0]
             self._plates[name]=file
-        self.logger.info("Plates database initialized with %i plates" %
+        self.logger.info("Plate database initialized with %i plates" %
             len(self._plates))
     
     def _lsUploadDir(self):
@@ -131,7 +135,7 @@ class PlateManager(threading.Thread):
                     except IOError, e:
                         rejectFiles.append((fname,e))
             except Exception, e:
-                self.logger.debug(str(e))
+                self.logger.warning(CATERGORIZE_UPLOAD_WARNING + str(e))
                 trashFiles.append(fname)
         return {'good':goodFiles,'trash':trashFiles,'reject':rejectFiles}
     
@@ -200,13 +204,13 @@ class PlateManager(threading.Thread):
         try:
             return plate.Plate(self._plates[name])
         except IOError:
-            err='Platefile %s has gone missing.' % self._plates[name]
+            err='Platefile %s has gone missing from the disk.' % self._plates[name]
             self.logger.error(err)
             self._plate.pop(name)
             raise KeyError(err)
         finally:
             self.lock.release()
-
+    
     def getPlateNames(self):
         """ Return a list of all the plate names """
         self.lock.acquire(True)

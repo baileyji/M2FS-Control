@@ -56,8 +56,7 @@ def fromDataloggerData(side, data):
         temps=tempsParser(data[0:-8])
         accels=None
     else:
-        raise ValueError("Malformed Record: '%s'" %
-                         data.encode('string_escape'))
+        raise ValueError("Malformed Record (%i bytes)" % len(data))
     unixtime=float(unsigned32BitParser(data[-8:-4]))
     unixtime+=float(unsigned32BitParser(data[-4:]) % 1000) /1000
     #Convert the raw accelerometer data to Gs

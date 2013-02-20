@@ -96,13 +96,14 @@ class Agent(object):
         formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')
         # create console handler and set level to debug
         ch = logging.StreamHandler()
-        ch.setLevel(DEFAULT_LOG_LEVEL)
+        ch.setLevel(logging.DEBUG)
         # add formatter to handlers
         ch.setFormatter(formatter)
         # add handlers to logger
         self.logger.addHandler(ch)
         #Get a logger for the agent
         self.logger=logging.getLogger(self.name)
+        self.logger.setLevel(DEFAULT_LOG_LEVEL)
     
     def initialize_cli_parser(self):
         """

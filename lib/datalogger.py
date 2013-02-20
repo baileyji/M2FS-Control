@@ -9,6 +9,7 @@ import LoggerRecord
 
 LOGGING_LEVEL=logging.INFO
 
+SELECT_TIMEOUT=5
 
 class DataloggerConnection(Serial):
     """
@@ -54,6 +55,25 @@ class DataloggerConnection(Serial):
         self.write('\x00'+s[3])
         self.write('\x00'+s[4])
 
+    def getByte(self, timeout):
+        """
+        Return the next byte received if a byte received within timeout 
+        
+        Returns '' and closes connection if there is an IO error
+        """
+        reader, junk, error=select.select([self], [], [self], timeout)
+        if error:
+            self.close()
+            return ''
+        if reader:
+            try:
+                return self.read(1)
+            except SerialException:
+                return ''
+            except IOError:
+                return ''
+        return ''
+
 class DataloggerListener(threading.Thread):
     """
     This is a thread class that handles communication with a datalogger and
@@ -93,41 +113,42 @@ class DataloggerListener(threading.Thread):
         If the datalogger is disconnected, keep trying to connect
         """
         while True:
-            if not self.datalogger.isOpen():
-                try:
+            try:
+                if not self.datalogger.isOpen():
+                    self.logger.debug("Trying to open")
                     self.datalogger.open()
-                except SerialException:
-                    time.sleep(1)
-                    pass
-            if self.datalogger.isOpen():
-                try:
-                    reader, junk, errors=select.select([self.datalogger],
-                                    [self.datalogger], [self.datalogger], 5)
-                    if reader:
-                        byte=self.datalogger.read(1)
-                        if byte == 't':
-                            self.datalogger.telltime()
-                            self.logger.debug('Handled time query')
-                        elif byte == 'L':
-                            logdata=self.datalogger.readLogData()
-                            self.datalogger.write('#')
-                            try:
-                                record=LoggerRecord.fromDataloggerData(self.side, logdata)
-                                self.logger.debug(record.prettyStr())
-                                self.queue.put(record)
-                            except ValueError:
-                                self.logger.error('Got malformed record')
-                        elif byte == 'E':
-                            msg=self.datalogger.readline()
-                            self.logger.error(msg)
-                        elif byte == '#':
-                            msg=self.datalogger.readline()
-                            self.logger.info(msg)
-                        else:
-                            pass
-                except SerialException:
-                    pass
-                except OSError:
-                    pass
-                except IOError:
-                    pass
+                else:
+                    byte=self.datalogger.getByte(SELECT_TIMEOUT)
+                    if byte == 't':
+                        self.datalogger.telltime()
+                        self.logger.debug('Handled time query')
+                    elif byte == 'L':
+                        logdata=self.datalogger.readLogData()
+                        self.datalogger.write('#')
+                        try:
+                            record=LoggerRecord.fromDataloggerData(self.side, logdata)
+                            self.logger.debug(record.prettyStr())
+                            self.queue.put(record)
+                        except ValueError, e:
+                            self.logger.error(str(e))
+                    elif byte == 'E':
+                        msg=self.datalogger.readline()
+                        self.logger.error(msg)
+                    elif byte == '#':
+                        msg=self.datalogger.readline()
+                        self.logger.info(msg)
+                    else:
+                        pass
+                self.logger.debug('HAI')
+            except SerialException, e:
+                self.logger.debug("%s" % str(e))
+                time.sleep(1)
+                pass
+            except OSError, e:
+                self.logger.debug("%s" % str(e))
+                time.sleep(1)
+                pass
+            except IOError, e:
+                self.logger.debug("%s" % str(e))
+                time.sleep(1)
+                pass

@@ -41,7 +41,7 @@ class DataloggerAgent(Agent):
         self.command_handlers.update({
             #Return a list of the temperature values
             'TEMPS':self.TEMPS_command_handler})
-        #self.logger.setLevel(LOGGING_LEVEL)
+        self.logger.setLevel(LOGGING_LEVEL)
     
     def get_version_string(self):
         return DATALOGGER_VERSION_STRING
@@ -69,8 +69,7 @@ class DataloggerAgent(Agent):
     
     def runSetup(self):
         """ execute before main loop """
-        self.queryAgentsTimer=threading.Timer(POLL_AGENTS_INTERVAL,
-                                              self.queryAgentTemps)
+        self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.queryAgentTemps)
         self.queryAgentsTimer.daemon=True
         self.queryAgentsTimer.start()
     
@@ -136,19 +135,22 @@ class DataloggerAgent(Agent):
         READING_EXPIRE_INTERVAL current if it is within a minute of the
         current record timestaonlythe readings, extract it and add
         """
-        self.logger.debug('Prep update current record: %s' % str(self.currentRecord))
+
         timeDelta=record.unixtime-self.currentRecord.unixtime
         if timeDelta > READING_EXPIRE_INTERVAL:
+            self.logger.debug('Current record expired, replacing in entirety.')
             self.currentRecord=record
+            self.logger.debug('Current record now: %s' % str(self.currentRecord))
         elif timeDelta >= 0:
+            self.logger.debug('Prep update current record: %s' % str(self.currentRecord))
             self.currentRecord.merge(record,force=True)
+            self.logger.debug('Current record now: %s' % str(self.currentRecord))
         else:
             self.logger.debug('No update to record') #we don't wan't old data
             return
         #Don't keep track of accelerations
         self.currentRecord.sideB['accels']=None
         self.currentRecord.sideR['accels']=None
-        self.logger.debug('Current record now: %s' % str(self.currentRecord))
     
     def logRecords(self, records):
         """

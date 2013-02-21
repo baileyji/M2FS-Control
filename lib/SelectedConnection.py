@@ -403,7 +403,11 @@ class SelectedConnection(object):
             else:
                 msg="Handle_Read buffer @ %s: '%s'"
                 msg=msg % (time.time(), escapeString(self.in_buffer))
-                self.logger.debug(msg)
+                if not self.responseCallback:
+                    msg+=". No handler is defined."
+                    self.logger.warn(msg)
+                else:
+                    self.logger.debug(msg)
         except ReadError, err:
             self.handle_error(err)
     

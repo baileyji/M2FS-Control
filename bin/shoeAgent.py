@@ -271,7 +271,7 @@ class ShoeAgent(Agent):
         
         NB the PC command can generate more than 1024 bytes of data
         """
-        junk,junk,arg=command.string.partition(' ')
+        arg=command.string.partition(' ')[2]
         if arg:
             try:
                 self.shoe.sendMessageBlocking(arg)

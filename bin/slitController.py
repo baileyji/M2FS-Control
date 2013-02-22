@@ -82,13 +82,15 @@ class SlitController(Agent):
         #First check Red shoe status
         try:
             self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
-            statusR=self.shoeAgentR_Connection.receiveMessageBlocking()
+            statusR=self.shoeAgentR_Connection.receiveMessageBlocking(
+                error_on_absent_terminator=True)
         except IOError:
             statusR=('ShoeAgentR', 'Offline')
         #Then check Blue shoe status
         try:
             self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
-            statusB=self.shoeAgentB_Connection.receiveMessageBlocking()
+            statusB=self.shoeAgentB_Connection.receiveMessageBlocking(
+                error_on_absent_terminator=True)
         except IOError:
             statusB=('ShoeAgentR', 'Offline')
         return [(self.get_version_string(), self.cookie),
@@ -115,7 +117,8 @@ class SlitController(Agent):
                 shoe_command='%s %s' % (command_name, args)
                 try:
                     self.shoeAgentR_Connection.sendMessageBlocking(shoe_command)
-                    response=self.shoeAgentR_Connection.receiveMessageBlocking()
+                    response=self.shoeAgentR_Connection.receiveMessageBlocking(
+                        error_on_absent_terminator='ERROR: ShoeAgentR did not respond to command')
                     command.setReply(response)
                 except IOError:
                     command.setReply('ShoeAgentR Offline')
@@ -123,7 +126,8 @@ class SlitController(Agent):
                 shoe_command='%s %s' % (command_name, args)
                 try:
                     self.shoeAgentB_Connection.sendMessageBlocking(shoe_command)
-                    response=self.shoeAgentB_Connection.receiveMessageBlocking()
+                    response=self.shoeAgentB_Connection.receiveMessageBlocking(
+                        error_on_absent_terminator='ERROR: ShoeAgentB did not respond to command')
                     command.setReply(response)
                 except IOError:
                     command.setReply('ShoeAgentB Offline')

@@ -151,6 +151,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         SelectedConnection.SelectedSerial.__init__(self, device, 115200,
             timeout=GALIL_TIMEOUT, default_message_received_callback=
                 self._unsolicited_galil_message_handler)
+        #Override the default message terminator for consistency. Doesn't matter
+        #since we also override the _terminateMessage function
+        self.messageTerminator='\r'
         #If we've sucessfully connected, go ahead and initialize the galil
         # see the command for what this means
         if self.isOpen():

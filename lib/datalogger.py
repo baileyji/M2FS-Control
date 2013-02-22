@@ -47,8 +47,8 @@ class DataloggerConnection(Serial):
         message to be received properly.
         """
         s='t'+UBInt32("f").build(int(time.time()))
-        logging.getLogger('DataloggerListener').debug('Sending time as %s' %
-                                                     s.encode('string_escape'))
+        #logging.getLogger('DataloggerListener').info('Sending time as %s' %
+        #                                             s.encode('string_escape'))
         self.write(s[0])
         self.write('\x00'+s[1])
         self.write('\x00'+s[2])
@@ -91,7 +91,7 @@ class DataloggerListener(threading.Thread):
         self.queue=queue
         self.side=side
         self.datalogger=DataloggerConnection(device)
-        self.logger=logging.getLogger('DataloggerListener')
+        self.logger=logging.getLogger('DataloggerListener'+side)
         self.logger.setLevel(LOGGING_LEVEL)
         self.logger.info("Listener started")
     
@@ -121,7 +121,7 @@ class DataloggerListener(threading.Thread):
                     byte=self.datalogger.getByte(SELECT_TIMEOUT)
                     if byte == 't':
                         self.datalogger.telltime()
-                        self.logger.debug('Handled time query')
+                        self.logger.info('Handled time query')
                     elif byte == 'L':
                         logdata=self.datalogger.readLogData()
                         self.datalogger.write('#')

@@ -122,6 +122,8 @@ class DataloggerAgent(Agent):
         if logMerge:
             self.logger.debug('Have {} records after merging'.format(len(records)))
         if records:
+            if len(records)==1:
+                self.logger.debug(records[0].prettyStr())
             self.updateCurrentReadingsWith(records[-1])
             self.logRecords(records)
     
@@ -142,7 +144,7 @@ class DataloggerAgent(Agent):
             self.currentRecord=record
             self.logger.debug('Current record now: %s' % str(self.currentRecord))
         elif timeDelta >= 0:
-            self.logger.debug('Prep update current record: %s' % str(self.currentRecord))
+            self.logger.debug('Current record was: %s' % str(self.currentRecord))
             self.currentRecord.merge(record,force=True)
             self.logger.debug('Current record now: %s' % str(self.currentRecord))
         else:

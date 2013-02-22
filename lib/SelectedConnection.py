@@ -71,6 +71,7 @@ class SelectedConnection(object):
         self.errorCallback=self.defaultErrorCallback
         self.out_buffer=''
         self.in_buffer=''
+        self.messageTerminator='\n'
     
     def __str__(self):
         """ String form of connection to make easy status reporting """
@@ -272,8 +273,8 @@ class SelectedConnection(object):
     
     def _terminateMessage(self, message):
         """ Append a '\n' to message if it is missing and return """
-        if message[-1]!='\n':
-            message+='\n'
+        if message[-1]!=self.messageTerminator:
+            message+=self.messageTerminator
         return message
     
     def _cleanMessage(self, message):

@@ -3,8 +3,10 @@ import SelectedConnection
 from m2fsConfig import m2fsConfig
 
 EXPECTED_M2FS_DMC_VERSION='0.1000'
-#Timeout to use if we must force oopen a connection to the galil to do a reset
+#Timeout to use if we must force open a connection to the galil to do a reset
 GALIL_RESET_CONNECTION_TIMEOUT=0.5
+#Normal io timout for galil communication
+GALIL_TIMEOUT=0.5
 
 def escapeString(string):
     return string.replace('\n','\\n').replace('\r','\\r')
@@ -147,8 +149,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
         SelectedConnection.SelectedSerial.__init__(self, device, 115200,
-            timeout=0.5, default_message_received_callback=
-                                        self._unsolicited_galil_message_handler)
+            timeout=GALIL_TIMEOUT, default_message_received_callback=
+                self._unsolicited_galil_message_handler)
         #If we've sucessfully connected, go ahead and initialize the galil
         # see the command for what this means
         if self.isOpen():

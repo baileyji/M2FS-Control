@@ -281,7 +281,8 @@ class SelectedConnection(object):
         """ Right strip whitespace from message """
         return message.rstrip(' \t\n\r')
     
-    def receiveMessageBlocking(self, nBytes=0, timeout=None):
+    def receiveMessageBlocking(self, nBytes=0, timeout=None,
+                               error_on_absent_terminator=False):
         """
         Wait for a response, chops whitespace and \r & \n off end of response.
         
@@ -298,6 +299,10 @@ class SelectedConnection(object):
         is called (which implies self.errorCallback if set) and ReadeError is
         raised. This is probably NOT is ideal behavior, probably
         should just raise the ReadRrror. TODO: think/test
+        
+        If set to true error_on_absent_terminator will cause a ReadError to be
+        raised if the received message does not include the message terminator. 
+        If set to a non-empty string that string will be used as the response.
         """
         try:
             self.connect()
@@ -312,6 +317,15 @@ class SelectedConnection(object):
             if response=='':
                 self.logger.warning(
                     'Blocking receive on %s timed out'% self.addr_str())
+            if (error_on_absent_terminator and
+                self.messageTerminator not in response):
+                if type(error_on_absent_terminator)==str:
+                    response=error_on_absent_terminator
+                else:
+                    err="Received '%s', '%s' absent. Strict checking on"
+                    err=err % (response,
+                        self.messageTerminator.encode('string_escape'))
+                raise ReadError(err)
             return self._cleanMessage(response)
         except ReadError, e:
             self.handle_error(e)

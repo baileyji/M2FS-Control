@@ -392,10 +392,15 @@ class Director(Agent):
         for d in self.devices:
             try:
                 d.sendMessageBlocking('STATUS')
-                status.append(d.receiveMessageBlocking())
+                response=d.receiveMessageBlocking()
+                if not response:
+                    agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
+                    response='%s:Not Responding' % agentName.replace(':','_')
+                status.append(response.replace(' ','_'))
             except IOError:
                 agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
-                status.append('%s:Offline' % agentName.replace(':','_'))
+                status.append('%s:Offline' %
+                    agentName.replace(':','_').replace(' ','_'))
         return status
     
     def galil_command_handler(self, command):

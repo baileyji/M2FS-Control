@@ -173,7 +173,7 @@ class LoggerRecord(object):
                self.sideR['echelleTemp'], self.sideB['echelleTemp'],
                self.sideR['prismTemp'], self.sideB['prismTemp'],
                self.sideR['loresTemp'], self.sideB['loresTemp']]
-        temps=['{:.4f}'.format(t) if t != None else 'UNKNOWN' for t in temps]
+        temps=['{:.4f}'.format(t) if t != None else 'U' for t in temps]
         return ' '.join(temps)
 
     def recordsMergable(self, other):

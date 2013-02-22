@@ -213,7 +213,7 @@ class ShackHartmanAgent(Agent):
             return err
         except IOError:
             return 'Lenslet Disconnected'
-        except Exception:
+        except ValueError:
             return 'Unable to parse lenslet response'
     
     def getTemp(self):
@@ -229,7 +229,7 @@ class ShackHartmanAgent(Agent):
             self.shlenslet.sendMessageBlocking(REQUEST_TEMPERATURE)
             response=self.shlenslet.receiveMessageBlocking(nBytes=2)
             temp=str(0.1*convertUnsigned16bit(response))
-        except Exception:
+        except (IOError, ValueError):
             temp='UNKNOWN'
         return temp
     

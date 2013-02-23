@@ -1,4 +1,4 @@
-import serial, termios
+import serial, logging
 import SelectedConnection
 from m2fsConfig import m2fsConfig
 
@@ -151,6 +151,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         SelectedConnection.SelectedSerial.__init__(self, device, 115200,
             timeout=GALIL_TIMEOUT, default_message_received_callback=
                 self._unsolicited_galil_message_handler)
+        self.logger=logging.getLogger('GalilCon'+side)
+        self.logger.setLevel(SelectedConnection.DEFAULT_LOG_LEVEL)
         #Override the default message terminator for consistency. Doesn't matter
         #since we also override the _terminateMessage function
         self.messageTerminator='\r'

@@ -1,6 +1,6 @@
 import logging, sys, time
 
-DEFAULT_LOG_LEVEL=logging.WARNING
+DEFAULT_LOG_LEVEL=logging.INFO
 
 class ReadError(IOError):
     pass

@@ -41,4 +41,4 @@ ATTRS{product}=="Pololu Simple High-Power Motor Controller 24v12", SYMLINK+="shL
 ATTRS{serial}=="FTEZU88I", SYMLINK+="shLED"
 
 #Guider rule
-ATTRS{product}=="Pololu Micro Maestro 6-Servo Controller",PROGRAM="/M2FS-Control/bin/guider_udev_namer.py', SYMLINK+="guider"
+ATTRS{product}=="Pololu Micro Maestro 6-Servo Controller",PROGRAM="/M2FS-Control/bin/guider_udev_namer.py", SYMLINK+="guider"

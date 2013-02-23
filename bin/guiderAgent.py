@@ -19,11 +19,21 @@ DEFAULT_FILTER_POSITION=0.0
 MAX_FILTER_ROTATION=1260.0
 MAX_FOC_ROTATION=90.0
 
-FILTER_DEGREE_POS={
-    '1': 0,
-    '2': 90,
-    '3': 180,
-    '4': 270}
+FILTER_DEGREE_POS_FW={
+    1: 19,
+    2: 58,
+    3: 100,
+    4: 140,
+    5: 180,
+    6: 222}
+
+FILTER_DEGREE_POS_BK={
+    1: 12,
+    2: 53,
+    3: 95,
+    4: 136,
+    5: 177,
+    6: 222}
 
 MAX_PWIDTH=2100.0
 MIN_PWIDTH=900.0
@@ -175,7 +185,8 @@ class GuiderAgent(Agent):
         Filter must be a key in FILTER_DEGREE_POS. Raise an Exception if there
         are any errors.
         """
-        pwid=deg2pwid(FILTER_DEGREE_POS[filter], MAX_FILTER_ROTATION)
+        new_filt=int(float(filter))
+        pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
         self.guider.sendMessage(SET_TARGET.format(
                                     channel=FILTER_CHANNEL,
                                     target=pwid2bytes(pwid)))
@@ -195,7 +206,7 @@ class GuiderAgent(Agent):
             filter=pwid
         else:
             try:
-                filter=filterAngle2Filter(pwid2deg(pwid, MAX_FILTER_ROTATION))
+                filter=str(filterAngle2Filter(pwid2deg(pwid, MAX_FILTER_ROTATION)))
             except ValueError:
                 filter='INTERMEDIATE'
         return filter
@@ -285,7 +296,11 @@ def validFocusValue(focus):
 
 def validFilterValue(filter):
     """ Return true iff filter is a valid filter """
-    return filter in FILTER_DEGREE_POS.keys()
+    try:
+        valid=int(float(filter)) in FILTER_DEGREE_POS_FW.keys()
+    except ValueError:
+        valid=False
+    return valid
 
 
 if __name__=='__main__':

@@ -6,6 +6,7 @@ from galil import GalilSerial
 
 GALIL_AGENT_VERSION_STRING='Galil Agent v0.2'
 GALIL_AGENT_VERSION_STRING_SHORT='v0.2'
+MAX_FILTER_POS=4096
 
 class GalilAgent(Agent):
     """
@@ -181,10 +182,22 @@ class GalilAgent(Agent):
         command_name,junk,args=command.string.partition(' ')
         #check if the command needs preprocessing
         if command_name == 'FILTER_DEFENC':
-            command_name=command_name+' '+args.split(' ')[0]
+            filterNum,filterPos=args.partition(' ')[::2]
+            args=filterPos
+            command_name=command_name+' '+filterNum
+            #duplicate valid setting name check so error about invalid setting
+            # has priority over the filter position
+            if command_name not in self.command_settingName_map:
+                self.bad_command_handler(command)
+                return
+            try:
+                assert 0<float(filterPos)<MAX_FILTER_POS
+            except Exception:
+                command.setReply('ERROR: Filter position must be in range 0-4096')
+                return
         #double check this is a real config parameter
         if command_name not in self.command_settingName_map:
-            command.setReply('!ERROR: Bad Command. %s' % command)
+            self.bad_command_handler(command)
             return
         #Grab the setting name
         settingName=self.command_settingName_map[command_name]

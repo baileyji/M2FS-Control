@@ -20,7 +20,7 @@ class Agent(object):
     It handles incomming socket connections
     It does the basic grunt work of listening for incomming commands and calling
     the appropriate handler.
-    It sends the command responses to the source of the sommand after the
+    It sends the command responses to the source of the command after the
         command has completed.
     It runs the main event loop which uses select to read and write on all agent
     conections, whether inbound or outbound.

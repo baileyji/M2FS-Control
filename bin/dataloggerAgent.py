@@ -95,7 +95,8 @@ class DataloggerAgent(Agent):
         #3) Got something from multiple sources, sort them, merge any that can
         # be merged, update current state with most recent of each source, and
         #log
-        self.logger.debug('Have {} records'.format(len(records)))
+        if len(records)>0:
+            self.logger.debug('Have {} records'.format(len(records)))
         if len(records) > 1:
             logMerge=True
         else:

@@ -95,9 +95,9 @@ class DataloggerAgent(Agent):
         #3) Got something from multiple sources, sort them, merge any that can
         # be merged, update current state with most recent of each source, and
         #log
+        self.logger.debug('Have {} records'.format(len(records)))
         if len(records) > 1:
             logMerge=True
-            self.logger.debug('Have {} records'.format(len(records)))
         else:
             logMerge=False
         records.sort(key=attrgetter('unixtime'))
@@ -148,7 +148,9 @@ class DataloggerAgent(Agent):
             self.currentRecord.merge(record,force=True)
             self.logger.debug('Current record now: %s' % str(self.currentRecord))
         else:
-            self.logger.debug('No update to record') #we don't wan't old data
+            #we don't wan't old data
+            self.logger.debug('No update to current record (%s)'%
+                self.currentRecord.timeString())
             return
         #Don't keep track of accelerations
         self.currentRecord.sideB['accels']=None

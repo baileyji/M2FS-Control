@@ -126,8 +126,7 @@ class LoggerRecord(object):
             'prismTemp':prismBTemp, 'loresTemp':loresBTemp, 'accels':accelsB}
     
     def __str__(self):
-        timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
-                              time.localtime(self.unixtime))
+        timestr=self.timeString()
         temps=self.tempsString()
         accels=self.accelsString()
         return ' '.join([timestr, temps, accels])
@@ -145,8 +144,7 @@ class LoggerRecord(object):
         return True
     
     def prettyStr(self):
-        timestr=time.strftime("%a, %d %b %Y %H:%M:%S",
-                              time.localtime(self.unixtime))
+        timestr=self.timeString()
         temps=self.tempsString()
         accels='No Accels'
         if self.sideB['accels'] != None or self.sideR['accels'] != None:
@@ -175,6 +173,13 @@ class LoggerRecord(object):
                self.sideR['loresTemp'], self.sideB['loresTemp']]
         temps=['{:.4f}'.format(t) if t != None else 'U' for t in temps]
         return ' '.join(temps)
+    
+    def timeString(self):
+        """
+        Return the time of the record in the form Thu, 24 Jan 2013 06:00:09
+        """
+        formatStr="%a, %d %b %Y %H:%M:%S"
+        return time.strftime(formatStr, time.localtime(self.unixtime))
 
     def recordsMergable(self, other):
         """

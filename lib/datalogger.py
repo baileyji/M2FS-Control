@@ -116,7 +116,11 @@ class DataloggerListener(threading.Thread):
             try:
                 if not self.datalogger.isOpen():
                     self.logger.debug("Trying to open")
-                    self.datalogger.open()
+                    try:
+                        self.datalogger.open()
+                        self.logger.info("Connection Opened")
+                    except SerialException:
+                        time.sleep(1)
                 else:
                     byte=self.datalogger.getByte(SELECT_TIMEOUT)
                     if byte == 't':
@@ -139,7 +143,6 @@ class DataloggerListener(threading.Thread):
                         self.logger.info(msg)
                     else:
                         pass
-                self.logger.debug('HAI')
             except SerialException, e:
                 self.logger.debug("%s" % str(e))
                 time.sleep(1)

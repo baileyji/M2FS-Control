@@ -541,7 +541,7 @@ void setup(void)
 void errorLoop(void) {
     while(1) {
         //cout<<pstr("Fatal Error: ");
-        Serial.print(F("#Fatal Error: "));
+        Serial.print(F("EFatal Error: "));
         Serial.println(systemStatus,HEX);
         delay(5000);
     }

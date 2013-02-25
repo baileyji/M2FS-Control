@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.7
 import sys, socket, os
+from threading import Timer
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 import SelectedConnection
@@ -7,7 +8,9 @@ from m2fsConfig import m2fsConfig
 import PyNUT
 
 DIRECTOR_VERSION_STRING='Director v0.5'
-LINUX_SHUTDOWN_COMMAND='/usr/local/ups/sbin/upsmon -c fsd'
+LINUX_SHUTDOWN_COMMAND='shutdown now'
+POLL_NUT_INTERVAL=15
+MIN_UPS_RUNTIME=360
 NUT_LOGIN="monitor"
 NUT_PASSWORD="1"
 
@@ -154,6 +157,12 @@ class Director(Agent):
             #
             #Authoritative command discriptions are in dataloggerAgent.py
             'TEMPS':self.datalogger_command_handler})
+        #Ensure stawed shutdown is disabled by default
+        m2fsConfig.disableStowedShutdown()
+        self.batteryState=[('Battery','Unknown')]
+        updateBatteryStateTimer=Timer(.1, self.updateBatteryState)
+        updateBatteryStateTimer.daemon=True
+        updateBatteryStateTimer.start()
     
     def listenOn(self):
         """
@@ -381,13 +390,7 @@ class Director(Agent):
         """
         status=[(self.get_version_string(),self.cookie)]
         #Get the battery backup state
-        try:
-            nut=PyNUT.PyNUTClient(login=NUT_LOGIN, password=NUT_PASSWORD)
-            upsstate=nut.GetUPSVars('myups')
-            status.extend([('Battery',upsstate['ups.status']),
-                           ('Runtime(s)',upsstate['battery.runtime'])])
-        except Exception:
-            status.append(('Battery','Faild to query NUT for status'))
+        status.extend(self.batteryState)
         #Poll all the agents for their status
         for d in self.devices:
             try:
@@ -402,6 +405,27 @@ class Director(Agent):
                 status.append('%s:Offline' %
                     agentName.replace(':','_').replace(' ','_'))
         return status
+    
+    
+    def updateBatteryState(self):
+        #Get the current state of the UPS
+        try:
+            nut=PyNUT.PyNUTClient(login=NUT_LOGIN, password=NUT_PASSWORD)
+            upsstate=nut.GetUPSVars('myups')
+            batteryState=[('Battery',upsstate['ups.status']),
+                               ('Runtime(s)',upsstate['battery.runtime'])]
+        except Exception:
+            batteryState=[('Battery','Faild to query NUT for status')]
+        #self.logger.info(' '.join(['{}:{}'.format(x,y) for x,y in batteryState]))
+        if len(batteryState)==2:
+            if int(batteryState[1][1])<MIN_UPS_RUNTIME:
+                os.system(LINUX_SHUTDOWN_COMMAND)
+                return
+        self.batteryState=batteryState
+        #Do it again in in a few
+        updateBatteryStateTimer=Timer(POLL_NUT_INTERVAL, self.updateBatteryState)
+        updateBatteryStateTimer.daemon=True
+        updateBatteryStateTimer.start()
     
     def galil_command_handler(self, command):
         """ 

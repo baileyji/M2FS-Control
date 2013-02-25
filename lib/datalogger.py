@@ -11,6 +11,35 @@ LOGGING_LEVEL=logging.INFO
 
 SELECT_TIMEOUT=5
 
+SYS_FILE_OK=0x01
+SYS_SD_OK=0x02
+SYS_RTC_OK=0x04
+SYS_TEMP_OK=0x08
+SYS_ADXL_OK=0x10
+SYS_HEADER_OK=0x20
+SYS_HEADER_NEW=0x40
+
+def translateErrorByte(byteStr):
+    err=int(byteStr,16)
+    errors=[]
+    if not SYS_FILE_OK & err:
+        errors.append('Logfile Error')
+    if not SYS_SD_OK & err:
+        errors.append('SD Card Error')
+    if not SYS_RTC_OK & err:
+        errors.append('RTC Error')
+    if not SYS_TEMP_OK & err:
+        errors.append('Temp Error')
+    if not SYS_ADXL_OK & err:
+        errors.append('Accelerometer Error')
+    if not SYS_HEADER_OK & err:
+        errors.append('Header Error')
+    if not SYS_HEADER_NEW & err:
+        errors.append('Existing Header')
+    else:
+        errors.append('New Header')
+    return 'Status: '+' '.join(errors)
+
 class DataloggerConnection(Serial):
     """
     Datalogger Connection Class
@@ -137,9 +166,14 @@ class DataloggerListener(threading.Thread):
                             self.logger.error(str(e))
                     elif byte == 'E':
                         msg=self.datalogger.readline()
+                        if 'Fatal Error' in msg:
+                            self.logger.info(translateErrorByte(msg.split(': ')[1]))
                         self.logger.error(msg)
                     elif byte == '#':
                         msg=self.datalogger.readline()
+                        #older version had a # in front of the error String
+                        if 'Fatal Error' in msg:
+                            self.logger.info(translateErrorByte(msg.split(': ')[1]))
                         self.logger.info(msg)
                     else:
                         pass

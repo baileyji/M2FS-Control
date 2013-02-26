@@ -13,6 +13,14 @@ ECHELLE_INDEX_R=1
 PRISM_INDEX_R=2
 LORES_INDEX_R=0
 
+ECHELLE_OFFSET_B=-0.3125
+PRISM_OFFSET_B=-0.125
+LORES_OFFSET_B=-0.0625
+
+ECHELLE_OFFSET_R=-0.125
+PRISM_OFFSET_R=-0.125
+LORES_OFFSET_R=-0.0625
+
 #Lengths of the message parts in bytes
 TEMPERATURE_BYTES=4
 ACCELERATION_BYTES=2
@@ -65,13 +73,13 @@ def fromDataloggerData(side, data):
     #Extract the sensor values
     if temps!=None:
         if side == 'R':
-            echelleTemp=temps[ECHELLE_INDEX_R]
-            prismTemp=temps[PRISM_INDEX_R]
-            loresTemp=temps[LORES_INDEX_R]
+            echelleTemp=temps[ECHELLE_INDEX_R]+ECHELLE_OFFSET_R
+            prismTemp=temps[PRISM_INDEX_R]+PRISM_OFFSET_R
+            loresTemp=temps[LORES_INDEX_R]+LORES_OFFSET_R
         else:
-            echelleTemp=temps[ECHELLE_INDEX_B]
-            prismTemp=temps[PRISM_INDEX_B]
-            loresTemp=temps[LORES_INDEX_B]
+            echelleTemp=temps[ECHELLE_INDEX_B]+ECHELLE_OFFSET_B
+            prismTemp=temps[PRISM_INDEX_B]+PRISM_OFFSET_B
+            loresTemp=temps[LORES_INDEX_B]+LORES_OFFSET_B
     else:
         echelleTemp=None
         prismTemp=None

@@ -252,7 +252,6 @@ class m2fsConfig:
         """
         Return the fully qualified datalogger logfile path
         
-        
         Files returned should have r/w permissions for the process.
         """
         config=ConfigParser.RawConfigParser()
@@ -262,6 +261,19 @@ class m2fsConfig:
         monthyear=time.strftime("%b%Y", time.localtime(time.time()))
         dir=config.get('Directories','dataloggerDir')
         return dir+'datalogger_'+monthyear+'.log'
+    
+    @staticmethod
+    def getLogfileDir():
+        """
+        Return the fully qualified log file directory
+            
+        string ends in a path seperator.
+        """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        dir=config.get('Directories','dataloggerDir')
+        return dir
     
     @staticmethod
     def getShoeColorInCradle(color):

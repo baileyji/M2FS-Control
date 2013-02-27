@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import sys, socket, os
+import sys, socket, os, time
 from threading import Timer
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
@@ -193,6 +193,20 @@ class Director(Agent):
         Do nothing, what do we care
         """
         command.setReply('OK')
+    
+    def _exitHook(self):
+        self.store_system_logs()
+    
+    def store_system_logs(self):
+        """
+        Write the system logs to the log directory as a gzipped file
+        
+        file name is of the form 
+        """
+        logdir=m2fsConfig.getLogfileDir()
+        datestr=time.strftime("%d.%b.%Y.%H.%M.%S", time.localtime(time.time()))
+        logfile=logdir+datestr+'.log.gz'
+        os.system('journalctl --this-boot | gzip > '+logfile)
     
     def shutdown_command_handler(self, command):
         """

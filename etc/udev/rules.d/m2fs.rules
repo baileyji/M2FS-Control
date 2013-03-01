@@ -25,9 +25,9 @@ ATTRS{product}=="DMC-41x3", KERNELS=="1-2.?.4", SYMLINK+="galilR"
 ATTRS{serial}=="7493430303035121A172", SYMLINK+="shoeA172"
 ATTRS{serial}=="7413335343735111F0A2", SYMLINK+="shoeF0A2"
 #Installed in blue shoe (12/16/12)
-ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeF171 shoeB"
+ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeF171"
 #Installed in red shoe (12/16/12)
-ATTRS{serial}=="64935343433351713280", SYMLINK+="shoe3280 shoeR"
+ATTRS{serial}=="64935343433351713280", SYMLINK+="shoe3280"
 
 #Device nodes for the fiber shoes
 # Red is in port 1 of the spectrograph hub, blue in port 2.
@@ -35,6 +35,10 @@ ATTRS{serial}=="64935343433351713280", SYMLINK+="shoe3280 shoeR"
 KERNELS=="1-2.?.1", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeBincradleR"
 #Place the red shoe's serial in this rule
 KERNELS=="1-2.?.2", ATTRS{serial}=="64935343433351713280", SYMLINK+="shoeRincradleB"
+
+#The cradles are by port
+KERNELS=="1-2.?.1", SYMLINK+="shoeR"
+KERNELS=="1-2.?.2", SYMLINK+="shoeB"
 
 #Shack-Hartman system rules 
 ATTRS{product}=="Pololu Simple High-Power Motor Controller 24v12", SYMLINK+="shLenslet"

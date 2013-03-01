@@ -3,6 +3,7 @@ import sys
 sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
+from iorequest import *
 
 GUIDER_AGENT_VERSION_STRING='Guider Agent v0.1'
 
@@ -18,6 +19,8 @@ DEFAULT_FILTER_POSITION=0.0
 
 MAX_FILTER_ROTATION=1260.0
 MAX_FOC_ROTATION=90.0
+
+FILTER_HOME_TIME=6
 
 FILTER_DEGREE_POS_FW={
     1: 19,
@@ -120,17 +123,18 @@ class GuiderAgent(Agent):
         Responds OK if the requested filter is valid.
         """
         if '?' in command.string:
-            command.setReply(self.getFilterPos())
+            if self.command_worker_thread_running('GFILTER'):
+                command.setReply(self.get_command_state('GFILTER'))
+            else:
+                command.setReply(self.getFilterPos())
         else:
             filter=command.string.partition(' ')[2]
             if not validFilterValue(filter):
                 self.bad_command_handler(command)
                 return
-            try:
-                self.setFilterPos(filter)
-                command.setReply('OK')
-            except Exception as e:
-                command.setReply(str(e))
+            command.setReply('OK')
+            self.block(self.GFILTER_command_handler
+            threading.Thread(target=setFilterPos,args=(filter,))
     
     def GFOCUS_command_handler(self, command):
         """ 
@@ -185,11 +189,33 @@ class GuiderAgent(Agent):
         Filter must be a key in FILTER_DEGREE_POS. Raise an Exception if there
         are any errors.
         """
+        self.set_command_state('GFILTER', 'MOVING')
         new_filt=int(float(filter))
+        #move to home
+        pwid=deg2pwid(0, MAX_FILTER_ROTATION)
+        msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
+        sndArgs=((msg,), {})
+        ioRequest=SendRequest(sndArgs , 'Guider')
+        responseQ=ioRequest.responseQueue
+        self.request_io(ioRequest)
+        ioRequest.serviced.wait()
+        if not isRequest.success:
+            self.set_command_state('GFILTER', 'ERROR: %s' %
+                ioRequest.responseQueue.get())
+            return
+        #give the move enough time
+        time.sleep(FILTER_HOME_TIME)
+        #now move to the filter
         pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
-        self.guider.sendMessage(SET_TARGET.format(
-                                    channel=FILTER_CHANNEL,
-                                    target=pwid2bytes(pwid)))
+        msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
+        ioRequest=SendRequest(((msg,),{}), 'Guider')
+        self.io_request_queue.put(ioRequest)
+        ioRequest.serviced.wait()
+        if not isRequest.success:
+            self.set_command_state('GFILTER', 'ERROR: %s' %
+                                  ioRequest.responseQueue.get())
+            return
+        self.clear_command_state('GFILTER')
     
     def getFilterPos(self):
         """

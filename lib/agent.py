@@ -1,5 +1,6 @@
 import time, argparse, signal, atexit, sys, select
 import socket
+import Queue
 import logging, logging.handlers
 from command import Command
 from SelectedConnection import SelectedSocket
@@ -7,6 +8,9 @@ from m2fsConfig import m2fsConfig
 
 SERVER_RETRY_TIME=10
 DEFAULT_LOG_LEVEL=logging.INFO
+SELECT_TIMEOUT=5
+
+MAX_ATTEMPTS=100
 
 def escapeString(string):
     return string.replace('\n','\\n').replace('\r','\\r')
@@ -52,6 +56,7 @@ class Agent(object):
         self.devices=[]
         self.commands=[]
         self.max_clients=1
+        self.io_request_queue=Queue.Queue()
         self.cookie=str(int(time.time()))
         self.initialize_cli_parser()
         self.args=self.cli_parser.parse_args()
@@ -458,7 +463,7 @@ class Agent(object):
         self.update_select_maps(read_map, write_map, error_map)
         try:
             readers, writers, errors = select.select(
-                read_map.keys(),write_map.keys(),error_map.keys(), 5)
+                read_map.keys(),write_map.keys(),error_map.keys(), SELECT_TIMEOUT)
         except select.error, err:
             if err[0] != EINTR:
                 raise
@@ -493,6 +498,94 @@ class Agent(object):
         """
         pass
     
+    def getConnectionByName(self, name):
+        return self.connections[name]
+    
+    def request_io(self, request):
+        if issubclass(type(request.target), SelectedConnection):
+            self.getConnectionByName(request.target)
+        self.io_request_queue.put(ioRequest)
+    
+    def set_command_state(self, command_name, state):
+        self.command_state[command_name]=state
+    
+    def clear_command_state(self, command_name):
+        self.command_state.pop(command_name, None)
+    
+    def get_command_state(self, command_name):
+        return self.command_state.get(command_name, None)
+    
+    def command_worker_thread_running(self, command_name):
+        return self.get_command_state(command_name)!=None
+    
+    def process_worker_thread_io(self):
+        """
+        Process any io requests from worker threads
+        
+        If there is nothing in the worker thread io queue return, otherwise:
+        pop an IORequest from the queue, if it is destined for a conection that
+        does not have a write in progress (e.g. for SelectedConnection, the
+        out_buffer is empty and it isn't expecting a response callback TODO, 
+        check for actual use of this edge case in the code) execute the
+        IORequest. If there is pending IO, increment the try count.
+        If the try cound is less than MAX_ATTEMPTS, put it back in the queue.
+        Otherwise respond to the request with failure.
+        
+        This will not conflict with command handlers that execute in the main 
+        thread and use blocking IO. Non-blocking IO requests may be in progress,
+        which will bloc the servicing of the io request. I think the only way 
+        around this is to port all of the existing command handlers that work in
+        the main thread to blocking io.
+        """
+        try:
+            request=self.io_request_queue.get_nowait()
+        except Queue.Empty:
+            return
+        #Grab the connection to the target
+        if type(request.target) != subclassOf(SelectedConnection):
+            connection=self.getConnectionByName(request.target)
+        else:
+            connection=request.target
+        #Verify IORequest isn't blocked, and if it is that it hasn't been
+        #   blocked for too long.
+        if connection.do_select_write():
+            self.io_request_queue.task_done()
+            request.attemptCount+=1
+            self.logger.debug('IO Request to %s blocked by outgoing IO (%i)' %
+                (str(connection),request.attemptCount))
+            if request.attemptCount > MAX_ATTEMPTS:
+                request.fail('IO Blocked too many times')
+            else:
+                self.io_request_queue.put(request)
+            return
+        #Handle the request
+        if type(request)==iorequest.SendRequest:
+            try:
+                connection.sendMessageBlocking(*request.sendArgs[0],
+                                                **request.sendArgs[1])
+            except IOError as e:
+                request.fail(e)
+                return
+        elif type(request)==iorequest.ReceiveRequest:
+            try:
+                #listen for number of bytes or terminator
+                response=connection.receiveMessageBlocking(*request.receiveArgs[0],
+                                                           **request.receiveArgs[1])
+                request.succeed(response)
+            except IOError as e:
+                request.fail(e)
+        elif tyep(request) == iorequest.SendReceiveRequest:
+            try:
+                connection.sendMessageBlocking(*request.sendArgs[0],
+                                               **request.sendArgs[1])
+                response=connection.receiveMessageBlocking(*request.receiveArgs[0],
+                                                           **request.receiveArgs[1])
+                request.succeed(response)
+            except IOError as e:
+                request.fail(e)
+        self.io_request_queue.task_done()
+        
+    
     def main(self):
         """
         Main loop (or one shot if no port). Act on commands as received.
@@ -504,7 +597,13 @@ class Agent(object):
         and agents required have been created and are in devices & sockets.
         Main calls runSetup to allow subclasses to perform any additional setup
         and then enters the main loop.
-        In the main loop, do_select is run, which checks each connection to see
+        
+        In the main loop:
+        
+        First any io transactions required by worker threads are handled by 
+        calling process_worker_thread_io.
+        
+        Then do_select is run, which checks each connection to see
         if it needs reading, writing, or checking for errors. It then selects
         on those connections, finally executing the read, write, or error 
         callbacks for each connected as indicated. For details of what these
@@ -524,6 +623,7 @@ class Agent(object):
         if self.PORT is None:
             self.runOnce()
         while True:
+            self.process_worker_thread_io()
             self.do_select()
             
             self.run()

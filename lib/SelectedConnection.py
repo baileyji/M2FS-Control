@@ -99,9 +99,7 @@ class SelectedConnection(object):
         If a connection is open no action is taken, otherwise the
         implementation specific connect is called, followed by the _postConnect
         function.
-        All exceptions are trapped and raised as a ConnectError.
-        If an error is raised, the connection shall not be considered open and
-        implementations isOpen should return False.
+        All exceptions are JLJL isOpen should return False.
         
         """
         if self.isOpen():

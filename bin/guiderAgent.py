@@ -77,9 +77,8 @@ class GuiderAgent(Agent):
     """
     def __init__(self):
         Agent.__init__(self,'GuiderAgent')
-        self.guider=GuiderSerial('/dev/guider', 115200, timeout=1)
         self.commanded_position={FOCUS_CHANNEL:None, FILTER_CHANNEL:None}
-        self.devices.append(self.guider)
+        self.connections['guider']=GuiderSerial('/dev/guider', 115200, timeout=1)
         self.command_handlers.update({
             #Get/Set the guider filter (1, 2, 3, or 4)
             'GFILTER':self.GFILTER_command_handler,
@@ -133,7 +132,6 @@ class GuiderAgent(Agent):
                 self.bad_command_handler(command)
                 return
             command.setReply('OK')
-            self.block(self.GFILTER_command_handler
             threading.Thread(target=setFilterPos,args=(filter,))
     
     def GFOCUS_command_handler(self, command):
@@ -166,9 +164,8 @@ class GuiderAgent(Agent):
         errors.
         """
         pwid=deg2pwid(float(focus), MAX_FOC_ROTATION)
-        self.guider.sendMessageBlocking( SET_TARGET.format(
-                                    channel=FOCUS_CHANNEL,
-                                    target=pwid2bytes(pwid)))
+        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+        self.connections['guider'].sendMessageBlocking(msg)
     
     def getFocusPos(self):
         """
@@ -243,8 +240,9 @@ class GuiderAgent(Agent):
         
         Raises IOError if any errors
         """
-        self.guider.sendMessageBlocking(GET_POSITION.format(channel=channel))
-        bytes=self.guider.receiveMessageBlocking(nBytes=2)
+        guider=self.connections['guider']
+        guider.sendMessageBlocking(GET_POSITION.format(channel=channel))
+        bytes=guider.receiveMessageBlocking(nBytes=2)
         if len(bytes)!=2:
             msg='Did not get expected response from controller.'
             self.logger.error(msg)

@@ -29,11 +29,35 @@ class Agent(object):
     It runs the main event loop which uses select to read and write on all agent
     conections, whether inbound or outbound.
     
-    It is my intention to make either the individual connections or the commands
-        themselves into their own threads, thereby removing the necessity of the
-        select call in the event loop and allowing non-blocking sends/receives
-        within command handlers. I've not come up with a good implementation 
-        yet.
+    
+    Agents have connections (SelectedConnections) to other entities. The 
+    connections are mantained in the connections dictionary. Subclasses
+    should create SelectedConnections in __init__ and add them to 
+    connections. Keys are strings and may not begin with 'INCOMING', which is
+    reserved for inbound connections.
+    
+    The inter-agent command protocol consists of \n terminated strings, the 
+    first word (everything up to the first space) of which is the  command name.
+    Sided commands (i.e. commands which act on the R or B side of the instrument
+    have the additional constraint that the second word is either R or B. By
+    convention polling commands typically have a ? as the second word (or third
+    when R or B is present).
+    
+    The agent supports the default commands STATUS and VERSION. Subclasses add
+    support for additional commands by adding a command & handler pair to the
+    command_handlers dictionary (e.g. 
+        self.command_handlers['NEW_COMMAND']=self.NEW_COMMAND_handler_func
+    the command handler function must accept two arguments self & command. Ther
+    latt of which will be a Command object.
+    
+    Handler functions which can execute fully in under about 1 second should do
+    what they need to do and return. Any communication on any of the connections
+    must be performed blocking if it must complete during the handler: data 
+    sent via sendMessage will go out no sooner than the next iteration of the 
+    main loop. Long running command handlers should use the support functions listed 
+    below to ensure proper execution. Instead of calling read and write methods
+    on connections directly, they must issue io requests with request_io
+    
     """ 
     def __init__(self, basename):
         """
@@ -52,8 +76,7 @@ class Agent(object):
         Register atexit function for cleanup.
         Register exit handler for SIGSTOP, SIGTERM, & SIGINT
         """
-        self.sockets=[]
-        self.devices=[]
+        self.connections={}
         self.commands=[]
         self.max_clients=1
         self.io_request_queue=Queue.Queue()
@@ -263,10 +286,8 @@ class Agent(object):
             except socket.error:
                 pass
             self.server_socket.close()
-        for d in self.devices:
-            d.close()
-        for s in self.sockets:
-            s.close()
+        for c in self.connections.values():
+            c.close()
         time.sleep(1)
     
     def handle_connect(self):
@@ -280,23 +301,26 @@ class Agent(object):
             self.socket_message_received_callback as the 
             default_message_received_callback.
         log connection
-        Add it to self.sockets
+        Add it to self.connections
         """
-        # accept a connection in any case, close connection
-        # below if already busy
+        #Accept the connection
         connection, addr = self.server_socket.accept()
-        if len(self.sockets) < self.max_clients:
-            connection.setblocking(0)
-            connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            soc = SelectedSocket(addr[0],addr[1],
-                Live_Socket_To_Use=connection,
-                default_message_received_callback=self.socket_message_received_callback)
-            self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
-            self.sockets.append(soc)
-        else:
+        #Count the number of existing inbound connections
+        str_keys=filter(lambda x: type(x)==str, self.connections.keys())
+        n_in=len(filter(lambda x: x.startswith('INCOMING'), str_keys))
+        #Close the connection and return if we've got too many
+        if n_in >= self.max_clients:
             connection.close()
             self.logger.info('Rejecting connection from %s:%s, have %s already.'
-                             % (addr[0], addr[1], self.max_clients))
+                              % (addr[0], addr[1], self.max_clients))
+            return
+        #Configure the connection and add it to connections
+        connection.setblocking(0)
+        connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        soc = SelectedSocket(addr[0],addr[1], Live_Socket_To_Use=connection,
+            default_message_received_callback=self.socket_message_received_callback)
+        self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
+        self.connections['INCOMING%i' % n_in]=soc
     
     def handle_server_error(self, error=''):
         """
@@ -315,19 +339,18 @@ class Agent(object):
         always select on server reads (incomming connection) or errors (fatal)
             with self.handle_connect and self.handle_server_error as the 
             handlers
-        select on each of the sockets & devices (they all implement 
-            SelectedConnection) for read, write, and error if the connection
-            reports it needs selecting on
+        select on each of the connections for read, write, and error if the
+            connection reports it needs selecting on
         Use the read, write, & error handlers defined by SelectedConnection
         
-        In case it isn't clear the select maps are key value pairs of 
+        In case it isn't clear: The select maps are key value pairs of 
             selectable_object:handler_for_when_select_indicates_object_is_ready
         """
         # check the server socket
         read_map[self.server_socket] = self.handle_connect
         error_map[self.server_socket] = self.handle_server_error
         #check all other connections
-        for selectedconn in self.sockets + self.devices:
+        for selectedconn in self.connections.values():
             if selectedconn.do_select_read():
                 read_map[selectedconn] = selectedconn.handle_read
             if selectedconn.do_select_write():
@@ -337,18 +360,20 @@ class Agent(object):
     
     def cull_dead_sockets_and_their_commands(self):
         """
-        Remove dead sockets from list of sockets & purge commands from same.
+        Remove dead sockets from connections & purge their commands.
         
-        Find all closed socket connections (commands can't come from
-            devices, so no need to check)
-        Remove the socket from sockets
+        Find all closed socket connections (commands come from connections with
+        keys starting with INCOMING.
+        Remove the socket from connections
         Find any commands that came from the socket and remove them
         """
-        dead_sockets=filter(lambda x: not x.isOpen(), self.sockets)
-        for dead_socket in dead_sockets:
-            self.logger.debug("Cull dead socket: %s" % dead_socket)
-            self.sockets.remove(dead_socket)
-            dead_commands=filter(lambda x:x.source==dead_socket,self.commands)
+        incomingKeys=filter(lambda x: x.startswith('INCOMING'),
+                            self.connections.keys())
+        deadKeys=filter(lambda x: not self.connections[x].isOpen(), incomingKeys)
+        for deadKey in deadKeys:
+            deadSocket=self.connections.pop(deadKey)
+            self.logger.debug("Cull dead socket: %s" % deadSocket)
+            dead_commands=filter(lambda x:x.source==deadSocket, self.commands)
             for dead_command in dead_commands:
                 self.commands.remove(dead_command)
     
@@ -449,7 +474,7 @@ class Agent(object):
     
     def do_select(self):
         """
-        Select on all devices and sockets whcih require it.
+        Select on all connections which require it.
         
         First call update_select_maps to get object:handler pairs on which to
             select for reading, writing, & errors.
@@ -499,6 +524,7 @@ class Agent(object):
         pass
     
     def getConnectionByName(self, name):
+        """ Return the SelectedConnection named name or rase KeyError """
         return self.connections[name]
     
     def request_io(self, request):
@@ -594,7 +620,7 @@ class Agent(object):
         port. The typical flow is as follows:
         
         Agent has been initialized and SelectedConnections to all other devices
-        and agents required have been created and are in devices & sockets.
+        and agents required have been created and are self.connections.
         Main calls runSetup to allow subclasses to perform any additional setup
         and then enters the main loop.
         
@@ -612,7 +638,7 @@ class Agent(object):
         pending data, & deal with an error, respectively.
         Next, any dead socket conectionions are dropped along with all commands
         received from those connections. Note that commands can only arrive from
-        a connection in self.sockets and never in self.devices. Also note that
+        a connections with a key that starts with INCOMING. Also note that
         the dropped commands(') callback(s) will already have been executed.
         Finally, the loop closes out any completed commands. Essentially this
         means taking the command response and sending it to the source. Note 

@@ -89,8 +89,7 @@ class ShoeAgent(Agent):
         #Initialize the shoe
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/shoe'+self.args.SIDE
-        self.shoe=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
-        self.devices.append(self.shoe)
+        self.connections['shoe']=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
         self.command_handlers.update({
@@ -165,9 +164,9 @@ class ShoeAgent(Agent):
         if not command_string:
             return ''
         #Send the command(s)
-        self.shoe.sendMessageBlocking(command_string)
+        self.connections['shoe'].sendMessageBlocking(command_string)
         #Get the first byte from the galil, typically this will be it
-        response=self.shoe.receiveMessageBlocking(nBytes=1)
+        response=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
         # 3 cases:, :, ?, or stuff followed by \r\n:
         #case 1, command succeeds but returns nothing, return
         if response ==':':
@@ -180,9 +179,9 @@ class ShoeAgent(Agent):
         #command is returning something
         else:
             #do a blocking receive on \n
-            response=response+self.shoe.receiveMessageBlocking()
+            response=response+self.connections['shoe'].receiveMessageBlocking()
             #...and a single byte read to grab the :
-            confByte=self.shoe.receiveMessageBlocking(nBytes=1)
+            confByte=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
             if confByte==':':
                 return response.strip()
             else:
@@ -274,8 +273,8 @@ class ShoeAgent(Agent):
         arg=command.string.partition(' ')[2]
         if arg:
             try:
-                self.shoe.sendMessageBlocking(arg)
-                response=self.shoe.receiveMessageBlocking(nBytes=2048)
+                self.connections['shoe'].sendMessageBlocking(arg)
+                response=self.connections['shoe'].receiveMessageBlocking(nBytes=2048)
                 response=response.replace('\r','\\r').replace('\n','\\n')
             except IOError, e:
                 response='ERROR: %s' % str(e)

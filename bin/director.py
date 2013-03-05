@@ -407,17 +407,16 @@ class Director(Agent):
         status.extend(self.batteryState)
         #Poll all the agents for their status
         for d in self.devices:
+            agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
+            agentName=agentName.replace(':','_').replace(' ','_')
             try:
                 d.sendMessageBlocking('STATUS')
                 response=d.receiveMessageBlocking()
-                if not response:
-                    agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
-                    response='%s:Not Responding' % agentName.replace(':','_')
-                status.append(response.replace(' ','_'))
             except IOError:
-                agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
-                status.append('%s:Offline' %
-                    agentName.replace(':','_').replace(' ','_'))
+                response='%s:Offline' % agentName
+            if response=='':
+                response='%s:Not_Responding' % agentName
+            status.append(response)
         return status
     
     

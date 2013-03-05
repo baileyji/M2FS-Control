@@ -57,6 +57,9 @@ class Agent(object):
     main loop. Long running command handlers should use the support functions listed 
     below to ensure proper execution. Instead of calling read and write methods
     on connections directly, they must issue io requests with request_io
+    The handler should issue block calls to block commands which need to be 
+    blocked. It is the worker thread's responsibility to unblock commands with
+    calls to unblock.
     
     """ 
     def __init__(self, basename):
@@ -234,21 +237,26 @@ class Agent(object):
             unless the handler spawns a thread (I've not done this anywhere)
             uses a nasty system of nested callbacks or some other hack.
         """
-        command_name=message_str.partition(' ')[0]
+        command_words=message_str.split(' ')
+        #extract the command name
+        command_name=command_words[0]
+        #create a command object
         command=Command(source, message_str)
-        existing_commands_from_source=filter(lambda x: x.source==source,
-                                             self.commands)
-        if existing_commands_from_source:
-            warning="Command '%s' received before command '%s' finished."
-            warning=escapeString(warning %
-                (message_str, existing_commands_from_source[0]))
+        #Verify there are no existing commands from this source, if so fail and
+        # return
+        existing_from_source=filter(lambda x: x.source==source, self.commands)
+        if existing_from_source:
+            warning="Command '%s' received before command '%s' finished. Ignoring"
+            warning=escapeString(warning % (message_str, existing_from_source[0]))
             self.logger.warning(warning)
+            return
+        self.logger.info('Received command %s' % escapeString(command.string))
+        self.commands.append(command)
+        if self.commandIsBlocked(command):
+            handler=self.blocked_command_handler
         else:
-            self.logger.info('Received command %s' % escapeString(command.string))
-            self.commands.append(command)
-            cmdhandler=self.command_handlers.get(command_name.upper(),
-                                                 self.bad_command_handler)
-            cmdhandler(command)
+            handler=self.command_handlers.get(command_name, self.bad_command_handler)
+        handler(command)
     
     def get_version_string(self):
         """ Return a string with the version. Subclasses should override. """
@@ -527,6 +535,22 @@ class Agent(object):
         """ Return the SelectedConnection named name or rase KeyError """
         return self.connections[name]
     
+    def block(self, command_name, blockQuery=False):
+        pass
+    
+    def unblock(self, command_name):
+        pass
+    
+    def isBlocked(self, command):
+        return False
+    
+    def getBlockReason(self, command):
+        return ''
+    
+    def blocked_command_handler(self, command):
+        reason=self.getBlockReason(command)
+        command.setReply('ERROR: Command is blocked. %s' % reason)
+    
     def request_io(self, request):
         if issubclass(type(request.target), SelectedConnection):
             self.getConnectionByName(request.target)
@@ -543,6 +567,9 @@ class Agent(object):
     
     def command_worker_thread_running(self, command_name):
         return self.get_command_state(command_name)!=None
+    
+    def start_command_worker_thread(self, func, args, kwargs):
+        pass
     
     def process_worker_thread_io(self):
         """

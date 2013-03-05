@@ -159,8 +159,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         #If we've sucessfully connected, go ahead and initialize the galil
         # see the command for what this means
         if self.isOpen():
-            self._initialize_galil()
-    
+            try:
+                self._initialize_galil()
+            except IOError:
+                pass
+
     def _unsolicited_galil_message_handler(self, message_source, message):
         """
         Handle any unexpected messages from the Galil
@@ -218,6 +221,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     def _setErrorFlag(self, command_class, err):
         """
         Flag the specified command class for an out of band error
+        
+        UNKNOWN serves as a global error affecting all command classes
         """
         self.errorFlags[command_class]=err
 
@@ -304,39 +309,24 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             for name in self.settingName_to_variableName_map.keys():
                 config[name]
         except KeyError:
-            #The config file is corrupted, rebuild
-            self.logger.critical('Galil'+self.SIDE+' configFile corrupted.'+
-                'Rebuilding from hardcoded defaults. '+
-                'Side specific customizations have been lost and must be '+
-                'restored manually.')
-            try:
-                for settingName, variableName in self.settingName_to_variableName_map.items():
-                    config[settingName]=self._send_command_to_galil('MG '+variableName)
-                m2fsConfig.setGalilDefaults(self.SIDE, config)
-                self.config=config
-                self._send_command_to_galil('bootup1=0')
-                config={}
-                self.logger.warning('Galil'+self.SIDE+' configFile rebuilt.')
-                return
-            except IOError,e:
-                err="Failure '%e' during rebuild of defaults file." % str(e)
-                self.logger.critical(err)
-                raise IOError(err)
-                #TODO This error is fatal
+            #The config file is corrupted, this is a fatal error
+            errMsg='Galil'+self.SIDE+' configFile corrupted.'+
+                'git reset --hard likely needed'
+            self.logger.critical(errorMsg)
+            raise IOError(errMsg)
         #Send the config to the galil
-        if config:
-            try:
-                #NB we are only here if bootup1=1, which implies nothing but the
-                # basic threads are running and thus we are guaranteed the
-                # settings are not blocked by some executing thread
-                for settingName, value in config.items():
-                    variableName=self.settingName_to_variableName_map[settingName]
-                    self._send_command_to_galil('%s=%s' % (variableName, value))
-                self.config=config
-                self._send_command_to_galil('bootup1=0')
-            except IOError, e:
-                raise IOError("Can not set galil defaults.") 
-    
+        try:
+            #NB we are only here if bootup1=1, which implies nothing but the
+            # basic threads are running and thus we are guaranteed the
+            # settings are not blocked by some executing thread
+            for settingName, value in config.items():
+                variableName=self.settingName_to_variableName_map[settingName]
+                self._send_command_to_galil('%s=%s' % (variableName, value))
+            self.config=config
+            self._send_command_to_galil('bootup1=0')
+        except IOError, e:
+            raise IOError("Can not set galil defaults.") 
+
     def _send_command_to_galil(self, command_string):
         """
         Send a command string to the galil, wait for immediate response

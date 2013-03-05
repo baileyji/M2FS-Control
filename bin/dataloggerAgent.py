@@ -22,7 +22,7 @@ def logDebugInfo(logger, records):
     """ Records should be sorted in time """
     if len(records) <3:
         for r in records:
-            logger.debug(r.prettyStr)
+            logger.debug(r.prettyStr())
     else:
         bCount=0
         rCount=0

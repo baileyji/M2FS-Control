@@ -33,7 +33,7 @@ def logDebugInfo(logger, records):
                 rCount+=1
         logger.debug("R records: %i  B records: %i" % (rCount, bCount))
         logger.debug("Earliest: %s Latest: %s" %
-                     (records[0].timeStr(), records[-1].timeStr()))
+                     (records[0].timeString(), records[-1].timeString()))
 
 class DataloggerAgent(Agent):
     """

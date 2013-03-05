@@ -28,7 +28,7 @@ def logDebugInfo(logger, records):
         rCount=0
         for r in records:
             if r.bOnly():
-                bCout+=1
+                bCount+=1
             elif r.rOnly():
                 rCount+=1
         logger.debug("R records: %i  B records: %i" % (rCount, bCount))

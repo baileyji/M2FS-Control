@@ -4,6 +4,7 @@ sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
 from iorequest import *
+import logging
 
 GUIDER_AGENT_VERSION_STRING='Guider Agent v0.1'
 
@@ -84,6 +85,7 @@ class GuiderAgent(Agent):
             'GFILTER':self.GFILTER_command_handler,
             #Get/Set the guider focus value
             'GFOCUS':self.GFOCUS_command_handler})
+        self.logger.setLevel(logging.DEBUG)
     
     def get_version_string(self):
         """ Return a string with the version."""
@@ -190,11 +192,13 @@ class GuiderAgent(Agent):
         pwid=deg2pwid(0, MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
         sndArgs=((msg,), {})
-        ioRequest=SendRequest(sndArgs , 'Guider')
+        ioRequest=SendRequest(sndArgs , 'guider')
         responseQ=ioRequest.responseQueue
+        self.logger.debug("Request move to home")
         self.request_io(ioRequest)
         ioRequest.serviced.wait()
-        if not isRequest.success:
+        if not ioRequest.success:
+            self.logger.debug("Request move to home FAILED")
             self.set_command_state('GFILTER', 'ERROR: %s' %
                 ioRequest.responseQueue.get())
             return
@@ -204,9 +208,11 @@ class GuiderAgent(Agent):
         pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
         ioRequest=SendRequest(((msg,),{}), 'Guider')
+        self.logger.debug("Request move to filter")
         self.io_request_queue.put(ioRequest)
         ioRequest.serviced.wait()
         if not isRequest.success:
+            self.logger.debug("Request move to filter FAILED")
             self.set_command_state('GFILTER', 'ERROR: %s' %
                                   ioRequest.responseQueue.get())
             return

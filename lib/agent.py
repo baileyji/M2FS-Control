@@ -4,7 +4,10 @@ import Queue
 import logging, logging.handlers
 from command import Command
 from SelectedConnection import SelectedSocket, WriteError
+import iorequest
+import SelectedConnection
 from m2fsConfig import m2fsConfig
+import threading
 
 SERVER_RETRY_TIME=10
 DEFAULT_LOG_LEVEL=logging.INFO
@@ -253,6 +256,7 @@ class Agent(object):
         #Check to see if command is blocked by a worker thread
         block=self.commandIsBlocked(command)
         if block:
+            self.logger.debug("Command is blocked")
             command.setReply('ERROR: Command is blocked. %s' % block)
             return
         #Try to get the state of the command
@@ -260,7 +264,11 @@ class Agent(object):
         # been blocked. If the command doesn't have a worker thread we will get
         # the exception.
         try:
-            command.setReply(self._getWorkerThreadState(command))
+            workerState=self._getWorkerThreadState(command)
+            self.logger.debug("Worker thread running: %s"%workerState)
+            command.setReply(workerState)
+            if not self._isWorkerThreadRunning(command):
+                self.clear_command_state(message_str.partition(' ')[0])
             return
         except KeyError:
             pass
@@ -559,27 +567,32 @@ class Agent(object):
         null. Returns False if command is not blocked.
         """
         return False
-    
+
     def request_io(self, request):
-        if issubclass(type(request.target), SelectedConnection):
-            self.getConnectionByName(request.target)
-        self.io_request_queue.put(ioRequest)
+        self.logger.debug("Adding IO request '%s' to queue" % request)
+        self.io_request_queue.put(request)
     
-    def set_command_state(self, command, state):
-        self.command_state[command.string]=state
+    def set_command_state(self, command_name, state):
+        self.command_state[command_name]=state
     
-    def clear_command_state(self, command):
-        self.command_state.pop(command.string, None)
+    def clear_command_state(self, command_name):
+        self.command_state.pop(command_name, None)
     
     def _getWorkerThreadState(self, command):
-        return self.command_state.get(command.string, None)
-    
+        return self.command_state[command.string.split(' ')[0]]
+
+    def _isWorkerThreadRunning(self, command):
+        command_name=command.string.partition(' ')[0]
+        return next((True for thread in threading.enumerate() if thread.name==command_name), False)
+
     def startWorkerThread(self, command, initialState, func,
                           args=(), kwargs={}, block=()):
         for blockable in block:
             self.block(blockable)
-        self.set_command_state(command, initialState)
-        worker=threading.Thread(target=func,args=args,kwargs=kwargs)
+        
+        command_name=command.string.partition(' ')[0]
+        self.set_command_state(command_name, initialState)
+        worker=threading.Thread(target=func,name=command_name, args=args,kwargs=kwargs)
         worker.daemon=True
         worker.start()
     
@@ -606,8 +619,9 @@ class Agent(object):
             request=self.io_request_queue.get_nowait()
         except Queue.Empty:
             return
+        self.logger.debug('Processing iorequest %s' % request)
         #Grab the connection to the target
-        if type(request.target) != subclassOf(SelectedConnection):
+        if not issubclass(type(request.target), type(SelectedConnection)):
             connection=self.getConnectionByName(request.target)
         else:
             connection=request.target
@@ -630,7 +644,6 @@ class Agent(object):
                                                 **request.sendArgs[1])
             except IOError as e:
                 request.fail(e)
-                return
         elif type(request)==iorequest.ReceiveRequest:
             try:
                 #listen for number of bytes or terminator
@@ -648,6 +661,7 @@ class Agent(object):
                 request.succeed(response)
             except IOError as e:
                 request.fail(e)
+        self.logger.debug('Finisehd processing iorequest: %s' % request)
         self.io_request_queue.task_done()
         
     

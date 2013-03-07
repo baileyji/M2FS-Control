@@ -122,17 +122,15 @@ class GuiderAgent(Agent):
         Responds OK if the requested filter is valid.
         """
         if '?' in command.string:
-            if self.command_worker_thread_running('GFILTER'):
-                command.setReply(self.get_command_state('GFILTER'))
-            else:
-                command.setReply(self.getFilterPos())
+            command.setReply(self.getFilterPos())
         else:
             filter=command.string.partition(' ')[2]
             if not validFilterValue(filter):
                 self.bad_command_handler(command)
                 return
             command.setReply('OK')
-            threading.Thread(target=setFilterPos,args=(filter,))
+            self.startWorkerThread(command, 'MOVING', self.setFilterPos,
+                                   args=(filter,))
     
     def GFOCUS_command_handler(self, command):
         """ 

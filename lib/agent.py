@@ -3,7 +3,7 @@ import socket
 import Queue
 import logging, logging.handlers
 from command import Command
-from SelectedConnection import SelectedSocket
+from SelectedConnection import SelectedSocket, WriteError
 from m2fsConfig import m2fsConfig
 
 SERVER_RETRY_TIME=10
@@ -81,6 +81,7 @@ class Agent(object):
         """
         self.connections={}
         self.commands=[]
+        self.command_state={}
         self.max_clients=1
         self.io_request_queue=Queue.Queue()
         self.cookie=str(int(time.time()))
@@ -237,9 +238,6 @@ class Agent(object):
             unless the handler spawns a thread (I've not done this anywhere)
             uses a nasty system of nested callbacks or some other hack.
         """
-        command_words=message_str.split(' ')
-        #extract the command name
-        command_name=command_words[0]
         #create a command object
         command=Command(source, message_str)
         #Verify there are no existing commands from this source, if so fail and
@@ -252,10 +250,23 @@ class Agent(object):
             return
         self.logger.info('Received command %s' % escapeString(command.string))
         self.commands.append(command)
-        if self.commandIsBlocked(command):
-            handler=self.blocked_command_handler
-        else:
-            handler=self.command_handlers.get(command_name, self.bad_command_handler)
+        #Check to see if command is blocked by a worker thread
+        block=self.commandIsBlocked(command)
+        if block:
+            command.setReply('ERROR: Command is blocked. %s' % block)
+            return
+        #Try to get the state of the command
+        # If the command is not a query and is already running, it would have
+        # been blocked. If the command doesn't have a worker thread we will get
+        # the exception.
+        try:
+            command.setReply(self._getWorkerThreadState(command))
+            return
+        except KeyError:
+            pass
+        #Execute the command's handler
+        command_name=message_str.partition(' ')[0]
+        handler=self.command_handlers.get(command_name, self.bad_command_handler)
         handler(command)
     
     def get_version_string(self):
@@ -541,35 +552,36 @@ class Agent(object):
     def unblock(self, command_name):
         pass
     
-    def isBlocked(self, command):
+    def commandIsBlocked(self, command):
+        """ Report the blocking reason if command is blocked False if not
+        
+        Return a string specifying the blocking reason, string will not be
+        null. Returns False if command is not blocked.
+        """
         return False
-    
-    def getBlockReason(self, command):
-        return ''
-    
-    def blocked_command_handler(self, command):
-        reason=self.getBlockReason(command)
-        command.setReply('ERROR: Command is blocked. %s' % reason)
     
     def request_io(self, request):
         if issubclass(type(request.target), SelectedConnection):
             self.getConnectionByName(request.target)
         self.io_request_queue.put(ioRequest)
     
-    def set_command_state(self, command_name, state):
-        self.command_state[command_name]=state
+    def set_command_state(self, command, state):
+        self.command_state[command.string]=state
     
-    def clear_command_state(self, command_name):
-        self.command_state.pop(command_name, None)
+    def clear_command_state(self, command):
+        self.command_state.pop(command.string, None)
     
-    def get_command_state(self, command_name):
-        return self.command_state.get(command_name, None)
+    def _getWorkerThreadState(self, command):
+        return self.command_state.get(command.string, None)
     
-    def command_worker_thread_running(self, command_name):
-        return self.get_command_state(command_name)!=None
-    
-    def start_command_worker_thread(self, func, args, kwargs):
-        pass
+    def startWorkerThread(self, command, initialState, func,
+                          args=(), kwargs={}, block=()):
+        for blockable in block:
+            self.block(blockable)
+        self.set_command_state(command, initialState)
+        worker=threading.Thread(target=func,args=args,kwargs=kwargs)
+        worker.daemon=True
+        worker.start()
     
     def process_worker_thread_io(self):
         """

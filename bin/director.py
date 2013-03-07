@@ -36,33 +36,25 @@ class Director(Agent):
         #Fetch the agent ports
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
-        self.galilAgentR_Connection=SelectedConnection.SelectedSocket('localhost',
+        self.connections['GalilAgentR']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['GalilAgentR'])
-        self.galilAgentB_Connection=SelectedConnection.SelectedSocket('localhost',
+        self.connections['GalilAgentB']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['GalilAgentB'])
         #Slit Subsytem Controller
-        self.slitController_Connection=SelectedConnection.SelectedSocket('localhost',
+        self.connections['SlitController']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['SlitController'])
         #Datalogger Agent
-        self.dataloggerAgent_Connection=SelectedConnection.SelectedSocket('localhost',
+        self.connections['DataloggerAgent']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['DataloggerAgent'])
         #Shack-Hartman Agent
-        self.shackhatmanAgent_Connection=SelectedConnection.SelectedSocket('localhost',
+        self.connections['ShackHartmanAgent']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['ShackHartmanAgent'])
         #Plugging Controller
-        self.plugController_Connection=SelectedConnection.SelectedSocket('localhost',
+        self.connections['PlugController']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['PlugController'])
         #Guider Agent
-        self.guiderAgent_Connection=SelectedConnection.SelectedSocket('localhost',
+        self.connections['GuiderAgent']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['GuiderAgent'])
-        #add them all to devices
-        self.devices.append(self.galilAgentR_Connection)
-        self.devices.append(self.galilAgentB_Connection)
-        self.devices.append(self.slitController_Connection)
-        self.devices.append(self.dataloggerAgent_Connection)
-        self.devices.append(self.shackhatmanAgent_Connection)
-        self.devices.append(self.plugController_Connection)
-        self.devices.append(self.guiderAgent_Connection)
         self.command_handlers.update({
             #Director Commands
             #
@@ -271,7 +263,7 @@ class Director(Agent):
         Pass the command string along to the SH agent. The response and error
         callbacks are the command's setReply function.
         """
-        self.shackhatmanAgent_Connection.sendMessage(command.string,
+        self.connections['ShackHartmanAgent'].sendMessage(command.string,
             responseCallback=command.setReply, errorCallback=command.setReply)
     
     def SLITS_comand_handler(self, command):
@@ -288,8 +280,8 @@ class Director(Agent):
         messages.
         """
         try:
-            self.slitController_Connection.connect()
-            self.slitController_Connection.sendMessage(command.string, 
+            self.connections['SlitController'].connect()
+            self.connections['SlitController'].sendMessage(command.string, 
                 responseCallback=command.setReply)
         except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the slit controller.')
@@ -310,8 +302,8 @@ class Director(Agent):
         messages.
         """
         try:
-            self.dataloggerAgent_Connection.connect()
-            self.dataloggerAgent_Connection.sendMessage(command.string, 
+            self.connections['DataloggerAgent'].connect()
+            self.connections['DataloggerAgent'].sendMessage(command.string, 
                 responseCallback=command.setReply)
         except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
@@ -332,8 +324,8 @@ class Director(Agent):
         messages.
         """
         try:
-            self.plugController_Connection.connect()
-            self.plugController_Connection.sendMessage(command.string, 
+            self.connections['PlugController'].connect()
+            self.connections['PlugController'].sendMessage(command.string, 
                 responseCallback=command.setReply)
         except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the plug controller.')
@@ -377,16 +369,16 @@ class Director(Agent):
         elif 'OFF' in command.string and 'ON' not in command.string:
             #Turn plugmode off
             try:
-                self.galilAgentR_Connection.sendMessage('FLSIM OUT')
-                self.galilAgentB_Connection.sendMessage('FLSIM OUT')
+                self.connections['GalilAgentR'].sendMessage('FLSIM OUT')
+                self.connections['GalilAgentB'].sendMessage('FLSIM OUT')
                 command.setReply('OK')
             except WriteError:
                 command.setReply('ERROR: Could not set pickoff position')
         elif 'ON' in command.string and 'OFF' not in command.string:
             #Turn plugmode on
             try:
-                self.galilAgentR_Connection.sendMessage('FLSIM IN')
-                self.galilAgentB_Connection.sendMessage('FLSIM IN')
+                self.connections['GalilAgentR'].sendMessage('FLSIM IN')
+                self.connections['GalilAgentB'].sendMessage('FLSIM IN')
                 command.setReply('OK')
             except WriteError:
                 command.setReply('ERROR: Could not set pickoff position')
@@ -456,11 +448,11 @@ class Director(Agent):
         RorB,junk,args=args.partition(' ')
         galil_command=command_name+' '+args
         if RorB =='R':
-            self.galilAgentR_Connection.sendMessage(galil_command,
+            self.connections['GalilAgentR'].sendMessage(galil_command,
                 responseCallback=command.setReply,
                 errorCallback=command.setReply)
         elif RorB =='B':
-            self.galilAgentB_Connection.sendMessage(galil_command,
+            self.connections['GalilAgentB'].sendMessage(galil_command,
                 responseCallback=command.setReply,
                 errorCallback=command.setReply)
         else:
@@ -480,8 +472,8 @@ class Director(Agent):
         messages.
         """
         try:
-            self.guiderAgent_Connection.connect()
-            self.guiderAgent_Connection.sendMessage(command.string,
+            self.connections['GuiderAgent'].connect()
+            self.connections['GuiderAgent'].sendMessage(command.string,
                 responseCallback=command.setReply)
         except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the guider agent.')

@@ -22,9 +22,11 @@ DEFAULT_FILTER_POSITION=0.0
 MAX_FILTER_ROTATION=1260.0
 MAX_FOC_ROTATION=90.0
 
-FOCUS_NUDGE=2
+FOCUS_NUDGE=3
+JITTER_STOP_MOVE=1
 
 FILTER_HOME_TIME=3.6
+FOCUS_SLEW_TIME=0.8
 
 FILTER_DEGREE_POS_FW={
     1: 19,
@@ -110,6 +112,88 @@ class GuiderAgent(Agent):
                 ('Filter',filterStatus),
                 ('Focus', focusStatus)]
     
+    def GFOCUS_command_handler(self, command):
+        """ 
+        Handle geting/setting the guider focus
+        
+        Responds with the current value, MOVING, or ERROR if the controller is
+        offline. !ERROR if the command is invalid (focus out of range 0-90)
+        
+        Responds OK if the requested position is within 0 - 90.
+        """
+        if '?' in command.string:
+            command.setReply(self.getFocusPos())
+        else:
+            focus=command.string.partition(' ')[2]
+            if not validFocusValue(focus):
+                self.bad_command_handler(command)
+                return
+            command.setReply('OK')
+            self.startWorkerThread(command, 'MOVING', self.setFocusPos,
+                                   args=(focus,))
+    
+    def setFocusPos(self, focus):
+        """ 
+        Translate focus to a command to the Maestro and send it
+        
+        Focus must be  in the range 0 - 90. Raise an Exception if there are any
+        errors.
+        """
+        if focus=='+':
+            focus=self.focus+FOCUS_NUDGE
+        elif focus=='-':
+            focus=self.focus-FOCUS_NUDGE
+        focus=max(min(90, float(focus)), 0)
+        #Determine the move direction so we can nudge backwards after
+        # Otherwise the motor might dance
+        if focus > self.focus:
+            dir=JITTER_STOP_MOVE
+        elif focus < self.focus:
+            dir=-JITTER_STOP_MOVE
+        else:
+            dir=0
+        pwid=deg2pwid(focus, MAX_FOC_ROTATION)
+        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+        #move to focus pos
+        ioRequest=SendRequest(((msg,), {}) , 'guider')
+        self.request_io(ioRequest)
+        ioRequest.serviced.wait()
+        if not ioRequest.success:
+            self.logger.info("Focus move failed initial move")
+            self.set_command_state('GFOCUS',
+                                   'ERROR: ' + ioRequest.responseQueue.get())
+            return
+        self.focus=focus
+        #give the move enough time
+        time.sleep(FOCUS_SLEW_TIME)
+        #Nudge the focus backwards so the servo doesn't dance
+        focus=focus-dir
+        pwid=deg2pwid(focus-dir, MAX_FOC_ROTATION)
+        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+        ioRequest=SendRequest(((msg,),{}), 'guider')
+        self.request_io(ioRequest)
+        ioRequest.serviced.wait()
+        if not ioRequest.success:
+            self.logger.debug("Focus move failed jitter correction move")
+            self.set_command_state('GFOCUS',
+                                   'ERROR: '+ ioRequest.responseQueue.get())
+            return
+        self.focus=focus
+        self.clear_command_state('GFOCUS')
+        self.unblock('GFOCUS')
+    
+    def getFocusPos(self):
+        """
+        Get the focus angle from the Maestro
+        """
+        try:
+            state=self.getChannelState(FOCUS_CHANNEL)
+        except IOError:
+            return 'ERROR: '+MAESTRO_NOT_RESPONDING_STRING
+        if state != 'MOVING':
+            state=pwid2deg(state, MAX_FOC_ROTATION)
+        return str(state)
+    
     def GFILTER_command_handler(self, command):
         """
         Handle geting/setting the guider filter
@@ -129,57 +213,6 @@ class GuiderAgent(Agent):
             command.setReply('OK')
             self.startWorkerThread(command, 'MOVING', self.setFilterPos,
                                    args=(filter,))
-    
-    def GFOCUS_command_handler(self, command):
-        """ 
-        Handle geting/setting the guider focus
-        
-        Responds with the current value, MOVING, or ERROR if the controller is
-        offline. !ERROR if the command is invalid (focus out of range 0-90)
-        
-        Responds OK if the requested position is within 0 - 90.
-        """
-        if '?' in command.string:
-            command.setReply(self.getFocusPos())
-        else:
-            focus=command.string.partition(' ')[2]
-            if not validFocusValue(focus):
-                self.bad_command_handler(command)
-                return
-            try:
-                self.setFocusPos(focus)
-                command.setReply('OK')
-            except Exception as e:
-                command.setReply(str(e))
-    
-    def setFocusPos(self, focus):
-        """ 
-        Translate focus to a command to the Maestro and send it
-        
-        Focus must be  in the range 0 - 90. Raise an Exception if there are any
-        errors.
-        """
-        if focus=='+':
-            focus=self.focus+FOCUS_NUDGE
-        elif focus=='-':
-            focus=self.focus-FOCUS_NUDGE
-        focus=max(min(90, float(focus)), 0)
-        pwid=deg2pwid(focus, MAX_FOC_ROTATION)
-        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
-        self.connections['guider'].sendMessageBlocking(msg)
-        self.focus=focus
-    
-    def getFocusPos(self):
-        """
-        Get the focus angle from the Maestro
-        """
-        try:
-            state=self.getChannelState(FOCUS_CHANNEL)
-        except IOError:
-            return 'ERROR: '+MAESTRO_NOT_RESPONDING_STRING
-        if state != 'MOVING':
-            state=pwid2deg(state, MAX_FOC_ROTATION)
-        return str(state)
     
     def setFilterPos(self, filter):
         """
@@ -241,6 +274,8 @@ class GuiderAgent(Agent):
     def getChannelState(self, channel):
         """
         Returns MOVING or the pulse width for the specified channel.
+        
+        NB will always return the pullse width as written
         
         Raises IOError if any errors
         """

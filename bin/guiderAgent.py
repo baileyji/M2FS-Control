@@ -160,7 +160,7 @@ class GuiderAgent(Agent):
         ioRequest.serviced.wait()
         if not ioRequest.success:
             self.logger.info("Focus move failed initial move")
-            self.set_command_state('GFOCUS', 'ERROR: ' + ioRequest.response)
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + ioRequest.response)
             return
         self.focus=focus
         #give the move enough time
@@ -174,11 +174,10 @@ class GuiderAgent(Agent):
         ioRequest.serviced.wait()
         if not ioRequest.success:
             self.logger.debug("Focus move failed jitter correction move")
-            self.set_command_state('GFOCUS', 'ERROR: '+ ioRequest.response)
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: '+ ioRequest.response)
             return
         self.focus=focus
-        self.clear_command_state('GFOCUS')
-        self.unblock('GFOCUS')
+        self.returnFromWorkerThread('GFOCUS')
     
     def getFocusPos(self):
         """
@@ -229,7 +228,7 @@ class GuiderAgent(Agent):
         ioRequest.serviced.wait()
         if not ioRequest.success:
             self.logger.debug("Request move to home FAILED")
-            self.set_command_state('GFILTER', 'ERROR: ' + ioRequest.response)
+            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + ioRequest.response)
             return
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
@@ -241,11 +240,10 @@ class GuiderAgent(Agent):
         ioRequest.serviced.wait()
         if not ioRequest.success:
             self.logger.debug("Request move to filter FAILED")
-            self.set_command_state('GFILTER', 'ERROR: '+ ioRequest.response)
+            self.returnFromWorkerThread('GFILTER', 'ERROR: '+ ioRequest.response)
             return
         time.sleep(FILTER_HOME_TIME)
-        self.clear_command_state('GFILTER')
-        self.unblock('GFILTER')
+        self.returnFromWorkerThread('GFILTER')
     
     def getFilterPos(self):
         """

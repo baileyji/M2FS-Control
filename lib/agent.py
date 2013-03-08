@@ -63,9 +63,9 @@ class Agent(object):
     The worker thread should use the functions:
         request_io
         set_command_state
-        clear_command_state
         block
         unblock
+        returnFromWorkerThread
     
     below to ensure proper execution. Instead of calling read and write methods
     on connections directly, they must issue io requests with request_io
@@ -677,6 +677,13 @@ class Agent(object):
         worker=threading.Thread(target=func,name=command_name, args=args,kwargs=kwargs)
         worker.daemon=True
         worker.start()
+    
+    def returnFromWorkerThread(self, command_name, finalState=''):
+        if finalState:
+            self.set_command_state(command_name, finalState)
+        else:
+            self.clear_command_state(command_name)
+        self.unblock(command_name)
     
     def _process_worker_thread_io(self):
         """

@@ -1,16 +1,14 @@
 import Queue, threading
 
 class IORequest(object):
-    def __init__(self, target, responseQueue=Queue.Queue()):
-        self.responseQueue=responseQueue
+    def __init__(self, target):
+        self.response=None
         self.target=target
         self.attemptCount=0
         self.serviced=threading.Event()
         self.success=None
 
     def fail(self, reason='Unpsecified'):
-        if self.responseQueue!=None:
-            self.responseQueue.put(reason)
         self.success=False
         self.response=str(reason)
         self.serviced.set()
@@ -38,8 +36,6 @@ class ReceiveRequest(IORequest):
         self.receiveArgs=receiveMessageBlockingArgs
     
     def respond(self, reply):
-        if self.responseQueue!=None:
-            self.responseQueue.put(response)
         self.response=str(response)
         self.succeed()
     
@@ -62,8 +58,6 @@ class SendReceiveRequest(IORequest):
         self.receiveArgs=receiveMessageBlockingArgs
     
     def respond(self, reply):
-        if self.responseQueue!=None:
-            self.responseQueue.put(response)
         self.response=str(response)
         self.succeed()
     

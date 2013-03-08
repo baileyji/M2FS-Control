@@ -14,12 +14,6 @@ class IORequest(object):
         self.success=False
         self.response=str(reason)
         self.serviced.set()
-    
-    def respond(self, reply):
-        if self.responseQueue!=None:
-            self.responseQueue.put(response)
-        self.response=str(response)
-        self.succeed()
 
     def succeed(self):
         self.success=True
@@ -33,9 +27,8 @@ class SendRequest(IORequest):
     def __str__(self):
         if self.success != None:
             state='Success' if self.success==True else 'Failed'
-            state+=' '+self.response
         else:
-            state=''
+            state='Pending'
         serviced=( '' if self.serviced.isSet() else 'Not ') + 'Serviced'
         return "Send %s to %s. %s State: %s" % (self.sendArgs, self.target, serviced,state)
 
@@ -43,13 +36,19 @@ class ReceiveRequest(IORequest):
     def __init__(self, receiveMessageBlockingArgs, *args, **kwards):
         super(SendRequest, self).__init__( *args, **kwards)
         self.receiveArgs=receiveMessageBlockingArgs
-
+    
+    def respond(self, reply):
+        if self.responseQueue!=None:
+            self.responseQueue.put(response)
+        self.response=str(response)
+        self.succeed()
+    
     def __str__(self):
         if self.success != None:
             state='Success' if self.success==True else 'Failed'
             state+=' '+self.response
         else:
-            state=''
+            state='Pending'
         serviced=( '' if self.serviced.isSet() else 'Not ') + 'Serviced'
         return "Listen to %s (%s). %s State: %s" % (self.target, self.receiveArgs,  serviced,state)
 
@@ -61,12 +60,18 @@ class SendReceiveRequest(IORequest):
         super(SendRequest, self).__init__( *args, **kwards)
         self.sendArgs=sendMessageBlockingArgs
         self.receiveArgs=receiveMessageBlockingArgs
-
+    
+    def respond(self, reply):
+        if self.responseQueue!=None:
+            self.responseQueue.put(response)
+        self.response=str(response)
+        self.succeed()
+    
     def __str__(self):
         if self.success != None:
             state='Success' if self.success==True else 'Failed'
             state+=' '+self.response
         else:
-            state=''
+            state='Pending'
         serviced=( '' if self.serviced.isSet() else 'Not ') + 'Serviced'
         return "Send %s to %s and listen (%s). %s State: %s" % (self.sendArgs, self.target, self.receiveArgs,  serviced, state)

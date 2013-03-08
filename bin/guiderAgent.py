@@ -3,6 +3,7 @@ import sys
 sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
+import time
 from iorequest import *
 import logging
 
@@ -21,7 +22,9 @@ DEFAULT_FILTER_POSITION=0.0
 MAX_FILTER_ROTATION=1260.0
 MAX_FOC_ROTATION=90.0
 
-FILTER_HOME_TIME=6
+FOCUS_NUDGE=2
+
+FILTER_HOME_TIME=3.6
 
 FILTER_DEGREE_POS_FW={
     1: 19,
@@ -29,14 +32,6 @@ FILTER_DEGREE_POS_FW={
     3: 100,
     4: 140,
     5: 180,
-    6: 222}
-
-FILTER_DEGREE_POS_BK={
-    1: 12,
-    2: 53,
-    3: 95,
-    4: 136,
-    5: 177,
     6: 222}
 
 MAX_PWIDTH=2100.0
@@ -78,6 +73,7 @@ class GuiderAgent(Agent):
     """
     def __init__(self):
         Agent.__init__(self,'GuiderAgent')
+        self.focus=0
         self.commanded_position={FOCUS_CHANNEL:None, FILTER_CHANNEL:None}
         self.connections['guider']=GuiderSerial('/dev/guider', 115200, timeout=1)
         self.command_handlers.update({
@@ -163,9 +159,15 @@ class GuiderAgent(Agent):
         Focus must be  in the range 0 - 90. Raise an Exception if there are any
         errors.
         """
-        pwid=deg2pwid(float(focus), MAX_FOC_ROTATION)
+        if focus=='+':
+            focus=self.focus+FOCUS_NUDGE
+        elif focus=='-':
+            focus=self.focus-FOCUS_NUDGE
+        focus=max(min(90, float(focus)), 0)
+        pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
         self.connections['guider'].sendMessageBlocking(msg)
+        self.focus=focus
     
     def getFocusPos(self):
         """
@@ -183,7 +185,7 @@ class GuiderAgent(Agent):
         """
         Translate filter to a degree position and command Maestro to target
         
-        Filter must be a key in FILTER_DEGREE_POS. Raise an Exception if there
+        Filter must be a key in FILTER_DEGREE_POS_FW. Raise an Exception if there
         are any errors.
         """
         self.set_command_state('GFILTER', 'MOVING')
@@ -191,32 +193,30 @@ class GuiderAgent(Agent):
         #move to home
         pwid=deg2pwid(0, MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
-        sndArgs=((msg,), {})
-        ioRequest=SendRequest(sndArgs , 'guider')
-        responseQ=ioRequest.responseQueue
-        self.logger.debug("Request move to home")
-        self.request_io(ioRequest)
+        ioRequest=SendRequest(((msg,), {}) , 'guider')
+        self.request_io(ioRequest, description="Request move to home" )
         ioRequest.serviced.wait()
         if not ioRequest.success:
             self.logger.debug("Request move to home FAILED")
-            self.set_command_state('GFILTER', 'ERROR: %s' %
-                ioRequest.responseQueue.get())
+            self.set_command_state('GFILTER',
+                                    'ERROR: ' + ioRequest.responseQueue.get())
             return
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
         #now move to the filter
         pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
-        ioRequest=SendRequest(((msg,),{}), 'Guider')
-        self.logger.debug("Request move to filter")
-        self.io_request_queue.put(ioRequest)
+        ioRequest=SendRequest(((msg,),{}), 'guider')
+        self.request_io(ioRequest, description="Request move to filter")
         ioRequest.serviced.wait()
-        if not isRequest.success:
+        if not ioRequest.success:
             self.logger.debug("Request move to filter FAILED")
-            self.set_command_state('GFILTER', 'ERROR: %s' %
-                                  ioRequest.responseQueue.get())
+            self.set_command_state('GFILTER',
+                                    'ERROR: '+ ioRequest.responseQueue.get())
             return
+        time.sleep(FILTER_HOME_TIME)
         self.clear_command_state('GFILTER')
+        self.unblock('GFILTER')
     
     def getFilterPos(self):
         """
@@ -259,7 +259,7 @@ def filterAngle2Filter(angle):
     """
     try:
         angle=int(round(angle))
-        filter=[x[0] for x in FILTER_DEGREE_POS.items() if x[1]==angle][0]
+        filter=[x[0] for x in FILTER_DEGREE_POS_FW.items() if x[1]==angle][0]
     except Exception:
         raise ValueError
     return filter
@@ -315,7 +315,11 @@ def bytes2pwid(bytes):
     return round((ord(bytes[0])|(ord(bytes[1])<<8))/4)
 
 def validFocusValue(focus):
-    """ Return true iff focus is a valid focus position """
+    """ Return true iff focus is a valid focus position 
+    Valid focus values are 0-90, +, & -
+    """
+    if focus in ['+', '-']:
+        return True
     try:
         valid = (0.0 <= float(focus) <=MAX_FOC_ROTATION)
     except Exception:

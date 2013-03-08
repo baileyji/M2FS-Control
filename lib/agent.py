@@ -57,7 +57,16 @@ class Agent(object):
     what they need to do and return. Any communication on any of the connections
     must be performed blocking if it must complete during the handler: data 
     sent via sendMessage will go out no sooner than the next iteration of the 
-    main loop. Long running command handlers should use the support functions listed 
+    main loop. Long running command handlers should start a worker thread with
+    the function: 
+        startWorkerThread
+    The worker thread should use the functions:
+        request_io
+        set_command_state
+        clear_command_state
+        block
+        unblock
+    
     below to ensure proper execution. Instead of calling read and write methods
     on connections directly, they must issue io requests with request_io
     The handler should issue block calls to block commands which need to be 
@@ -85,6 +94,7 @@ class Agent(object):
         self.connections={}
         self.commands=[]
         self.command_state={}
+        self._blocked={}
         self.max_clients=1
         self.io_request_queue=Queue.Queue()
         self.cookie=str(int(time.time()))
@@ -233,13 +243,6 @@ class Agent(object):
             handler from command_handlers using the first word in the message
             as a key after converting it to uppercase. Finally, call the command
             handler with the Command.
-            
-        A major limitation of the current design is that this function will not
-            return until the handler does, which means that any sequenced
-            actions that are IO dependant must use blocking IO. This effectively
-            prevents closing out the command and transmitting the response
-            unless the handler spawns a thread (I've not done this anywhere)
-            uses a nasty system of nested callbacks or some other hack.
         """
         #create a command object
         command=Command(source, message_str)
@@ -255,9 +258,12 @@ class Agent(object):
         self.commands.append(command)
         #Check to see if command is blocked by a worker thread
         block=self.commandIsBlocked(command)
-        if block:
-            self.logger.debug("Command is blocked")
-            command.setReply('ERROR: Command is blocked. %s' % block)
+        if block != False:
+            response='ERROR: Command is blocked.'
+            if block !='':
+                response+=' '+block
+            self.logger.debug(response)
+            command.setReply(response)
             return
         #Try to get the state of the command
         # If the command is not a query and is already running, it would have
@@ -268,12 +274,12 @@ class Agent(object):
             self.logger.debug("Worker thread running: %s"%workerState)
             command.setReply(workerState)
             if not self._isWorkerThreadRunning(command):
-                self.clear_command_state(message_str.partition(' ')[0])
+                self.clear_command_state(self.getCommandName(command))
             return
         except KeyError:
             pass
         #Execute the command's handler
-        command_name=message_str.partition(' ')[0]
+        command_name=self.getCommandName(command)
         handler=self.command_handlers.get(command_name, self.bad_command_handler)
         handler(command)
     
@@ -554,49 +560,125 @@ class Agent(object):
         """ Return the SelectedConnection named name or rase KeyError """
         return self.connections[name]
     
-    def block(self, command_name, blockQuery=False):
-        pass
+    def getCommandName(self, command):
+        """ Return the command_name for the command object
+        
+        This is the string which maps to the commands callback in 
+        command_handlers
+        """
+        return command.string.partition(' ')[0]
     
-    def unblock(self, command_name):
-        pass
+    def commandIsQuery(self, command):
+        """ Return true if the command is a query 
+        
+        Subclasses may need to override this.
+        """
+        try:
+            return command.string.split(' ')[1]=='?'
+        except IndexError:
+            return False
+    
+    def block(self, command_or_name, reason=''):
+        """ Cause command to be blocked. Queries will not be block
+        
+        If command_or_name is a name (a string) it 
+        must correspond to of the keys of command_handlers else a KeyError is
+        raised.
+        
+        Reason may be set to a reason for the block
+        """
+        if type(command_or_name) == str:
+            self.command_handlers[command_or_name]
+            command_name=command_or_name
+        else:
+            command_name=self.getCommandName(command_or_name)
+        self._blocked[command_name]=reason
+    
+    def unblock(self, command_or_name):
+        """ Unblock command.
+
+        If command_or_name is a name (a string) it 
+        must correspond to of the keys of command_handlers else a KeyError is
+        raised.
+        """
+        if type(command_or_name) == str:
+            self.command_handlers[command_or_name]
+            command_name=command_or_name
+        else:
+            command_name=self.getCommandName(command_or_name)
+        self._blocked.pop(command_name, None)
     
     def commandIsBlocked(self, command):
-        """ Report the blocking reason if command is blocked False if not
+        """ Report the blocking reason if command is blocked, False if not.
         
-        Return a string specifying the blocking reason, string will not be
-        null. Returns False if command is not blocked.
+        Query commands never block.
+        
+        Return a string specifying the blocking reason. A null string means no
+        reason was specified in the call to block.
+        Returns False if command is not blocked.
         """
+        if self.commandIsQuery(command):
+            return False
+        blockReason=self._blocked.get(self.getCommandName(command))
+        if blockReason != None:
+            return blockReason
         return False
 
-    def request_io(self, request):
+    def request_io(self, request, description=''):
+        """ Add an ioRequest to to io_request_queue
+        
+        If set description will be logged as a debug message        
+        """
+        if description:
+            self.logger.debug(description)
         self.logger.debug("Adding IO request '%s' to queue" % request)
         self.io_request_queue.put(request)
     
     def set_command_state(self, command_name, state):
+        """ Set the thread state for command_name.
+        
+        command_name must match the string for the callback that started the 
+        worker thread.
+        
+        While the state is set, sending the agent the named command will return
+        the specified state. The command's callback will NOT be called.
+        """
         self.command_state[command_name]=state
     
     def clear_command_state(self, command_name):
+        """ Clear the thread state for command_name 
+
+        command_name must match the string for the callback that started the
+        worker thread.
+        """
         self.command_state.pop(command_name, None)
     
     def _getWorkerThreadState(self, command):
-        return self.command_state[command.string.split(' ')[0]]
+        """ Return the set statue of the command
+        
+        This function takes a command object and extracts the command name to
+        retrieve to command state for the command name. If no command state
+        exists it raises KeyError
+        """
+        return self.command_state[self.getCommandName(command)]
 
     def _isWorkerThreadRunning(self, command):
-        command_name=command.string.partition(' ')[0]
+        """ Return true if a worker thread is running for command """
+        command_name=self.getCommandName(command)
         return next((True for thread in threading.enumerate() if thread.name==command_name), False)
 
     def startWorkerThread(self, command, initialState, func,
                           args=(), kwargs={}, block=()):
+        self.block(command)
         for blockable in block:
             self.block(blockable)
-        
-        command_name=command.string.partition(' ')[0]
+        command_name=self.getCommandName(command)
         self.set_command_state(command_name, initialState)
         worker=threading.Thread(target=func,name=command_name, args=args,kwargs=kwargs)
         worker.daemon=True
         worker.start()
     
-    def process_worker_thread_io(self):
+    def _process_worker_thread_io(self):
         """
         Process any io requests from worker threads
         
@@ -642,6 +724,7 @@ class Agent(object):
             try:
                 connection.sendMessageBlocking(*request.sendArgs[0],
                                                 **request.sendArgs[1])
+                request.succeed()
             except IOError as e:
                 request.fail(e)
         elif type(request)==iorequest.ReceiveRequest:
@@ -649,7 +732,7 @@ class Agent(object):
                 #listen for number of bytes or terminator
                 response=connection.receiveMessageBlocking(*request.receiveArgs[0],
                                                            **request.receiveArgs[1])
-                request.succeed(response)
+                request.respond(response)
             except IOError as e:
                 request.fail(e)
         elif tyep(request) == iorequest.SendReceiveRequest:
@@ -658,7 +741,7 @@ class Agent(object):
                                                **request.sendArgs[1])
                 response=connection.receiveMessageBlocking(*request.receiveArgs[0],
                                                            **request.receiveArgs[1])
-                request.succeed(response)
+                request.respond(response)
             except IOError as e:
                 request.fail(e)
         self.logger.debug('Finisehd processing iorequest: %s' % request)
@@ -680,7 +763,7 @@ class Agent(object):
         In the main loop:
         
         First any io transactions required by worker threads are handled by 
-        calling process_worker_thread_io.
+        calling _process_worker_thread_io.
         
         Then do_select is run, which checks each connection to see
         if it needs reading, writing, or checking for errors. It then selects
@@ -702,7 +785,7 @@ class Agent(object):
         if self.PORT is None:
             self.runOnce()
         while True:
-            self.process_worker_thread_io()
+            self._process_worker_thread_io()
             self.do_select()
             
             self.run()

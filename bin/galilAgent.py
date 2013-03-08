@@ -102,8 +102,7 @@ class GalilAgent(Agent):
         #Initialize the Galil
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/galil'+self.args.SIDE
-        self.galil=GalilSerial(self.args.DEVICE, self.args.SIDE)
-        self.devices.append(self.galil)
+        self.connections['galil']=GalilSerial(self.args.DEVICE, self.args.SIDE)
         self.query_commands={
             'FILTER':self.galil.get_filter,
             'LREL':self.galil.get_loel,
@@ -165,7 +164,7 @@ class GalilAgent(Agent):
         
         Report the Key:Value pairs name:cookie, Galil:connected.
         """
-        if self.galil.isOpen():
+        if self.connections['galil'].isOpen():
             state="Connected"
         else:
             state="Disconnected"
@@ -203,19 +202,19 @@ class GalilAgent(Agent):
         settingName=self.command_settingName_map[command_name]
         #Getting or Setting?
         if '?' in command.string:
-            command.setReply(self.galil.getDefault(settingName))
+            command.setReply(self.connections['galil'].getDefault(settingName))
         else:
-            command.setReply(self.galil.setDefault(settingName, args))
+            command.setReply(self.connections['galil'].setDefault(settingName, args))
     
     def reset_command_handler(self, command):
         """ Reset the galil """
-        command.setReply(self.galil.reset())
+        command.setReply(self.connections['galil'].reset())
     
     def _stowShutdown(self):
         """
         Perform a stowed shutdown
         """
-        self.galil.shutdown()
+        self.connections['galil'].shutdown()
     
     def galil_command_handler(self, command):
         """
@@ -229,7 +228,6 @@ class GalilAgent(Agent):
         """
         command_name,junk,args=command.string.partition(' ')
         query='?' in command.string and not 'GALILRAW' in command.string
-        
         if command_name=='FLSIM':
             if args=='IN':
                 command_name='FLSIM_INSERT'

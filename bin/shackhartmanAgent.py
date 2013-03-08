@@ -85,10 +85,8 @@ class ShackHartmanAgent(Agent):
         Agent.__init__(self,'ShackHartmanAgent')
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
-        self.shled=LEDserial('/dev/shLED', 115200)
-        self.shlenslet=SelectedConnection.SelectedSerial('/dev/shLenslet', 115200)
-        self.devices.append(self.shlenslet)
-        self.devices.append(self.shled)
+        self.connections['shled']=LEDserial('/dev/shLED', 115200)
+        self.connections['shlenslet']=SelectedConnection.SelectedSerial('/dev/shLenslet', 115200)
         self.shledValue=0
         self.command_handlers.update({
             #Get/Set the SH calibration LED brightness
@@ -128,7 +126,7 @@ class ShackHartmanAgent(Agent):
             """ Set the LED brightness 0-255 """
             command_parts=command.string.split(' ')
             try:
-                self.shled.sendMessage(chr(int(command_parts[1])))
+                self.connections['shled'].sendMessage(chr(int(command_parts[1])))
                 self.shledValue=int(command_parts[1])
                 command.setReply('OK')
             except ValueError:
@@ -158,10 +156,10 @@ class ShackHartmanAgent(Agent):
                 MOTOR_REVERSE_FULL_SPEED='\x8A\x7F'
                 try:
                     if 'IN' in command.string and 'OUT' not in command.string:
-                        self.shlenslet.sendMessage(MOTOR_FORWARD_FULL_SPEED)
+                        self.connections['shlenslet'].sendMessage(MOTOR_FORWARD_FULL_SPEED)
                         command.setReply('OK')
                     elif 'OUT' in command.string and 'IN' not in command.string:
-                        self.shlenslet.sendMessage(MOTOR_REVERSE_FULL_SPEED)
+                        self.connections['shlenslet'].sendMessage(MOTOR_REVERSE_FULL_SPEED)
                         command.setReply('OK')
                     else:
                         self.bad_command_handler(command)
@@ -183,7 +181,7 @@ class ShackHartmanAgent(Agent):
         temp=self.getTemp()
         err=self.getErrorStatus()
         try:
-            self.shled.sendMessage(chr(self.shledValue))
+            self.connections['shled'].sendMessage(chr(self.shledValue))
             ledStatus='%i' % self.shledValue
         except IOError:
             ledStatus='LED Disconnected'
@@ -206,8 +204,8 @@ class ShackHartmanAgent(Agent):
         try:
             REQUEST_ERROR_BYTE='\xA1\x00'
             ERROR_BITS=0x3ff
-            self.shlenslet.sendMessageBlocking(REQUEST_ERROR_BYTE)
-            response=self.shlenslet.receiveMessageBlocking(nBytes=2)
+            self.connections['shlenslet'].sendMessageBlocking(REQUEST_ERROR_BYTE)
+            response=self.connections['shlenslet'].receiveMessageBlocking(nBytes=2)
             #for bit meanings see simple_motor_controllers.pdf
             err='0x{0:02x}'.format(convertUnsigned16bit(response) & ERROR_BITS)
             return err
@@ -226,8 +224,8 @@ class ShackHartmanAgent(Agent):
         """
         try:
             REQUEST_TEMPERATURE='\xA1\x18'
-            self.shlenslet.sendMessageBlocking(REQUEST_TEMPERATURE)
-            response=self.shlenslet.receiveMessageBlocking(nBytes=2)
+            self.connections['shlenslet'].sendMessageBlocking(REQUEST_TEMPERATURE)
+            response=self.connections['shlenslet'].receiveMessageBlocking(nBytes=2)
             temp=str(0.1*convertUnsigned16bit(response))
         except (IOError, ValueError):
             temp='UNKNOWN'
@@ -253,19 +251,19 @@ class ShackHartmanAgent(Agent):
             REQUEST_ANALOG1_RAW_VALUE='\xA1\x0C'
             REQUEST_ANALOG2_RAW_VALUE='\xA1\x10'
             ANALOG_THRESHOLD=1024
-            self.shlenslet.sendMessageBlocking(REQUEST_MOTOR_SPEED)
-            response=self.shlenslet.receiveMessageBlocking(nBytes=2)
+            self.connections['shlenslet'].sendMessageBlocking(REQUEST_MOTOR_SPEED)
+            response=self.connections['shlenslet'].receiveMessageBlocking(nBytes=2)
             if convertSigned16bit(response) != 0:
                 return 'MOVING'
             else:
                 #Check IN limit
-                self.shlenslet.sendMessageBlocking(REQUEST_ANALOG1_RAW_VALUE)
-                response=self.shlenslet.receiveMessageBlocking(nBytes=2)
+                self.connections['shlenslet'].sendMessageBlocking(REQUEST_ANALOG1_RAW_VALUE)
+                response=self.connections['shlenslet'].receiveMessageBlocking(nBytes=2)
                 limINValue=convertUnsigned16bit(response)
                 limINtripped=limINValue>ANALOG_THRESHOLD
                 #Check OUT limit
-                self.shlenslet.sendMessageBlocking(REQUEST_ANALOG2_RAW_VALUE)
-                response=self.shlenslet.receiveMessageBlocking(nBytes=2)
+                self.connections['shlenslet'].sendMessageBlocking(REQUEST_ANALOG2_RAW_VALUE)
+                response=self.connections['shlenslet'].receiveMessageBlocking(nBytes=2)
                 limOUTValue=convertUnsigned16bit(response)
                 limOUTtripped=limOUTValue>ANALOG_THRESHOLD
                 #Determine the state

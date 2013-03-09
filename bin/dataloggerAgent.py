@@ -17,6 +17,24 @@ DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
 POLL_AGENTS_INTERVAL=60.0
 READING_EXPIRE_INTERVAL=120.0
 
+
+def logDebugInfo(logger, records):
+    """ Records should be sorted in time """
+    if len(records) <3:
+        for r in records:
+            logger.debug(r.prettyStr())
+    else:
+        bCount=0
+        rCount=0
+        for r in records:
+            if r.bOnly():
+                bCount+=1
+            elif r.rOnly():
+                rCount+=1
+        logger.debug("R records: %i  B records: %i" % (rCount, bCount))
+        logger.debug("Earliest: %s Latest: %s" %
+                     (records[0].timeString(), records[-1].timeString()))
+
 class DataloggerAgent(Agent):
     """
     This is the M2FS Datalogger Agent. It gatheres temperature and accelerometer
@@ -97,10 +115,7 @@ class DataloggerAgent(Agent):
         #log
         if len(records)>0:
             self.logger.debug('Have {} records'.format(len(records)))
-        if len(records) > 1:
-            logMerge=True
-        else:
-            logMerge=False
+        logMerge=len(records) > 1
         records.sort(key=attrgetter('unixtime'))
         toRemove=[]
         for minute, group in groupby(records, lambda x: int(x.unixtime)/60):
@@ -123,9 +138,7 @@ class DataloggerAgent(Agent):
         if logMerge:
             self.logger.debug('Have {} records after merging'.format(len(records)))
         if records:
-            if len(records)<=2:
-                for r in records:
-                    self.logger.debug(r.prettyStr())
+            logDebugInfo(self.logger, records)
             self.updateCurrentReadingsWith(records[-1])
             self.logRecords(records)
     

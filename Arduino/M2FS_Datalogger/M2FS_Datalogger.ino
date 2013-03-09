@@ -45,12 +45,12 @@
 //#############################
 //       Debug Defines
 //#############################
-//#define DEBUG_POWERDOWN
+#define DEBUG_POWERDOWN
 //#define DEBUG_RAM
 //#define DEBUG_STARTUP //Passes
 //#define DEBUG_PROTOCOL
 //#define DEBUG_ACCEL
-//define DEBUG_TEMP
+//#define DEBUG_TEMP
 //#define DEBUG_RTC
 //#define DEBUG_FAKE_SLEEP
 //#define DEBUG_SLEEP
@@ -83,7 +83,7 @@
 #define TEMP_POLL_TIMER   'P'
 #define RTC_TIMER         'R'
 #define MSTIMER2_DELTA                       2	        // 1<=x< min(interval)
-#define TEMP_UPDATE_INTERVAL_MS              30000      //Twice per minute
+#define TEMP_UPDATE_INTERVAL_MS              60000      //Once per minute
 #define RTC_UPDATE_INTERVAL_MS               3600000    //Once per hour
 #define LOG_SYNC_TIME_INTERVAL_MS            300000     //Once every five minutes
 
@@ -562,7 +562,7 @@ void loop(void){
     }
     
     if(messageResponseExpected && Serial.available()==0) {
-        #ifdef DEBUG_PROTOCOL
+        #if defined(DEBUG_PROTOCOL) || defined(DEBUG_POWERDOWN)
             Serial.print(F("#T/O mID "));Serial.println(msgID);
         #endif
         if (!bufferIsEmpty() ) {
@@ -1076,8 +1076,8 @@ void goSleep(uint32_t duration_ms, SleepMode mode) {
 //=============================
 void powerDown(void) {
     if (powered) {
-        #ifdef DEBUG_PROTOCOL | DEBUG_SLEEP | DEBUG_POWERDOWN
-            cout<<pstr("#PD\n");
+        #if defined(DEBUG_PROTOCOL) || defined(DEBUG_SLEEP) || defined(DEBUG_POWERDOWN)
+            Serial.println(F("#PD"));
         #endif
         powered=false;
         setTimerUpdateSourceToWDT();

@@ -257,11 +257,11 @@ class Agent(object):
         self.logger.info('Received command %s' % escapeString(command.string))
         self.commands.append(command)
         #Check to see if command is blocked by a worker thread
-        block=self.commandIsBlocked(command)
-        if block != False:
+        blockReason=self.getBlockReason(command)
+        if blockReason != None:
             response='ERROR: Command is blocked.'
-            if block !='':
-                response+=' '+block
+            if blockReason !='':
+                response+=' '+blockReason
             self.logger.debug(response)
             command.setReply(response)
             return
@@ -271,10 +271,10 @@ class Agent(object):
         # the exception.
         try:
             workerState=self._getWorkerThreadState(command)
-            self.logger.debug("Worker thread running: %s"%workerState)
+            self.logger.debug("Worker thread running: %s " % workerState)
             command.setReply(workerState)
-            if not self._isWorkerThreadRunning(command):
-                self.clear_command_state(self.getCommandName(command))
+            #if not self._isWorkerThreadRunning(command):
+            #    self.clear_command_state(self.getCommandName(command))
             return
         except KeyError:
             pass
@@ -578,51 +578,96 @@ class Agent(object):
         except IndexError:
             return False
     
-    def block(self, command_or_name, reason=''):
-        """ Cause command to be blocked. Queries will not be block
+    def block(self, command_or_name, reason='', blockingID=None):
+        """
+        Cause command to be blocked by the current thread. Queries never block.
         
-        If command_or_name is a name (a string) it 
-        must correspond to of the keys of command_handlers else a KeyError is
-        raised.
+        If command_or_name is a name (a string) it must correspond to of the
+        keys of command_handlers else a KeyError is raised.
         
         Reason may be set to a reason for the block
+        
+        If set, blockingID should be the thread identifier that is the source of
+        the block. If not set the current thread's identifier is used.
+        
+        _blocked is a dictionary, keys are the commands that are currently 
+        blocked. values ate 2-tuples consisting of blocking thread id and the 
+        reason for the block.
         """
+        #Get the thread id that is responsible for the block
+        if not blockingID:
+            blockingID=threading.current_thread().ident
+        #Log some info
+        self.logger.debug("Block %s, id= %i" % (command_or_name, blockingID))
+        self.logger.debug("Befor block: "+str(self._blocked))
+        #Extract the command name to be blocked
         if type(command_or_name) == str:
             self.command_handlers[command_or_name]
-            command_name=command_or_name
+            blocked_command_name=command_or_name
         else:
-            command_name=self.getCommandName(command_or_name)
-        self._blocked[command_name]=reason
+            blocked_command_name=self.getCommandName(command_or_name)
+        #Grab the list of blocks for the command
+        blocks=self._blocked.get(blocked_command_name,[])
+        #Add the new block to the list
+        blocks.append((blockingID, reason))
+        self._blocked[blocked_command_name]=blocks
+        self.logger.debug("blocks added: "+str(blocks))
+        self.logger.debug("After block: "+str(self._blocked))
     
-    def unblock(self, command_or_name):
+    def unblock(self, command_or_name, blockingID=None):
         """ Unblock command.
+        
+        If set, blockingID should be the thread identifier that is the source of
+        the block. If not set the current thread's identifier is used.
 
-        If command_or_name is a name (a string) it 
+        If command_or_name is a name (a string) it
         must correspond to of the keys of command_handlers else a KeyError is
         raised.
         """
+        if not blockingID:
+            blockingID=threading.current_thread().ident
+        self.logger.debug("Unblock %s, id= %i" % (command_or_name,blockingID))
+        self.logger.debug("Befor unblock: "+str(self._blocked))
         if type(command_or_name) == str:
             self.command_handlers[command_or_name]
-            command_name=command_or_name
+            blocked_command_name=command_or_name
         else:
-            command_name=self.getCommandName(command_or_name)
-        self._blocked.pop(command_name, None)
-    
-    def commandIsBlocked(self, command):
-        """ Report the blocking reason if command is blocked, False if not.
+            blocked_command_name=self.getCommandName(command_or_name)
+        #Get the list of blocks
+        blocks=self._blocked.get(command_name, [])
+        #Find all the blocks for the current thread (there should only be one)
+        blocksToClear=[i for i,x in enumerate(blocks) if x[0]==blockingID]
+        #Remove them
+        for i in blocksToClear:
+             blocks.pop(i)
+        self.logger.debug("After unblock: "+str(self._blocked))
+             
+    def removeBlocksOfThread(self, threadID=None):
+        if not threadID:
+            threadID=threading.current_thread().ident
+        for blockSet in self._blocked.values():
+            blocksToClear=[i for i,x in enumerate(blockSet) if x[0]==threadID]
+            #Remove them
+            for i in blocksToClear:
+                blockSet.pop(i)
+        
+    def getBlockReason(self, command):
+        """ Report the blocking reason if command is blocked, None if not.
         
         Query commands never block.
         
         Return a string specifying the blocking reason. A null string means no
         reason was specified in the call to block.
-        Returns False if command is not blocked.
+        Returns None if command is not blocked.
         """
         if self.commandIsQuery(command):
-            return False
-        blockReason=self._blocked.get(self.getCommandName(command))
-        if blockReason != None:
-            return blockReason
-        return False
+            return None
+        self.logger.debug("Current blocks: "+str(self._blocked))
+        blocks=self._blocked.get(self.getCommandName(command),[])
+        if len(blocks) != 0:
+            #Return the reason for the first block
+            return blocks[0][1]
+        return None
 
     def request_io(self, request, description=''):
         """ Add an ioRequest to to io_request_queue
@@ -669,21 +714,24 @@ class Agent(object):
 
     def startWorkerThread(self, command, initialState, func,
                           args=(), kwargs={}, block=()):
-        self.block(command)
-        for blockable in block:
-            self.block(blockable)
         command_name=self.getCommandName(command)
+        #Set the initial state of the command
         self.set_command_state(command_name, initialState)
+        #Start the worker thread
         worker=threading.Thread(target=func,name=command_name, args=args,kwargs=kwargs)
         worker.daemon=True
         worker.start()
-    
+        #Tie all the requested blocks to the worker thread
+        self.block(command_name, blockingID=worker.ident)
+        for blockable in block:
+            self.block(blockable,blockingID=worker.ident)
+
     def returnFromWorkerThread(self, command_name, finalState=''):
         if finalState:
             self.set_command_state(command_name, finalState)
         else:
             self.clear_command_state(command_name)
-        self.unblock(command_name)
+        self.removeBlocksOfThread()
     
     def _process_worker_thread_io(self):
         """

@@ -346,13 +346,17 @@ class ShoeAgent(Agent):
             if '0' != movingByte:
                 command.setReply('ERROR: Move in progress (%s).' % movingByte)
                 return
-            threading.Thread(target=self.slit_mover, args=(slits,))
             command.setReply('OK')
+            self.startWorkerThread(command, 'MOVING', self.slit_mover,
+                args=(slits, status),
+                block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS',
+                       'SLITS_HARDSTOP'))
     
-    def slit_mover(self, slits):
+    def slit_mover(self, slits, status):
         """
         uses iorequests to move slits
-        slits is a 8-tuble or list ove number strings '1' - '7'
+        slits is a 8-tuble or list of number strings '1' - '7'
+        status is the response to the command TS
         """
         #Command the shoe to reconfigure the tetrii
         response=self._do_online_only_command('SL'+''.join(command_parts[1:]))

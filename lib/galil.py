@@ -310,8 +310,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 config[name]
         except KeyError:
             #The config file is corrupted, this is a fatal error
-            errMsg='Galil'+self.SIDE+' configFile corrupted.'+
-                'git reset --hard likely needed'
+            errMsg=('Galil'+self.SIDE+' configFile corrupted.'+
+                'git reset --hard likely needed')
             self.logger.critical(errorMsg)
             raise IOError(errMsg)
         #Send the config to the galil

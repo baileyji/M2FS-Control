@@ -376,19 +376,34 @@ class Agent(object):
         
         In case it isn't clear: The select maps are key value pairs of 
             selectable_object:handler_for_when_select_indicates_object_is_ready
+            
+        Function aquires locks for all the items in the select map, if it
+        is unable to do so, it will not add an item to the map. They must all be
+        released after the select call. A list of aquired locks is returned
         """
         # check the server socket
         read_map[self.server_socket] = self.handle_connect
         error_map[self.server_socket] = self.handle_server_error
         #check all other connections
+        locks=[]
         for selectedconn in self.connections.values():
-            if selectedconn.do_select_read():
-                read_map[selectedconn] = selectedconn.handle_read
-            if selectedconn.do_select_write():
-                write_map[selectedconn] = selectedconn.handle_write
-            if selectedconn.do_select_error():
-                error_map[selectedconn] = selectedconn.handle_error
-    
+            if selectedconn.rlock.acquire(False):
+                releaseLock=True
+                if selectedconn.do_select_read():
+                    read_map[selectedconn] = selectedconn.handle_read
+                    releaseLock=False
+                if selectedconn.do_select_write():
+                    write_map[selectedconn] = selectedconn.handle_write
+                    releaseLock=False
+                if selectedconn.do_select_error():
+                    error_map[selectedconn] = selectedconn.handle_error
+                    releaseLock=False
+                if releaseLock:
+                    selectedconn.rlock.release()
+                else:
+                    locks.append(selectedconn.rlock)
+        return locks
+
     def cull_dead_sockets_and_their_commands(self):
         """
         Remove dead sockets from connections & purge their commands.
@@ -512,22 +527,29 @@ class Agent(object):
         Perform the select call
         Call the appropriate handlers for each of the objects returned by select 
         """
-        #select_start = time.time()
-        read_map = {}
-        write_map = {}
-        error_map = {}
-        self.update_select_maps(read_map, write_map, error_map)
+        read_map, write_map, error_map = {}, {}, {}
+
+        #We can select on connections, but we should make sure that we lock all
+        # the connections we are going to use. To keep the main loop moving we
+        # don't want to block on any that are locked, rather we just don't
+        # select on them
+        locks=self.update_select_maps(read_map, write_map, error_map)
         try:
             readers, writers, errors = select.select(
-                read_map.keys(),write_map.keys(),error_map.keys(), SELECT_TIMEOUT)
+                read_map.keys(), write_map.keys(),
+                error_map.keys(), SELECT_TIMEOUT)
         except select.error, err:
             if err[0] != EINTR:
+                for lock in locks:
+                    lock.release()
                 raise
         #select_end = time.time()
         #self.logger.debug("select used %.3f s" % (select_end-select_start))
         for reader in readers: read_map[reader]()
         for writer in writers: write_map[writer]()
-        for error  in errors:  error_map[error]()       
+        for error  in errors:  error_map[error]()
+        for lock in locks:
+            lock.release()
         #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
     
     def run(self):
@@ -666,16 +688,6 @@ class Agent(object):
             #Return the reason for the first block
             return blocks[0][1]
         return None
-
-    def request_io(self, request, description=''):
-        """ Add an ioRequest to to io_request_queue
-        
-        If set description will be logged as a debug message        
-        """
-        if description:
-            self.logger.debug(description)
-        self.logger.debug("Adding IO request '%s' to queue" % request)
-        self.io_request_queue.put(request)
     
     def set_command_state(self, command_name, state):
         """ Set the thread state for command_name.
@@ -731,76 +743,6 @@ class Agent(object):
             self.clear_command_state(command_name)
         self.removeBlocksOfThread()
     
-    def _process_worker_thread_io(self):
-        """
-        Process any io requests from worker threads
-        
-        If there is nothing in the worker thread io queue return, otherwise:
-        pop an IORequest from the queue, if it is destined for a conection that
-        does not have a write in progress (e.g. for SelectedConnection, the
-        out_buffer is empty and it isn't expecting a response callback TODO, 
-        check for actual use of this edge case in the code) execute the
-        IORequest. If there is pending IO, increment the try count.
-        If the try cound is less than MAX_ATTEMPTS, put it back in the queue.
-        Otherwise respond to the request with failure.
-        
-        This will not conflict with command handlers that execute in the main 
-        thread and use blocking IO. Non-blocking IO requests may be in progress,
-        which will bloc the servicing of the io request. I think the only way 
-        around this is to port all of the existing command handlers that work in
-        the main thread to blocking io.
-        """
-        try:
-            request=self.io_request_queue.get_nowait()
-        except Queue.Empty:
-            return
-        self.logger.debug('Processing iorequest %s' % request)
-        #Grab the connection to the target
-        if not issubclass(type(request.target), type(SelectedConnection)):
-            connection=self.getConnectionByName(request.target)
-        else:
-            connection=request.target
-        #Verify IORequest isn't blocked, and if it is that it hasn't been
-        #   blocked for too long.
-        if connection.do_select_write():
-            self.io_request_queue.task_done()
-            request.attemptCount+=1
-            self.logger.debug('IO Request to %s blocked by outgoing IO (%i)' %
-                (str(connection),request.attemptCount))
-            if request.attemptCount > MAX_ATTEMPTS:
-                request.fail('IO Blocked too many times')
-            else:
-                self.io_request_queue.put(request)
-            return
-        #Handle the request
-        if type(request)==iorequest.SendRequest:
-            try:
-                connection.sendMessageBlocking(*request.sendArgs[0],
-                                                **request.sendArgs[1])
-                request.succeed()
-            except IOError as e:
-                request.fail(e)
-        elif type(request)==iorequest.ReceiveRequest:
-            try:
-                #listen for number of bytes or terminator
-                response=connection.receiveMessageBlocking(*request.receiveArgs[0],
-                                                           **request.receiveArgs[1])
-                request.respond(response)
-            except IOError as e:
-                request.fail(e)
-        elif tyep(request) == iorequest.SendReceiveRequest:
-            try:
-                connection.sendMessageBlocking(*request.sendArgs[0],
-                                               **request.sendArgs[1])
-                response=connection.receiveMessageBlocking(*request.receiveArgs[0],
-                                                           **request.receiveArgs[1])
-                request.respond(response)
-            except IOError as e:
-                request.fail(e)
-        self.logger.debug('Finisehd processing iorequest: %s' % request)
-        self.io_request_queue.task_done()
-        
-    
     def main(self):
         """
         Main loop (or one shot if no port). Act on commands as received.
@@ -814,9 +756,6 @@ class Agent(object):
         and then enters the main loop.
         
         In the main loop:
-        
-        First any io transactions required by worker threads are handled by 
-        calling _process_worker_thread_io.
         
         Then do_select is run, which checks each connection to see
         if it needs reading, writing, or checking for errors. It then selects
@@ -838,7 +777,6 @@ class Agent(object):
         if self.PORT is None:
             self.runOnce()
         while True:
-            self._process_worker_thread_io()
             self.do_select()
             
             self.run()

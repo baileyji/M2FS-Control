@@ -1,4 +1,4 @@
-import logging, sys, time
+import logging, sys, time, threading
 
 DEFAULT_LOG_LEVEL=logging.INFO
 
@@ -62,6 +62,7 @@ class SelectedConnection(object):
         The sent and received callbacks are called iff a message is sent or 
         recieved. If there is an error they will not be called. """
         self.logger=logging.getLogger('SelectedCon')
+        self.rlock=threading.RLock()
         self.logger.setLevel(loglevel)
         self.defaultResponseCallback=default_message_received_callback
         self.defaultSentCallback=default_message_sent_callback
@@ -176,47 +177,48 @@ class SelectedConnection(object):
         after the message is sucessfully sent, similarly the recieved after
         the message is received.
         """
-        #Check for a pending message
-        if self.out_buffer!='':
-            err=("Attempting to send '%s' on non-empty buffer '%s'" %
-                (message, self.out_buffer))
-            err=escapeString(err)
-            self.logger.error(err)
+        with self.rlock:
+            #Check for a pending message
+            if self.out_buffer!='':
+                err=("Attempting to send '%s' on non-empty buffer '%s'" %
+                    (message, self.out_buffer))
+                err=escapeString(err)
+                self.logger.error(err)
+                if errorCallback is not None:
+                    errorCallback(self, 'ERROR: '+err)
+                else:
+                    raise WriteError(err)
+            #Update the error callback
             if errorCallback is not None:
-                errorCallback(self, 'ERROR: '+err)
-            else:
-                raise WriteError(err)
-        #Update the error callback
-        if errorCallback is not None:
-            self.errorCallback=errorCallback
-        #connect if needed
-        if connect:
-            try:
-                self.connect()
-            except ConnectError, err:
-                err="Unable to send '%s'" % escapeString(message)
+                self.errorCallback=errorCallback
+            #connect if needed
+            if connect:
+                try:
+                    self.connect()
+                except ConnectError, err:
+                    err="Unable to send '%s'" % escapeString(message)
+                    #Query state because calling resets to default (possibly None)
+                    doRaise=self.errorCallback is None
+                    self.handle_error(error=err)
+                    if doRaise:
+                        raise WriteError(err)
+            elif not self.isOpen():
+                err="Connect before sending '%s' to %s" % (message,self.addr_str())
+                err=escapeString(err)
                 #Query state because calling resets to default (possibly None)
                 doRaise=self.errorCallback is None
                 self.handle_error(error=err)
                 if doRaise:
                     raise WriteError(err)
-        elif not self.isOpen():
-            err="Connect before sending '%s' to %s" % (message,self.addr_str())
-            err=escapeString(err)
-            #Query state because calling resets to default (possibly None)
-            doRaise=self.errorCallback is None
-            self.handle_error(error=err)
-            if doRaise:
-                raise WriteError(err)
-        #Ignore empty strings
-        if message=='':
-            return
-        message=self._terminateMessage(message)
-        self.out_buffer=message
-        if responseCallback is not None:
-            self.responseCallback=responseCallback
-        if sentCallback is not None:
-            self.sentCallback=sentCallback
+            #Ignore empty strings
+            if message=='':
+                return
+            message=self._terminateMessage(message)
+            self.out_buffer=message
+            if responseCallback is not None:
+                self.responseCallback=responseCallback
+            if sentCallback is not None:
+                self.sentCallback=sentCallback
     
     def sendMessageBlocking(self, message, connect=True):
         """
@@ -236,43 +238,45 @@ class SelectedConnection(object):
         WriteError is raised. This is probably NOT is ideal behavior, probably
         should just raise the WriteError. TODO: think/test 
         """
-        if connect:
-            try:
-                self.connect()
-            except ConnectError, err:
-                err=("Attempted to send '%s' to '%s' but coudn't connect." %
-                    (message, self.addr_str()))
+        with self.rlock:
+            if connect:
+                try:
+                    self.connect()
+                except ConnectError, err:
+                    err=("Attempted to send '%s' to '%s' but coudn't connect." %
+                        (message, self.addr_str()))
+                    err=escapeString(err)
+                    self.logger.error(err)
+                    raise WriteError(err)
+            elif not self.isOpen():
+                err="Connect before sending '%s' to %s" % (message,self.addr_str())
                 err=escapeString(err)
                 self.logger.error(err)
                 raise WriteError(err)
-        elif not self.isOpen():
-            err="Connect before sending '%s' to %s" % (message,self.addr_str())
-            err=escapeString(err)
-            self.logger.error(err)
-            raise WriteError(err)
-        if not message:
-            return
-        message=self._terminateMessage(message)
-        try:
-            count=self._implementationSpecificBlockingSend(message)
-            msg="Attempted write '%s', wrote '%s' to %s @ %s"
-            msg=escapeString(msg % (message,
-                                    message[:count],
-                                    self.addr_str(),
-                                    time.time()))
-            self.logger.debug(msg)
-            if count !=len(message):
-                err="Blocking send only sent first {} of '{}'"
-                err=escapeString(err.format(count,message))
-                raise WriteError(err)
-        except WriteError,err:
-            self.handle_error(err)
-            raise WriteError(str(err))
+            if not message:
+                return
+            message=self._terminateMessage(message)
+            try:
+                count=self._implementationSpecificBlockingSend(message)
+                msg="Attempted write '%s', wrote '%s' to %s @ %s"
+                msg=escapeString(msg % (message,
+                                        message[:count],
+                                        self.addr_str(),
+                                        time.time()))
+                self.logger.debug(msg)
+                if count !=len(message):
+                    err="Blocking send only sent first {} of '{}'"
+                    err=escapeString(err.format(count,message))
+                    raise WriteError(err)
+            except WriteError,err:
+                self.handle_error(err)
+                raise WriteError(str(err))
     
     def _terminateMessage(self, message):
         """ Append a '\n' to message if it is missing and return """
-        if message[-1]!=self.messageTerminator:
-            message+=self.messageTerminator
+        with self.rlock:
+            if message[-1]!=self.messageTerminator:
+                message+=self.messageTerminator
         return message
     
     def _cleanMessage(self, message):
@@ -302,32 +306,33 @@ class SelectedConnection(object):
         raised if the received message does not include the message terminator. 
         If set to a non-empty string that string will be used as the response.
         """
-        try:
-            self.connect()
-        except ConnectError, err:
-            err="Attempting to receive on %s" % str(self)
-            self.logger.error(err)
-            raise ReadError(err)
-        try:
-            response=self._implementationSpecificBlockingReceive(nBytes, timeout)
-            self.logger.debug("BlockingReceive got: '%s'" %
-                              escapeString(response))
-            if response=='':
-                self.logger.warning(
-                    'Blocking receive on %s timed out'% self.addr_str())
-            if (error_on_absent_terminator and
-                self.messageTerminator not in response):
-                if type(error_on_absent_terminator)==str:
-                    response=error_on_absent_terminator
-                else:
-                    err="Received '%s', '%s' absent. Strict checking on"
-                    err=err % (response,
-                        self.messageTerminator.encode('string_escape'))
+        with self.rlock:
+            try:
+                self.connect()
+            except ConnectError, err:
+                err="Attempting to receive on %s" % str(self)
+                self.logger.error(err)
                 raise ReadError(err)
-            return self._cleanMessage(response)
-        except ReadError, e:
-            self.handle_error(e)
-            raise e
+            try:
+                response=self._implementationSpecificBlockingReceive(nBytes, timeout)
+                self.logger.debug("BlockingReceive got: '%s'" %
+                                  escapeString(response))
+                if response=='':
+                    self.logger.warning(
+                        'Blocking receive on %s timed out'% self.addr_str())
+                if (error_on_absent_terminator and
+                    self.messageTerminator not in response):
+                    if type(error_on_absent_terminator)==str:
+                        response=error_on_absent_terminator
+                    else:
+                        err="Received '%s', '%s' absent. Strict checking on"
+                        err=err % (response,
+                            self.messageTerminator.encode('string_escape'))
+                    raise ReadError(err)
+                return self._cleanMessage(response)
+            except ReadError, e:
+                self.handle_error(e)
+                raise e
     
     def handle_error(self, error=''):
         """
@@ -340,13 +345,14 @@ class SelectedConnection(object):
         happened and set errorCallback to defaultErrorCallback
         Close the connection via _disconnect.
         """
-        err="'%s' on %s." % (escapeString(str(error)), self.addr_str())
-        self.logger.error(err)
-        if self.errorCallback !=None:
-            callback=self.errorCallback
-            self.errorCallback=self.defaultErrorCallback
-            callback(self, "ERROR: "+err)
-        self._disconnect()
+        with self.rlock:
+            err="'%s' on %s." % (escapeString(str(error)), self.addr_str())
+            self.logger.error(err)
+            if self.errorCallback !=None:
+                callback=self.errorCallback
+                self.errorCallback=self.defaultErrorCallback
+                callback(self, "ERROR: "+err)
+            self._disconnect()
     
     def _disconnect(self):
         """
@@ -372,8 +378,9 @@ class SelectedConnection(object):
     
     def close(self):
         """ Terminate the connection """
-        if self.isOpen():
-            self._disconnect()
+        with self.rlock:
+            if self.isOpen():
+                self._disconnect()
     
     def do_select_read(self):
         """ 
@@ -396,33 +403,34 @@ class SelectedConnection(object):
         
         If a ReadError is encountered, call error_handler
         """
-        try:
-            data = self._implementationSpecificRead()
-            self.in_buffer += data
-            count=self.in_buffer.find('\n')
-            if count is not -1:
-                message_str=self.in_buffer[0:count+1]
-                self.in_buffer=self.in_buffer[count+1:]
-                self.logger.debug("Received message '%s' on %s" % 
-                    (escapeString(message_str), self))
-                if self.responseCallback:
-                    callback=self.responseCallback
-                    self.responseCallback=self.defaultResponseCallback
-                    self.errorCallback=self.defaultErrorCallback
-                    callback(self, message_str[:-1])
-                remainingBackslashNs=self.in_buffer.count('\n')
-                if remainingBackslashNs > 0:
-                    self.logger.warn('%i additional messages in buffer' % remainingBackslashNs)
-            else:
-                msg="Handle_Read buffer @ %s: '%s'"
-                msg=msg % (time.time(), escapeString(self.in_buffer))
-                if not self.responseCallback:
-                    msg+=". No handler is defined."
-                    self.logger.warn(msg)
+        with self.rlock:
+            try:
+                data = self._implementationSpecificRead()
+                self.in_buffer += data
+                count=self.in_buffer.find('\n')
+                if count is not -1:
+                    message_str=self.in_buffer[0:count+1]
+                    self.in_buffer=self.in_buffer[count+1:]
+                    self.logger.debug("Received message '%s' on %s" % 
+                        (escapeString(message_str), self))
+                    if self.responseCallback:
+                        callback=self.responseCallback
+                        self.responseCallback=self.defaultResponseCallback
+                        self.errorCallback=self.defaultErrorCallback
+                        callback(self, message_str[:-1])
+                    remainingBackslashNs=self.in_buffer.count('\n')
+                    if remainingBackslashNs > 0:
+                        self.logger.warn('%i additional messages in buffer' % remainingBackslashNs)
                 else:
-                    self.logger.debug(msg)
-        except ReadError, err:
-            self.handle_error(err)
+                    msg="Handle_Read buffer @ %s: '%s'"
+                    msg=msg % (time.time(), escapeString(self.in_buffer))
+                    if not self.responseCallback:
+                        msg+=". No handler is defined."
+                        self.logger.warn(msg)
+                    else:
+                        self.logger.debug(msg)
+            except ReadError, err:
+                self.handle_error(err)
     
     def do_select_write(self):
         """
@@ -446,24 +454,25 @@ class SelectedConnection(object):
         
         If a WriteError is encountered, call error_handler
         """
-        try:
-            if self.out_buffer:
-                # write a chunk
-                count = self._implementationSpecificWrite(self.out_buffer)
-                msg="Attempted write '%s', wrote '%s' to %s @ %s"
-                msg=escapeString(msg % (self.out_buffer,
-                                        self.out_buffer[:count],
-                                        self.addr_str(),
-                                        time.time()))
-                self.logger.debug(msg)
-                # and remove the sent data from the buffer
-                self.out_buffer = self.out_buffer[count:]
-                if self.sentCallback and self.out_buffer=='':
-                    callback=self.sentCallback
-                    self.sentCallback=self.defaultSentCallback
-                    callback(self)
-        except WriteError,err:
-            self.handle_error(str(err))
+        with self.rlock:
+            try:
+                if self.out_buffer:
+                    # write a chunk
+                    count = self._implementationSpecificWrite(self.out_buffer)
+                    msg="Attempted write '%s', wrote '%s' to %s @ %s"
+                    msg=escapeString(msg % (self.out_buffer,
+                                            self.out_buffer[:count],
+                                            self.addr_str(),
+                                            time.time()))
+                    self.logger.debug(msg)
+                    # and remove the sent data from the buffer
+                    self.out_buffer = self.out_buffer[count:]
+                    if self.sentCallback and self.out_buffer=='':
+                        callback=self.sentCallback
+                        self.sentCallback=self.defaultSentCallback
+                        callback(self)
+            except WriteError,err:
+                self.handle_error(str(err))
     
     def do_select_error(self):
         """ 
@@ -612,7 +621,9 @@ class SelectedSerial(SelectedConnection):
         The connection is considered open if it exists and pySerial
         reports it as open.
         """
-        return self.connection is not None and self.connection.isOpen()
+        with self.rlock:
+            ret=self.connection is not None and self.connection.isOpen()
+        return ret
 
 
 import socket

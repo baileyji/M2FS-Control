@@ -359,6 +359,32 @@ class ShoeAgent(Agent):
         status is the response to the command TS
         """
         #Command the shoe to reconfigure the tetrii
+        #Determine which are uncalibrated
+        status.split(' ')[4] -> uncalibrated
+        for i in uncalibrated:
+            if i in uncalibrated:
+                send io request ('DH'+'ABCDEFGH'[i-1])
+            else:
+                send io request ('SL'+'ABCDEFGH'[i-1])
+        for request in dhRequests:
+            request.serviced.wait()
+        if dhRequests:
+            time.sleep(DH_TIME)
+        for request in slRequests:
+            request.serviced.wait()
+        
+        for i in uncalibrated:
+            send io request ('SL'+'ABCDEFGH'[i-1])
+        for r in requests:
+            request.serviced.wait()
+        if any failures:
+            finalState='ERROR: '+failureMessage
+            for failure in failures:
+                self.logger.info('SLITS: '+failure)
+        else:
+            finalState=''
+        self.returnFromWorkerThread('SLITS', finalState)
+        
         response=self._do_online_only_command('SL'+''.join(command_parts[1:]))
     
     def SLITPOS_command_handler(self, command):

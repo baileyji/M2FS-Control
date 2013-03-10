@@ -1,4 +1,4 @@
-import time
+import time, threading
 
 def escapeString(string):
     return string.replace('\n','\\n').replace('\r','\\r')

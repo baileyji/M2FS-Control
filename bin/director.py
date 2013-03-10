@@ -398,7 +398,9 @@ class Director(Agent):
         #Get the battery backup state
         status.extend(self.batteryState)
         #Poll all the agents for their status
-        for d in self.devices:
+        for k, d in self.connections.items():
+            if k.startswith('INCOMING'):
+                continue
             agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
             agentName=agentName.replace(':','_').replace(' ','_')
             try:

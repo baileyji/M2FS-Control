@@ -104,31 +104,31 @@ class GalilAgent(Agent):
             self.args.DEVICE='/dev/galil'+self.args.SIDE
         self.connections['galil']=GalilSerial(self.args.DEVICE, self.args.SIDE)
         self.query_commands={
-            'FILTER':self.galil.get_filter,
-            'LREL':self.galil.get_loel,
-            'HREL':self.galil.get_hrel,
-            'HRAZ':self.galil.get_hraz,
-            'FOCUS':self.galil.get_foc,
-            'GES':self.galil.get_ges,
-            'FLSIM':self.galil.get_flsim}
+            'FILTER':self.connections['galil'].get_filter,
+            'LREL':self.connections['galil'].get_loel,
+            'HREL':self.connections['galil'].get_hrel,
+            'HRAZ':self.connections['galil'].get_hraz,
+            'FOCUS':self.connections['galil'].get_foc,
+            'GES':self.connections['galil'].get_ges,
+            'FLSIM':self.connections['galil'].get_flsim}
         self.action_commands={
-            'GALILRAW':self.galil.raw,
-            'GALILRESET':self.galil.reset,
-            'FILTER':self.galil.set_filter,
-            'LREL':self.galil.set_loel,
-            'HREL':self.galil.set_hrel,
-            'HRAZ':self.galil.set_hraz,
-            'FOCUS':self.galil.set_foc,
-            'GES':self.galil.set_ges,
-            'FILTER_INSERT':self.galil.insert_filter,
-            'FILTER_REMOVE':self.galil.remove_filter,
-            'FLSIM_INSERT':self.galil.insert_flsim,
-            'FLSIM_REMOVE':self.galil.remove_flsim,
-            'LREL_CALIBRATE':self.galil.calibrate_lrel,
-            'HREL_CALIBRATE':self.galil.calibrate_hrel,
-            'HRAZ_CALIBRATE':self.galil.calibrate_hraz,
-            'GES_CALIBRATE':self.galil.calibrate_ges,
-            'GES_MOVE':self.galil.nudge_ges}
+            'GALILRAW':self.connections['galil'].raw,
+            'GALILRESET':self.connections['galil'].reset,
+            'FILTER':self.connections['galil'].set_filter,
+            'LREL':self.connections['galil'].set_loel,
+            'HREL':self.connections['galil'].set_hrel,
+            'HRAZ':self.connections['galil'].set_hraz,
+            'FOCUS':self.connections['galil'].set_foc,
+            'GES':self.connections['galil'].set_ges,
+            'FILTER_INSERT':self.connections['galil'].insert_filter,
+            'FILTER_REMOVE':self.connections['galil'].remove_filter,
+            'FLSIM_INSERT':self.connections['galil'].insert_flsim,
+            'FLSIM_REMOVE':self.connections['galil'].remove_flsim,
+            'LREL_CALIBRATE':self.connections['galil'].calibrate_lrel,
+            'HREL_CALIBRATE':self.connections['galil'].calibrate_hrel,
+            'HRAZ_CALIBRATE':self.connections['galil'].calibrate_hraz,
+            'GES_CALIBRATE':self.connections['galil'].calibrate_ges,
+            'GES_MOVE':self.connections['galil'].nudge_ges}
     
     def get_cli_help_string(self):
         """

@@ -273,8 +273,6 @@ class Agent(object):
             workerState=self._getWorkerThreadState(command)
             self.logger.debug("Worker thread running: %s " % workerState)
             command.setReply(workerState)
-            #if not self._isWorkerThreadRunning(command):
-            #    self.clear_command_state(self.getCommandName(command))
             return
         except KeyError:
             pass

@@ -9,6 +9,8 @@ EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.5'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v0.4'
 SHOE_AGENT_VERSION_STRING_SHORT='v0.4'
 
+DH_TIME=90
+
 def longTest(s):
     """ Return true if s can be cast as a long, false otherwise """
     try:
@@ -288,10 +290,16 @@ class ShoeAgent(Agent):
         
         Responds with the temp or UNKNOWN
         """
-        try:
-            response=self._send_command_to_shoe('TE')
-        except IOError, e:
-            response='UNKNOWN'
+        if self.connections['shoe'].rlock.acquire(False):
+            try:
+                
+                response=self._send_command_to_shoe('TE')
+            except IOError, e:
+                response='UNKNOWN'
+            finally:
+                self.connections['shoe'].rlock.release()
+        else:
+            response='ERROR: Busy, try again'
         command.setReply(response)
     
     def SLITS_command_handler(self, command):
@@ -347,6 +355,7 @@ class ShoeAgent(Agent):
                 command.setReply('ERROR: Move in progress (%s).' % movingByte)
                 return
             command.setReply('OK')
+            slits=''.join(command_parts[1:9])
             self.startWorkerThread(command, 'MOVING', self.slit_mover,
                 args=(slits, status),
                 block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS',
@@ -360,32 +369,35 @@ class ShoeAgent(Agent):
         """
         #Command the shoe to reconfigure the tetrii
         #Determine which are uncalibrated
-        status.split(' ')[4] -> uncalibrated
-        for i in uncalibrated:
-            if i in uncalibrated:
-                send io request ('DH'+'ABCDEFGH'[i-1])
-            else:
-                send io request ('SL'+'ABCDEFGH'[i-1])
-        for request in dhRequests:
-            request.serviced.wait()
-        if dhRequests:
-            time.sleep(DH_TIME)
-        for request in slRequests:
-            request.serviced.wait()
-        
-        for i in uncalibrated:
-            send io request ('SL'+'ABCDEFGH'[i-1])
-        for r in requests:
-            request.serviced.wait()
-        if any failures:
-            finalState='ERROR: '+failureMessage
-            for failure in failures:
-                self.logger.info('SLITS: '+failure)
+        uncalByte=status.split(' ')[2]
+        if uncalByte!=0:
+            uncalibrated=map(lambda x: int(x)-1,
+                             byte2bitNumberString(int(uncalByte)).split(' '))
         else:
-            finalState=''
-        self.returnFromWorkerThread('SLITS', finalState)
-        
-        response=self._do_online_only_command('SL'+''.join(command_parts[1:]))
+            uncalibrated=[]
+        with self.connections['shoe'].rlock:
+            for i in range(0,8):
+                if i in uncalibrated:
+                    resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
+                else:
+                    cmd='SL'+'ABCDEFGH'[i]+slits[i]
+                    resp=self._do_online_only_command(cmd)
+                if resp !='OK':
+                    self.returnFromWorkerThread('SLITS', finalState=resp)
+                    return
+            self.logger.debug('sleeping with lock active')
+            time.sleep(60)
+            self.logger.debug('finished sleeping with lock active')
+        if len(uncalibrated) > 0:
+            time.sleep(DH_TIME)
+        with self.connections['shoe'].rlock:
+            for i in uncalibrated:
+                cmd='SL'+'ABCDEFGH'[i]+slits[i]
+                resp=self._do_online_only_command(cmd)
+                if resp !='OK':
+                    self.returnFromWorkerThread('SLITS', finalState=resp)
+                    return
+        self.returnFromWorkerThread('SLITS')
     
     def SLITPOS_command_handler(self, command):
         """

@@ -10,7 +10,7 @@ from m2fsConfig import m2fsConfig
 import threading
 
 SERVER_RETRY_TIME=10
-DEFAULT_LOG_LEVEL=logging.INFO
+DEFAULT_LOG_LEVEL=logging.DEBUG
 SELECT_TIMEOUT=.25
 
 MAX_ATTEMPTS=100

@@ -37,6 +37,7 @@ class Tetris
     void tellPosition();
     int32_t currentPosition();
     void tellSlitPosition(uint8_t slit);
+    int32_t getSlitPosition(uint8_t slit);
     void stop();
     bool moving();
     bool isCalibrated();

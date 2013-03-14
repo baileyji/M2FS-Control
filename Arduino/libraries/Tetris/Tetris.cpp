@@ -126,6 +126,11 @@ int32_t Tetris::currentPosition() {
   return _motor.currentPosition();
 }
 
+int32_t Tetris::getSlitPosition(uint8_t slit) {
+    if ( slit > 6 ) return 0;
+    return _slitPositions[slit];
+}
+
 void Tetris::tellSlitPosition(uint8_t slit) {
   if (slit <7)
     Serial.print(_slitPositions[slit]);

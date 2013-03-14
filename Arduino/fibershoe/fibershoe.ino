@@ -3,12 +3,12 @@
 #include <AccelStepper.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <EEPROM.h>
+#include <EEPROMEx.h>
 #include "fibershoe_pins.h"
 
 #define POWERDOWN_DELAY_US  1000
 #define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "Fibershoe v0.5"
+#define VERSION_STRING "Fibershoe v0.7"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
 #define N_COMMANDS 27
@@ -20,6 +20,14 @@
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
+//EEPROM Addresses
+#define EEPROM_LAST_SAVED_POSITION_CRC16_ADDR       0x00
+#define EEPROM_LAST_SAVED_POSITION_ADDR             0x02
+
+#define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x80
+#define EEPROM_SLIT_POSITIONS_ADDR                  0x82
+#define N_SLIT_POSITIONS                            (N_TETRI*7)
+
 #pragma mark Globals
 
 OneWire oneWire(ONE_WIRE_BUS);  // Instantiate a oneWire instance
@@ -27,7 +35,8 @@ DallasTemperature tempSensor(&oneWire);  //Instantiate temp sensor on oneWire
 ArduinoOutStream cout(Serial);
 
 //The tetri
-Tetris tetris[8];
+#define N_TETRI 8
+Tetris tetris[N_TETRI];
 
 //Command buffer
 char command_buffer[81];
@@ -146,45 +155,48 @@ void serialEvent() {
 #pragma mark Setup & Loop
 
 void setup() {
-  //Set up R vs. B side detection
-  pinMode(R_SIDE_POLL_PIN,INPUT);
-  digitalWrite(R_SIDE_POLL_PIN, LOW);
-  pinMode(R_SIDE_POLL_DRIVER_PIN,OUTPUT);
-  digitalWrite(R_SIDE_POLL_DRIVER_PIN, HIGH);
-  
-  //Set up shoe removal sensing
-  pinMode(DISCONNECT_SHOE_PIN,INPUT);
-  digitalWrite(DISCONNECT_SHOE_PIN,HIGH);
-  
-  //Set up temp sensor
-  tempSensor.begin();
-  tempSensor.setResolution(12);
-  tempSensor.setWaitForConversion(false);
-  
-  //Define shield power supply enable/disable control pin
-  digitalWrite(TETRIS_MOTORS_POWER_ENABLE, LOW);
-  pinMode(TETRIS_MOTORS_POWER_ENABLE, OUTPUT);
-  
-  //Tetris Drivers
-  tetris[0]=Tetris(TETRIS_1_RESET, TETRIS_1_STANDBY, TETRIS_1_DIR, 
-    TETRIS_1_CK, TETRIS_1_PHASE_HOME);
-  tetris[1]=Tetris(TETRIS_2_RESET, TETRIS_2_STANDBY, TETRIS_2_DIR, 
-    TETRIS_2_CK, TETRIS_2_PHASE_HOME);
-  tetris[2]=Tetris(TETRIS_3_RESET, TETRIS_3_STANDBY, TETRIS_3_DIR, 
-    TETRIS_3_CK, TETRIS_3_PHASE_HOME);
-  tetris[3]=Tetris(TETRIS_4_RESET, TETRIS_4_STANDBY, TETRIS_4_DIR, 
-    TETRIS_4_CK, TETRIS_4_PHASE_HOME);
-  tetris[4]=Tetris(TETRIS_5_RESET, TETRIS_5_STANDBY, TETRIS_5_DIR, 
-    TETRIS_5_CK, TETRIS_5_PHASE_HOME);
-  tetris[5]=Tetris(TETRIS_6_RESET, TETRIS_6_STANDBY, TETRIS_6_DIR, 
-    TETRIS_6_CK, TETRIS_6_PHASE_HOME);
-  tetris[6]=Tetris(TETRIS_7_RESET, TETRIS_7_STANDBY, TETRIS_7_DIR, 
-    TETRIS_7_CK, TETRIS_7_PHASE_HOME);
-  tetris[7]=Tetris(TETRIS_8_RESET, TETRIS_8_STANDBY, TETRIS_8_DIR, 
-    TETRIS_8_CK, TETRIS_8_PHASE_HOME);
-  
-  // Start serial connection
-  Serial.begin(115200);delay(300);
+    //Set up R vs. B side detection
+    pinMode(R_SIDE_POLL_PIN,INPUT);
+    digitalWrite(R_SIDE_POLL_PIN, LOW);
+    pinMode(R_SIDE_POLL_DRIVER_PIN,OUTPUT);
+    digitalWrite(R_SIDE_POLL_DRIVER_PIN, HIGH);
+
+    //Set up shoe removal sensing
+    pinMode(DISCONNECT_SHOE_PIN,INPUT);
+    digitalWrite(DISCONNECT_SHOE_PIN,HIGH);
+
+    //Set up temp sensor
+    tempSensor.begin();
+    tempSensor.setResolution(12);
+    tempSensor.setWaitForConversion(false);
+
+    //Define shield power supply enable/disable control pin
+    digitalWrite(TETRIS_MOTORS_POWER_ENABLE, LOW);
+    pinMode(TETRIS_MOTORS_POWER_ENABLE, OUTPUT);
+
+    //Tetris Drivers
+    tetris[0]=Tetris(TETRIS_1_RESET, TETRIS_1_STANDBY, TETRIS_1_DIR, 
+                         TETRIS_1_CK, TETRIS_1_PHASE_HOME);
+    tetris[1]=Tetris(TETRIS_2_RESET, TETRIS_2_STANDBY, TETRIS_2_DIR,
+                        TETRIS_2_CK, TETRIS_2_PHASE_HOME);
+    tetris[2]=Tetris(TETRIS_3_RESET, TETRIS_3_STANDBY, TETRIS_3_DIR,
+                        TETRIS_3_CK, TETRIS_3_PHASE_HOME);
+    tetris[3]=Tetris(TETRIS_4_RESET, TETRIS_4_STANDBY, TETRIS_4_DIR,
+                        TETRIS_4_CK, TETRIS_4_PHASE_HOME);
+    tetris[4]=Tetris(TETRIS_5_RESET, TETRIS_5_STANDBY, TETRIS_5_DIR,
+                        TETRIS_5_CK, TETRIS_5_PHASE_HOME);
+    tetris[5]=Tetris(TETRIS_6_RESET, TETRIS_6_STANDBY, TETRIS_6_DIR,
+                        TETRIS_6_CK, TETRIS_6_PHASE_HOME);
+    tetris[6]=Tetris(TETRIS_7_RESET, TETRIS_7_STANDBY, TETRIS_7_DIR,
+                        TETRIS_7_CK, TETRIS_7_PHASE_HOME);
+    tetris[7]=Tetris(TETRIS_8_RESET, TETRIS_8_STANDBY, TETRIS_8_DIR,
+                        TETRIS_8_CK, TETRIS_8_PHASE_HOME);
+
+    //Restore the nominal slit positions from EEPROM
+    loadSlitPositionsFromEEPROM();
+    
+    // Start serial connection
+    Serial.begin(115200);delay(300);
   
 }
 
@@ -660,6 +672,7 @@ bool SScommand() {
     if(axis==0) for(int i=0;i<8;i++) tetris[i].defineSlitPosition(slit);
     else tetris[axis-1].defineSlitPosition(slit);
   }
+  saveSlitPositionsToEEPROM();
   return true;
 }
 
@@ -849,43 +862,73 @@ bool CYcommand() {
 
 #pragma mark EEPROM Commands
 
-void EEPROMwrite32bitval(uint16_t addr, uint32_t val) {
-    EEPROM.write(addr++, (uint8_t) ((val)     & 0x000000FF));
-    EEPROM.write(addr++, (uint8_t) ((val>>8)  & 0x000000FF));
-    EEPROM.write(addr++, (uint8_t) ((val>>16) & 0x000000FF));
-    EEPROM.write(addr,   (uint8_t) ((val>>24) & 0x000000FF));
-}
-uint32_t EEPROMread32bitval(uint16_t addr) {
-    uint32_t returnVal=0;
-    returnVal |= ((uint32_t) EEPROM.read(addr++));
-    returnVal |= ((uint32_t) EEPROM.read(addr++)) <<8;
-    returnVal |= ((uint32_t) EEPROM.read(addr++)) <<16;
-    returnVal |= ((uint32_t) EEPROM.read(addr))   <<24;
-    return returnVal;
-}
-void saveMotorPositionsToEEPROM() {
-    for(uint8_t i=0;i<8;i++) {
-        EEPROMwrite32bitval(4*i, tetris[i].currentPosition());
-        EEPROMwrite32bitval(128+4*i, tetris[i].currentPosition());
-    }
-    EEPROM.write(32, 0x81); EEPROM.write(33, 0x81);
-#ifdef DEBUG
-    cout<<"Positions saved"<<endl;
-#endif
-}
-bool loadMotorPositionsFromEEPROM() {
-    if(EEPROM.read(32)==0x81 && EEPROM.read(33)==0x81) {
-        for(uint8_t i=0;i<8;i++){
-            int32_t v1,v2;
-            v1 = (int32_t) EEPROMread32bitval(4*i);
-            v2 = (int32_t) EEPROMread32bitval(4*i+128);
-            if (v1==v2) {
-                tetris[i].definePosition( v1 );
-#ifdef DEBUG
-                cout<<"Tetris "<<(uint16_t)i<<" position "<<v1<<" restored."<<endl;
-#endif
+//Load the nominal slits positions for all the slits from EEPROM
+bool loadSlitPositionsFromEEPROM() {
+    uint16_t crc, saved_crc;
+    uint32_t positions[N_TETRI][7];
+    //Fetch the stored slit positions & CRC16
+    EEPROM.readBlock(EEPROM_SLIT_POSITIONS_ADDR, positions, N_SLIT_POSITIONS);
+    saved_crc=EEPROM.readInt(EEPROM_SLIT_POSITIONS_CRC16_ADDR);
+    crc=OneWire::crc16((uint8_t*) positions, N_SLIT_POSITIONS*4);
+    //If the CRC matches, restore the positions
+    if (crc == saved_crc) {
+        for (uint8_t i=0; i<N_TETRI; i++) {
+            for (uint8_t j=0; j<7; j++) {
+                tetris[i].defineSlitPosition(j, positions[i][j]);
             }
         }
-        EEPROM.write(32, 0);EEPROM.write(33, 0);
+        return true;
     }
+    return false;
 }
+
+//Store the nominal slits positions for all the slits to EEPROM
+void saveSlitPositionsToEEPROM() {
+    uint16_t crc;
+    uint32_t positions[N_TETRI][7];
+    //Fetch the defined slit positions
+    for (uint8_t i=0; i<N_TETRI; i++) {
+        for (uint8_t j=0; j<7; j++) {
+            positions[i][j]=tetris[i].getSlitPosition(j);
+        }
+    }
+    //Store them with their CRC16
+    EEPROM.updateBlock(EEPROM_SLIT_POSITIONS_ADDR, positions, N_SLIT_POSITIONS);
+    crc=OneWire::crc16((uint8_t*) positions, N_SLIT_POSITIONS*4);
+    EEPROM.writeInt(EEPROM_SLIT_POSITIONS_CRC16_ADDR, crc);
+}
+
+//Load the saved motor positions for the Tetri from EEPROM, butcher the CRC
+//  so it doesn't match, this way to force recalibration if there is an
+//  improper shutdown
+bool loadMotorPositionsFromEEPROM() {
+    uint16_t crc, saved_crc;
+    uint32_t positions[N_TETRI];
+    
+    EEPROM.readBlock(EEPROM_LAST_SAVED_POSITION_ADDR, positions, N_TETRI);
+    saved_crc=EEPROM.readInt(EEPROM_LAST_SAVED_POSITION_CRC16_ADDR);
+    crc=OneWire::crc16((uint8_t*) positions, N_TETRI*4);
+    if (saved_crc ==  crc)
+    {
+        for (uint8_t i=0; i<N_TETRI; i++)
+            tetris[i].definePosition( positions[i] );
+        EEPROM.writeInt(EEPROM_LAST_SAVED_POSITION_CRC16_ADDR, ~crc);
+    }
+    return crc == saved_crc;
+}
+
+//Store the motor positions for all the Tetri to EEPROM
+void saveMotorPositionsToEEPROM() {
+    uint16_t crc;
+    uint32_t positions[N_TETRI];
+    //Fetch the current slit positions
+    for(uint8_t i=0; i<N_TETRI; i++) {
+        positions[i]=tetris[i].currentPosition();
+    }
+    //Save the positions
+    EEPROM.updateBlock(EEPROM_LAST_SAVED_POSITION_ADDR, positions, N_TETRI);
+    //Compute their CRC16 & save it
+    crc=OneWire::crc16((uint8_t*) positions, N_TETRI*4);
+    EEPROM.writeInt(EEPROM_LAST_SAVED_POSITION_CRC16_ADDR, crc);
+}
+

@@ -32,7 +32,6 @@ class Agent(object):
     It runs the main event loop which uses select to read and write on all agent
     conections, whether inbound or outbound.
     
-    
     Agents have connections (SelectedConnections) to other entities. The 
     connections are mantained in the connections dictionary. Subclasses
     should create SelectedConnections in __init__ and add them to 
@@ -58,21 +57,31 @@ class Agent(object):
     must be performed blocking if it must complete during the handler: data 
     sent via sendMessage will go out no sooner than the next iteration of the 
     main loop. Long running command handlers should start a worker thread with
-    the function: 
-        startWorkerThread
+    the function startWorkerThread after acknowledging the command by calling 
+    setReply('OK').
+    While the worker thread is active, new commands to the agent are serviced
+    normally or, if they are blocked (whether by a call to block or as an 
+    argument to startWorkerThread), with a try again later error. 
+    
+    Caution should be exerciese in handlers that run in the main thread if they 
+    use a connection a worker thread also uses. Althrough the send and receive 
+    calls are thread safe, the inability of the main thread handler to attain 
+    the lock (due to a worker thread holding it) could casue an agent to 
+    temporarily appear unresponsive. For an example see the shoeAgent SLITS and
+    TEMP command handlers. Instead of blocking the temp command, the temp
+    handler attempts to acquire the shoe connection lock and if it can't simply
+    responds try again later.
+    
+    During thread execution 
+    
+    Worker threads must call returnFromWorkerThread immediately prior to 
+    returning. 
+
     The worker thread should use the functions:
-        request_io
         set_command_state
         block
         unblock
         returnFromWorkerThread
-    
-    below to ensure proper execution. Instead of calling read and write methods
-    on connections directly, they must issue io requests with request_io
-    The handler should issue block calls to block commands which need to be 
-    blocked. It is the worker thread's responsibility to unblock commands with
-    calls to unblock.
-    
     """ 
     def __init__(self, basename):
         """

@@ -306,7 +306,7 @@ If the state changes to disengaged, update the state immediately and put
 the shoe into offline mode by calling DScommand.
 */
 void monitorLockingNutState() {
-    locking_screw_disengaged=false;return;
+
     // If the locking screw reads as disengaged...
     if (digitalRead(DISCONNECT_SHOE_PIN)){
         if (!locking_screw_disengaged) { //and this is a state change...

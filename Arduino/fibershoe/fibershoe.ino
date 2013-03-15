@@ -14,6 +14,7 @@
 #define N_COMMANDS 27
 
 //#define DEBUG
+//#define DEBUG_EEPROM
 //#define DEBUG_RUN_TIME
 
 #define TEMP_UPDATE_INTERVAL_MS 20000
@@ -21,11 +22,11 @@
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
 //EEPROM Addresses
-#define EEPROM_LAST_SAVED_POSITION_CRC16_ADDR       0x00
-#define EEPROM_LAST_SAVED_POSITION_ADDR             0x02
+#define EEPROM_LAST_SAVED_POSITION_CRC16_ADDR       0x0000
+#define EEPROM_LAST_SAVED_POSITION_ADDR             0x0002
 
-#define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x80
-#define EEPROM_SLIT_POSITIONS_ADDR                  0x82
+#define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x0080
+#define EEPROM_SLIT_POSITIONS_ADDR                  0x0082
 #define N_SLIT_POSITIONS                            (N_TETRI*7)
 
 #pragma mark Globals
@@ -193,11 +194,13 @@ void setup() {
                         TETRIS_8_CK, TETRIS_8_PHASE_HOME);
 
     //Restore the nominal slit positions from EEPROM
-    loadSlitPositionsFromEEPROM();
+
     
     // Start serial connection
-    Serial.begin(115200);delay(300);
-  
+    Serial.begin(115200);
+    
+    loadSlitPositionsFromEEPROM();
+
 }
 
 //Main loop, funs forever at full steam ahead
@@ -303,6 +306,7 @@ If the state changes to disengaged, update the state immediately and put
 the shoe into offline mode by calling DScommand.
 */
 void monitorLockingNutState() {
+    locking_screw_disengaged=false;return;
     // If the locking screw reads as disengaged...
     if (digitalRead(DISCONNECT_SHOE_PIN)){
         if (!locking_screw_disengaged) { //and this is a state change...
@@ -438,14 +442,7 @@ bool DScommand() {
     //Powerdown and store positions (if online)
     if (shoeOnline) {
         disableTetrisVreg();
-        #ifdef DEBUG
-            uint32_t t=millis();
-        #endif
         saveMotorPositionsToEEPROM();
-        #ifdef DEBUG
-            uint32_t t1=millis();
-            cout<<"Save to EEPROM took "<<t1-t<<" ms.\n";
-        #endif
         shoeOnline=false;
     }
     return true;
@@ -824,7 +821,7 @@ bool PCcommand() {
   
     cout<<pstr("#CY # low# high# Cycle - Cycl tetris A # times from low# to high#. low# must be > high#");Serial.write('\r');
     
-    cout<<pstr("SSx#[#] Slit Set - Set the step position of slit # for tetris x to the current position. If given the second number is used to define the position.");Serial.write('\r');
+    cout<<pstr("#SSx#[#] Slit Set - Set the step position of slit # for tetris x to the current position. If given the second number is used to define the position.");Serial.write('\r');
   
     return true;
 }
@@ -865,37 +862,52 @@ bool CYcommand() {
 //Load the nominal slits positions for all the slits from EEPROM
 bool loadSlitPositionsFromEEPROM() {
     uint16_t crc, saved_crc;
-    uint32_t positions[N_TETRI][7];
+    uint32_t positions[N_TETRI*7];
+    bool ret=false;
+    #ifdef DEBUG_EEPROM
+        uint32_t t=millis();
+    #endif
     //Fetch the stored slit positions & CRC16
-    EEPROM.readBlock(EEPROM_SLIT_POSITIONS_ADDR, positions, N_SLIT_POSITIONS);
+    EEPROM.readBlock<uint32_t>(EEPROM_SLIT_POSITIONS_ADDR, positions, N_SLIT_POSITIONS);
     saved_crc=EEPROM.readInt(EEPROM_SLIT_POSITIONS_CRC16_ADDR);
     crc=OneWire::crc16((uint8_t*) positions, N_SLIT_POSITIONS*4);
     //If the CRC matches, restore the positions
     if (crc == saved_crc) {
         for (uint8_t i=0; i<N_TETRI; i++) {
             for (uint8_t j=0; j<7; j++) {
-                tetris[i].defineSlitPosition(j, positions[i][j]);
+                tetris[i].defineSlitPosition(j, positions[i*7+j]);
             }
         }
-        return true;
+        ret=true;
     }
-    return false;
+    #ifdef DEBUG_EEPROM
+        uint32_t t1=millis();
+        cout<<"loadSlitPositionsFromEEPROM took "<<t1-t<<" ms.\n";
+    #endif
+    return ret;
 }
 
 //Store the nominal slits positions for all the slits to EEPROM
 void saveSlitPositionsToEEPROM() {
     uint16_t crc;
-    uint32_t positions[N_TETRI][7];
+    uint32_t positions[N_TETRI*7];
+    #ifdef DEBUG_EEPROM
+        uint32_t t=millis();
+    #endif
     //Fetch the defined slit positions
     for (uint8_t i=0; i<N_TETRI; i++) {
         for (uint8_t j=0; j<7; j++) {
-            positions[i][j]=tetris[i].getSlitPosition(j);
+            positions[i*7+j]=tetris[i].getSlitPosition(j);
         }
     }
     //Store them with their CRC16
-    EEPROM.updateBlock(EEPROM_SLIT_POSITIONS_ADDR, positions, N_SLIT_POSITIONS);
+    EEPROM.updateBlock<uint32_t>(EEPROM_SLIT_POSITIONS_ADDR, positions, N_SLIT_POSITIONS);
     crc=OneWire::crc16((uint8_t*) positions, N_SLIT_POSITIONS*4);
     EEPROM.writeInt(EEPROM_SLIT_POSITIONS_CRC16_ADDR, crc);
+    #ifdef DEBUG_EEPROM
+        uint32_t t1=millis();
+        cout<<"saveSlitPositionsToEEPROM took "<<t1-t<<" ms.\n";
+    #endif
 }
 
 //Load the saved motor positions for the Tetri from EEPROM, butcher the CRC
@@ -904,8 +916,11 @@ void saveSlitPositionsToEEPROM() {
 bool loadMotorPositionsFromEEPROM() {
     uint16_t crc, saved_crc;
     uint32_t positions[N_TETRI];
-    
-    EEPROM.readBlock(EEPROM_LAST_SAVED_POSITION_ADDR, positions, N_TETRI);
+
+    #ifdef DEBUG_EEPROM
+        uint32_t t=millis();
+    #endif    
+    EEPROM.readBlock<uint32_t>(EEPROM_LAST_SAVED_POSITION_ADDR, positions, N_TETRI);
     saved_crc=EEPROM.readInt(EEPROM_LAST_SAVED_POSITION_CRC16_ADDR);
     crc=OneWire::crc16((uint8_t*) positions, N_TETRI*4);
     if (saved_crc ==  crc)
@@ -914,6 +929,10 @@ bool loadMotorPositionsFromEEPROM() {
             tetris[i].definePosition( positions[i] );
         EEPROM.writeInt(EEPROM_LAST_SAVED_POSITION_CRC16_ADDR, ~crc);
     }
+    #ifdef DEBUG_EEPROM
+        uint32_t t1=millis();
+        cout<<"loadMotorPositionsFromEEPROM took "<<t1-t<<" ms.\n";
+    #endif
     return crc == saved_crc;
 }
 
@@ -921,14 +940,22 @@ bool loadMotorPositionsFromEEPROM() {
 void saveMotorPositionsToEEPROM() {
     uint16_t crc;
     uint32_t positions[N_TETRI];
+    
+    #ifdef DEBUG_EEPROM
+        uint32_t t=millis();
+    #endif
     //Fetch the current slit positions
     for(uint8_t i=0; i<N_TETRI; i++) {
         positions[i]=tetris[i].currentPosition();
     }
     //Save the positions
-    EEPROM.updateBlock(EEPROM_LAST_SAVED_POSITION_ADDR, positions, N_TETRI);
+    EEPROM.updateBlock<uint32_t>(EEPROM_LAST_SAVED_POSITION_ADDR, positions, N_TETRI);
     //Compute their CRC16 & save it
     crc=OneWire::crc16((uint8_t*) positions, N_TETRI*4);
     EEPROM.writeInt(EEPROM_LAST_SAVED_POSITION_CRC16_ADDR, crc);
+    #ifdef DEBUG_EEPROM
+        uint32_t t1=millis();
+        cout<<"saveMotorPositionsToEEPROM took "<<t1-t<<" ms.\n";
+    #endif
 }
 

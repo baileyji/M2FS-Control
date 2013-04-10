@@ -62,7 +62,16 @@ class Agent(object):
             self.name=basename+self.args.SIDE
         else:
             self.name=basename
-        self.initialize_logger()
+        self.args.LOG_LEVEL=self.args.LOG_LEVEL.upper()
+        if self.args.LOG_LEVEL == 'DEBUG':
+            self.args.LOG_LEVEL=logging.DEBUG
+        elif self.args.LOG_LEVEL == 'ERROR':
+            self.args.LOG_LEVEL=logging.ERROR
+        elif self.args.LOG_LEVEL == 'INFO':
+            self.args.LOG_LEVEL=logging.INFO
+        else:
+            self.args.LOG_LEVEL=DEFAULT_LOG_LEVEL
+        self.initialize_logger(self.args.LOG_LEVEL)
         if self.args.PORT:
             self.PORT=self.args.PORT
             self.initialize_socket_server(tries=5)
@@ -82,7 +91,7 @@ class Agent(object):
         self.logger.info("----%s Startup Complete @ %s-----" %
                          (self.name, self.cookie) )
     
-    def initialize_logger(self):
+    def initialize_logger(self, level):
         """
         Configure logging
         
@@ -103,7 +112,7 @@ class Agent(object):
         self.logger.addHandler(ch)
         #Get a logger for the agent
         self.logger=logging.getLogger(self.name)
-        self.logger.setLevel(DEFAULT_LOG_LEVEL)
+        self.logger.setLevel(level)
     
     def initialize_cli_parser(self):
         """
@@ -123,6 +132,9 @@ class Agent(object):
         cli_parser.add_argument('-p','--port', dest='PORT',
                                 action='store', required=False, type=int,
                                 help='the port on which to listen')
+        cli_parser.add_argument('--log', dest='LOG_LEVEL',
+                                action='store', required=False, type=str,
+                                help='log level: INFO, DEBUG, ERROR')
         self.cli_parser=cli_parser
         self.add_additional_cli_arguments()
     

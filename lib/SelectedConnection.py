@@ -482,7 +482,8 @@ class SelectedSerial(SelectedConnection):
     def __init__(self, port, baudrate,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
-                default_message_error_callabck=None,timeout=None):
+                default_message_error_callabck=None,
+                timeout=None, loglevel=DEFAULT_LOG_LEVEL):
         """
         Create a new instance
         
@@ -498,7 +499,8 @@ class SelectedSerial(SelectedConnection):
         SelectedConnection.__init__(self,
                 default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
-                default_message_error_callabck=default_message_error_callabck)
+                default_message_error_callabck=default_message_error_callabck,
+                loglevel=loglevel)
         self.port=port
         self.baudrate=baudrate
         self.timeout=timeout
@@ -624,7 +626,8 @@ class SelectedSocket(SelectedConnection):
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None,
-                timeout=DEFAULT_SOCKET_TIMEOUT):
+                timeout=DEFAULT_SOCKET_TIMEOUT,
+                loglevel=DEFAULT_LOG_LEVEL):
         """
         Create a new instance
         
@@ -644,7 +647,8 @@ class SelectedSocket(SelectedConnection):
         SelectedConnection.__init__(self,
                 default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
-                default_message_error_callabck=default_message_error_callabck)
+                default_message_error_callabck=default_message_error_callabck,
+                loglevel=loglevel)
         self.host=host
         self.port=port
         self.timeout=timeout

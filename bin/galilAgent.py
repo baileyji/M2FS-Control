@@ -102,7 +102,8 @@ class GalilAgent(Agent):
         #Initialize the Galil
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/galil'+self.args.SIDE
-        self.galil=GalilSerial(self.args.DEVICE, self.args.SIDE)
+        self.galil=GalilSerial(self.args.DEVICE, self.args.SIDE,
+                               loglevel=self.args.LOG_LEVEL)
         self.devices.append(self.galil)
         self.query_commands={
             'FILTER':self.galil.get_filter,

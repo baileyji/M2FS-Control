@@ -86,7 +86,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             if a parameter is changed, update it on the galil and in the conf
             file (via m2fsConfig
     """
-    def __init__(self, device, side):
+    def __init__(self, device, side, **kwargs):
         """
         Initialize the Galil object
         
@@ -148,11 +148,16 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         self.errorFlags={}
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
+        if 'loglevel' in kwargs:
+            loglevel=kwargs['loglevel']
+        else:
+            loglevel=SelectedConnection.DEFAULT_LOG_LEVEL
         SelectedConnection.SelectedSerial.__init__(self, device, 115200,
             timeout=GALIL_TIMEOUT, default_message_received_callback=
-                self._unsolicited_galil_message_handler)
+                self._unsolicited_galil_message_handler,
+                loglevel=loglevel)
         self.logger=logging.getLogger('GalilCon'+side)
-        self.logger.setLevel(SelectedConnection.DEFAULT_LOG_LEVEL)
+        self.logger.setLevel(loglevel)
         #Override the default message terminator for consistency. Doesn't matter
         #since we also override the _terminateMessage function
         self.messageTerminator='\r'

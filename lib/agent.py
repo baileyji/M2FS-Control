@@ -133,7 +133,8 @@ class Agent(object):
                                 action='store', required=False, type=int,
                                 help='the port on which to listen')
         cli_parser.add_argument('--log', dest='LOG_LEVEL',
-                                action='store', required=False, type=str,
+                                action='store', required=False, default='',
+                                type=str,
                                 help='log level: INFO, DEBUG, ERROR')
         self.cli_parser=cli_parser
         self.add_additional_cli_arguments()

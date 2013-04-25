@@ -6,7 +6,7 @@ Wants=datalogger.service
 Wants=slitController.service
 Wants=pluggingFeedback.service
 Wants=guider.service
-Wants=projector.service
+#Wants=projector.service
 Wants=shackhartman.service
 Wants=plugController.service
 

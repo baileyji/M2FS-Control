@@ -3,6 +3,7 @@
 #Install M2FS system config files
 cp -rv ./etc/* /etc/
 cp -v ./bashrc /home/root/.bashrc
+cp -v ./bashrc /home/root/.bash_login
 cp -v ./vimrc /home/root/.vimrc
 #Ensure systemd loads the new units
 systemctl daemon-reload

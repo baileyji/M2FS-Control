@@ -9,17 +9,17 @@
 
 #define DEBOUNCE_DELAY      50
 
-#define BLUE_OPEN_ANGLE     58
+#define BLUE_OPEN_ANGLE     80
 #define BLUE_CLOSED_ANGLE   140
-#define RED_OPEN_ANGLE      65
-#define RED_CLOSED_ANGLE    145
+#define RED_OPEN_ANGLE      80
+#define RED_CLOSED_ANGLE    140
  
 //Pins
-#define RED_IN_PIN      3  //Input
-#define RED_SERVO_PIN   11 //Ouput
+#define RED_IN_PIN      8  //Input
+#define RED_SERVO_PIN   10 //Ouput
 
-#define BLUE_IN_PIN     8  //Input
-#define BLUE_SERVO_PIN  10  //Ouput
+#define BLUE_IN_PIN     11  //Input
+#define BLUE_SERVO_PIN  9  //Ouput
 
 
 #include <Servo.h>
@@ -123,7 +123,7 @@ void loop() {
 void move_red_shutter(POSITION pos) {
 
     //Tell the shutter where to go
-    redshutter.write(pos.angle);
+    redshutter.writeMicroseconds(pos.angle);
     redMoveTime=millis();
     
     //Save the shutter's position
@@ -133,7 +133,7 @@ void move_red_shutter(POSITION pos) {
 void move_blue_shutter(POSITION pos) {
     
     //Tell the shutter where to go
-    blueshutter.write(pos.angle);
+    blueshutter.writeMicroseconds(pos.angle);
     blueMoveTime=millis();
     
     //Save the shutter's position

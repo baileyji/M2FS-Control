@@ -2,7 +2,7 @@
 Description=M2FS Projector Link
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=director.service
 #Also=
 
 [Service]

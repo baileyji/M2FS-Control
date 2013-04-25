@@ -94,10 +94,11 @@
 # here.  For example, if it supports a setting of "1234" for the
 # variable "cable", it would look like this:
 # 
- [myups]
- 	driver = usbhid-ups 
-        port = /dev/hidraw1
-	desc = "TrippLite"
+# [myups]
+# 	driver = mydriver
+#	port = /dev/ttyS1
+#	cable = 1234
+#	desc = "Something descriptive"
 #
 # To find out if your driver supports any extra settings, start it with
 # the -h option and/or read the driver's documentation.

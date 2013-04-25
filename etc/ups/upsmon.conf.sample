@@ -3,7 +3,7 @@
 # This file contains passwords, so keep it secure.
 
 # --------------------------------------------------------------------------
-RUN_AS_USER ups 
+# RUN_AS_USER <userid>
 #
 # By default, upsmon splits into two processes.  One stays as root and
 # waits to run the SHUTDOWNCMD.  The other one switches to another userid
@@ -68,6 +68,9 @@ RUN_AS_USER ups
 # upsd.users.  If your username is "monmaster" and your password is 
 # "blah", the upsd.users would look like this:
 #
+#	[monmaster]
+#		password  = blah
+#		upsmon master 	(or slave)
 # 
 # "master" means this system will shutdown last, allowing the slaves
 # time to shutdown first.
@@ -76,7 +79,7 @@ RUN_AS_USER ups
 #
 # Examples: 
 #
-MONITOR myups@localhost 1 monitor 1 master
+# MONITOR myups@bigserver 1 monmaster blah master
 # MONITOR su700@server.example.com 1 upsmon secretpass slave
 # MONITOR myups@localhost 1 upsmon pass master	(or slave)
 
@@ -193,7 +196,7 @@ DEADTIME 15
 #
 # See the shutdown.txt file in the docs subdirectory for more information.
 
-POWERDOWNFLAG /etc/nut/killpower
+POWERDOWNFLAG /etc/killpower
 
 # --------------------------------------------------------------------------
 # NOTIFYMSG - change messages sent by upsmon when certain events occur
@@ -236,16 +239,16 @@ POWERDOWNFLAG /etc/nut/killpower
 #
 # NOTIFYFLAG <notify type> <flag>[+<flag>][+<flag>] ...
 #
- NOTIFYFLAG ONLINE	SYSLOG+WALL
- NOTIFYFLAG ONBATT	SYSLOG+WALL
- NOTIFYFLAG LOWBATT	SYSLOG+WALL
- NOTIFYFLAG FSD	SYSLOG+WALL
- NOTIFYFLAG COMMOK	SYSLOG+WALL
- NOTIFYFLAG COMMBAD	SYSLOG+WALL
- NOTIFYFLAG SHUTDOWN	SYSLOG+WALL
- NOTIFYFLAG REPLBATT	SYSLOG+WALL
- NOTIFYFLAG NOCOMM	SYSLOG+WALL
- NOTIFYFLAG NOPARENT	SYSLOG+WALL
+# NOTIFYFLAG ONLINE	SYSLOG+WALL
+# NOTIFYFLAG ONBATT	SYSLOG+WALL
+# NOTIFYFLAG LOWBATT	SYSLOG+WALL
+# NOTIFYFLAG FSD	SYSLOG+WALL
+# NOTIFYFLAG COMMOK	SYSLOG+WALL
+# NOTIFYFLAG COMMBAD	SYSLOG+WALL
+# NOTIFYFLAG SHUTDOWN	SYSLOG+WALL
+# NOTIFYFLAG REPLBATT	SYSLOG+WALL
+# NOTIFYFLAG NOCOMM	SYSLOG+WALL
+# NOTIFYFLAG NOPARENT	SYSLOG+WALL
 #
 # Possible values for the flags:
 #

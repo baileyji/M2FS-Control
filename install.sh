@@ -16,7 +16,7 @@ systemctl enable nut-server.service
 systemctl start nut-server.service
 
 #Get ntp installed
-opkg install ntp.systemd
+opkg install ntp
 
 #Get pip
 easy_install pip

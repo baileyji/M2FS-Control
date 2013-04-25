@@ -18,6 +18,8 @@ chmod 0770 /var/state/ups
 chown root:run /var/state/ups
 systemctl enable nut-server.service
 systemctl start nut-server.service
+systemctl enable nut-monitor.service
+systemctl start nut-monitor.service
 
 #Get ntp installed
 opkg install ntp

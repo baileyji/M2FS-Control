@@ -25,7 +25,15 @@ unsigned int openPos=1400;      //o
 unsigned int closePos1=2000;    //p
 unsigned int closePos2=2090;    //q
 
-//B 1973
+//B
+//q1973
+//p1950
+//o1300
+
+//R
+//q1928
+//p1900
+//o1200
 
 void loop() 
 { 

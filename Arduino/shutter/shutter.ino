@@ -7,13 +7,21 @@
  *
  */
 
-#define DEBOUNCE_DELAY      50
+#define DEBOUNCE_DELAY   50
 
-#define BLUE_OPEN_ANGLE     80
-#define BLUE_CLOSED_ANGLE   140
-#define RED_OPEN_ANGLE      80
-#define RED_CLOSED_ANGLE    140
- 
+#define CLOSE_TIME_MS 350
+
+#define CLOSED 0
+#define OPEN 1
+
+#define RED_OPEN_US 1200
+#define RED_PARTIAL_US 1900
+#define RED_CLOSED_US 1929
+
+#define BLUE_OPEN_US 1300
+#define BLUE_PARTIAL_US 1950
+#define BLUE_CLOSED_US 1973
+
 //Pins
 #define RED_IN_PIN      8  //Input
 #define RED_SERVO_PIN   10 //Ouput
@@ -24,12 +32,6 @@
 
 #include <Servo.h>
 #include "position.h"
-
-
-const POSITION BLUE_OPEN = { BLUE_OPEN_ANGLE, HIGH, LOW };
-const POSITION BLUE_CLOSED = { BLUE_CLOSED_ANGLE, LOW, HIGH };
-const POSITION RED_OPEN = { RED_OPEN_ANGLE, HIGH, LOW };
-const POSITION RED_CLOSED = { RED_CLOSED_ANGLE, LOW, HIGH };
 
 
 POSITION red_pos, blue_pos, 
@@ -55,87 +57,101 @@ void setup() {
     redshutter.attach(RED_SERVO_PIN);
     blueshutter.attach(BLUE_SERVO_PIN);
     
-    move_red_shutter(RED_CLOSED);
-    move_blue_shutter(BLUE_CLOSED);   
-
+    close_both_shutters();
 }
 
 
 void loop() {
 
-  bool red_in_signal, blue_in_signal,
-       red_moved=false, blue_moved=false;
+  bool doBlueMove=false, doRedMove=false;
           
   POSITION commanded_red, commanded_blue;
   unsigned long bounce_time, sampleTime;
 
-/* Read the signal pins to determine what is being commanded:
-    IN_PIN high -> Open Shutter (if open, do nothing)
-    IN_PIN low -> Close Shutter (if closed, do nothing)
-*/
-
-  blue_in_signal=digitalRead(BLUE_IN_PIN);
-  red_in_signal=digitalRead(RED_IN_PIN);
+  //Sample the TTL lines for the shutters
+  //  IN_PIN high -> Open Shutter (if open, do nothing)
+  //  IN_PIN low -> Close Shutter (if closed, do nothing)
   sampleTime=millis();
+  
+  commanded_blue = digitalRead(BLUE_IN_PIN) ? OPEN:CLOSED;
+  commanded_red  = digitalRead(RED_IN_PIN)  ? OPEN:CLOSED;
 
+  //Debounce the inputs
+  // If the commanded position is different from the last commanded position,
+  //   then get the time to debounce the input (just in case).
+  //   If the commanded position has remained constant for at least the debounce delay,
+  ///then act on the commanded position
   
-  if (blue_in_signal) commanded_blue=BLUE_OPEN;
-  else                commanded_blue=BLUE_CLOSED;
-  
-  if (red_in_signal)  commanded_red=RED_OPEN;
-  else                commanded_red=RED_CLOSED;
-
-  
-/* If the commanded position is different from the last commanded position,
-  then get the time to debounce the input (just in case).
-  If the commanded position has remained constant for at least the debounce delay,
-  then act on the commanded position
-*/ 
-  if (commanded_blue.angle != last_commanded_blue.angle) {
+  bounce_time=sampleTime;
+  if (commanded_blue != last_commanded_blue) {
     blueDebounceTime=sampleTime;
     last_commanded_blue=commanded_blue;
   }
   
-  if (commanded_red.angle != last_commanded_red.angle) {
+  if (commanded_red != last_commanded_red) {
     redDebounceTime=sampleTime;
     last_commanded_red=commanded_red;
   }
   
-  bounce_time=sampleTime;
-
-  if (bounce_time - blueDebounceTime > DEBOUNCE_DELAY) {
-    if (commanded_blue.angle != blue_pos.angle) {
-      move_blue_shutter(commanded_blue);
-      blue_moved=true;
-    }
+  if (commanded_blue != blue_pos) {
+      doBlueMove=(bounce_time - blueDebounceTime > DEBOUNCE_DELAY);
+  }
+  else {
+      doBlueMove=false;
   }
   
-  if (bounce_time - redDebounceTime > DEBOUNCE_DELAY) {
-    if (commanded_red.angle != red_pos.angle) {
-      move_red_shutter(commanded_red);
-      red_moved=true;
-    }
+  if (commanded_red != red_pos) {
+      doRedMove=(bounce_time - redDebounceTime > DEBOUNCE_DELAY);
+  }
+  else {
+      doRedMove=false;
+  }
+  
+  //Move the shutters as requested
+  
+  if (doBlueMove && commanded_blue==OPEN) open_blue_shutter();
+  if (doRedMove && commanded_red==OPEN) open_red_shutter();
+  if (doRedMove && doBlueMove &&
+      commanded_red==CLOSED && commanded_blue==CLOSED) {
+      close_both_shutters();
+  }
+  else {
+    if (doBlueMove && commanded_blue==CLOSED) close_blue_shutter();
+    if (doRedMove && commanded_red==CLOSED) close_red_shutter();
   }
   
 }
 
-
-void move_red_shutter(POSITION pos) {
-
-    //Tell the shutter where to go
-    redshutter.writeMicroseconds(pos.angle);
-    redMoveTime=millis();
-    
-    //Save the shutter's position
-    red_pos=pos;
+void open_red_shutter() {
+    redshutter.writeMicroseconds(RED_OPEN_US);
+    red_pos=OPEN;
 }
 
-void move_blue_shutter(POSITION pos) {
-    
-    //Tell the shutter where to go
-    blueshutter.writeMicroseconds(pos.angle);
-    blueMoveTime=millis();
-    
-    //Save the shutter's position
-    blue_pos=pos;
+void open_blue_shutter() {
+    blueshutter.writeMicroseconds(BLUE_OPEN_US);
+    blue_pos=OPEN;
+}
+
+void close_red_shutter() {
+    redshutter.writeMicroseconds(RED_PARTIAL_US);
+    delay(CLOSE_TIME_MS);
+    redshutter.writeMicroseconds(RED_CLOSED_US);
+    red_pos=CLOSED;
+}
+
+void close_blue_shutter() {
+    blueshutter.writeMicroseconds(BLUE_PARTIAL_US);
+    delay(CLOSE_TIME_MS);
+    blueshutter.writeMicroseconds(BLUE_CLOSED_US);
+    blue_pos=CLOSED;
+}
+
+void close_both_shutters() {
+    redshutter.writeMicroseconds(RED_PARTIAL_US);
+    blueshutter.writeMicroseconds(BLUE_PARTIAL_US);
+    delay(CLOSE_TIME_MS);
+    redshutter.writeMicroseconds(RED_CLOSED_US);
+    blueshutter.writeMicroseconds(BLUE_CLOSED_US);
+    red_pos=CLOSED;
+    blue_pos=CLOSED;
 }

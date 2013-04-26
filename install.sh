@@ -22,7 +22,9 @@ systemctl enable nut-monitor.service
 systemctl start nut-monitor.service
 
 #Get ntp installed
+opkg install coreutils
 opkg install ntp
+cp ./etc/ntp.conf /etc/
 
 #Get pip
 easy_install pip

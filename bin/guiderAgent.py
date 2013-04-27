@@ -3,6 +3,9 @@ import sys
 sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
+import time
+from iorequest import *
+import logging
 
 GUIDER_AGENT_VERSION_STRING='Guider Agent v0.1'
 
@@ -19,20 +22,18 @@ DEFAULT_FILTER_POSITION=0.0
 MAX_FILTER_ROTATION=1260.0
 MAX_FOC_ROTATION=90.0
 
+FOCUS_NUDGE=3
+JITTER_STOP_MOVE=1
+
+FILTER_HOME_TIME=3.6
+FOCUS_SLEW_TIME=0.8
+
 FILTER_DEGREE_POS_FW={
     1: 19,
     2: 58,
     3: 100,
     4: 140,
     5: 180,
-    6: 222}
-
-FILTER_DEGREE_POS_BK={
-    1: 12,
-    2: 53,
-    3: 95,
-    4: 136,
-    5: 177,
     6: 222}
 
 MAX_PWIDTH=2100.0
@@ -74,14 +75,15 @@ class GuiderAgent(Agent):
     """
     def __init__(self):
         Agent.__init__(self,'GuiderAgent')
-        self.guider=GuiderSerial('/dev/guider', 115200, timeout=1)
+        self.focus=0
         self.commanded_position={FOCUS_CHANNEL:None, FILTER_CHANNEL:None}
-        self.devices.append(self.guider)
+        self.connections['guider']=GuiderSerial('/dev/guider', 115200, timeout=1)
         self.command_handlers.update({
             #Get/Set the guider filter (1, 2, 3, or 4)
             'GFILTER':self.GFILTER_command_handler,
             #Get/Set the guider focus value
             'GFOCUS':self.GFOCUS_command_handler})
+        self.logger.setLevel(logging.DEBUG)
     
     def get_version_string(self):
         """ Return a string with the version."""
@@ -110,28 +112,6 @@ class GuiderAgent(Agent):
                 ('Filter',filterStatus),
                 ('Focus', focusStatus)]
     
-    def GFILTER_command_handler(self, command):
-        """
-        Handle geting/setting the guider filter
-        
-        Responds with the current filter, INTERMEDIATE, MOVING, or ERROR (if the
-        controller is offline. !ERROR if the command is invalid
-        
-        Responds OK if the requested filter is valid.
-        """
-        if '?' in command.string:
-            command.setReply(self.getFilterPos())
-        else:
-            filter=command.string.partition(' ')[2]
-            if not validFilterValue(filter):
-                self.bad_command_handler(command)
-                return
-            try:
-                self.setFilterPos(filter)
-                command.setReply('OK')
-            except Exception as e:
-                command.setReply(str(e))
-    
     def GFOCUS_command_handler(self, command):
         """ 
         Handle geting/setting the guider focus
@@ -148,11 +128,9 @@ class GuiderAgent(Agent):
             if not validFocusValue(focus):
                 self.bad_command_handler(command)
                 return
-            try:
-                self.setFocusPos(focus)
-                command.setReply('OK')
-            except Exception as e:
-                command.setReply(str(e))
+            command.setReply('OK')
+            self.startWorkerThread(command, 'MOVING', self.setFocusPos,
+                                   args=(focus,))
     
     def setFocusPos(self, focus):
         """ 
@@ -161,10 +139,45 @@ class GuiderAgent(Agent):
         Focus must be  in the range 0 - 90. Raise an Exception if there are any
         errors.
         """
-        pwid=deg2pwid(float(focus), MAX_FOC_ROTATION)
-        self.guider.sendMessageBlocking( SET_TARGET.format(
-                                    channel=FOCUS_CHANNEL,
-                                    target=pwid2bytes(pwid)))
+        if focus=='+':
+            focus=self.focus+FOCUS_NUDGE
+        elif focus=='-':
+            focus=self.focus-FOCUS_NUDGE
+        focus=max(min(90, float(focus)), 0)
+        #Determine the move direction so we can nudge backwards after
+        # Otherwise the motor might dance
+        if focus > self.focus:
+            dir=JITTER_STOP_MOVE
+        elif focus < self.focus:
+            dir=-JITTER_STOP_MOVE
+        else:
+            dir=0
+        pwid=deg2pwid(focus, MAX_FOC_ROTATION)
+        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+        #move to focus pos
+        ioRequest=SendRequest(((msg,), {}) , 'guider')
+        self.request_io(ioRequest)
+        ioRequest.serviced.wait()
+        if not ioRequest.success:
+            self.logger.info("Focus move failed initial move")
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + ioRequest.response)
+            return
+        self.focus=focus
+        #give the move enough time
+        time.sleep(FOCUS_SLEW_TIME)
+        #Nudge the focus backwards so the servo doesn't dance
+        focus=focus-dir
+        pwid=deg2pwid(focus-dir, MAX_FOC_ROTATION)
+        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+        ioRequest=SendRequest(((msg,),{}), 'guider')
+        self.request_io(ioRequest)
+        ioRequest.serviced.wait()
+        if not ioRequest.success:
+            self.logger.debug("Focus move failed jitter correction move")
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: '+ ioRequest.response)
+            return
+        self.focus=focus
+        self.returnFromWorkerThread('GFOCUS')
     
     def getFocusPos(self):
         """
@@ -178,18 +191,59 @@ class GuiderAgent(Agent):
             state=pwid2deg(state, MAX_FOC_ROTATION)
         return str(state)
     
+    def GFILTER_command_handler(self, command):
+        """
+        Handle geting/setting the guider filter
+        
+        Responds with the current filter, INTERMEDIATE, MOVING, or ERROR (if the
+        controller is offline. !ERROR if the command is invalid
+        
+        Responds OK if the requested filter is valid.
+        """
+        if '?' in command.string:
+            command.setReply(self.getFilterPos())
+        else:
+            filter=command.string.partition(' ')[2]
+            if not validFilterValue(filter):
+                self.bad_command_handler(command)
+                return
+            command.setReply('OK')
+            self.startWorkerThread(command, 'MOVING', self.setFilterPos,
+                                   args=(filter,))
+    
     def setFilterPos(self, filter):
         """
         Translate filter to a degree position and command Maestro to target
         
-        Filter must be a key in FILTER_DEGREE_POS. Raise an Exception if there
+        Filter must be a key in FILTER_DEGREE_POS_FW. Raise an Exception if there
         are any errors.
         """
+        self.set_command_state('GFILTER', 'MOVING')
         new_filt=int(float(filter))
+        #move to home
+        pwid=deg2pwid(0, MAX_FILTER_ROTATION)
+        msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
+        ioRequest=SendRequest(((msg,), {}) , 'guider')
+        self.request_io(ioRequest, description="Request move to home" )
+        ioRequest.serviced.wait()
+        if not ioRequest.success:
+            self.logger.debug("Request move to home FAILED")
+            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + ioRequest.response)
+            return
+        #give the move enough time
+        time.sleep(FILTER_HOME_TIME)
+        #now move to the filter
         pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
-        self.guider.sendMessage(SET_TARGET.format(
-                                    channel=FILTER_CHANNEL,
-                                    target=pwid2bytes(pwid)))
+        msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
+        ioRequest=SendRequest(((msg,),{}), 'guider')
+        self.request_io(ioRequest, description="Request move to filter")
+        ioRequest.serviced.wait()
+        if not ioRequest.success:
+            self.logger.debug("Request move to filter FAILED")
+            self.returnFromWorkerThread('GFILTER', 'ERROR: '+ ioRequest.response)
+            return
+        time.sleep(FILTER_HOME_TIME)
+        self.returnFromWorkerThread('GFILTER')
     
     def getFilterPos(self):
         """
@@ -215,10 +269,13 @@ class GuiderAgent(Agent):
         """
         Returns MOVING or the pulse width for the specified channel.
         
+        NB will always return the pullse width as written
+        
         Raises IOError if any errors
         """
-        self.guider.sendMessageBlocking(GET_POSITION.format(channel=channel))
-        bytes=self.guider.receiveMessageBlocking(nBytes=2)
+        guider=self.connections['guider']
+        guider.sendMessageBlocking(GET_POSITION.format(channel=channel))
+        bytes=guider.receiveMessageBlocking(nBytes=2)
         if len(bytes)!=2:
             msg='Did not get expected response from controller.'
             self.logger.error(msg)
@@ -231,7 +288,7 @@ def filterAngle2Filter(angle):
     """
     try:
         angle=int(round(angle))
-        filter=[x[0] for x in FILTER_DEGREE_POS.items() if x[1]==angle][0]
+        filter=[x[0] for x in FILTER_DEGREE_POS_FW.items() if x[1]==angle][0]
     except Exception:
         raise ValueError
     return filter
@@ -287,7 +344,11 @@ def bytes2pwid(bytes):
     return round((ord(bytes[0])|(ord(bytes[1])<<8))/4)
 
 def validFocusValue(focus):
-    """ Return true iff focus is a valid focus position """
+    """ Return true iff focus is a valid focus position 
+    Valid focus values are 0-90, +, & -
+    """
+    if focus in ['+', '-']:
+        return True
     try:
         valid = (0.0 <= float(focus) <=MAX_FOC_ROTATION)
     except Exception:

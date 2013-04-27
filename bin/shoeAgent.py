@@ -9,6 +9,8 @@ EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.5'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v0.4'
 SHOE_AGENT_VERSION_STRING_SHORT='v0.4'
 
+DH_TIME=90
+
 def longTest(s):
     """ Return true if s can be cast as a long, false otherwise """
     try:
@@ -89,8 +91,7 @@ class ShoeAgent(Agent):
         #Initialize the shoe
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/shoe'+self.args.SIDE
-        self.shoe=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
-        self.devices.append(self.shoe)
+        self.connections['shoe']=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
         self.command_handlers.update({
@@ -165,9 +166,9 @@ class ShoeAgent(Agent):
         if not command_string:
             return ''
         #Send the command(s)
-        self.shoe.sendMessageBlocking(command_string)
+        self.connections['shoe'].sendMessageBlocking(command_string)
         #Get the first byte from the galil, typically this will be it
-        response=self.shoe.receiveMessageBlocking(nBytes=1)
+        response=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
         # 3 cases:, :, ?, or stuff followed by \r\n:
         #case 1, command succeeds but returns nothing, return
         if response ==':':
@@ -180,9 +181,9 @@ class ShoeAgent(Agent):
         #command is returning something
         else:
             #do a blocking receive on \n
-            response=response+self.shoe.receiveMessageBlocking()
+            response=response+self.connections['shoe'].receiveMessageBlocking()
             #...and a single byte read to grab the :
-            confByte=self.shoe.receiveMessageBlocking(nBytes=1)
+            confByte=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
             if confByte==':':
                 return response.strip()
             else:
@@ -274,8 +275,8 @@ class ShoeAgent(Agent):
         arg=command.string.partition(' ')[2]
         if arg:
             try:
-                self.shoe.sendMessageBlocking(arg)
-                response=self.shoe.receiveMessageBlocking(nBytes=2048)
+                self.connections['shoe'].sendMessageBlocking(arg)
+                response=self.connections['shoe'].receiveMessageBlocking(nBytes=2048)
                 response=response.replace('\r','\\r').replace('\n','\\n')
             except IOError, e:
                 response='ERROR: %s' % str(e)
@@ -289,10 +290,16 @@ class ShoeAgent(Agent):
         
         Responds with the temp or UNKNOWN
         """
-        try:
-            response=self._send_command_to_shoe('TE')
-        except IOError, e:
-            response='UNKNOWN'
+        if self.connections['shoe'].rlock.acquire(False):
+            try:
+                
+                response=self._send_command_to_shoe('TE')
+            except IOError, e:
+                response='UNKNOWN'
+            finally:
+                self.connections['shoe'].rlock.release()
+        else:
+            response='ERROR: Busy, try again'
         command.setReply(response)
     
     def SLITS_command_handler(self, command):
@@ -316,8 +323,11 @@ class ShoeAgent(Agent):
         representing the closed position.
         """
         if '?' in command.string:
-            #Command the shoe to report the active slit for all 8 tetri
-            command.setReply(self._do_online_only_command('SG*'))
+            if self.command_worker_thread_running('SLITS'):
+                command.setReply(self.get_command_state('SLITS'))
+            else:
+                #Command the shoe to report the active slit for all 8 tetri
+                command.setReply(self._do_online_only_command('SG*'))
         else:
             #Vet the command
             command_parts=command.string.replace(',',' ').split(' ')
@@ -340,13 +350,54 @@ class ShoeAgent(Agent):
             if status.startswith('ERROR:'):
                 command.setReply(status)
                 return
-            if '2550' != ''.join(status.split()[2:4]):
-                command.setReply('ERROR: Tetri must be calibrated and not moving.')
+            movingByte=''.join(status.split()[3:4])
+            if '0' != movingByte:
+                command.setReply('ERROR: Move in progress (%s).' % movingByte)
                 return
-            #Command the shoe to reconfigure the tetrii
-            response=self._do_online_only_command('SL'+''.join(command_parts[1:]))
-            command.setReply(response)
-
+            command.setReply('OK')
+            slits=''.join(command_parts[1:9])
+            self.startWorkerThread(command, 'MOVING', self.slit_mover,
+                args=(slits, status),
+                block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS',
+                       'SLITS_HARDSTOP'))
+    
+    def slit_mover(self, slits, status):
+        """
+        uses iorequests to move slits
+        slits is a 8-tuble or list of number strings '1' - '7'
+        status is the response to the command TS
+        """
+        #Command the shoe to reconfigure the tetrii
+        #Determine which are uncalibrated
+        uncalByte=status.split(' ')[2]
+        if uncalByte!=0:
+            uncalibrated=map(lambda x: int(x)-1,
+                             byte2bitNumberString(int(uncalByte)).split(' '))
+        else:
+            uncalibrated=[]
+        with self.connections['shoe'].rlock:
+            for i in range(0,8):
+                if i in uncalibrated:
+                    resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
+                else:
+                    cmd='SL'+'ABCDEFGH'[i]+slits[i]
+                    resp=self._do_online_only_command(cmd)
+                if resp !='OK':
+                    self.returnFromWorkerThread('SLITS', finalState=resp)
+                    return
+            self.logger.debug('sleeping with lock active')
+            time.sleep(60)
+            self.logger.debug('finished sleeping with lock active')
+        if len(uncalibrated) > 0:
+            time.sleep(DH_TIME)
+        with self.connections['shoe'].rlock:
+            for i in uncalibrated:
+                cmd='SL'+'ABCDEFGH'[i]+slits[i]
+                resp=self._do_online_only_command(cmd)
+                if resp !='OK':
+                    self.returnFromWorkerThread('SLITS', finalState=resp)
+                    return
+        self.returnFromWorkerThread('SLITS')
     
     def SLITPOS_command_handler(self, command):
         """

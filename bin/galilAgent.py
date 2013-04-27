@@ -102,35 +102,34 @@ class GalilAgent(Agent):
         #Initialize the Galil
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/galil'+self.args.SIDE
-        self.galil=GalilSerial(self.args.DEVICE, self.args.SIDE,
-                               loglevel=self.args.LOG_LEVEL)
-        self.devices.append(self.galil)
+        self.connections['galil']=GalilSerial(self.args.DEVICE, self.args.SIDE,
+                                              loglevel=self.args.LOG_LEVEL)
         self.query_commands={
-            'FILTER':self.galil.get_filter,
-            'LREL':self.galil.get_loel,
-            'HREL':self.galil.get_hrel,
-            'HRAZ':self.galil.get_hraz,
-            'FOCUS':self.galil.get_foc,
-            'GES':self.galil.get_ges,
-            'FLSIM':self.galil.get_flsim}
+            'FILTER':self.connections['galil'].get_filter,
+            'LREL':self.connections['galil'].get_loel,
+            'HREL':self.connections['galil'].get_hrel,
+            'HRAZ':self.connections['galil'].get_hraz,
+            'FOCUS':self.connections['galil'].get_foc,
+            'GES':self.connections['galil'].get_ges,
+            'FLSIM':self.connections['galil'].get_flsim}
         self.action_commands={
-            'GALILRAW':self.galil.raw,
-            'GALILRESET':self.galil.reset,
-            'FILTER':self.galil.set_filter,
-            'LREL':self.galil.set_loel,
-            'HREL':self.galil.set_hrel,
-            'HRAZ':self.galil.set_hraz,
-            'FOCUS':self.galil.set_foc,
-            'GES':self.galil.set_ges,
-            'FILTER_INSERT':self.galil.insert_filter,
-            'FILTER_REMOVE':self.galil.remove_filter,
-            'FLSIM_INSERT':self.galil.insert_flsim,
-            'FLSIM_REMOVE':self.galil.remove_flsim,
-            'LREL_CALIBRATE':self.galil.calibrate_lrel,
-            'HREL_CALIBRATE':self.galil.calibrate_hrel,
-            'HRAZ_CALIBRATE':self.galil.calibrate_hraz,
-            'GES_CALIBRATE':self.galil.calibrate_ges,
-            'GES_MOVE':self.galil.nudge_ges}
+            'GALILRAW':self.connections['galil'].raw,
+            'GALILRESET':self.connections['galil'].reset,
+            'FILTER':self.connections['galil'].set_filter,
+            'LREL':self.connections['galil'].set_loel,
+            'HREL':self.connections['galil'].set_hrel,
+            'HRAZ':self.connections['galil'].set_hraz,
+            'FOCUS':self.connections['galil'].set_foc,
+            'GES':self.connections['galil'].set_ges,
+            'FILTER_INSERT':self.connections['galil'].insert_filter,
+            'FILTER_REMOVE':self.connections['galil'].remove_filter,
+            'FLSIM_INSERT':self.connections['galil'].insert_flsim,
+            'FLSIM_REMOVE':self.connections['galil'].remove_flsim,
+            'LREL_CALIBRATE':self.connections['galil'].calibrate_lrel,
+            'HREL_CALIBRATE':self.connections['galil'].calibrate_hrel,
+            'HRAZ_CALIBRATE':self.connections['galil'].calibrate_hraz,
+            'GES_CALIBRATE':self.connections['galil'].calibrate_ges,
+            'GES_MOVE':self.connections['galil'].nudge_ges}
     
     def get_cli_help_string(self):
         """
@@ -166,7 +165,7 @@ class GalilAgent(Agent):
         
         Report the Key:Value pairs name:cookie, Galil:connected.
         """
-        if self.galil.isOpen():
+        if self.connections['galil'].isOpen():
             state="Connected"
         else:
             state="Disconnected"
@@ -204,19 +203,19 @@ class GalilAgent(Agent):
         settingName=self.command_settingName_map[command_name]
         #Getting or Setting?
         if '?' in command.string:
-            command.setReply(self.galil.getDefault(settingName))
+            command.setReply(self.connections['galil'].getDefault(settingName))
         else:
-            command.setReply(self.galil.setDefault(settingName, args))
+            command.setReply(self.connections['galil'].setDefault(settingName, args))
     
     def reset_command_handler(self, command):
         """ Reset the galil """
-        command.setReply(self.galil.reset())
+        command.setReply(self.connections['galil'].reset())
     
     def _stowShutdown(self):
         """
         Perform a stowed shutdown
         """
-        self.galil.shutdown()
+        self.connections['galil'].shutdown()
     
     def galil_command_handler(self, command):
         """
@@ -230,7 +229,6 @@ class GalilAgent(Agent):
         """
         command_name,junk,args=command.string.partition(' ')
         query='?' in command.string and not 'GALILRAW' in command.string
-        
         if command_name=='FLSIM':
             if args=='IN':
                 command_name='FLSIM_INSERT'

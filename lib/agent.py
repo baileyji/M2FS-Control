@@ -105,7 +105,6 @@ class Agent(object):
         self.command_state={}
         self._blocked={}
         self.max_clients=1
-        self.io_request_queue=Queue.Queue()
         self.cookie=str(int(time.time()))
         self.initialize_cli_parser()
         self.args=self.cli_parser.parse_args()

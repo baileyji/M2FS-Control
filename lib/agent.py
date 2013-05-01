@@ -736,7 +736,10 @@ class Agent(object):
         retrieve to command state for the command name. If no command state
         exists it raises KeyError
         """
-        return self.command_state[self.getCommandName(command)]
+        ret=self.command_state[self.getCommandName(command)]
+        if not self._isWorkerThreadRunning(command):
+            self.clear_command_state(self.getCommandName(command))
+        return ret
 
     def _isWorkerThreadRunning(self, command):
         """ Return true if a worker thread is running for command """

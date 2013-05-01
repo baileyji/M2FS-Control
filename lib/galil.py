@@ -1,5 +1,6 @@
 import serial, logging
 import SelectedConnection
+from SelectedConnection import logger
 from m2fsConfig import m2fsConfig
 
 EXPECTED_M2FS_DMC_VERSION='0.1000'
@@ -146,18 +147,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             '3':None, '4':None, '5':None, '6':None, '7':None}
         # Error flag store
         self.errorFlags={}
+        logger.name='GalilCon'+side
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
-        if 'loglevel' in kwargs:
-            loglevel=kwargs['loglevel']
-        else:
-            loglevel=SelectedConnection.DEFAULT_LOG_LEVEL
         SelectedConnection.SelectedSerial.__init__(self, device, 115200,
             timeout=GALIL_TIMEOUT, default_message_received_callback=
-                self._unsolicited_galil_message_handler,
-                loglevel=loglevel)
-        self.logger=logging.getLogger('GalilCon'+side)
-        self.logger.setLevel(loglevel)
+                self._unsolicited_galil_message_handler)
         #Override the default message terminator for consistency. Doesn't matter
         #since we also override the _terminateMessage function
         self.messageTerminator='\r'

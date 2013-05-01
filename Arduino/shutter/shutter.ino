@@ -74,6 +74,12 @@ void loop() {
   
   redPinValue=digitalRead(RED_IN_PIN);
   bluePinValue=digitalRead(BLUE_IN_PIN);
+  if ( (bluePinValue != bluePinValueLast || redPinValue != redPinValueLast)) &&
+      !(bluePinValue != bluePinValueLast && redPinValue != redPinValueLast)) {
+      delay(25);
+      redPinValue=digitalRead(RED_IN_PIN);
+      bluePinValue=digitalRead(BLUE_IN_PIN);
+  }
   if (bluePinValue != bluePinValueLast ||
       redPinValue != redPinValueLast) {
       
@@ -90,7 +96,6 @@ void loop() {
         commanded_red = redPinValue ? OPEN:CLOSED;
       
   }
-  delay(DEBOUNCE_DELAY);
 
   //Do we need to move
   doBlueMove=(commanded_blue != blue_pos);

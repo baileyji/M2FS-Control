@@ -598,12 +598,15 @@ class Agent(object):
         return self.connections[name]
     
     def getCommandName(self, command):
-        """ Return the command_name for the command object
+        """ Return the command_name for the command object (or a raw string)
         
         This is the string which maps to the commands callback in 
         command_handlers
         """
-        return command.string.partition(' ')[0]
+        if isinstance(command,Command):
+            return command.string.partition(' ')[0]
+        else:
+            return command.partition(' ')[0]
     
     def commandIsQuery(self, command):
         """ Return true if the command is a query 

@@ -328,7 +328,7 @@ class Agent(object):
         if m2fsConfig.doStowedShutdown():
             self._stowShutdown()
         self.logger.info("----%s exiting: %s-----" % (self.name, str(arg)))
-        if self.server_socket:
+        if self.server_socket!=None:
             try:
                 self.server_socket.shutdown(socket.SHUT_WR)
             except socket.error:

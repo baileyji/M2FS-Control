@@ -16,6 +16,10 @@ REM None of these should ever need to change and in fact changing WILL cause
 REM bizarre and bad behavior!
 REM For parameters look lower to the Parameters section.
 
+'Note that there are a few routines that encode the axes manually
+'These values are only for readability. 
+'Do not changes these and expect everything to still work, unless you go
+'through the code and update the places they are used explicitly(e.g. TDA, LRD)
 GESAX=0
 FLSINAX=1
 FOCAX=2
@@ -110,8 +114,8 @@ REM  (or the instrument is on the telescope and in use, then Mea Culpa -JB)
 
 
 'Analog Position Filtering
-ANAMAFSZ=1000;'Filter sample size (filter should run at 1ms intervals)
-
+ANAMAFSZ=100;'Filter sample size (filter should run at 1ms intervals)
+anamafdt=12;'sample interval in ms
 
 DM axaccel[8];'Generic Acceleration rate
 axaccel[GESAX]=100000
@@ -1424,61 +1428,19 @@ DM gespacu[^b], felpacu[^b], focpacu[^b]
 REM Initialize array with analog encoder values
 ^a=0
 #ANAMAF1
-~a=GESAX;gespacu[^a]=_TP~a
-~a=FESELAX;felpacu[^a]=_TP~a
-~a=FOCAX;focpacu[^a]=_TP~a
-^a=^a+1
-JP#ANAMAF1,^a<^b
+gespacu[^a]=_TPA;felpacu[^a]=_TPE;focpacu[^a]=_TPC;^a=^a+1;JP#ANAMAF1,^a<^b
 '#ANAMAF2 is the filter.  It takes the most recent reading,
 '  tosses out the oldest reading, sums the values and takes an average.
+REM This code is condensed for speed, roughly a factor of 2x gained
 ^a=0;AT0
-#ANAMAF2
-'If axis is in motion, update the index of the most recent dirty value
-~a=GESAX;IF(_TS~a & $80);anapcln[GESAX]=^a;ENDIF
-~a=FOCAX;IF(_TS~a & $80);anapcln[FOCAX]=^a;ENDIF
-~a=FESELAX;IF(_TS~a & $80);anapcln[FESELAX]=^a;ENDIF
-'Current value
-~a=GESAX;gespacu[^a]=_TP~a
-~a=FESELAX;felpacu[^a]=_TP~a
-~a=FOCAX;focpacu[^a]=_TP~a
-'sum in current value and subtract oldest value
-^g=^a+1
-^d=^d-gespacu[^g]+gespacu[^a]
-^e=^e-felpacu[^g]+felpacu[^a]
-^f=^f-focpacu[^g]+focpacu[^a]
-'Store filtered readings
-gesanap=^d/^c;felanap=^e/^c;focanap=^f/^c
-analogp[GESAX]=gesanap;analogp[FESELAX]=felanap;analogp[FOCAX]=focanap
-^a=^g
-'See if the reading is clear of motion contamination
-IF(anapcln[GESAX]=^a);anapcln[GESAX]=-1;ENDIF
-IF(anapcln[FESELAX]=^a);anapcln[FESELAX]=-1;ENDIF
-IF(anapcln[FOCAX]=^a);anapcln[FOCAX]=-1;ENDIF
-'If last read then subtract first array element and reset ^a
-'MG TIME-^g
-AT-1;JP#ANAMAF2,^a<^c
-'If axis is in motion, update the index of the most recent dirty value
-~a=GESAX;IF(_TS~a & $80);anapcln[GESAX]=^a;ENDIF
-~a=FOCAX;IF(_TS~a & $80);anapcln[FOCAX]=^a;ENDIF
-~a=FESELAX;IF(_TS~a & $80);anapcln[FESELAX]=^a;ENDIF
-'Current value
-~a=GESAX;gespacu[^a]=_TP~a
-~a=FESELAX;felpacu[^a]=_TP~a
-~a=FOCAX;focpacu[^a]=_TP~a;
-'sum in current value and subract oldest value
-^d=^d-gespacu[0]+gespacu[^a]
-^e=^e-felpacu[0]+felpacu[^a]
-^f=^f-focpacu[0]+focpacu[^a]
-'Store filtered readings
-gesanap=^d/^c;felanap=^e/^c;focanap=^f/^c
-analogp[GESAX]=gesanap;analogp[FESELAX]=felanap;analogp[FOCAX]=focanap
-^a=0
-'See if the reading is clear of motion contamination
-IF(anapcln[GESAX]=^a);anapcln[GESAX]=-1;ENDIF
-IF(anapcln[FESELAX]=^a);anapcln[FESELAX]=-1;ENDIF
-IF(anapcln[FOCAX]=^a);anapcln[FOCAX]=-1;ENDIF
-'MG TIME-^h,gesanap,felanap,focanap
-AT-1;JP#ANAMAF2
+#ANAMAF2;IF(_TSA&$80);anapcln[0]=^a;ENDIF;IF(_TSC&$80);anapcln[2]=^a;ENDIF
+IF(_TSE&$80);anapcln[4]=^a;ENDIF;gespacu[^a]=_TPA;felpacu[^a]=_TPE
+focpacu[^a]=_TPC;IF(^a<^c);^g=^a+1;ELSE;^g=0;ENDIF
+^d=^d-gespacu[^g]+gespacu[^a];^e=^e-felpacu[^g]+felpacu[^a]
+^f=^f-focpacu[^g]+focpacu[^a];gesanap=^d/^c;felanap=^e/^c;focanap=^f/^c
+analogp[0]=gesanap;analogp[4]=felanap;analogp[2]=focanap;^a=^g
+IF(anapcln[0]=^a);anapcln[0]=-1;ENDIF;IF(anapcln[4]=^a);anapcln[4]=-1;ENDIF
+IF(anapcln[2]=^a);anapcln[2]=-1;ENDIF;loopdt=TIME-loopt;AT-anamafdt;JP#ANAMAF2
 ENDIF
 EN
 

@@ -226,7 +226,7 @@ encnlim[FESELAX]=0
 encnlim[FOCAX]=3800
 
 'FOC related defines
-focentol=5;' Encoder tolerance of a desired pot position TODO: DETERMINE
+focentol=1.5;' Encoder tolerance of a desired pot position TODO: DETERMINE
 
 'GES Related Defines
 geshrp=7400;'(steps) Position of HiRes mode from calibrated 0 TODO: finalize
@@ -808,13 +808,21 @@ JS#WAITAMF(^a)
 IF(@ABS[^c]>focentol)
 JS#ENC2STP(^a,^c);~a=^a;^c=_TD~a+_JS
 ~a=^a;JS#FANCYMV(^a,^c);~a=^a;MC~a;~a=^a;MO~a
+ENDIF
 'Rince lather repeat x2
 JS#WAITAMF(^a)
 ^c=^b-focanap
 IF(@ABS[^c]>focentol)
 JS#ENC2STP(^a,^c);~a=^a;^c=_TD~a+_JS
 ~a=^a;JS#FANCYMV(^a,^c);~a=^a;MC~a;~a=^a;MO~a
-ENDIF;ENDIF
+ENDIF
+'Rince lather repeat x3
+JS#WAITAMF(^a)
+^c=^b-focanap
+IF(@ABS[^c]>focentol)
+JS#ENC2STP(^a,^c);~a=^a;^c=_TD~a+_JS
+~a=^a;JS#FANCYMV(^a,^c);~a=^a;MC~a;~a=^a;MO~a
+ENDIF
 ENDIF
 EN
 

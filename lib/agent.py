@@ -153,13 +153,15 @@ class Agent(object):
         """
         #Configure the root logger
         self.logger=logging.getLogger()
-        # create console handler
-        ch = logging.StreamHandler()
-        ch.setFormatter(logging.Formatter('%(name)s:%(levelname)s: %(message)s'))
-        ch.setLevel(level)
-        # add handlers to logger
-        self.logger.addHandler(ch)
-        self.logger.setLevel(level) 
+        if self.logger.handlers==[]:
+            # create console handler
+            ch = logging.StreamHandler()
+            ch.setFormatter(logging.Formatter('%(name)s:%(levelname)s: %(message)s'))
+            ch.setLevel(level)
+            # add handlers to logger
+            self.logger.addHandler(ch)
+        #Set the default logging level
+        self.logger.setLevel(level)
         #Get a logger for the agent
         self.logger=logging.getLogger(self.name)
     

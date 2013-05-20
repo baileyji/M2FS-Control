@@ -1,5 +1,3 @@
-// Sweep
-// by BARRAGAN <http://barraganstudio.com> 
 // This example code is in the public domain.
 
 
@@ -12,7 +10,7 @@ int pos = 0;    // variable to store the servo position
  
 void setup() 
 { 
-  myservo.attach(10);  // attaches the servo on pin 9 to the servo object 
+  myservo.attach(9);  // attaches the servo on pin 9 to the servo object 
   Serial.begin(115200);
 }
 
@@ -20,20 +18,28 @@ void setup()
 //s = stop
 //c = cycle
 unsigned int delayOpen=350;     //m
-unsigned int delayClose1=350;   //n
+unsigned int delayClose1=150;   //n
+unsigned int delayClose2=500;   //s
 unsigned int openPos=1400;      //o
-unsigned int closePos1=2000;    //p
-unsigned int closePos2=2090;    //q
+unsigned int closePos1=2050;    //p
+unsigned int closePos2=2120;    //q
+unsigned int closePos3=2110;    //r
 
 //B
-//q1973
-//p1950
-//o1300
+//n150
+//o1400
+//p2020
+//q2030 needs foam
+
+q1968
+
 
 //R
-//q1928
-//p1900
-//o1200
+
+
+//o1400
+//p2060
+//q2088
 
 void loop() 
 { 
@@ -52,8 +58,9 @@ void loop()
             myservo.writeMicroseconds(closePos1);
             delay(delayClose1);
             myservo.writeMicroseconds(closePos2);
-            
-            delay(1000);
+            delay(delayClose2);
+            myservo.writeMicroseconds(closePos3);
+            delay(5000);
             if (Serial.peek() == 's') {
               Serial.read();
               cycles = 0;
@@ -84,6 +91,16 @@ void loop()
         Serial.read();
         delay(WAIT_DATA);
         closePos2=Serial.parseInt();
+    }
+    else if (Serial.peek() == 'r'){
+        Serial.read();
+        delay(WAIT_DATA);
+        closePos3=Serial.parseInt();
+    }
+    else if (Serial.peek() == 's'){
+        Serial.read();
+        delay(WAIT_DATA);
+        delayClose2=Serial.parseInt();
     }
     else Serial.read();
 

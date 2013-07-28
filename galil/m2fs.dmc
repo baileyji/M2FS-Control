@@ -1440,7 +1440,7 @@ focpacu[^a]=_TPC;IF(^a<^c);^g=^a+1;ELSE;^g=0;ENDIF
 ^f=^f-focpacu[^g]+focpacu[^a];gesanap=^d/^c;felanap=^e/^c;focanap=^f/^c
 analogp[0]=gesanap;analogp[4]=felanap;analogp[2]=focanap;^a=^g
 IF(anapcln[0]=^a);anapcln[0]=-1;ENDIF;IF(anapcln[4]=^a);anapcln[4]=-1;ENDIF
-IF(anapcln[2]=^a);anapcln[2]=-1;ENDIF;loopdt=TIME-loopt;AT-anamafdt;JP#ANAMAF2
+IF(anapcln[2]=^a);anapcln[2]=-1;ENDIF;AT-anamafdt;JP#ANAMAF2
 ENDIF
 EN
 

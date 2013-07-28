@@ -2,11 +2,10 @@
 Description=M2FS Slit Controller
 Wants=shoeR.service
 Wants=shoeB.service
-Wants=projector.service
+#Wants=projector.service
 
 [Install]
 WantedBy=director.service
-#Also=
 
 [Service]
 Type=simple

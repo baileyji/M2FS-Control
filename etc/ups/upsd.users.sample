@@ -61,10 +61,9 @@
 #
 # To add a user for your upsmon, use this example:
 #
-[monitor]
-        password  = 1
-        upsmon master
-        instcmds = ALL
+#	[upsmon]
+#		password  = pass
+#		upsmon master
 # or
 #		upsmon slave
 #

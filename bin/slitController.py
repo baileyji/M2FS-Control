@@ -31,12 +31,10 @@ class SlitController(Agent):
         Agent.__init__(self,'SlitController')
         #Connect to the shoes
         agent_ports=m2fsConfig.getAgentPorts()
-        self.shoeAgentR_Connection=SelectedConnection.SelectedSocket(
+        self.connections['ShoeAgentR']=SelectedConnection.SelectedSocket(
             'localhost', agent_ports['ShoeAgentR'])
-        self.devices.append(self.shoeAgentR_Connection)
-        self.shoeAgentB_Connection=SelectedConnection.SelectedSocket(
+        self.connections['ShoeAgentB']=SelectedConnection.SelectedSocket(
             'localhost', agent_ports['ShoeAgentB'])
-        self.devices.append(self.shoeAgentB_Connection)
         #No closed loop
         self.closed_loop=False
         self.closedLoopMoveInProgress=False
@@ -81,15 +79,15 @@ class SlitController(Agent):
         """
         #First check Red shoe status
         try:
-            self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
-            statusR=self.shoeAgentR_Connection.receiveMessageBlocking(
+            self.connections['ShoeAgentR'].sendMessageBlocking('STATUS')
+            statusR=self.connections['ShoeAgentR'].receiveMessageBlocking(
                 error_on_absent_terminator=True)
         except IOError:
             statusR=('ShoeAgentR', 'Offline')
         #Then check Blue shoe status
         try:
-            self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
-            statusB=self.shoeAgentB_Connection.receiveMessageBlocking(
+            self.connections['ShoeAgentB'].sendMessageBlocking('STATUS')
+            statusB=self.connections['ShoeAgentB'].receiveMessageBlocking(
                 error_on_absent_terminator=True)
         except IOError:
             statusB=('ShoeAgentR', 'Offline')
@@ -116,8 +114,8 @@ class SlitController(Agent):
             elif 'R'==RorB:
                 shoe_command='%s %s' % (command_name, args)
                 try:
-                    self.shoeAgentR_Connection.sendMessageBlocking(shoe_command)
-                    response=self.shoeAgentR_Connection.receiveMessageBlocking(
+                    self.connections['ShoeAgentR'].sendMessageBlocking(shoe_command)
+                    response=self.connections['ShoeAgentR'].receiveMessageBlocking(
                         error_on_absent_terminator='ERROR: ShoeAgentR did not respond to command')
                     command.setReply(response)
                 except IOError:
@@ -125,8 +123,8 @@ class SlitController(Agent):
             elif 'B'==RorB:
                 shoe_command='%s %s' % (command_name, args)
                 try:
-                    self.shoeAgentB_Connection.sendMessageBlocking(shoe_command)
-                    response=self.shoeAgentB_Connection.receiveMessageBlocking(
+                    self.connections['ShoeAgentB'].sendMessageBlocking(shoe_command)
+                    response=self.connections['ShoeAgentB'].receiveMessageBlocking(
                         error_on_absent_terminator='ERROR: ShoeAgentB did not respond to command')
                     command.setReply(response)
                 except IOError:
@@ -152,11 +150,11 @@ class SlitController(Agent):
             """ Retrieve the slit positions """
             if not self.closed_loop:
                 if 'R' in command.string:
-                    self.shoeAgentR_Connection.sendMessage('SLITS ?', 
+                    self.connections['ShoeAgentR'].sendMessage('SLITS ?', 
                         responseCallback=command.setReply,
                         errorCallback=command.setReply)
                 elif 'B' in command.string:
-                    self.shoeAgentB_Connection.sendMessage('SLITS ?', 
+                    self.connections['ShoeAgentB'].sendMessage('SLITS ?', 
                         responseCallback=command.setReply,
                         errorCallback=command.setReply)
                 else:
@@ -172,12 +170,12 @@ class SlitController(Agent):
             if not self.closed_loop:
                 if 'R' in command.string:
                     shoe_command='SLITS'+command.string.partition('R')[2]
-                    self.shoeAgentR_Connection.sendMessage(shoe_command, 
+                    self.connections['ShoeAgentR'].sendMessage(shoe_command, 
                         responseCallback=command.setReply,
                         errorCallback=command.setReply)
                 elif 'B' in command.string:
                     shoe_command='SLITS'+command.string.partition('B')[2]
-                    self.shoeAgentB_Connection.sendMessage(shoe_command,
+                    self.connections['ShoeAgentB'].sendMessage(shoe_command,
                         responseCallback=command.setReply,
                         errorCallback=command.setReply)
                 else:
@@ -214,8 +212,8 @@ class SlitController(Agent):
         #Change the mode if possible
         #First check Red shoe for motion
         try:
-            self.shoeAgentR_Connection.sendMessageBlocking('STATUS')
-            response=self.shoeAgentR_Connection.receiveMessageBlocking()
+            self.connections['ShoeAgentR'].sendMessageBlocking('STATUS')
+            response=self.connections['ShoeAgentR'].receiveMessageBlocking()
             if 'moving:none' not in response.lower():
                 command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
                 return
@@ -223,8 +221,8 @@ class SlitController(Agent):
             pass
         #Then check Blue shoe for motion
         try:
-            self.shoeAgentB_Connection.sendMessageBlocking('STATUS')
-            response=self.shoeAgentB_Connection.receiveMessageBlocking()
+            self.connections['ShoeAgentB'].sendMessageBlocking('STATUS')
+            response=self.connections['ShoeAgentB'].receiveMessageBlocking()
             if 'moving:none' not in response.lower():
                 command.setReply('!ERROR: Slits currently in motion. Try switching control mode later.')
                 return
@@ -254,21 +252,21 @@ class SlitController(Agent):
         if '?' in command.string:
             #First check Red shoe for motion
             try:
-                self.shoeAgentR_Connection.sendMessageBlocking(command.string)
-                activeHoldA=self.shoeAgentR_Connection.receiveMessageBlocking()
+                self.connections['ShoeAgentR'].sendMessageBlocking(command.string)
+                activeHoldA=self.connections['ShoeAgentR'].receiveMessageBlocking()
             except IOError:
                 activeHoldR=''
             #Then check Blue shoe for motion
             try:
-                self.shoeAgentB_Connection.sendMessageBlocking(command.string)
-                activeHoldB=self.shoeAgentB_Connection.receiveMessageBlocking()
+                self.connections['ShoeAgentB'].sendMessageBlocking(command.string)
+                activeHoldB=self.connections['ShoeAgentB'].receiveMessageBlocking()
             except IOError:
                 activeHoldB=''
             if activeHoldR!=activeHoldB and activeHoldR and activeHoldB:
                 commandToB=('SLITS_ACTIVEHOLD '+
                             ( 'ON' if 'ON' in activeHoldR.upper() else 'OFF'))
                 try:
-                    self.shoeAgentB_Connection.sendMessageBlocking(commandToB)
+                    self.connections['ShoeAgentB'].sendMessageBlocking(commandToB)
                 except IOError:
                     pass
             if activeHoldR:
@@ -279,8 +277,8 @@ class SlitController(Agent):
                 command.setReply('ERROR: Unable to poll either shoe for status.')
         else:
             command.setReply('OK')
-            self.shoeAgentR_Connection.sendMessage(command.string)
-            self.shoeAgentB_Connection.sendMessage(command.string)
+            self.connections['ShoeAgentR'].sendMessage(command.string)
+            self.connections['ShoeAgentB'].sendMessage(command.string)
     
 
 if __name__=='__main__':

@@ -1,4 +1,4 @@
-import time
+import time, threading
 
 def escapeString(string):
     return string.replace('\n','\\n').replace('\r','\\r')
@@ -14,13 +14,15 @@ class Command:
         self.state=state
         self.replyRequired=replyRequired
         self.reply=reply
+        self._lock=threading.Lock()
     
     def __str__(self):
-        timestr=time.strftime('%X',time.localtime(self.timestamp))
-        cmdstr=("%s@%s: '%s', %s." %
-            (str(self.source), timestr, self.string, self.state))
-        if self.state == 'complete':
-            cmdstr+=" Reply: '%s'" % self.reply
+        with self._lock:
+            timestr=time.strftime('%X',time.localtime(self.timestamp))
+            cmdstr=("%s@%s: '%s', %s." %
+                (str(self.source), timestr, self.string, self.state))
+            if self.state == 'complete':
+                cmdstr+=" Reply: '%s'" % self.reply
         return escapeString(cmdstr)
     
     def setReply(self, *args):
@@ -28,5 +30,6 @@ class Command:
             reply=args[0]
         else:
             reply=args[1]
-        self.reply=reply
-        self.state='complete'
+        with self._lock:
+            self.reply=reply
+            self.state='complete'

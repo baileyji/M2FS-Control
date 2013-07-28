@@ -9,6 +9,7 @@ Wants=guider.service
 #Wants=projector.service
 Wants=shackhartman.service
 Wants=plugController.service
+After=network.target
 
 [Install]
 WantedBy=multi-user.target
@@ -22,3 +23,4 @@ Restart=always
 KillMode=control-group
 KillSignal=SIGTERM
 SendSIGKILL=yes
+

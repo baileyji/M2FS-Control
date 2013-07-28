@@ -68,9 +68,9 @@ def main():
     ser.write('\r\\;\\\r')
     ser.flush()
     #import pdb; pdb.set_trace()
-    resp=ser.read(3)
+    resp=ser.read(45)
 
-    if resp == ':::':
+    if resp[:3] == ':::':
         print "Complete: "+resp
         if args.burn:
             ser.write('BP\r')
@@ -80,8 +80,8 @@ def main():
         elif args.auto:
             ser.write('XQ#AUTO,0\r')
             ser.flush()
-            resp=ser.read(1)
-            if  resp==':':
+            resp=ser.read(45)
+            if  resp[:1]==':':
                 print "#AUTO started"
             else:
                 print "XQ#AUTO,0 failed: '"+resp+"'"

@@ -80,12 +80,13 @@ def main():
         elif args.auto:
             ser.write('XQ#AUTO,0\r')
             ser.flush()
-            if ser.read(1) ==':':
+            resp=ser.read(1)
+            if  resp==':':
                 print "#AUTO started"
             else:
-                print "XQ#AUTO,0 failed"
+                print "XQ#AUTO,0 failed: '"+resp+"'"
     else:
-        print "Upload failed:"+resp
+        print "Upload failed: '"+resp+"'"
     ser.close()
     exit(0)
 

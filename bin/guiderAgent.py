@@ -29,12 +29,12 @@ FILTER_HOME_TIME=3.6
 FOCUS_SLEW_TIME=0.8
 
 FILTER_DEGREE_POS_FW={
-    1: 19,
-    2: 58,
-    3: 100,
-    4: 140,
-    5: 180,
-    6: 222}
+    1: 45,
+    2: 85,
+    3: 125,
+    4: 165,
+    5: 205,
+    6: 245}
 
 MAX_PWIDTH=2100.0
 MIN_PWIDTH=900.0

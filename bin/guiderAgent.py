@@ -146,12 +146,25 @@ class GuiderAgent(Agent):
         focus=max(min(90, float(focus)), JITTER_STOP_MOVE)
         #Determine the move direction so we can nudge backwards after
         # Otherwise the motor might dance
-        if focus > self.focus:
-            dir=JITTER_STOP_MOVE
-        elif focus < self.focus:
-            dir=-JITTER_STOP_MOVE
-        else:
-            dir=0
+        dir=JITTER_STOP_MOVE
+#        if focus > self.focus:
+#            dir=JITTER_STOP_MOVE
+#        elif focus < self.focus:
+#            dir=-JITTER_STOP_MOVE
+#        else:
+#            dir=0
+    
+        pwid=deg2pwid(0, MAX_FOC_ROTATION)
+        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+        #move to focus pos
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
+            self.logger.info("Focus move failed home move")
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
+            return
+        time.sleep(FOCUS_SLEW_TIME)
+
         pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
         #move to focus pos

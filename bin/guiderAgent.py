@@ -155,13 +155,13 @@ class GuiderAgent(Agent):
         pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
         #move to focus pos
-        ioRequest=SendRequest(((msg,), {}) , 'guider')
-        self.request_io(ioRequest)
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
             self.logger.info("Focus move failed initial move")
-            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + ioRequest.response)
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
             return
+
         self.focus=focus
         #give the move enough time
         time.sleep(FOCUS_SLEW_TIME)
@@ -169,12 +169,11 @@ class GuiderAgent(Agent):
         focus-=dir
         pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
-        ioRequest=SendRequest(((msg,),{}), 'guider')
-        self.request_io(ioRequest)
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
             self.logger.debug("Focus move failed jitter correction move")
-            self.returnFromWorkerThread('GFOCUS', 'ERROR: '+ ioRequest.response)
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
             return
         self.focus=focus
         self.returnFromWorkerThread('GFOCUS')
@@ -223,24 +222,22 @@ class GuiderAgent(Agent):
         #move to home
         pwid=deg2pwid(0, MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
-        ioRequest=SendRequest(((msg,), {}) , 'guider')
-        self.request_io(ioRequest, description="Request move to home" )
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
             self.logger.debug("Request move to home FAILED")
-            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + ioRequest.response)
+            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + str(e))
             return
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
         #now move to the filter
         pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
-        ioRequest=SendRequest(((msg,),{}), 'guider')
-        self.request_io(ioRequest, description="Request move to filter")
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
-            self.logger.debug("Request move to filter FAILED")
-            self.returnFromWorkerThread('GFILTER', 'ERROR: '+ ioRequest.response)
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
+            self.logger.debug("Request move to home FAILED")
+            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + str(e))
             return
         time.sleep(FILTER_HOME_TIME)
         self.returnFromWorkerThread('GFILTER')

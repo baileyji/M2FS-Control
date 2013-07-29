@@ -4,7 +4,6 @@ import Queue
 import logging, logging.handlers
 from command import Command
 from SelectedConnection import SelectedSocket, WriteError
-import iorequest
 import SelectedConnection
 from m2fsConfig import m2fsConfig
 import threading

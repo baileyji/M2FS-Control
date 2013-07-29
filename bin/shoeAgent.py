@@ -363,7 +363,6 @@ class ShoeAgent(Agent):
     
     def slit_mover(self, slits, status):
         """
-        uses iorequests to move slits
         slits is a 8-tuble or list of number strings '1' - '7'
         status is the response to the command TS
         """

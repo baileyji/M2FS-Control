@@ -126,7 +126,7 @@ class GuiderAgent(Agent):
         else:
             focus=command.string.partition(' ')[2]
             if not validFocusValue(focus):
-                self.bad_command_handler(command)
+                command.setReply('ERROR: Valid values are %i to 90, +, & -.'%JITTER_STOP_MOVE)
                 return
             command.setReply('OK')
             self.startWorkerThread(command, 'MOVING', self.setFocusPos,
@@ -143,7 +143,7 @@ class GuiderAgent(Agent):
             focus=self.focus+FOCUS_NUDGE
         elif focus=='-':
             focus=self.focus-FOCUS_NUDGE
-        focus=max(min(90, float(focus)), 0)
+        focus=max(min(90, float(focus)), JITTER_STOP_MOVE)
         #Determine the move direction so we can nudge backwards after
         # Otherwise the motor might dance
         if focus > self.focus:
@@ -345,12 +345,12 @@ def bytes2pwid(bytes):
 
 def validFocusValue(focus):
     """ Return true iff focus is a valid focus position 
-    Valid focus values are 0-90, +, & -
+    Valid focus values are JITTER_STOP_MOVE to 90, +, & -
     """
     if focus in ['+', '-']:
         return True
     try:
-        valid = (0.0 <= float(focus) <=MAX_FOC_ROTATION)
+        valid = (JITTER_STOP_MOVE <= float(focus) <=MAX_FOC_ROTATION)
     except Exception:
         valid=False
     return valid

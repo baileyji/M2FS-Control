@@ -231,7 +231,11 @@ class GuiderAgent(Agent):
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
         #now move to the filter
-        pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
+        if new_filt <6:
+            filt=FILTER_DEGREE_POS_FW[new_filt]
+        else:
+            filt=new_filt
+        pwid=deg2pwid(filt, MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
         try:
             self.connections['guider'].sendMessageBlocking(msg)
@@ -355,7 +359,9 @@ def validFocusValue(focus):
 def validFilterValue(filter):
     """ Return true iff filter is a valid filter """
     try:
-        valid=int(float(filter)) in FILTER_DEGREE_POS_FW.keys()
+        #valid=int(float(filter)) in FILTER_DEGREE_POS_FW.keys()
+        int(float(filter))
+        valid=True
     except ValueError:
         valid=False
     return valid

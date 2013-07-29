@@ -166,8 +166,8 @@ class GuiderAgent(Agent):
         #give the move enough time
         time.sleep(FOCUS_SLEW_TIME)
         #Nudge the focus backwards so the servo doesn't dance
-        focus=focus-dir
-        pwid=deg2pwid(focus-dir, MAX_FOC_ROTATION)
+        focus-=dir
+        pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
         ioRequest=SendRequest(((msg,),{}), 'guider')
         self.request_io(ioRequest)

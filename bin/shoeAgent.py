@@ -369,11 +369,12 @@ class ShoeAgent(Agent):
         #Command the shoe to reconfigure the tetrii
         #Determine which are uncalibrated
         uncalByte=status.split(' ')[2]
-        if uncalByte!=0:
-            uncalibrated=map(lambda x: int(x)-1,
+        if uncalByte!='0':
+            calibrated=map(lambda x: int(x)-1,
                              byte2bitNumberString(int(uncalByte)).split(' '))
+            uncalibrated=[x for x in range(0,8) if x not in calibrated]
         else:
-            uncalibrated=[]
+            uncalibrated=range(0,8)
         with self.connections['shoe'].rlock:
             for i in range(0,8):
                 if i in uncalibrated:

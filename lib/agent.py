@@ -261,6 +261,9 @@ class Agent(object):
             handler from command_handlers using the first word in the message
             as a key after converting it to uppercase. Finally, call the command
             handler with the Command.
+            If the command is blocked respond appropriately.
+            Check for any state from a worker thread and if that exists return it
+            only if it doesn't will the command handler be called for a query.
         """
         #create a command object
         command=Command(source, message_str)

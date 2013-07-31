@@ -323,11 +323,8 @@ class ShoeAgent(Agent):
         representing the closed position.
         """
         if '?' in command.string:
-            if self.command_worker_thread_running('SLITS'):
-                command.setReply(self.get_command_state('SLITS'))
-            else:
-                #Command the shoe to report the active slit for all 8 tetri
-                command.setReply(self._do_online_only_command('SG*'))
+            #Command the shoe to report the active slit for all 8 tetri
+            command.setReply(self._do_online_only_command('SG*'))
         else:
             #Vet the command
             command_parts=command.string.replace(',',' ').split(' ')

@@ -3,7 +3,7 @@
 
 #include <Servo.h> 
 
-#define BLUE_SERVO_PIN  10  //Ouput
+#define BLUE_SERVO_PIN  10  //Ouput  Blue is 10 red is 9
 #define WAIT_DATA 100
 
 Servo myservo;  // create servo object to control a servo 
@@ -17,9 +17,9 @@ unsigned int delayOpen=350;     //m
 unsigned int delayClose1=150;   //n
 unsigned int delayClose2=500;   //s
 unsigned int openPos=1400;      //o
-unsigned int closePos1=2050;    //p
-unsigned int closePos2=2120;    //q
-unsigned int closePos3=2110;    //r
+unsigned int closePos1=2080;    //p
+unsigned int closePos2=2100;    //q
+unsigned int closePos3=2100;    //r
 
 
 //t stop

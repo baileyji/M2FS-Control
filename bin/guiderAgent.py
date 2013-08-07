@@ -296,6 +296,43 @@ class GuiderAgent(Agent):
             raise IOError(msg)
         return bytes2pwid(bytes)
 
+    def getErrorStatus(self):
+        """
+        Poll the controller for the error status byte
+        
+        Returns the error value as a hex string or ERROR if IOERROR. No errors 
+        is the string '0x00'
+        
+        NB We must and the response as some of the bits are reserved and may not 
+        be 0 despite there being no error.
+        """
+        try:
+            REQUEST_ERROR_BYTE='\xA1\x00'
+            ERROR_BITS=0x00ff
+            self.connections['guider'].sendMessageBlocking(REQUEST_ERROR_BYTE)
+            response=self.connections['guider'].receiveMessageBlocking(nBytes=2)
+            #for bit meanings see maestro.pdf
+            err='0x{0:02x}'.format(convertUnsigned16bit(response) & ERROR_BITS)
+            return err
+        except IOError:
+            return 'Guider Disconnected'
+        except ValueError:
+            return 'Unable to parse guider response'
+
+
+def convertUnsigned16bit(str):
+    """
+    Convert a 2 byte little-endian string to an unsigned 16 bit number
+    
+    Raise ValueError if not a 2 byte string or unable to convert
+    """
+    if len(str) != 2:
+        raise ValueError
+    try:
+        return (ord(str[0])+256*ord(str[1]))
+    except Exception:
+        raise ValueError
+
 def filterAngle2Filter(angle):
     """ 
     Convert angle to the filter ID. Raise ValueError if no matching filter

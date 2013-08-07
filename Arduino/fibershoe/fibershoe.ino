@@ -176,22 +176,43 @@ void setup() {
     pinMode(TETRIS_MOTORS_POWER_ENABLE, OUTPUT);
 
     //Tetris Drivers
-    tetris[0]=Tetris(TETRIS_1_RESET, TETRIS_1_STANDBY, TETRIS_1_DIR, 
+    if (tetrisShieldIsR()) {
+        tetris[0]=Tetris(TETRIS_1_RESET, TETRIS_1_STANDBY, TETRIS_1_DIR,
                          TETRIS_1_CK, TETRIS_1_PHASE_HOME);
-    tetris[1]=Tetris(TETRIS_2_RESET, TETRIS_2_STANDBY, TETRIS_2_DIR,
-                        TETRIS_2_CK, TETRIS_2_PHASE_HOME);
-    tetris[2]=Tetris(TETRIS_3_RESET, TETRIS_3_STANDBY, TETRIS_3_DIR,
-                        TETRIS_3_CK, TETRIS_3_PHASE_HOME);
-    tetris[3]=Tetris(TETRIS_4_RESET, TETRIS_4_STANDBY, TETRIS_4_DIR,
-                        TETRIS_4_CK, TETRIS_4_PHASE_HOME);
-    tetris[4]=Tetris(TETRIS_5_RESET, TETRIS_5_STANDBY, TETRIS_5_DIR,
-                        TETRIS_5_CK, TETRIS_5_PHASE_HOME);
-    tetris[5]=Tetris(TETRIS_6_RESET, TETRIS_6_STANDBY, TETRIS_6_DIR,
-                        TETRIS_6_CK, TETRIS_6_PHASE_HOME);
-    tetris[6]=Tetris(TETRIS_7_RESET, TETRIS_7_STANDBY, TETRIS_7_DIR,
-                        TETRIS_7_CK, TETRIS_7_PHASE_HOME);
-    tetris[7]=Tetris(TETRIS_8_RESET, TETRIS_8_STANDBY, TETRIS_8_DIR,
-                        TETRIS_8_CK, TETRIS_8_PHASE_HOME);
+        tetris[1]=Tetris(TETRIS_2_RESET, TETRIS_2_STANDBY, TETRIS_2_DIR,
+                         TETRIS_2_CK, TETRIS_2_PHASE_HOME);
+        tetris[2]=Tetris(TETRIS_3_RESET, TETRIS_3_STANDBY, TETRIS_3_DIR,
+                         TETRIS_3_CK, TETRIS_3_PHASE_HOME);
+        tetris[3]=Tetris(TETRIS_4_RESET, TETRIS_4_STANDBY, TETRIS_4_DIR,
+                         TETRIS_4_CK, TETRIS_4_PHASE_HOME);
+        tetris[4]=Tetris(TETRIS_5_RESET, TETRIS_5_STANDBY, TETRIS_5_DIR,
+                         TETRIS_5_CK, TETRIS_5_PHASE_HOME);
+        tetris[5]=Tetris(TETRIS_6_RESET, TETRIS_6_STANDBY, TETRIS_6_DIR,
+                         TETRIS_6_CK, TETRIS_6_PHASE_HOME);
+        tetris[6]=Tetris(TETRIS_7_RESET, TETRIS_7_STANDBY, TETRIS_7_DIR,
+                         TETRIS_7_CK, TETRIS_7_PHASE_HOME);
+        tetris[7]=Tetris(TETRIS_8_RESET, TETRIS_8_STANDBY, TETRIS_8_DIR,
+                         TETRIS_8_CK, TETRIS_8_PHASE_HOME);
+    }
+    else {
+        tetris[7]=Tetris(TETRIS_1_RESET, TETRIS_1_STANDBY, TETRIS_1_DIR,
+                         TETRIS_1_CK, TETRIS_1_PHASE_HOME);
+        tetris[6]=Tetris(TETRIS_2_RESET, TETRIS_2_STANDBY, TETRIS_2_DIR,
+                         TETRIS_2_CK, TETRIS_2_PHASE_HOME);
+        tetris[5]=Tetris(TETRIS_3_RESET, TETRIS_3_STANDBY, TETRIS_3_DIR,
+                         TETRIS_3_CK, TETRIS_3_PHASE_HOME);
+        tetris[4]=Tetris(TETRIS_4_RESET, TETRIS_4_STANDBY, TETRIS_4_DIR,
+                         TETRIS_4_CK, TETRIS_4_PHASE_HOME);
+        tetris[3]=Tetris(TETRIS_5_RESET, TETRIS_5_STANDBY, TETRIS_5_DIR,
+                         TETRIS_5_CK, TETRIS_5_PHASE_HOME);
+        tetris[2]=Tetris(TETRIS_6_RESET, TETRIS_6_STANDBY, TETRIS_6_DIR,
+                         TETRIS_6_CK, TETRIS_6_PHASE_HOME);
+        tetris[1]=Tetris(TETRIS_7_RESET, TETRIS_7_STANDBY, TETRIS_7_DIR,
+                         TETRIS_7_CK, TETRIS_7_PHASE_HOME);
+        tetris[0]=Tetris(TETRIS_8_RESET, TETRIS_8_STANDBY, TETRIS_8_DIR,
+                         TETRIS_8_CK, TETRIS_8_PHASE_HOME);
+    }
+
 
     //Restore the nominal slit positions from EEPROM
 

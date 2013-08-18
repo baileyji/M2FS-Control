@@ -11,7 +11,7 @@ from SelectedConnection import SelectedSocket
 import logging
 from LoggerRecord import *
 
-LOGGING_LEVEL=logging.DEBUG
+LOGGING_LEVEL=logging.DEBUG  #This will not have any effect if it is more agressive than the conf file
 
 DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
 POLL_AGENTS_INTERVAL=60.0
@@ -60,7 +60,10 @@ class DataloggerAgent(Agent):
             #Return a list of the temperature values
             'TEMPS':self.TEMPS_command_handler})
         self.logger.setLevel(LOGGING_LEVEL)
-    
+        self.bUpdateTime=0
+        self.rUpdateTime=0
+        self.shUpdateTime=0
+
     def get_version_string(self):
         return DATALOGGER_VERSION_STRING
     
@@ -159,17 +162,48 @@ class DataloggerAgent(Agent):
             self.currentRecord=record
             self.logger.debug('Current record now: %s' % self.currentRecord.prettyStr())
         elif timeDelta >= 0:
+            
+            #update the timestamps for the data
+            if record.haveBData():
+                self.bUpdateTime=record.unixtime
+            if record.haveRData():
+                self.rUpdateTime=record.unixtime
+            if record.haveSHData():
+                self.shUpdateTime=record.unixtime
+                
+            #Merge in the new data, replacing the old
             self.logger.debug('Current record was: %s' % self.currentRecord.prettyStr())
             self.currentRecord.merge(record,force=True)
+    
+            #Adopt the new time
+            self.currentRecord.unixtime=record.unixtime
+    
+            #Clear out any data that is too old
+            if (self.currentRecord.unixtime - self.rUpdateTime) > READING_EXPIRE_INTERVAL:
+                self.logger.debug('R values expired, clearing')
+                for k in self.currentRecord.sideR.keys():
+                    self.currentRecord[k]=None
+            
+            if (self.currentRecord.unixtime - self.bUpdateTime) > READING_EXPIRE_INTERVAL:
+                self.logger.debug('B values expired, clearing')
+                for k in self.currentRecord.sideB.keys():
+                    self.currentRecord[k]=None
+            
+            if (self.currentRecord.unixtime - self.shUpdateTime) > READING_EXPIRE_INTERVAL:
+                self.logger.debug('SH value expired, clearing')
+                self.currentRecord.shackhartmanTemp=None
+
+            #Don't keep track of accelerations
+            self.currentRecord.sideB['accels']=None
+            self.currentRecord.sideR['accels']=None
+            
+            #Log the result
             self.logger.debug('Current record now: %s' % self.currentRecord.prettyStr())
         else:
             #we don't wan't old data
             self.logger.debug('No update to current record (%s)'%
                 self.currentRecord.timeString())
             return
-        #Don't keep track of accelerations
-        self.currentRecord.sideB['accels']=None
-        self.currentRecord.sideR['accels']=None
     
     def logRecords(self, records):
         """

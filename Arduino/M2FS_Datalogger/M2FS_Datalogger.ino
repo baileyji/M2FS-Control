@@ -29,13 +29,17 @@
 //       General Defines
 //#############################
 #define N_TEMP_SENSORS           3
-#define ID "v0.5"
+#define ID "v0.6"
 #define ID_SIZE 4
 #define LOGFILE_DATA_START (ID_SIZE + 13)  //Header size
 #define MESSAGE_CONFIRMATION_TIMEOUT_MS      250
 #define TEMP_RESOLUTION 12
 #define DS18B20_MAX_CONVERSION_TIME_MS 750
 #define MAX_LOGFILE_SIZE_BYTES   0x38400000   //~900MB
+
+#define ACCEL_RECORD_LEN 201
+#define TEMP_ACCEL_RECORD_LEN 213
+#define TEMP_RECORD_LEN 20
 
 //#############################
 //       Startup Settings
@@ -82,7 +86,7 @@
 #define LOG_TIMER         'L'
 #define TEMP_POLL_TIMER   'P'
 #define RTC_TIMER         'R'
-#define MSTIMER2_DELTA                       2	        // 1<=x< min(interval)
+#define MSTIMER2_DELTA                       2	        // 1 <= x < min defined interval
 #define TEMP_UPDATE_INTERVAL_MS              60000      //Once per minute
 #define RTC_UPDATE_INTERVAL_MS               3600000    //Once per hour
 #define LOG_SYNC_TIME_INTERVAL_MS            300000     //Once every five minutes
@@ -885,6 +889,12 @@ void logData() {
     if (bufferIsEmpty()) {
         return;	// Nothing to log
     }
+    if (bufferGetRecordSize() != ACCEL_RECORD_LEN &&
+        bufferGetRecordSize() != TEMP_ACCEL_RECORD_LEN &&
+        bufferGetRecordSize() != TEMP_RECORD_LEN) {
+        return; //The buffer is corrupt, records are length 21, 221, or 201
+    }
+    
     uint32_t futurePos=writePos + bufferGetRecordSize();
     
     //Check to see if writing requires looping around

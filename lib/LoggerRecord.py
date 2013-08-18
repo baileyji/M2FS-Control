@@ -153,29 +153,28 @@ class LoggerRecord(object):
     
     def bOnly(self):
         """ Return true iff the record only contains B side data """
-        if self.shackhartmanTemp!=None:
+        if self.haveSHData():
             return False
-        for k in self.sideR.keys():
-            if self.sideR[k] != None:
-                return False
-        haveBData=False
+        return self.haveBData() and not self.haveRData()
+    
+    def haveBData(self):
         for k in self.sideB.keys():
             if self.sideB[k] != None:
-                haveBData=True
-        return haveBData
+                return True
+
+    def haveRData(self):
+        for k in self.sideR.keys():
+            if self.sideR[k] != None:
+                return True
     
+    def haveSHData(self):
+        return self.shackhartmanTemp!=None
+
     def rOnly(self):
         """ Return true iff the record only contains R side data """
-        if self.shackhartmanTemp!=None:
+        if self.haveSHData():
             return False
-        for k in self.sideB.keys():
-            if self.sideB[k] != None:
-                return False
-        haveRData=False
-        for k in self.sideR.keys():
-            if self.sideR[k] != None:
-                haveRData=True
-        return haveRData
+        return self.haveRData() and not self.haveBData()
 
     def prettyStr(self):
         timestr=self.timeString()

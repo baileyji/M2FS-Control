@@ -5,8 +5,8 @@ int sensorValue = 0;  // variable to store the value coming from the sensor
 
 #define RELAY_PINS 0xC0
 #define ANALOG_PIN A5
-#define MIN_ON_V 205 //1V/5V * 1024
-#define MAX_ON_V 410 //2V/5V * 1024  
+#define MIN_ON_V 41 //0.2V/5V * 1024
+#define MAX_ON_V 61 //0.3V/5V * 1024  
 
 #define ADC_READ_WAIT_MS 1
 

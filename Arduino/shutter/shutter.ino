@@ -14,20 +14,20 @@
 #define CLOSED 0
 #define OPEN 1
 
-#define RED_OPEN_US 1200
-#define RED_PARTIAL_US 1900
-#define RED_CLOSED_US 1929
+#define RED_OPEN_US 1400
+#define RED_PARTIAL_US 2080
+#define RED_CLOSED_US 2100
 
-#define BLUE_OPEN_US 1300
-#define BLUE_PARTIAL_US 1950
-#define BLUE_CLOSED_US 1973
+#define BLUE_OPEN_US 1250
+#define BLUE_PARTIAL_US 2000
+#define BLUE_CLOSED_US 2025
 
 //Pins
-#define RED_IN_PIN      8  //Input
-#define RED_SERVO_PIN   10 //Ouput
+#define RED_IN_PIN      11  //Input
+#define RED_SERVO_PIN   9 //Ouput
 
-#define BLUE_IN_PIN     11  //Input
-#define BLUE_SERVO_PIN  9  //Ouput
+#define BLUE_IN_PIN     8  //Input
+#define BLUE_SERVO_PIN  10  //Ouput
 
 
 #include <Servo.h>
@@ -74,7 +74,7 @@ void loop() {
   
   redPinValue=digitalRead(RED_IN_PIN);
   bluePinValue=digitalRead(BLUE_IN_PIN);
-  if ( (bluePinValue != bluePinValueLast || redPinValue != redPinValueLast)) &&
+  if ( (bluePinValue != bluePinValueLast || redPinValue != redPinValueLast) &&
       !(bluePinValue != bluePinValueLast && redPinValue != redPinValueLast)) {
       delay(25);
       redPinValue=digitalRead(RED_IN_PIN);

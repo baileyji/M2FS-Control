@@ -29,12 +29,12 @@ FILTER_HOME_TIME=3.6
 FOCUS_SLEW_TIME=0.8
 
 FILTER_DEGREE_POS_FW={
-    1: 19,
-    2: 58,
-    3: 100,
-    4: 140,
-    5: 180,
-    6: 222}
+    1: 45,
+    2: 85,
+    3: 125,
+    4: 165,
+    5: 205,
+    6: 245}
 
 MAX_PWIDTH=2100.0
 MIN_PWIDTH=900.0
@@ -126,7 +126,7 @@ class GuiderAgent(Agent):
         else:
             focus=command.string.partition(' ')[2]
             if not validFocusValue(focus):
-                self.bad_command_handler(command)
+                command.setReply('ERROR: Valid values are %i to 90, +, & -.'%JITTER_STOP_MOVE)
                 return
             command.setReply('OK')
             self.startWorkerThread(command, 'MOVING', self.setFocusPos,
@@ -143,38 +143,50 @@ class GuiderAgent(Agent):
             focus=self.focus+FOCUS_NUDGE
         elif focus=='-':
             focus=self.focus-FOCUS_NUDGE
-        focus=max(min(90, float(focus)), 0)
+        focus=max(min(90, float(focus)), JITTER_STOP_MOVE)
         #Determine the move direction so we can nudge backwards after
         # Otherwise the motor might dance
-        if focus > self.focus:
-            dir=JITTER_STOP_MOVE
-        elif focus < self.focus:
-            dir=-JITTER_STOP_MOVE
-        else:
-            dir=0
+        dir=JITTER_STOP_MOVE
+#        if focus > self.focus:
+#            dir=JITTER_STOP_MOVE
+#        elif focus < self.focus:
+#            dir=-JITTER_STOP_MOVE
+#        else:
+#            dir=0
+    
+        pwid=deg2pwid(0, MAX_FOC_ROTATION)
+        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+        #move to focus pos
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
+            self.logger.info("Focus move failed home move")
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
+            return
+        time.sleep(FOCUS_SLEW_TIME)
+
         pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
         #move to focus pos
-        ioRequest=SendRequest(((msg,), {}) , 'guider')
-        self.request_io(ioRequest)
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
             self.logger.info("Focus move failed initial move")
-            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + ioRequest.response)
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
             return
+
         self.focus=focus
         #give the move enough time
         time.sleep(FOCUS_SLEW_TIME)
         #Nudge the focus backwards so the servo doesn't dance
-        focus=focus-dir
-        pwid=deg2pwid(focus-dir, MAX_FOC_ROTATION)
+        focus-=dir
+        pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
-        ioRequest=SendRequest(((msg,),{}), 'guider')
-        self.request_io(ioRequest)
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
             self.logger.debug("Focus move failed jitter correction move")
-            self.returnFromWorkerThread('GFOCUS', 'ERROR: '+ ioRequest.response)
+            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
             return
         self.focus=focus
         self.returnFromWorkerThread('GFOCUS')
@@ -223,24 +235,26 @@ class GuiderAgent(Agent):
         #move to home
         pwid=deg2pwid(0, MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
-        ioRequest=SendRequest(((msg,), {}) , 'guider')
-        self.request_io(ioRequest, description="Request move to home" )
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
             self.logger.debug("Request move to home FAILED")
-            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + ioRequest.response)
+            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + str(e))
             return
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
         #now move to the filter
-        pwid=deg2pwid(FILTER_DEGREE_POS_FW[new_filt], MAX_FILTER_ROTATION)
+        if new_filt <6:
+            filt=FILTER_DEGREE_POS_FW[new_filt]
+        else:
+            filt=new_filt
+        pwid=deg2pwid(filt, MAX_FILTER_ROTATION)
         msg=SET_TARGET.format(channel=FILTER_CHANNEL, target=pwid2bytes(pwid))
-        ioRequest=SendRequest(((msg,),{}), 'guider')
-        self.request_io(ioRequest, description="Request move to filter")
-        ioRequest.serviced.wait()
-        if not ioRequest.success:
-            self.logger.debug("Request move to filter FAILED")
-            self.returnFromWorkerThread('GFILTER', 'ERROR: '+ ioRequest.response)
+        try:
+            self.connections['guider'].sendMessageBlocking(msg)
+        except WriteError, e:
+            self.logger.debug("Request move to home FAILED")
+            self.returnFromWorkerThread('GFILTER', 'ERROR: ' + str(e))
             return
         time.sleep(FILTER_HOME_TIME)
         self.returnFromWorkerThread('GFILTER')
@@ -281,6 +295,43 @@ class GuiderAgent(Agent):
             self.logger.error(msg)
             raise IOError(msg)
         return bytes2pwid(bytes)
+
+    def getErrorStatus(self):
+        """
+        Poll the controller for the error status byte
+        
+        Returns the error value as a hex string or ERROR if IOERROR. No errors 
+        is the string '0x00'
+        
+        NB We must and the response as some of the bits are reserved and may not 
+        be 0 despite there being no error.
+        """
+        try:
+            REQUEST_ERROR_BYTE='\xA1\x00'
+            ERROR_BITS=0x00ff
+            self.connections['guider'].sendMessageBlocking(REQUEST_ERROR_BYTE)
+            response=self.connections['guider'].receiveMessageBlocking(nBytes=2)
+            #for bit meanings see maestro.pdf
+            err='0x{0:02x}'.format(convertUnsigned16bit(response) & ERROR_BITS)
+            return err
+        except IOError:
+            return 'Guider Disconnected'
+        except ValueError:
+            return 'Unable to parse guider response'
+
+
+def convertUnsigned16bit(str):
+    """
+    Convert a 2 byte little-endian string to an unsigned 16 bit number
+    
+    Raise ValueError if not a 2 byte string or unable to convert
+    """
+    if len(str) != 2:
+        raise ValueError
+    try:
+        return (ord(str[0])+256*ord(str[1]))
+    except Exception:
+        raise ValueError
 
 def filterAngle2Filter(angle):
     """ 
@@ -345,12 +396,12 @@ def bytes2pwid(bytes):
 
 def validFocusValue(focus):
     """ Return true iff focus is a valid focus position 
-    Valid focus values are 0-90, +, & -
+    Valid focus values are JITTER_STOP_MOVE to 90, +, & -
     """
     if focus in ['+', '-']:
         return True
     try:
-        valid = (0.0 <= float(focus) <=MAX_FOC_ROTATION)
+        valid = (JITTER_STOP_MOVE <= float(focus) <=MAX_FOC_ROTATION)
     except Exception:
         valid=False
     return valid
@@ -358,7 +409,9 @@ def validFocusValue(focus):
 def validFilterValue(filter):
     """ Return true iff filter is a valid filter """
     try:
-        valid=int(float(filter)) in FILTER_DEGREE_POS_FW.keys()
+        #valid=int(float(filter)) in FILTER_DEGREE_POS_FW.keys()
+        int(float(filter))
+        valid=True
     except ValueError:
         valid=False
     return valid

@@ -254,3 +254,5 @@ class LoggerRecord(object):
         for k,v in other.sideR.items():
             if v != None:
                 self.sideR[k]=v
+        if other.shackhartmanTemp!=None:
+            self.shackhartmanTemp=other.shackhartmanTemp

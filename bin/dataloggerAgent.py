@@ -157,11 +157,7 @@ class DataloggerAgent(Agent):
         """
 
         timeDelta=record.unixtime-self.currentRecord.unixtime
-        if timeDelta > READING_EXPIRE_INTERVAL:
-            self.logger.debug('Current record expired, replacing in entirety.')
-            self.currentRecord=record
-            self.logger.debug('Current record now: %s' % self.currentRecord.prettyStr())
-        elif timeDelta >= 0:
+        if timeDelta >= 0:
             
             #update the timestamps for the data
             if record.haveBData():

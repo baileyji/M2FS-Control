@@ -13,9 +13,10 @@ systemctl enable ethernet_hack.service
 systemctl start ethernet_hack.service
 
 #Bring UPS monitoring online
-mkdir /var/state/ups
+mkdir -p /var/state/ups
 chmod 0770 /var/state/ups
-chown root:run /var/state/ups
+groupadd nut
+chown root:nut /var/state/ups
 systemctl enable nut-server.service
 systemctl start nut-server.service
 systemctl enable nut-monitor.service

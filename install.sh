@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#Set the login shell to bash
+chsh -s /bin/bash
+
 #Install M2FS system config files
 cp -rv ./etc/* /etc/
 cp -v ./bashrc /home/root/.bashrc

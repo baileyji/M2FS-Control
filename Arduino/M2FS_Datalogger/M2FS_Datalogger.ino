@@ -673,6 +673,13 @@ void loop(void){
             ADXL345.getRawAccelerations(accel);
             bufferPut(accel,6);
         }
+        //Force logging of 32 accel records, this branch should never be taken
+        if (n_in_fifo<32) {
+            accel[0]=accel[1]=accel[2]=0;
+            for (uint8_t i=0; i<(32-n_in_fifo); i++) {
+                bufferPut(accel,6);
+            }
+        }
         retrieve_fifo_accels=false;
         
         #ifdef DEBUG_ACCEL

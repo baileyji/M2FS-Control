@@ -182,12 +182,12 @@ class DataloggerAgent(Agent):
             if (self.currentRecord.unixtime - self.rUpdateTime) > READING_EXPIRE_INTERVAL:
                 self.logger.debug('R values expired, clearing')
                 for k in self.currentRecord.sideR.keys():
-                    self.currentRecord[k]=None
+                    self.currentRecord.sideR[k]=None
             
             if (self.currentRecord.unixtime - self.bUpdateTime) > READING_EXPIRE_INTERVAL:
                 self.logger.debug('B values expired, clearing')
                 for k in self.currentRecord.sideB.keys():
-                    self.currentRecord[k]=None
+                    self.currentRecord.sideB[k]=None
             
             if (self.currentRecord.unixtime - self.shUpdateTime) > READING_EXPIRE_INTERVAL:
                 self.logger.debug('SH value expired, clearing')

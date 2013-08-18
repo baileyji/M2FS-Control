@@ -600,6 +600,10 @@ void loop(void){
             setRTCFromSerial();
         }
         
+    } else if (Serial.available() > 0) {
+        //Flush buffer
+        uint8_t tmp=Serial.available();
+        while (tmp-- >0) Serial.read();
     }
     
     //Clear the buffer
@@ -1161,7 +1165,12 @@ bool setRTCFromSerial() {
     
     uint8_t i=0;
     while(Serial.available() && i<4) {
-        unixtime |=((uint32_t)Serial.read())<<(8*(3-i++));
+        uint8_t bytein=Serial.read();
+        #ifdef DEBUG_RTC
+            cout<<pstr("#byte:");
+            Serial.println(bytein,HEX);
+        #endif
+        unixtime |=((uint32_t)bytein)<<(8*(3-i++));
     }
     
     DateTime now(unixtime);

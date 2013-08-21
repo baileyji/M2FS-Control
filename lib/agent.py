@@ -4,7 +4,6 @@ import Queue
 import logging, logging.handlers
 from command import Command
 from SelectedConnection import SelectedSocket, WriteError
-import iorequest
 import SelectedConnection
 from m2fsConfig import m2fsConfig
 import threading
@@ -105,7 +104,6 @@ class Agent(object):
         self.command_state={}
         self._blocked={}
         self.max_clients=1
-        self.io_request_queue=Queue.Queue()
         self.cookie=str(int(time.time()))
         self.initialize_cli_parser()
         self.args=self.cli_parser.parse_args()
@@ -154,19 +152,17 @@ class Agent(object):
         """
         #Configure the root logger
         self.logger=logging.getLogger()
-        self.logger.setLevel(logging.DEBUG)
-        # create formatter
-        formatter = logging.Formatter('%(name)s:%(levelname)s: %(message)s')
-        # create console handler and set level to debug
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        # add formatter to handlers
-        ch.setFormatter(formatter)
-        # add handlers to logger
-        self.logger.addHandler(ch)
+        if self.logger.handlers==[]:
+            # create console handler
+            ch = logging.StreamHandler()
+            ch.setFormatter(logging.Formatter('%(name)s:%(levelname)s: %(message)s'))
+            ch.setLevel(level)
+            # add handlers to logger
+            self.logger.addHandler(ch)
+        #Set the default logging level
+        self.logger.setLevel(level)
         #Get a logger for the agent
         self.logger=logging.getLogger(self.name)
-        self.logger.setLevel(level)
     
     def initialize_cli_parser(self):
         """
@@ -265,6 +261,9 @@ class Agent(object):
             handler from command_handlers using the first word in the message
             as a key after converting it to uppercase. Finally, call the command
             handler with the Command.
+            If the command is blocked respond appropriately.
+            Check for any state from a worker thread and if that exists return it
+            only if it doesn't will the command handler be called for a query.
         """
         #create a command object
         command=Command(source, message_str)
@@ -333,7 +332,7 @@ class Agent(object):
         if m2fsConfig.doStowedShutdown():
             self._stowShutdown()
         self.logger.info("----%s exiting: %s-----" % (self.name, str(arg)))
-        if self.server_socket:
+        if self.server_socket!=None:
             try:
                 self.server_socket.shutdown(socket.SHUT_WR)
             except socket.error:
@@ -603,12 +602,15 @@ class Agent(object):
         return self.connections[name]
     
     def getCommandName(self, command):
-        """ Return the command_name for the command object
+        """ Return the command_name for the command object (or a raw string)
         
         This is the string which maps to the commands callback in 
         command_handlers
         """
-        return command.string.partition(' ')[0]
+        if isinstance(command,Command):
+            return command.string.partition(' ')[0]
+        else:
+            return command.partition(' ')[0]
     
     def commandIsQuery(self, command):
         """ Return true if the command is a query 
@@ -737,7 +739,10 @@ class Agent(object):
         retrieve to command state for the command name. If no command state
         exists it raises KeyError
         """
-        return self.command_state[self.getCommandName(command)]
+        ret=self.command_state[self.getCommandName(command)]
+        if not self._isWorkerThreadRunning(command):
+            self.clear_command_state(self.getCommandName(command))
+        return ret
 
     def _isWorkerThreadRunning(self, command):
         """ Return true if a worker thread is running for command """

@@ -160,11 +160,11 @@ void Tetris::setAcceleration(long	s){
 }
 
 void Tetris::positionRelativeMoveFS(long d){
-  positionAbsoluteMove( d*16 + _motor.currentPosition());
+  positionAbsoluteMove( d*USTEPPING + _motor.currentPosition());
 }
 
 void Tetris::positionAbsoluteMoveFS(long p){
-  positionAbsoluteMove(16*p);
+  positionAbsoluteMove(USTEPPING*p);
 }
 
 char Tetris::getCurrentSlit() {
@@ -205,6 +205,6 @@ void Tetris::calibrateToHardStop(){
   _calibrated=false;
   _motor.setCurrentPosition(0);
   motorOn();
-  _motor.moveTo(1500*16);
+  _motor.moveTo(MAX_HARDSTOP_DISTANCE);
   _calibration_in_progress=2; //First stage
 }

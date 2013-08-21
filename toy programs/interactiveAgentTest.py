@@ -19,7 +19,7 @@ def cgu():
 def cs():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(SHOE_R)
-    s.settimeout(1)
+    s.settimeout(2)
     return s
 
 def csc():

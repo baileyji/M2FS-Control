@@ -1,6 +1,6 @@
 import logging, sys, time, threading
 
-DEFAULT_LOG_LEVEL=logging.INFO
+logger = logging.getLogger(__name__)
 
 class ReadError(IOError):
     pass
@@ -34,8 +34,7 @@ class SelectedConnection(object):
     def __init__(self,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
-                default_message_error_callabck=None,
-                loglevel=DEFAULT_LOG_LEVEL):
+                default_message_error_callabck=None):
         """ 
         Instantiate a SelectedConnection.
         
@@ -57,13 +56,9 @@ class SelectedConnection(object):
         is called directly (e.g. by a driver routine after select indicates an
         error).
         
-        loglevel defaults to logging.WARNING
-        
         The sent and received callbacks are called iff a message is sent or 
         recieved. If there is an error they will not be called. """
-        self.logger=logging.getLogger('SelectedCon')
         self.rlock=threading.RLock()
-        self.logger.setLevel(loglevel)
         self.defaultResponseCallback=default_message_received_callback
         self.defaultSentCallback=default_message_sent_callback
         self.defaultErrorCallback=default_message_error_callabck
@@ -109,7 +104,7 @@ class SelectedConnection(object):
             self._implementationSpecificConnect()
             self._postConnect()
         except Exception, e:
-            self.logger.info('Connect failed: %s' % str(e))
+            logger.info('Connect failed: %s' % str(e))
             self.connection=None
             raise ConnectError(str(e))
     
@@ -183,7 +178,7 @@ class SelectedConnection(object):
                 err=("Attempting to send '%s' on non-empty buffer '%s'" %
                     (message, self.out_buffer))
                 err=escapeString(err)
-                self.logger.error(err)
+                logger.error(err)
                 if errorCallback is not None:
                     errorCallback(self, 'ERROR: '+err)
                 else:
@@ -246,12 +241,12 @@ class SelectedConnection(object):
                     err=("Attempted to send '%s' to '%s' but coudn't connect." %
                         (message, self.addr_str()))
                     err=escapeString(err)
-                    self.logger.error(err)
+                    logger.error(err)
                     raise WriteError(err)
             elif not self.isOpen():
                 err="Connect before sending '%s' to %s" % (message,self.addr_str())
                 err=escapeString(err)
-                self.logger.error(err)
+                logger.error(err)
                 raise WriteError(err)
             if not message:
                 return
@@ -263,7 +258,7 @@ class SelectedConnection(object):
                                         message[:count],
                                         self.addr_str(),
                                         time.time()))
-                self.logger.debug(msg)
+                logger.debug(msg)
                 if count !=len(message):
                     err="Blocking send only sent first {} of '{}'"
                     err=escapeString(err.format(count,message))
@@ -311,14 +306,14 @@ class SelectedConnection(object):
                 self.connect()
             except ConnectError, err:
                 err="Attempting to receive on %s" % str(self)
-                self.logger.error(err)
+                logger.error(err)
                 raise ReadError(err)
             try:
                 response=self._implementationSpecificBlockingReceive(nBytes, timeout)
-                self.logger.debug("BlockingReceive got: '%s'" %
+                logger.debug("BlockingReceive got: '%s'" %
                                   escapeString(response))
                 if response=='':
-                    self.logger.warning(
+                    logger.warning(
                         'Blocking receive on %s timed out'% self.addr_str())
                 if (error_on_absent_terminator and
                     self.messageTerminator not in response):
@@ -347,7 +342,7 @@ class SelectedConnection(object):
         """
         with self.rlock:
             err="'%s' on %s." % (escapeString(str(error)), self.addr_str())
-            self.logger.error(err)
+            logger.error(err)
             if self.errorCallback !=None:
                 callback=self.errorCallback
                 self.errorCallback=self.defaultErrorCallback
@@ -364,12 +359,12 @@ class SelectedConnection(object):
         """
         if self.connection is None:
             return
-        self.logger.info("%s disconnecting." % self)
+        logger.info("%s disconnecting." % self)
         self.out_buffer=''
         try:
             self._implementationSpecificDisconnect()
         except Exception, e:
-            self.logger.error(
+            logger.error(
                 '_implementationSpecificDisconnect caused exception: %s' % str(e))
         self.connection = None
         self.sentCallback=self.defaultSentCallback
@@ -411,7 +406,7 @@ class SelectedConnection(object):
                 if count is not -1:
                     message_str=self.in_buffer[0:count+1]
                     self.in_buffer=self.in_buffer[count+1:]
-                    self.logger.debug("Received message '%s' on %s" % 
+                    logger.debug("Received message '%s' on %s" % 
                         (escapeString(message_str), self))
                     if self.responseCallback:
                         callback=self.responseCallback
@@ -420,15 +415,15 @@ class SelectedConnection(object):
                         callback(self, message_str[:-1])
                     remainingBackslashNs=self.in_buffer.count('\n')
                     if remainingBackslashNs > 0:
-                        self.logger.warn('%i additional messages in buffer' % remainingBackslashNs)
+                        logger.warn('%i additional messages in buffer' % remainingBackslashNs)
                 else:
                     msg="Handle_Read buffer @ %s: '%s'"
                     msg=msg % (time.time(), escapeString(self.in_buffer))
                     if not self.responseCallback:
                         msg+=". No handler is defined."
-                        self.logger.warn(msg)
+                        logger.warn(msg)
                     else:
-                        self.logger.debug(msg)
+                        logger.debug(msg)
             except ReadError, err:
                 self.handle_error(err)
     
@@ -464,7 +459,7 @@ class SelectedConnection(object):
                                             self.out_buffer[:count],
                                             self.addr_str(),
                                             time.time()))
-                    self.logger.debug(msg)
+                    logger.debug(msg)
                     # and remove the sent data from the buffer
                     self.out_buffer = self.out_buffer[count:]
                     if self.sentCallback and self.out_buffer=='':
@@ -490,7 +485,7 @@ class SelectedSerial(SelectedConnection):
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None,
-                timeout=None, loglevel=DEFAULT_LOG_LEVEL):
+                timeout=None):
         """
         Create a new instance
         
@@ -506,18 +501,17 @@ class SelectedSerial(SelectedConnection):
         SelectedConnection.__init__(self,
                 default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
-                default_message_error_callabck=default_message_error_callabck,
-                loglevel=loglevel)
+                default_message_error_callabck=default_message_error_callabck)
         self.port=port
         self.baudrate=baudrate
         self.timeout=timeout
         creation_message='Creating SelectedSerial: '+self.addr_str()
-        self.logger.debug(creation_message)
+        logger.debug(creation_message)
         self.connection=None
         try:
             self.connect()
         except ConnectError, err:
-            self.logger.info('Did not connect to %s at startup. err=%s' %
+            logger.info('Did not connect to %s at startup. err=%s' %
                 (self.addr_str(),str(err)))
     
     def addr_str(self):
@@ -635,8 +629,7 @@ class SelectedSocket(SelectedConnection):
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None,
-                timeout=DEFAULT_SOCKET_TIMEOUT,
-                loglevel=DEFAULT_LOG_LEVEL):
+                timeout=DEFAULT_SOCKET_TIMEOUT):
         """
         Create a new instance
         
@@ -656,8 +649,7 @@ class SelectedSocket(SelectedConnection):
         SelectedConnection.__init__(self,
                 default_message_received_callback=default_message_received_callback,
                 default_message_sent_callback=default_message_sent_callback,
-                default_message_error_callabck=default_message_error_callabck,
-                loglevel=loglevel)
+                default_message_error_callabck=default_message_error_callabck)
         self.host=host
         self.port=port
         self.timeout=timeout
@@ -666,7 +658,7 @@ class SelectedSocket(SelectedConnection):
             creation_message+=' with live socket.'
         elif Live_Socket_To_Use:
             raise TypeError("Live_socket_to_use must be a socket")
-        self.logger.debug(creation_message)
+        logger.debug(creation_message)
         if Live_Socket_To_Use:
             self.connection=Live_Socket_To_Use
             self.connection.settimeout(self.timeout)
@@ -675,7 +667,7 @@ class SelectedSocket(SelectedConnection):
             try:
                 self.connect()
             except ConnectError, err:
-                self.logger.info('Did not connect to %s at startup. err=%s' %
+                logger.info('Did not connect to %s at startup. err=%s' %
                                  (self.addr_str(),str(err)))
     
     def addr_str(self):

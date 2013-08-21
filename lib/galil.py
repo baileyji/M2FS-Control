@@ -1,5 +1,6 @@
 import serial, logging
 import SelectedConnection
+from SelectedConnection import logger
 from m2fsConfig import m2fsConfig
 
 EXPECTED_M2FS_DMC_VERSION='0.1000'
@@ -146,18 +147,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             '3':None, '4':None, '5':None, '6':None, '7':None}
         # Error flag store
         self.errorFlags={}
+        logger.name='GalilCon'+side
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
-        if 'loglevel' in kwargs:
-            loglevel=kwargs['loglevel']
-        else:
-            loglevel=SelectedConnection.DEFAULT_LOG_LEVEL
         SelectedConnection.SelectedSerial.__init__(self, device, 115200,
             timeout=GALIL_TIMEOUT, default_message_received_callback=
-                self._unsolicited_galil_message_handler,
-                loglevel=loglevel)
-        self.logger=logging.getLogger('GalilCon'+side)
-        self.logger.setLevel(loglevel)
+                self._unsolicited_galil_message_handler)
         #Override the default message terminator for consistency. Doesn't matter
         #since we also override the _terminateMessage function
         self.messageTerminator='\r'
@@ -211,16 +206,16 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                     errmsg+='an unknown command.'
                 else:
                     errmsg+='a'+cmd_class_str+'command.'
-                self.logger.error(errmsg)
+                logger.error(errmsg)
             else:
                 errmsg+='a thread on which nothing was believed to be running.'
-                self.logger.critical(errmsg)
+                logger.critical(errmsg)
             #Set a flag so the next time a related function is called the error
             # is reported (if we know what was running)
             if offending_cmd_info:
                 self._setErrorFlag(cmd_class_str, errmsg)
         else:
-            self.logger.warning("Got unexpected, unsolicited message '%s'"
+            logger.warning("Got unexpected, unsolicited message '%s'"
                 % message)
     
     def _setErrorFlag(self, command_class, err):
@@ -269,7 +264,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         if self.thread_command_map['0']==None:
             try:
                 self._send_command_to_galil('XQ#AUTO,0')
-                self.logger.warning("Executing #AUTO manually")
+                logger.warning("Executing #AUTO manually")
                 self._update_executing_threads_and_commands()
             except GalilCommandNotAcknowledgedError:
                 error_message="Galil not programed"
@@ -305,7 +300,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         bootup1=self._send_command_to_galil('MG bootup1')
         if bootup1=='0.0000':
             return
-        self.logger.info("Programming galil defaults.")
+        logger.info("Programming galil defaults.")
         config=m2fsConfig.getGalilDefaults(self.SIDE)
         #make sure all the settings are there
         try:
@@ -317,7 +312,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             #The config file is corrupted, this is a fatal error
             errMsg=('Galil'+self.SIDE+' configFile corrupted.'+
                 'git reset --hard likely needed')
-            self.logger.critical(errorMsg)
+            logger.critical(errorMsg)
             raise IOError(errMsg)
         #Send the config to the galil
         try:
@@ -405,7 +400,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             galilReply+=response
         #warn that something was fishy with the galil
         if galilProtocolError:
-            self.logger.warning(
+            logger.warning(
                 "Galil did not adhere to protocol '%s' got '%s'" %
                 (command_string, galilReply) )
         #We didn't get acknowledgements for all the commands, fail
@@ -785,7 +780,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self._update_executing_threads_and_commands()
             return response
         except IOError, e:
-            self.logger.error(str(e))
+            logger.error(str(e))
             return "ERROR: "+str(e)
     
     #The remaining commands are wrappers for each of the galil tasks

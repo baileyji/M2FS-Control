@@ -1,39 +1,53 @@
-// Sweep
-// by BARRAGAN <http://barraganstudio.com> 
 // This example code is in the public domain.
 
 
 #include <Servo.h> 
- 
+
+#define BLUE_SERVO_PIN  10  //Ouput  Blue is 10 red is 9
+#define WAIT_DATA 100
+
 Servo myservo;  // create servo object to control a servo 
                 // a maximum of eight servo objects can be created 
  
 int pos = 0;    // variable to store the servo position 
  
-void setup() 
-{ 
-  myservo.attach(10);  // attaches the servo on pin 9 to the servo object 
-  Serial.begin(115200);
-}
-
-#define WAIT_DATA 100
 //s = stop
 //c = cycle
 unsigned int delayOpen=350;     //m
-unsigned int delayClose1=350;   //n
+unsigned int delayClose1=150;   //n
+unsigned int delayClose2=500;   //s
 unsigned int openPos=1400;      //o
-unsigned int closePos1=2000;    //p
-unsigned int closePos2=2090;    //q
+unsigned int closePos1=2080;    //p
+unsigned int closePos2=2100;    //q
+unsigned int closePos3=2100;    //r
+
+
+//t stop
+//u#### move to 
+
 
 //B
-//q1973
-//p1950
-//o1300
+//n150
+//o1400
+//p2020
+//q2030 needs foam
+
+//q1968
+
 
 //R
-//q1928
-//p1900
-//o1200
+
+
+//o1400
+//p2060
+//q2088
+
+void setup() 
+{ 
+  pinMode(BLUE_SERVO_PIN, OUTPUT);
+  myservo.attach(BLUE_SERVO_PIN);  // attaches the servo on pin 9 to the servo object 
+  Serial.begin(115200);
+}
 
 void loop() 
 { 
@@ -44,6 +58,8 @@ void loop()
         delay(WAIT_DATA);
         int cycles=Serial.parseInt();
         while (cycles > 0) {
+            Serial.print("Cycles left: ");
+            Serial.println(cycles);
             cycles--;
             //Open
             myservo.writeMicroseconds(openPos);
@@ -52,9 +68,10 @@ void loop()
             myservo.writeMicroseconds(closePos1);
             delay(delayClose1);
             myservo.writeMicroseconds(closePos2);
-            
-            delay(1000);
-            if (Serial.peek() == 's') {
+            delay(delayClose2);
+            myservo.writeMicroseconds(closePos3);
+            delay(5000);
+            if (Serial.peek() == 't') {
               Serial.read();
               cycles = 0;
             }
@@ -64,6 +81,7 @@ void loop()
         Serial.read();
         delay(WAIT_DATA);
         delayOpen=Serial.parseInt();
+        Serial.println(delayOpen);
     }
     else if (Serial.peek() == 'n'){
         Serial.read();
@@ -84,6 +102,23 @@ void loop()
         Serial.read();
         delay(WAIT_DATA);
         closePos2=Serial.parseInt();
+    }
+    else if (Serial.peek() == 'r'){
+        Serial.read();
+        delay(WAIT_DATA);
+        closePos3=Serial.parseInt();
+    }
+    else if (Serial.peek() == 's'){
+        Serial.read();
+        delay(WAIT_DATA);
+        delayClose2=Serial.parseInt();
+    }
+    else if (Serial.peek() == 'u'){
+        Serial.read();
+        delay(WAIT_DATA);
+        uint16_t moveto=Serial.parseInt();
+        Serial.println(moveto);
+        myservo.writeMicroseconds(moveto);
     }
     else Serial.read();
 

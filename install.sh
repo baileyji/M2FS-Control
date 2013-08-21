@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#Set the login shell to bash
+chsh -s /bin/bash
+
 #Install M2FS system config files
 cp -rv ./etc/* /etc/
 cp -v ./bashrc /home/root/.bashrc
@@ -13,9 +16,10 @@ systemctl enable ethernet_hack.service
 systemctl start ethernet_hack.service
 
 #Bring UPS monitoring online
-mkdir /var/state/ups
+mkdir -p /var/state/ups
 chmod 0770 /var/state/ups
-chown root:run /var/state/ups
+groupadd nut
+chown root:nut /var/state/ups
 systemctl enable nut-server.service
 systemctl start nut-server.service
 systemctl enable nut-monitor.service
@@ -30,8 +34,10 @@ cp ./etc/ntp.conf /etc/
 easy_install pip
 
 #install ipython and needed python packages
+pip install pyserial==2.6
+pip install construct==2.0.6
 pip install ipython
-pip install construct
+
 
 #useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsuser") m2fsuser
 #useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsadmin") m2fsadmin

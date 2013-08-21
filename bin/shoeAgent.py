@@ -5,11 +5,14 @@ import SelectedConnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 
-EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.5'
+EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.7'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v0.4'
 SHOE_AGENT_VERSION_STRING_SHORT='v0.4'
 
-DH_TIME=90
+DH_TIME=35
+SHOE_BOOT_TIME=2
+SHOE_SHUTDOWN_TIME=.25
+MAX_SLIT_MOVE_TIME=25
 
 def longTest(s):
     """ Return true if s can be cast as a long, false otherwise """
@@ -51,7 +54,7 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         the expected version fail with a ConnectError. 
         """
         #Shoe takes a few seconds to boot
-        time.sleep(2)
+        time.sleep(SHOE_BOOT_TIME)
         #verify the firmware version
         self.sendMessageBlocking('PV')
         response=self.receiveMessageBlocking()
@@ -65,7 +68,7 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         """ Disconnect the serial connection, telling the shoe to disconnect """
         try:
             self.connection.write('DS\n')
-            time.sleep(.25) #just in case the shoe resets on close, 
+            time.sleep(SHOE_SHUTDOWN_TIME) #just in case the shoe resets on close,
             #gives time to write to EEPROM
             self.connection.flushOutput()
             self.connection.flushInput()
@@ -323,11 +326,8 @@ class ShoeAgent(Agent):
         representing the closed position.
         """
         if '?' in command.string:
-            if self.command_worker_thread_running('SLITS'):
-                command.setReply(self.get_command_state('SLITS'))
-            else:
-                #Command the shoe to report the active slit for all 8 tetri
-                command.setReply(self._do_online_only_command('SG*'))
+            #Command the shoe to report the active slit for all 8 tetri
+            command.setReply(self._do_online_only_command('SG*'))
         else:
             #Vet the command
             command_parts=command.string.replace(',',' ').split(' ')
@@ -363,18 +363,18 @@ class ShoeAgent(Agent):
     
     def slit_mover(self, slits, status):
         """
-        uses iorequests to move slits
         slits is a 8-tuble or list of number strings '1' - '7'
         status is the response to the command TS
         """
         #Command the shoe to reconfigure the tetrii
         #Determine which are uncalibrated
         uncalByte=status.split(' ')[2]
-        if uncalByte!=0:
-            uncalibrated=map(lambda x: int(x)-1,
+        if uncalByte!='0':
+            calibrated=map(lambda x: int(x)-1,
                              byte2bitNumberString(int(uncalByte)).split(' '))
+            uncalibrated=[x for x in range(0,8) if x not in calibrated]
         else:
-            uncalibrated=[]
+            uncalibrated=range(0,8)
         with self.connections['shoe'].rlock:
             for i in range(0,8):
                 if i in uncalibrated:
@@ -386,10 +386,10 @@ class ShoeAgent(Agent):
                     self.returnFromWorkerThread('SLITS', finalState=resp)
                     return
             self.logger.debug('sleeping with lock active')
-            time.sleep(60)
+            time.sleep(MAX_SLIT_MOVE_TIME)
             self.logger.debug('finished sleeping with lock active')
         if len(uncalibrated) > 0:
-            time.sleep(DH_TIME)
+            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
         with self.connections['shoe'].rlock:
             for i in uncalibrated:
                 cmd='SL'+'ABCDEFGH'[i]+slits[i]

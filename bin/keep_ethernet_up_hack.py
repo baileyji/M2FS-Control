@@ -66,7 +66,7 @@ def adapterOffline(adapter_path):
             properties = entry[1]
             #Check to see if state is listed as ready,
             # if so the we are not online and getOnline() should work
-            if properties['State'].lower().strip()==['ready', 'idle']:
+            if properties['State'].lower().strip()=='idle':
                 return True
     return False
 

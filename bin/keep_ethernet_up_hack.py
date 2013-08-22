@@ -73,6 +73,7 @@ def adapterOffline(adapter_path):
     return False
 
 if __name__=='__main__':
+    method=m2fsConfig.getIPmethod()
     while True:
         try:
             desiredMethod=m2fsConfig.getIPmethod()

@@ -324,5 +324,5 @@ class m2fsConfig:
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
-        return config.get('IP',method).lower()
+        return config.get('IP','method').lower()
 

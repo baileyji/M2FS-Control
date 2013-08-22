@@ -1,9 +1,25 @@
 #!/usr/bin/env python2.7
-import sys, dbus, time
+import sys, dbus, time, logging
 
 public_adapter = "/net/connman/service/ethernet_b88d1255cd7e_cable"
 
 fls_adapter = "/net/connman/service/ethernet_b88d1255d1ee_cable"
+
+logger=logging.getLogger()
+if logger.handlers==[]:
+    # create console handler
+    ch = logging.StreamHandler()
+    ch.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    ch.setLevel(level)
+    # add handlers to logger
+    logger.addHandler(ch)
+    #Set the default logging level
+    logger.setLevel('INFO')
+
+bus = dbus.SystemBus()
+
+def make_variant(string):
+	return dbus.String(string, variant_level=1)
 
 FLS_ADAPTER_ADDRESS=make_variant('192.168.0.1')
 FLS_ADAPTER_NETMASK=make_variant('255.255.255.0')
@@ -13,10 +29,6 @@ PUBLIC_ADAPTER_NETMASK=make_variant('255.255.255.0')
 
 CONNECT_TIMOUT=10000
 
-bus = dbus.SystemBus()
-
-def make_variant(string):
-	return dbus.String(string, variant_level=1)
 
 def bringPublicUpDHCP():
     adapter = bus.get_object('net.connman', public_adapter)
@@ -62,13 +74,13 @@ if __name__=='__main__':
     while True:
         try:
             if adapterOffline(public_adapter):
-                bringPublicUp()
+                bringPublicUpFIXED()
         except Exception as e:
-            print str(e)
+            logger.error(str(e))
         try:
             if adapterOffline(fls_adapter):
                 bringFLSUp()
         except Exception as e:
-            print str(e)
+            logger.error(str(e))
         time.sleep(30)
 

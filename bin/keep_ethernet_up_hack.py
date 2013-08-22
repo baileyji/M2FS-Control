@@ -10,11 +10,11 @@ if logger.handlers==[]:
     # create console handler
     ch = logging.StreamHandler()
     ch.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-    ch.setLevel(level)
+    ch.setLevel(logging.INFO)
     # add handlers to logger
     logger.addHandler(ch)
     #Set the default logging level
-    logger.setLevel('INFO')
+    logger.setLevel(logging.INFO)
 
 bus = dbus.SystemBus()
 

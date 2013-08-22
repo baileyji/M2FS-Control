@@ -76,7 +76,7 @@ if __name__=='__main__':
         try:
             desiredMethod=m2fsConfig.getIPmethod()
             if desiredMethod!=method or adapterOffline(public_adapter):
-                if desiredMethod = 'dhcp':
+                if desiredMethod == 'dhcp':
                     bringPublicUpDHCP()
                 else:
                     bringPublicUpFIXED()

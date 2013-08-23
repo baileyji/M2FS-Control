@@ -30,6 +30,8 @@ PUBLIC_ADAPTER_NETMASK=make_variant('255.255.255.0')
 CONNECT_TIMOUT=10000
 
 
+manager = dbus.Interface(bus.get_object('net.connman', '/'), 'net.connman.Manager')
+
 def bringPublicUpDHCP():
     adapter = bus.get_object('net.connman', public_adapter)
     service = dbus.Interface(adapter, 'net.connman.Service')
@@ -57,8 +59,6 @@ def bringFLSUp():
     service.Connect(timeout=CONNECT_TIMOUT)
 
 def adapterOffline(adapter_path):
-    manager = dbus.Interface(bus.get_object('net.connman', '/'),
-                             'net.connman.Manager')
     services = manager.GetServices()
     for entry in services:
         path = entry[0]

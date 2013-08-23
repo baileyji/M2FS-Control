@@ -244,7 +244,7 @@ class GuiderAgent(Agent):
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
         #now move to the filter
-        if new_filt <6:
+        if new_filt < = 6 and new_filt>0:
             filt=FILTER_DEGREE_POS_FW[new_filt]
         else:
             filt=new_filt
@@ -407,11 +407,13 @@ def validFocusValue(focus):
     return valid
 
 def validFilterValue(filter):
-    """ Return true iff filter is a valid filter """
+    """
+    Return true iff filter is a valid filter, or the number is between 0-360
+    This enables an easter egg to set the filter position based on angle.
+    """
     try:
         #valid=int(float(filter)) in FILTER_DEGREE_POS_FW.keys()
-        int(float(filter))
-        valid=True
+        valid=int(float(filter)) >= 0 and int(float(filter)) <=360
     except ValueError:
         valid=False
     return valid

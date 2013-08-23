@@ -8,7 +8,7 @@
 
 #define POWERDOWN_DELAY_US  1000
 #define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "Fibershoe v0.8"
+#define VERSION_STRING "Fibershoe v0.9"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
 #define N_COMMANDS 27
@@ -176,7 +176,11 @@ void setup() {
     pinMode(TETRIS_MOTORS_POWER_ENABLE, OUTPUT);
 
     //Tetris Drivers
-    if (tetrisShieldIsR()) {
+    //NB The ! should be deleted when the shou drivers are inserted into the
+    //correct shoes. As of the comissioning run, the boards are swapped
+    //and tetrisShieldIsR() returns true for the B shoe and false for the R shoe
+    // -JB 8/22/13
+    if (!tetrisShieldIsR()) {
         tetris[0]=Tetris(TETRIS_1_RESET, TETRIS_1_STANDBY, TETRIS_1_DIR,
                          TETRIS_1_CK, TETRIS_1_PHASE_HOME);
         tetris[1]=Tetris(TETRIS_2_RESET, TETRIS_2_STANDBY, TETRIS_2_DIR,

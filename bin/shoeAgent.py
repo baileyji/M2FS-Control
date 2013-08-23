@@ -5,9 +5,9 @@ import SelectedConnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 
-EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.7'
-SHOE_AGENT_VERSION_STRING='Shoe Agent v0.4'
-SHOE_AGENT_VERSION_STRING_SHORT='v0.4'
+EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.9'
+SHOE_AGENT_VERSION_STRING='Shoe Agent v0.5'
+SHOE_AGENT_VERSION_STRING_SHORT='v0.5'
 
 DH_TIME=35
 SHOE_BOOT_TIME=2
@@ -245,6 +245,11 @@ class ShoeAgent(Agent):
         Byte 4) [tetris7moving]...[tetris0moving]
         NB we dont actually use the shieldIsR bit since udev is checking based
         on serial numbers
+        
+        As of the comissioning run, the boards are swapped
+        and tetrisShieldIsR() returns true for the B shoe and false for the R shoe
+        -JB 8/22/13
+        
         """
         #Name & cookie
         status_list=[(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT,

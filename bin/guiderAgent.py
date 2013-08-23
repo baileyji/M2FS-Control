@@ -244,7 +244,7 @@ class GuiderAgent(Agent):
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
         #now move to the filter
-        if new_filt < = 6 and new_filt>0:
+        if new_filt <= 6 and new_filt>0:
             filt=FILTER_DEGREE_POS_FW[new_filt]
         else:
             filt=new_filt

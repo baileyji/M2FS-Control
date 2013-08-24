@@ -41,7 +41,7 @@ PUBLIC_IPV4_SETTINGS={"Method": dbus_string('manual'),
                       "Address":PUBLIC_ADAPTER_ADDRESS,
                       "Netmask":PUBLIC_ADAPTER_NETMASK,
                       "Gateway":PUBLIC_ADAPTER_GATEWAY}
-PUBLIC_DOMAIN=dbus_string('lco.cl')
+PUBLIC_DOMAINS=dbus_array(['lco.cl'])
 PUBLIC_TIMESERVERS=dbus_array(['200.28.147.16','200.28.147.17',
                                '200.28.147.1'])
 PUBLIC_NAMESERVERS=dbus_array(['200.28.147.2', '200.28.147.4',
@@ -54,13 +54,19 @@ CONNECT_TIMEOUT=10000
 bus = dbus.SystemBus()
 manager = dbus.Interface(bus.get_object('net.connman', '/'), 'net.connman.Manager')
 
+def disconnect(service):
+    try:
+        service.Disconnect()
+    except Exception:
+        pass
+
 def bringPublicUpDHCP():
     adapter = bus.get_object('net.connman', public_adapter)
     service = dbus.Interface(adapter, 'net.connman.Service')
     
     logger.info('Connecting public adapter via DHCP')
     
-    service.Disconnect()
+    disconnect(service)
     service.SetProperty("IPv4.Configuration", {"Method": dbus_string('dhcp') })
     service.Connect(timeout=CONNECT_TIMEOUT)
 
@@ -70,10 +76,14 @@ def bringPublicUpFIXED():
     
     logger.info('Connecting public adapter via static config')
     
-    service.Disconnect()
+    disconnect(service)
+    logger.info('IPV4')
     service.SetProperty("IPv4.Configuration", PUBLIC_IPV4_SETTINGS)
-    service.SetProperty("Domains.Configuration", PUBLIC_DOMAIN)
+    logger.info('domain')
+    service.SetProperty("Domains.Configuration", PUBLIC_DOMAINS)
+    logger.info('time')
     service.SetProperty("Timeservers.Configuration", PUBLIC_TIMESERVERS)
+    logger.info('name')
     service.SetProperty("Nameservers.Configuration", PUBLIC_NAMESERVERS)
     service.Connect(timeout=CONNECT_TIMEOUT)
 
@@ -83,7 +93,7 @@ def bringFLSUp():
     
     logger.info('Connecting FLS adapter via static config')
                       
-    service.Disconnect()
+    disconnect(service)
     service.SetProperty("IPv4.Configuration", FLS_IPV4_SETTINGS)
     service.Connect(timeout=CONNECT_TIMEOUT)
 

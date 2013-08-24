@@ -22,8 +22,8 @@ logger.setLevel(logging.INFO)
 def dbus_string(string):
 	return dbus.String(string, variant_level=1)
 
-def dbus_Array(list):
-    return dbus.Array(x, signature=dbus.Signature('s')
+def dbus_array(x):
+    return dbus.Array(x, signature=dbus.Signature('s'))
 
 FLS_ADAPTER_ADDRESS=dbus_string('192.168.0.1')
 FLS_ADAPTER_NETMASK=dbus_string('255.255.255.0')
@@ -44,7 +44,7 @@ PUBLIC_IPV4_SETTINGS={"Method": dbus_string('manual'),
 PUBLIC_DOMAIN=dbus_string('lco.cl')
 PUBLIC_TIMESERVERS=dbus_array(['200.28.147.16','200.28.147.17',
                                '200.28.147.1'])
-PUBLIC_NAMESERVERS=dbus.Array(['200.28.147.2', '200.28.147.4',
+PUBLIC_NAMESERVERS=dbus_array(['200.28.147.2', '200.28.147.4',
                                '139.229.97.50','139.229.97.26'])
  
 CONNECT_TIMEOUT=10000
@@ -106,7 +106,7 @@ if __name__=='__main__':
             desiredMethod=m2fsConfig.getIPmethod()
             if desiredMethod!=method or adapterOffline(public_adapter):
                 if desiredMethod!=method:
-                    logger.info('Switching to {} IP'.format(method))
+                    logger.info('Switching to {} IP'.format(desiredMethod))
                 if desiredMethod == 'dhcp':
                     bringPublicUpDHCP()
                 else:

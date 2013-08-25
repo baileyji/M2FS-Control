@@ -44,7 +44,7 @@ SET_TARGET='\x84{channel}{target}'
 GET_ERRORS='\xA1'
 GET_MOVING='\x93'
 
-MAESTRO_NOT_RESPONDING_STRING='Device not responding'
+MAESTRO_NOT_RESPONDING_STRING='Guider not responding'
 
 
 class GuiderSerial(SelectedConnection.SelectedSerial):

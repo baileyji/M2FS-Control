@@ -156,10 +156,10 @@ class ShackHartmanAgent(Agent):
                 MOTOR_REVERSE_FULL_SPEED='\x8A\x7F'
                 try:
                     if 'IN' in command.string and 'OUT' not in command.string:
-                        self.connections['shlenslet'].sendMessage(MOTOR_FORWARD_FULL_SPEED)
+                        self.connections['shlenslet'].sendMessage(MOTOR_REVERSE_FULL_SPEED)
                         command.setReply('OK')
                     elif 'OUT' in command.string and 'IN' not in command.string:
-                        self.connections['shlenslet'].sendMessage(MOTOR_REVERSE_FULL_SPEED)
+                        self.connections['shlenslet'].sendMessage(MOTOR_FORWARD_FULL_SPEED)
                         command.setReply('OK')
                     else:
                         self.bad_command_handler(command)

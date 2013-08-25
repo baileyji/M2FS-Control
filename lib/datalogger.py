@@ -76,13 +76,16 @@ class DataloggerConnection(Serial):
         message to be received properly.
         """
         s='t'+UBInt32("f").build(int(time.time()))
-        #logging.getLogger('DataloggerListener').info('Sending time as %s' %
-        #                                             s.encode('string_escape'))
+
         self.write(s[0])
         self.write('\x00'+s[1])
         self.write('\x00'+s[2])
         self.write('\x00'+s[3])
         self.write('\x00'+s[4])
+        
+        hextime='0x'+(4*'{:02x}').format(*map(ord,s[1:]))
+        timemsg='Sending time as {}'.format(hextime)
+        logging.getLogger('DataloggerListener').debug(timemsg)
 
     def getByte(self, timeout):
         """
@@ -121,7 +124,7 @@ class DataloggerListener(threading.Thread):
         self.side=side
         self.datalogger=DataloggerConnection(device)
         self.logger=logging.getLogger('DataloggerListener'+side)
-        self.logger.setLevel(LOGGING_LEVEL)
+        #self.logger.setLevel(LOGGING_LEVEL)
         self.logger.info("Listener started")
     
     def run(self):

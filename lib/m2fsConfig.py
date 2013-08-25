@@ -296,3 +296,25 @@ class m2fsConfig:
                 return 'R'
             else:
                 return 'B'
+
+    @staticmethod
+    def getAgentLogLevel(name):
+        """ Get the configured logging level for agent """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_logging.conf','r'))
+        def str2loglevel(lls):
+            import logging
+            s=lls.lower()
+            if s == 'info':
+                return logging.INFO
+            elif s== 'debug':
+                return logging.DEBUG
+            elif s=='error':
+                return logging.ERROR
+            elif s=='warning':
+                return logging.WARNING
+            else:
+                return logging.INFO
+        return str2loglevel(config.get('LogLevels',name))
+

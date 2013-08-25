@@ -44,7 +44,7 @@ SET_TARGET='\x84{channel}{target}'
 GET_ERRORS='\xA1'
 GET_MOVING='\x93'
 
-MAESTRO_NOT_RESPONDING_STRING='Device not responding'
+MAESTRO_NOT_RESPONDING_STRING='Guider not responding'
 
 
 class GuiderSerial(SelectedConnection.SelectedSerial):
@@ -244,7 +244,7 @@ class GuiderAgent(Agent):
         #give the move enough time
         time.sleep(FILTER_HOME_TIME)
         #now move to the filter
-        if new_filt <6:
+        if new_filt <= 6 and new_filt>0:
             filt=FILTER_DEGREE_POS_FW[new_filt]
         else:
             filt=new_filt
@@ -383,6 +383,16 @@ def pwid2bytes(pwid):
     targetH, targetL = (target&0x3f80)>>7, (target  &0x007F)
     return chr(targetL)+chr(targetH)
 
+def pwid2bytes(pwid):
+    """
+    Convert a pulse width to the two byte form needed to command the Maestro
+    
+    See p. 40 of maestro.pdf
+    """
+    target=int(round(pwid)*4)
+    targetH, targetL = (target&0x3f80)>>7, (target  &0x007F)
+    return chr(targetL)+chr(targetH)
+
 def bytes2pwid(bytes):
     """
     Convert the two byte position sent by the Maestro to a pulse width.
@@ -407,11 +417,13 @@ def validFocusValue(focus):
     return valid
 
 def validFilterValue(filter):
-    """ Return true iff filter is a valid filter """
+    """
+    Return true iff filter is a valid filter, or the number is between 0-360
+    This enables an easter egg to set the filter position based on angle.
+    """
     try:
         #valid=int(float(filter)) in FILTER_DEGREE_POS_FW.keys()
-        int(float(filter))
-        valid=True
+        valid=int(float(filter)) >= 0 and int(float(filter)) <=360
     except ValueError:
         valid=False
     return valid

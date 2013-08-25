@@ -305,6 +305,7 @@ filmove=0
 'FESIN related defines
 fesinsp=9000 ;'The inserted position in steps of the FESIN arm
 fesremp=12;'The removed position in steps of the FESIN arm, must be >0
+FESXXX=false;'True if the inserter was just moved to fesremp
 
 'FLS related defines
 flsbkof=25;'The steps to backoff after inserting
@@ -867,6 +868,7 @@ IF(_LFD=1);' If not inserted
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 IF(^h=ENONE);'insert the FESIN if all is well
+FESXXX=false;
 JS#MOV2LIM(^a, axaccel[^a], axdecel[^a], axlmspd[^a]);^h=_JS
 REM Check error cases
 IF (^h=ENONE)
@@ -899,7 +901,7 @@ IF ((_LFD=1)&(_LRD=0)&(^h=ENONE))
 'Move to the removed idle position
 ~a=^a;DP~a=0;JS#FANCYMV(^a,fesremp);~a=^a;MC~a
 '<>3 is a hack around unexpected behavior of the galil controller
-~a=^a;IF((_SC~a<>1)&(_SC~a<>3));^h=EFAIL;ENDIF
+~a=^a;IF((_SC~a<>1)&(_SC~a<>3));^h=EFAIL;ELSE;FESXXX=true;ENDIF
 ~a=^a;MO~a
 ELSE
 ^h=ELIMSWF;~a=^a;MC~a;~a=^a;MO~a
@@ -1015,7 +1017,7 @@ IF(axiserr[FESELAX]<>ENONE);JS#ERRMSG(FESELAX,axiserr[FESELAX])
 ELSE
 ^a=unknown
 IF ((_LFD=0)&(_LRD=1));^a=in;ENDIF
-IF ((_LFD=1)&(_LRD=0));^a=out;ENDIF
+IF ((_LFD=1)&(FESXXX=true));^a=out;ENDIF
 IF (_TSD & $80); ^a=moving;ENDIF
 JS#QUFELP;^b=_JS
 IF((^a=moving)|(^b=moving)|(filmove=1));MG "GETFILT: MOVING"
@@ -1057,7 +1059,7 @@ JS#WAITAMF(FESELAX)
 JS#QUFELP;^b=_JS-filterp1
 ^c=unknown
 IF ((_LFD=0)&(_LRD=1));^c=in;ENDIF
-IF ((_LFD=1)&(_LRD=0));^c=out;ENDIF
+IF ((_LFD=1)&(FESXXX=true));^c=out;ENDIF
 IF (_TSD & $80); ^c=moving;ENDIF
 'If the desired position = current position we are done
 IF( ((^a=9)&(^c=out)) | ( ((^c=in)|(^a=8)) & (^b=^a) ) );^h=ENONE
@@ -1067,7 +1069,7 @@ filmove=1
 'Stow the FESIN arm, note REFESIN ensures safe to move
 JS#RMFESIN;^h=_JS
 'If arm retracted, desired filter != none
-IF ((^h=ENONE)&(_LRD=0)&(_LFD=1)&(^a<>9))
+IF ((^h=ENONE)&(FESXXX=true)&(_LFD=1)&(^a<>9))
 'Move to the desired filter
 'NB ^a is index of requested filter position in felencp array
 '^d is encoder distance to desired filter position

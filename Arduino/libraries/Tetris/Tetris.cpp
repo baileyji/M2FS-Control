@@ -118,6 +118,14 @@ void Tetris::setBacklash(unsigned int b){
   _backlash=b;
 }
 
+uint16_t Tetris::getBacklash(){
+    return _backlash;
+}
+
+void Tetris::tellBacklash() {
+    Serial.print(_backlash);
+}
+
 void Tetris::tellPosition() {
   Serial.print(_motor.currentPosition());
 }

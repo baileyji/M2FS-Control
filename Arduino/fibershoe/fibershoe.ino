@@ -8,10 +8,10 @@
 
 #define POWERDOWN_DELAY_US  1000
 #define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "Fibershoe v0.9"
+#define VERSION_STRING "Fibershoe v1.0"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
-#define N_COMMANDS 27
+#define N_COMMANDS 28
 
 //#define DEBUG
 //#define DEBUG_EEPROM
@@ -21,13 +21,16 @@
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
-//EEPROM Addresses
+//EEPROM Addresses (Mega has 4KB so valid adresses are 0x0000 - 0x0FFF
 #define EEPROM_LAST_SAVED_POSITION_CRC16_ADDR       0x0000
-#define EEPROM_LAST_SAVED_POSITION_ADDR             0x0002
+#define EEPROM_LAST_SAVED_POSITION_ADDR             0x0002 //32 bytes, ends at 0x0022
 
 #define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x0080
-#define EEPROM_SLIT_POSITIONS_ADDR                  0x0082
+#define EEPROM_SLIT_POSITIONS_ADDR                  0x0082 //224 bytes, ends at 0x0162
 #define N_SLIT_POSITIONS                            (N_TETRI*7)
+
+#define EEPROM_BACKLASH_CRC16_ADDR                  0x0200
+#define EEPROM_BACKLASH_ADDR                        0x0202 // 32 bytes, ends at 0x0222
 
 #pragma mark Globals
 
@@ -63,6 +66,8 @@ bool shoeOnline=false; //Always boot in offline mode
 //Defaults
 bool leave_tetris_on_when_idle=true; //Activehold default
 
+#pragma mark Commands
+
 //Commands
 typedef struct {
     String name;
@@ -77,6 +82,8 @@ const Command commands[N_COMMANDS]={
     {"AH", AHcommand, false},
     //Define backlash
     {"BL", BLcommand, true},
+    //Retrieve backlash
+    {"BG", BGcommand, true},
     //Connect Shoe restore slit positions and eanble all commands
     {"CS", CScommand, true},
     //Cycle tetris A N times from stressBottomP to stressTopP
@@ -218,13 +225,13 @@ void setup() {
     }
 
 
-    //Restore the nominal slit positions from EEPROM
-
     
     // Start serial connection
     Serial.begin(115200);
     
+    //Restore the nominal slit positions & backlash amounts from EEPROM
     loadSlitPositionsFromEEPROM();
+    loadBacklashFromEEPROM();
 
 }
 
@@ -631,7 +638,25 @@ bool BLcommand() {
   if(axis==0) for(int i=0;i<8;i++) tetris[i].setBacklash(param);
   else tetris[axis-1].setBacklash(param);
 
+  saveBacklashToEEPROM();
   return true;
+}
+
+// Get backlash setting -> #
+bool BGcommand(){
+    
+    unsigned char axis = getAxisForCommand();
+    if ( axis >8 ) return false;
+    
+    if (axis==0) {for(int i=0;i<8;i++) {
+        tetris[i].tellBacklash();
+        if(i<7) cout<<", ";
+    }}
+    else {
+        tetris[axis-1].tellBacklash();
+    }
+    cout<<endl;
+    return true;
 }
 
 //Move to a nominal slit position
@@ -982,5 +1007,52 @@ void saveMotorPositionsToEEPROM() {
         uint32_t t1=millis();
         cout<<"saveMotorPositionsToEEPROM took "<<t1-t<<" ms.\n";
     #endif
+}
+
+//Load the nominal slits positions for all the slits from EEPROM
+bool loadBacklashFromEEPROM() {
+    uint16_t crc, saved_crc;
+    uint16_t backlash[N_TETRI];
+    bool ret=false;
+#ifdef DEBUG_EEPROM
+    uint32_t t=millis();
+#endif
+    //Fetch the stored slit positions & CRC16
+    EEPROM.readBlock<uint16_t>(EEPROM_BACKLASH_ADDR, backlash, N_TETRI);
+    saved_crc=EEPROM.readInt(EEPROM_BACKLASH_CRC16_ADDR);
+    crc=OneWire::crc16((uint8_t*) backlash, N_TETRI*2);
+    //If the CRC matches, restore the positions
+    if (crc == saved_crc) {
+        for (uint8_t i=0; i<N_TETRI; i++) {
+            tetris[i].setBacklash(backlash[i]);
+        }
+        ret=true;
+    }
+#ifdef DEBUG_EEPROM
+    uint32_t t1=millis();
+    cout<<"loadBacklashFromEEPROM took "<<t1-t<<" ms.\n";
+#endif
+    return ret;
+}
+
+//Store the backlash amount for for all the tetri to EEPROM
+void saveBacklashToEEPROM() {
+    uint16_t crc;
+    uint16_t backlash[N_TETRI];
+#ifdef DEBUG_EEPROM
+    uint32_t t=millis();
+#endif
+    //Fetch the defined slit positions
+    for (uint8_t i=0; i<N_TETRI; i++) {
+        backlash[i]=tetris[i].getBacklash();
+    }
+    //Store them with their CRC16
+    EEPROM.updateBlock<uint16_t>(EEPROM_BACKLASH_ADDR, backlash, N_TETRI);
+    crc=OneWire::crc16((uint8_t*) backlash, N_TETRI*2);
+    EEPROM.writeInt(EEPROM_BACKLASH_CRC16_ADDR, crc);
+#ifdef DEBUG_EEPROM
+    uint32_t t1=millis();
+    cout<<"saveBacklashToEEPROM took "<<t1-t<<" ms.\n";
+#endif
 }
 

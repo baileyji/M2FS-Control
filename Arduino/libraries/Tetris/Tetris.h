@@ -20,10 +20,10 @@
 #define DEFAULT_POS_SLIT5 -5175 //-5775
 #define DEFAULT_POS_SLIT6 -5800 //-6525
 #define DEFAULT_POS_SLIT7 -6100 //-7250
-#define DEFAULT_BACKLASH 170 //<= 3deg 
+#define DEFAULT_BACKLASH 145 //<= 3deg 
 #define MAX_HARDSTOP_DISTANCE 10000
 #define MOTOR_HOME_POSITION DEFAULT_POS_SLIT2
-#define USTEPPING 4
+#define USTEPPING 4 //Function of circuit board, fixed forever
 
 class Tetris
 {
@@ -37,6 +37,7 @@ class Tetris
     bool motorIsOn();
     void motorOn();
     void tellPosition();
+    void tellBacklash();
     int32_t currentPosition();
     void tellSlitPosition(uint8_t slit);
     int32_t getSlitPosition(uint8_t slit);
@@ -49,6 +50,7 @@ class Tetris
     void setSpeed(int s);
     void setAcceleration(long s);
     void setBacklash(unsigned int b);
+    uint16_t getBacklash();
     void positionRelativeMove(long d);
     void positionAbsoluteMove(long p);
     void positionRelativeMoveFS(long d); //Move in full steps

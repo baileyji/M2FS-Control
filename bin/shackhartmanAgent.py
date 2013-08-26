@@ -257,12 +257,12 @@ class ShackHartmanAgent(Agent):
                 return 'MOVING'
             else:
                 #Check IN limit
-                self.connections['shlenslet'].sendMessageBlocking(REQUEST_ANALOG1_RAW_VALUE)
+                self.connections['shlenslet'].sendMessageBlocking(REQUEST_ANALOG2_RAW_VALUE)
                 response=self.connections['shlenslet'].receiveMessageBlocking(nBytes=2)
                 limINValue=convertUnsigned16bit(response)
                 limINtripped=limINValue>ANALOG_THRESHOLD
                 #Check OUT limit
-                self.connections['shlenslet'].sendMessageBlocking(REQUEST_ANALOG2_RAW_VALUE)
+                self.connections['shlenslet'].sendMessageBlocking(REQUEST_ANALOG1_RAW_VALUE)
                 response=self.connections['shlenslet'].receiveMessageBlocking(nBytes=2)
                 limOUTValue=convertUnsigned16bit(response)
                 limOUTtripped=limOUTValue>ANALOG_THRESHOLD

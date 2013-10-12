@@ -20,7 +20,7 @@
 #define DEFAULT_POS_SLIT5 -5175 //-5775
 #define DEFAULT_POS_SLIT6 -5800 //-6525
 #define DEFAULT_POS_SLIT7 0 // Mario's Gort
-#define DEFAULT_BACKLASH 145 //<= 3deg 
+#define DEFAULT_BACKLASH 145 //<=170.7 (3deg/360*(USTEPPING*20*256)) per ds
 #define MAX_HARDSTOP_DISTANCE 10000
 #define MOTOR_HOME_POSITION DEFAULT_POS_SLIT2
 #define USTEPPING 4 //Function of circuit board, fixed forever
@@ -58,10 +58,13 @@ class Tetris
     void defineSlitPosition(uint8_t slit, long position);
     void defineSlitPosition(uint8_t slit);
     void dumbMoveToSlit(uint8_t slit);
+    void homedMoveToSlit(uint8_t slit);
     void run();
   	void calibrateToHardStop();
+    void moveToHardStop();
   
   private:
+    unsigned char _homed_move_in_progress;
     unsigned char _calibration_in_progress;
     int _standby_pin;
     int _reset_pin;
@@ -71,7 +74,8 @@ class Tetris
     int8_t _lastDir;
     bool _calibrated;
     unsigned int _backlash;
-    long _slitPositions[7];      
+    long _slitPositions[7];
+    long _targetAfterHome;
     AccelStepper _motor;
 
 };

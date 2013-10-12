@@ -8,10 +8,10 @@
 
 #define POWERDOWN_DELAY_US  1000
 #define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "Fibershoe v1.0"
+#define VERSION_STRING "Fibershoe v1.1"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
-#define N_COMMANDS 28
+#define N_COMMANDS 30
 
 //#define DEBUG
 //#define DEBUG_EEPROM
@@ -65,6 +65,7 @@ bool shoeOnline=false; //Always boot in offline mode
 
 //Defaults
 bool leave_tetris_on_when_idle=true; //Activehold default
+bool home_slits_each_move=true;
 
 #pragma mark Commands
 
@@ -90,6 +91,8 @@ const Command commands[N_COMMANDS]={
     {"CY", CYcommand, false},
     //Drive to hardstop
     {"DH", DHcommand, false},
+    //Enable direct move mode: move directly from one slit position to another
+    {"DM", DMcommand, true},
     //Define current position as X
     {"DP", DPcommand, false},
     //Disconnect Shoe, power off tetris shield save current position data
@@ -97,6 +100,8 @@ const Command commands[N_COMMANDS]={
     {"DS", DScommand, true},
     //Get activehold status
     {"GH", GHcommand, true},
+    //Enable homed move mode: move home between slit moves
+    {"HM", HMcommand, true},
     //Turn motor(s) off
     {"MO", MOcommand, false},
     //Position absolute move, 
@@ -504,6 +509,16 @@ bool AHcommand() {
   return true;
 }
 
+bool HMcommand() {
+  home_slits_each_move=true;
+  return true;
+}
+
+bool DMcommand() {
+  home_slits_each_move=false;
+  return true;
+}
+
 //Report the current slit for specified tetris: 1-7,UNKNOWN,INTERMEDIATE,MOVING
 bool SGcommand() {
   unsigned char axis = getAxisForCommand();
@@ -676,8 +691,14 @@ bool SLcommand() {
     if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
     else if (tetris[axis-1].moving()) return false;
 
-    if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit);
-    else tetris[axis-1].dumbMoveToSlit(slit);
+    if (home_slits_each_move) {
+      if(axis==0) for(int i=0;i<8;i++) tetris[i].homedMoveToSlit(slit);
+      else tetris[axis-1].homedMoveToSlit(slit);
+    }
+    else {
+      if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit);
+      else tetris[axis-1].dumbMoveToSlit(slit);
+    }
   }
   else if (command_length==11) { //Set all the slits
 
@@ -691,7 +712,12 @@ bool SLcommand() {
     
     for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
 
-    for (unsigned char i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit[i]);  
+    if (home_slits_each_move) {
+      for (unsigned char i=0;i<8;i++) tetris[i].homedMoveToSlit(slit[i]);
+    }
+    else {
+      for (unsigned char i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit[i]);
+    }
   }
   else return false;
 

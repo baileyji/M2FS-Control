@@ -87,9 +87,9 @@ void Tetris::moveToHardStop() {
     //Move to the hardstop, based on the current position
     // will overshoot by _backlash to ensure we hit the stop
     if (_motor.currentPosition() > 0 ) {
-        positionRelativeMove((-_motor.currentPosition()) - _backlash);
+        positionRelativeMove((-_motor.currentPosition()) - HOME_MOVE_OVERSHOOT);
     } else if (_motor.currentPosition() < 0 ) {
-        positionRelativeMove((-_motor.currentPosition()) + _backlash);
+        positionRelativeMove((-_motor.currentPosition()) + HOME_MOVE_OVERSHOOT);
     }
 }
 

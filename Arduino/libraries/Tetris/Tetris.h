@@ -10,9 +10,25 @@
 #include <AccelStepper.h>
 
 
+//2.368mm/((4*20*256)/4)
+//462.5nm/step
+
+
 //SLIT_SPACING 220um
+//tol 25um 54 steps
+
 //SLIT1 180um
+//372.5 um = 805.5 step +- 70.5
 //SLIT2 125um
+//330 um = 713.5 step +- 66
+//SLIT3 95um
+//305 um = 659.5 step +- 63
+//SLIT4 75um
+//286.5um = 619.5 steps +- 61
+//SLIT5 58um
+//271.5um = 587 step +- 60
+//SLIT6 45um
+
 #define DEFAULT_POS_SLIT1 -2275 //-2500
 #define DEFAULT_POS_SLIT2 -3100 //-3400
 #define DEFAULT_POS_SLIT3 -3850 //-4250
@@ -20,9 +36,10 @@
 #define DEFAULT_POS_SLIT5 -5175 //-5775
 #define DEFAULT_POS_SLIT6 -5800 //-6525
 #define DEFAULT_POS_SLIT7 0 // Mario's Gort
-#define DEFAULT_BACKLASH 145 //<=170.7 (3deg/360*(USTEPPING*20*256)) per ds
+#define DEFAULT_BACKLASH 0//145 //<=170.7 (3deg/360*(USTEPPING*20*256)) per ds
+#define HOME_MOVE_OVERSHOOT 250
 #define MAX_HARDSTOP_DISTANCE 10000
-#define MOTOR_HOME_POSITION DEFAULT_POS_SLIT2
+#define MOTOR_HOME_POSITION DEFAULT_POS_SLIT7
 #define USTEPPING 4 //Function of circuit board, fixed forever
 
 class Tetris

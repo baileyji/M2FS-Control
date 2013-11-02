@@ -66,19 +66,22 @@ class GalilAgent(Agent):
             'GES_DEFHRENC':self.defaults_command_handler,
             #The Lores encoder position
             'GES_DEFLRENC':self.defaults_command_handler,
-            #gesenct
+            #Programs the allowed mismatch between GES step & enc pos (gesenct)
+            # Unused by Galil as of m2fs.dmc v 0.1
             'GES_DEFTOL':self.defaults_command_handler,
-            #gesgsp
+            #The Lores grating swap position (gesgsp)
             'GES_DEFSWPSTEP':self.defaults_command_handler,
-            #gesgsep
+            #The Lores grating swap encoder position (gesgsep)
             'GES_DEFSWPENC':self.defaults_command_handler,
             #The encoder position of specified filter
             'FILTER_DEFENC':self.defaults_command_handler,
             #fesinsp
             'FILTER_DEFINS':self.defaults_command_handler,
-            #fesremp
+            #Step position fileter inserter is moved to after extraction
+            # i.e. the amount of nudge to disengage the key from the
+            # filter (fesremp)
             'FILTER_DEFREM':self.defaults_command_handler,
-            #feselrg
+            #Encoder tolerance for filter elevator (feselrg)
             'FILTER_DEFTOL':self.defaults_command_handler,
             #flsinsp
             'FLSIM_DEFINS':self.defaults_command_handler,

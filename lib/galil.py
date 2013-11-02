@@ -108,12 +108,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'filter5encoder':'felencp[4]','filter6encoder':'felencp[5]',
             'filter7encoder':'felencp[6]','filter8encoder':'felencp[7]',
             'filter9encoder':'felencp[8]', #NB filter9=LOAD position
-            'filterInserted':'fesinsp','filterRemoved':'fesremp',
+            'filterRemoved':'fesremp',
             'filterTolerance':'feselrg',
             'hiresStep':'geshrp','loresStep':'geslrp',
             'hiresEncoder':'geshrep','loresEncoder':'geslrep',
             'gesTolerance':'gesenct',
-            'flsimInserted':'flsinsp','flsimRemoved':'flsremp',
             'loresSwapStep':'gesgsp','loresSwapEncoder':'gesgsep'}
         #Define which variables are in which command classes
         self.settingNameCommandClasses={
@@ -122,12 +121,11 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             'filter5encoder':'FILTER','filter6encoder':'FILTER',
             'filter7encoder':'FILTER','filter8encoder':'FILTER',
             'filter9encoder':'FILTER', #NB filter9=LOAD position
-            'filterInserted':'FILTER','filterRemoved':'FILTER',
+            'filterRemoved':'FILTER',
             'filterTolerance':'FILTER',
             'hiresStep':'GES','loresStep':'GES',
             'hiresEncoder':'GES','loresEncoder':'GES',
             'gesTolerance':'GES',
-            'flsimInserted':'FLSIM','flsimRemoved':'FLSIM',
             'loresSwapStep':'GES','loresSwapEncoder':'GES'}
         #Initialize the dict of which commands are executing on which
         # Galil hardware threads. The first three automatically run: the galil

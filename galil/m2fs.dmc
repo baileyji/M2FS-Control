@@ -303,7 +303,6 @@ REM '58.64 cnts/rev
 filmove=0
 
 'FESIN related defines
-fesinsp=9000 ;'The inserted position in steps of the FESIN arm
 fesremp=12;'The removed position in steps of the FESIN arm, must be >0
 FESXXX=false;'True if the inserter was just moved to fesremp
 

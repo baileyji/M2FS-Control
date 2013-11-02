@@ -75,18 +75,12 @@ class GalilAgent(Agent):
             'GES_DEFSWPENC':self.defaults_command_handler,
             #The encoder position of specified filter
             'FILTER_DEFENC':self.defaults_command_handler,
-            #fesinsp
-            'FILTER_DEFINS':self.defaults_command_handler,
             #Step position fileter inserter is moved to after extraction
             # i.e. the amount of nudge to disengage the key from the
             # filter (fesremp)
             'FILTER_DEFREM':self.defaults_command_handler,
             #Encoder tolerance for filter elevator (feselrg)
             'FILTER_DEFTOL':self.defaults_command_handler,
-            #flsinsp
-            'FLSIM_DEFINS':self.defaults_command_handler,
-            #flsremp
-            'FLSIM_DEFREM':self.defaults_command_handler,
             #Do a soft reset of the galil
             'RESET':self.reset_command_handler})
         self.command_settingName_map={
@@ -95,12 +89,11 @@ class GalilAgent(Agent):
             'FILTER_DEFENC 5':'filter5encoder','FILTER_DEFENC 6':'filter6encoder',
             'FILTER_DEFENC 7':'filter7encoder','FILTER_DEFENC 8':'filter8encoder',
             'FILTER_DEFENC 9':'filter9encoder', #NB LOAD position
-            'FILTER_DEFINS':'filterInserted','FILTER_DEFREM':'filterRemoved',
+            'FILTER_DEFREM':'filterRemoved',
             'FILTER_DEFTOL':'filterTolerance',
             'GES_DEFHRSTEP':'hiresStep','GES_DEFLRSTEP':'loresStep',
             'GES_DEFHRENC':'hiresEncoder','GES_DEFLRENC':'loresEncoder',
             'GES_DEFTOL':'gesTolerance',
-            'FLSIM_DEFINS':'flsimInserted','FLSIM_DEFREM':'flsimRemoved',
             'GES_DEFSWPSTEP':'loresSwapStep','GES_DEFSWPENC':'loresSwapEncoder'}
         #Initialize the Galil
         if not self.args.DEVICE:

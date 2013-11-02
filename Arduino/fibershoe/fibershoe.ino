@@ -11,7 +11,7 @@
 #define VERSION_STRING "Fibershoe v1.1"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
-#define N_COMMANDS 30
+#define N_COMMANDS 31
 
 //#define DEBUG
 //#define DEBUG_EEPROM
@@ -31,6 +31,8 @@
 
 #define EEPROM_BACKLASH_CRC16_ADDR                  0x0200
 #define EEPROM_BACKLASH_ADDR                        0x0202 // 32 bytes, ends at 0x0222
+
+#define EEPROM_BOOT_COUNT_ADDR  0x0600
 
 #pragma mark Globals
 
@@ -138,7 +140,8 @@ const Command commands[N_COMMANDS]={
     //Tetris shield Vreg on
     {"VE", enableTetrisVreg, false},
     //Tetris shield Vreg off
-    {"VO",disableTetrisVreg, false}
+    {"VO",disableTetrisVreg, false},
+    {"ZB",ZBcommand, true},
 };
 
 #pragma mark Serial Event Handler
@@ -167,7 +170,12 @@ void serialEvent() {
 
 #pragma mark Setup & Loop
 
+uint32_t boottime;
 void setup() {
+
+    
+    boottime=millis();
+
     //Set up R vs. B side detection
     pinMode(R_SIDE_POLL_PIN,INPUT);
     digitalWrite(R_SIDE_POLL_PIN, LOW);
@@ -188,7 +196,7 @@ void setup() {
     pinMode(TETRIS_MOTORS_POWER_ENABLE, OUTPUT);
 
     //Tetris Drivers
-    //NB The ! should be deleted when the shou drivers are inserted into the
+    //NB The ! should be deleted when the shoe drivers are inserted into the
     //correct shoes. As of the comissioning run, the boards are swapped
     //and tetrisShieldIsR() returns true for the B shoe and false for the R shoe
     // -JB 8/22/13
@@ -230,17 +238,37 @@ void setup() {
     }
 
 
-    
-    // Start serial connection
-    Serial.begin(115200);
-    
     //Restore the nominal slit positions & backlash amounts from EEPROM
     loadSlitPositionsFromEEPROM();
     loadBacklashFromEEPROM();
 
+    // Start serial connection
+    Serial.begin(115200);
+    
+    boottime=millis()-boottime;
+    uint8_t bootcount;
+    bootcount=bootCount(true);
+    
+//    Serial.print("#Booted for ");
+//    Serial.print((uint16_t) bootcount);
+//    Serial.print(" time in ");
+//    Serial.print(boottime);
+//    Serial.println(" ms.");
 }
 
-//Main loop, funs forever at full steam ahead
+
+uint8_t bootCount(bool set) {
+    uint8_t count;
+    count=EEPROM.read(EEPROM_BOOT_COUNT_ADDR);
+    if (set==true && count < 200) {
+        count++;
+        //increment & save boot count
+        EEPROM.write(EEPROM_BOOT_COUNT_ADDR, count);
+    }
+    return count;
+}
+
+//Main loop, runs forever at full steam ahead
 void loop() {
 
     monitorLockingNutState();
@@ -459,6 +487,11 @@ bool enableTetrisVreg() {
 }
 
 #pragma mark Command Handlers
+
+bool ZBcommand(){
+    EEPROM.write(EEPROM_BOOT_COUNT_ADDR, 0);
+    return true;
+}
 
 bool CScommand() {
     //Come online if the locking nut is engaged

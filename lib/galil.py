@@ -175,10 +175,10 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         If the message indicates a command error occured, extract the details, 
         figure out the command class and set a flag so the user will be notified
         by the _getErrorMessage call.
-        
+
         Command error messages take the form 
-        '#!CMDERR:ERR <‘#> (thread <‘#> line <‘#>):\r\n’
-        WITHOUT BACKTICKS. Backticks in the above line prevent a crash in the 
+        '#!CMDERR:ERR <`#> (thread <`#> line <`#>):\r\n'
+        WITHOUT BACKTICKS. Backticks in the above line prevent a crash in the
         XCode editor.
         
         If the message isn't a command error log a warning.

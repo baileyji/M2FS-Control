@@ -10,6 +10,8 @@ from fnmatch import fnmatch
 from glob import glob
 import shutil
 
+
+MAX_ID_STRING_LEN=26 #Based on christop and what the fits header can handle
 PLUG_CONTROLLER_VERSION_STRING='Plugging Controller v0.1'
 UPLOAD_CHECK_INTERVAL=5
 FILE_SIZE_LIMIT_BYTES=1048576
@@ -419,8 +421,7 @@ class PlugController(Agent):
         print nom
         nomstate=['{0}:{1}:{2}:{3}'.format(tetris, groove,
                    nom.get(fiberID_by_tetris_groove_side(tetris, groove, side),
-                           'unplugged'),
-                   fiberID_by_tetris_groove_side(tetris, groove, side))
+                           'unplugged')[0:MAX_ID_STRING_LEN])
                    for tetris in range(1,9) for groove in range(1,17) ]
         return ' '.join(nomstate)
 

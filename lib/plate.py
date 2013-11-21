@@ -79,6 +79,14 @@ class Setup(object):
     def get_nominal_fiber_hole_dict(self):
         return {t['fiber']:t['id'] for t in self.tlist}
 
+class NullSetup(object):
+    def __init__(self):
+        self.name='None'
+
+    def get_nominal_fiber_hole_dict(self):
+        return {}
+
+
 class InvalidPlate(Exception):
     """
     Exception raised if a plate file is invalid in any way. str(exception) will
@@ -104,9 +112,6 @@ class NullPlate(object):
         return NullSetup()
 
 
-class NullSetup(object):
-    def __init__(self):
-        self.name='None'
 
 
 class PlugPlate(object):

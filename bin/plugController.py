@@ -412,22 +412,16 @@ class PlugController(Agent):
         
         Red CCD first followed by the B CCD.
         """
-        
-#        TODO For now use
-#        self.active_plate=self.plateManager.getPlate(plate_name)
-#        self.active_setup=self.active_plate.getSetup(arg)
-#        to return the expected plug positions
+        #For now return the expected plug positions
         nom=self.active_setup.get_nominal_fiber_hole_dict()
-        print nom
-        nomstate=['{0}:{1}:{2}:{3}'.format(tetris, groove,
+        nomstate=['{0}:{1}:{2}'.format(tetris, groove,
                    nom.get(fiberID_by_tetris_groove_side(tetris, groove, side),
                            'unplugged')[0:MAX_ID_STRING_LEN])
                    for tetris in range(1,9) for groove in range(1,17) ]
         return ' '.join(nomstate)
 
-#        fiberStates=['{0}:{1}:{2}:{3}'.format(tetris, groove,
-#                        holeID_by_tetris_groove_side(tetris, groove, side),
-#                        fiberID_by_tetris_groove_side(tetris, groove, side))
+#        fiberStates=['{0}:{1}:{2}'.format(tetris, groove,
+#                        holeID_by_tetris_groove_side(tetris, groove, side))
 #                        for tetris in range(1,9) for groove in range(1,17) ]
 #        return ' '.join(fiberStates)
 

@@ -50,6 +50,9 @@ class Fiber(object):
     def __str__(self):
         return self.name
 
+def extract_tab_quote_list(s):
+    return [x[1:-1] for x in s.split('\t')]
+
 class Setup(object):
     """
     This is an M2FS plugplate setup.
@@ -58,8 +61,15 @@ class Setup(object):
     name
     TODO
     """
-    def __init__(self, name, setupAttributes, targetsList):
+    def __init__(self, name, setupAttributes, targetsDict):
         self.name=name
+        self.attrib=setupAttributes
+        self.tlist=[]
+        keys=map(str.lower, extract_tab_quote_list(targetsDict.pop('H')))
+        for k,v in targetsDict.iteritems():
+            vals=extract_tab_quote_list(v)
+            self.tlist.append({keys[i]:vals[i] for i in range(len(keys))})
+
         #self.plugPos=( (Fiber(), Hole()), (Fiber(), Hole()))
         #self.targets=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
         #self.shobject=(Hole(), CelestialObject())
@@ -223,9 +233,10 @@ class PlugPlate(object):
         plate.n_setups=len(plateConfig.setup_sections())
         for setup in plateConfig.setup_sections():
             setupAttributes=dict(plateConfig.items(setup))
-            targetsList=dict(plateConfig.items(setup+':Targets')).values()
+            #import pdb;pdb.set_trace()
+            targetsDict=dict(plateConfig.items(setup+':Targets'))
             plate.setups[setupAttributes['name']]=Setup(setupAttributes['name'],
-                                      setupAttributes, targetsList)
+                                      setupAttributes, targetsDict)
     
     def __init__(self, file):
         """

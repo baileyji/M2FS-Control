@@ -76,6 +76,9 @@ class Setup(object):
         #self.guideobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
         #self.acquisitionobjects=(Hole(), CelestialObject(),(Hole(), CelestialObject()))
 
+    def get_nominal_fiber_hole_dict(self):
+        return {t['fiber']:t['id'] for t in self.tlist}
+
 class InvalidPlate(Exception):
     """
     Exception raised if a plate file is invalid in any way. str(exception) will
@@ -90,6 +93,7 @@ def Plate(file):
     else:
         return NullPlate()
 
+
 class NullPlate(object):
     """ This is a null plate """
     def __init__(self):
@@ -97,7 +101,13 @@ class NullPlate(object):
         self.name='NULL'
     
     def getSetup(self, setup):
-        raise KeyError
+        return NullSetup()
+
+
+class NullSetup(object):
+    def __init__(self):
+        self.name='None'
+
 
 class PlugPlate(object):
     """

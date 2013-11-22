@@ -18,7 +18,7 @@ FILE_SIZE_LIMIT_BYTES=1048576
 
 PLATEMANAGER_LOG_LEVEL=logging.DEBUG
 
-CATERGORIZE_UPLOAD_WARNING='Exception encountered while sorting uploads: '
+CATERGORIZE_UPLOAD_WARNING='Exception while procesing uploads {file}: {err}'
 
 import contextlib
 @contextlib.contextmanager
@@ -137,7 +137,11 @@ class PlateManager(threading.Thread):
                     except IOError, e:
                         rejectFiles.append((fname,e))
             except Exception, e:
-                self.logger.warning(CATERGORIZE_UPLOAD_WARNING + str(e))
+                import traceback
+                e=traceback.format_exception_only(type(e),e)[0][0:-1]
+                self.logger.warning(CATERGORIZE_UPLOAD_WARNING.format(
+                                    file=fname,
+                                    err=e))
                 trashFiles.append(fname)
         return {'good':goodFiles,'trash':trashFiles,'reject':rejectFiles}
     

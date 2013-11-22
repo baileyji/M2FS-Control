@@ -3,7 +3,7 @@
 
 #include <Servo.h> 
 
-#define BLUE_SERVO_PIN  10  //Ouput  Blue is 10 red is 9
+#define BLUE_SERVO_PIN  9  //Ouput  Blue is 10 red is 9
 #define WAIT_DATA 100
 
 Servo myservo;  // create servo object to control a servo 
@@ -13,12 +13,14 @@ int pos = 0;    // variable to store the servo position
  
 //s = stop
 //c = cycle
-unsigned int delayOpen=350;     //m
-unsigned int delayClose1=150;   //n
-unsigned int delayClose2=500;   //s
+
+#define CLOSE_TIME_MS 350
+unsigned int delayOpen=650;     //m
+unsigned int delayClose1=150;   //n //unused
+unsigned int delayClose2=500;   //s  //unused
 unsigned int openPos=1400;      //o
-unsigned int closePos1=2080;    //p
-unsigned int closePos2=2100;    //q
+unsigned int closePos1=2080;    //p 
+unsigned int closePos2=2100;    //q //unused
 unsigned int closePos3=2100;    //r
 
 
@@ -66,9 +68,7 @@ void loop()
             delay(delayOpen);
             //Close
             myservo.writeMicroseconds(closePos1);
-            delay(delayClose1);
-            myservo.writeMicroseconds(closePos2);
-            delay(delayClose2);
+            delay(CLOSE_TIME_MS);
             myservo.writeMicroseconds(closePos3);
             delay(5000);
             if (Serial.peek() == 't') {

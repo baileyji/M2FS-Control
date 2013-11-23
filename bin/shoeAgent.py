@@ -53,10 +53,10 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         """
         try:
             from subprocess import call
-            call('stty crtscts < {device}'.format(self.port),shell=True)
-            call('stty -crtscts < {device}'.format(self.port),shell=True)
+            s='stty crtscts < {device};stty -crtscts < {device}'.format(self.port)
+            ret=call(s,shell=True)
         except Exception, e:
-            raise SelectedConnection.ConnectError('rtscts hack failed.')
+            raise SelectedConnection.ConnectError('rtscts hack failed. {}:{}:{e}'.format(s,ret,str(e)))
 
     def _postConnect(self):
         """

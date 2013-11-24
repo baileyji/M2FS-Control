@@ -330,8 +330,12 @@ class PlugPlate(object):
         self.name=plateConfig.get('Plate', 'name')
         self.n_setups=len(plateConfig.setup_sections())
         self.plate_holes=plateConfig.get_plate_holes()
-        self.shackhartman=[x for x in self.plate_holes if x['type']=='C'][0]
-        self.mechanical=[x for x in self.plate_holes if x['type'] in 'FT']
+        if plateConfig.file_version() == '0.1':
+            self.shackhartman=None
+            self.mechanical=[]
+        else:
+            self.shackhartman=[x for x in self.plate_holes if x['type']=='C'][0]
+            self.mechanical=[x for x in self.plate_holes if x['type'] in 'FT']
         try:
             self.standard=[x for x in self.plate_holes if x['type']=='O'][0]
             self.standard_offset=plateConfig.get('Plate','std_offset')

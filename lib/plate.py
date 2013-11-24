@@ -1,26 +1,5 @@
 import ConfigParser, os.path
 
-REQUIRED_SECTIONS = {
-    '0.1':['Plate', 'Setup1'],
-    '0.2':['Plate','PlateHoles','Setup1']}
-REQUIRED_PLATE_KEYS = {
-    '0.1':['formatversion', 'name'],
-    '0.2':['formatversion', 'name']}
-REQUIRED_SETUP_KEYS = {
-    '0.1':['name'],
-    '0.2':['name',
-    'utc',
-    'sidereal_time',
-    'el',
-    'de',
-    'epoch',
-    'az',
-    'telescope',
-    'airmass',
-    'ra']}
-REQUIRED_SETUP_SUBSECTIONS= {
-    '0.1':['Targets'],
-    '0.2':['Targets','Guide']}
 
 def Plate(file):
     if file !=None:
@@ -28,9 +7,6 @@ def Plate(file):
     else:
         return NullPlate()
 
-
-def _extract_tab_quote_list(s):
-    return [x[1:-1] for x in s.split('\t')]
 
 class Hole(object):
     """
@@ -52,6 +28,7 @@ class Hole(object):
         return (self.x == other.x and
                 self.y == other.y and
                 self.radius == other.radius)
+
 
 class Fiber(object):
     """
@@ -83,12 +60,17 @@ class Setup(object):
         Target list:[header_record_str, (fiber_str_i, target_record_i), ...]
         """
         self.name=setupAttributes['name']
-        self.attrib=setupAttributes
+        self.attrib=setupAttributes.copy()
         self._target_list=targetDictList
         self._guide_list=guideDictList
-
+        self.attrib['n']=self.n_fibers_used()
+    
     def get_nominal_fiber_hole_dict(self):
         return {t['fiber']:t['id'] for t in self._target_list if t['id']}
+
+    def n_fibers_used(self):
+        return len(self._target_list)
+
 
 class NullSetup(object):
     def __init__(self):
@@ -104,6 +86,36 @@ class InvalidPlate(Exception):
     give a \n delimited list of the various issues with the plate.
     """
     pass
+
+
+def _extract_tab_quote_list(s):
+    return [x[1:-1] for x in s.split('\t')]
+
+def _extract_comma_list(s):
+    return [x.strip(' \t\n\r') for x in s.split(',')]
+
+
+REQUIRED_SECTIONS = {
+    '0.1':['Plate', 'Setup1'],
+    '0.2':['Plate','PlateHoles','Setup1']}
+REQUIRED_PLATE_KEYS = {
+    '0.1':['formatversion', 'name'],
+    '0.2':['formatversion', 'name']}
+REQUIRED_SETUP_KEYS = {
+    '0.1':['name'],
+    '0.2':['name',
+           'utc',
+           'sidereal_time',
+           'el',
+           'de',
+           'epoch',
+           'az',
+           'telescope',
+           'airmass',
+           'ra']}
+REQUIRED_SETUP_SUBSECTIONS= {
+    '0.1':['Targets'],
+    '0.2':['Targets','Guide']}
 
 
 class PlateConfigParser(ConfigParser.RawConfigParser):
@@ -264,6 +276,7 @@ class PlateConfigParser(ConfigParser.RawConfigParser):
 
         return errors
 
+
 class NullPlate(object):
     """ This is a null plate """
     def __init__(self):
@@ -272,6 +285,7 @@ class NullPlate(object):
     
     def getSetup(self, setup):
         return NullSetup()
+
 
 class PlugPlate(object):
     """

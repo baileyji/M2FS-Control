@@ -8,7 +8,7 @@
 
 #define POWERDOWN_DELAY_US  1000
 #define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "Fibershoe v1.1"
+#define VERSION_STRING "Fibershoe v1.2"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
 #define N_COMMANDS 31
@@ -66,7 +66,7 @@ bool locking_screw_disengaged=true; //Boot assuming locking nut is disengaged
 bool shoeOnline=false; //Always boot in offline mode
 
 //Defaults
-bool leave_tetris_on_when_idle=true; //Activehold default
+bool leave_tetris_on_when_idle=false; //Activehold default
 bool home_slits_each_move=true;
 
 #pragma mark Commands

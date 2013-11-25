@@ -69,7 +69,7 @@ class Setup(object):
         return {t['fiber']:t['id'] for t in self._target_list if t['id']}
 
     def n_fibers_used(self):
-        return len(self._target_list)
+        return len([t for t in self._target_list if t['id']])
 
 
 class NullSetup(object):
@@ -330,6 +330,7 @@ class PlugPlate(object):
         self.name=plateConfig.get('Plate', 'name')
         self.n_setups=len(plateConfig.setup_sections())
         self.plate_holes=plateConfig.get_plate_holes()
+        self.file_version=plateConfig.file_version()
         if plateConfig.file_version() == '0.1':
             self.shackhartman=None
             self.mechanical=[]

@@ -46,6 +46,19 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
     _implementationSpecificDisconnect is overridden to guarantee the shoe is 
     told to power down whenever the serial connection closes.
     """
+    def _preConnect(self):
+        """
+        Attempt at workaround for 
+        https://bugs.launchpad.net/digitemp/+bug/920959
+        """
+        try:
+            from subprocess import call
+            s='stty crtscts < {};stty -crtscts < {}'.format(self.port)
+            ret=call(s,shell=True)
+        except Exception, e:
+            raise SelectedConnection.ConnectError(
+                    'rtscts hack failed. {}:{}:{}'.format(s,ret,str(e)))
+
     def _postConnect(self):
         """
         Implement the post-connect hook

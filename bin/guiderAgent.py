@@ -28,13 +28,13 @@ JITTER_STOP_MOVE=1
 FILTER_HOME_TIME=3.6
 FOCUS_SLEW_TIME=0.8
 
-FILTER_DEGREE_POS_FW={
-    1: 45,
-    2: 85,
-    3: 125,
-    4: 165,
-    5: 205,
-    6: 245}
+FILTER_DEGREE_POS_FW={ #these units are about 1.5 degrees
+    1: 48, #48 clear
+    2: 88, #88 none
+    3: 128, #128 none
+    4: 169, #169 none
+    5: 209, #209 blue
+    6: 251} #251 red
 
 MAX_PWIDTH=2100.0
 MIN_PWIDTH=900.0

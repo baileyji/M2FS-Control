@@ -342,6 +342,7 @@ class PlugPlate(object):
             self.standard_offset=plateConfig.get('Plate','std_offset')
         except IndexError:
             self.standard={}
+            self.standard_offset=float('nan')
         
         self.setups={}
         for setup in plateConfig.setup_sections():

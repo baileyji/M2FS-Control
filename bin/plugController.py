@@ -210,9 +210,11 @@ class PlateManager(threading.Thread):
         try:
             return plate.Plate(self._plates[name])
         except IOError:
-            err='Platefile %s has gone missing from the disk.' % self._plates[name]
+            import os.path
+            err=('Platefile %s has gone missing from the disk.' %
+                 os.path.basename(self._plates[name]))
             self.logger.error(err)
-            self._plate.pop(name)
+            self._plates.pop(name)
             raise KeyError(err)
         finally:
             self.lock.release()

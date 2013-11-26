@@ -53,7 +53,8 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         """
         try:
             from subprocess import call
-            s='stty crtscts < {};stty -crtscts < {}'.format(self.port)
+            s='stty crtscts < {device};stty -crtscts < {device}'.format(
+                device=self.port)
             ret=call(s,shell=True)
         except Exception, e:
             raise SelectedConnection.ConnectError(

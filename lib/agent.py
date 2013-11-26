@@ -270,7 +270,15 @@ class Agent(object):
         #Verify there are no existing commands from this source, if so fail and
         # return
         existing_from_source=filter(lambda x: x.source==source, self.commands)
-        if existing_from_source:
+        if self.getCommandName(command)=='FLUSH' and existing_from_source:
+            warning="Flushing command '%s'."
+            warning=escapeString(warning % existing_from_source[0])
+            self.logger.warning(warning)
+            reply=escapeString("!ERROR: Command '%s' flushed." %
+                               existing_from_source[0])
+            existing_from_source[0].setReply(reply)
+            return
+        elif existing_from_source:
             warning="Command '%s' received before command '%s' finished. Ignoring"
             warning=escapeString(warning % (message_str, existing_from_source[0]))
             self.logger.warning(warning)

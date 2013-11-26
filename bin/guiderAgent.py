@@ -4,7 +4,6 @@ sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
 import time
-from iorequest import *
 import logging
 
 GUIDER_AGENT_VERSION_STRING='Guider Agent v0.1'

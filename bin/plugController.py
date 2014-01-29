@@ -295,7 +295,7 @@ class PlugController(Agent):
         Get/Set the current plate 
         
         If getting, return the name of the currently selected plate
-        If setting return the number of setups on the plate
+        If setting return the names of setups on the plate
         An invalid platename returns an !ERROR
         """
         if '?' in command.string:

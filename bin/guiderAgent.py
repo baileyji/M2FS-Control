@@ -136,8 +136,8 @@ class GuiderAgent(Agent):
         """ 
         Translate focus to a command to the Maestro and send it
         
-        Focus must be  in the range 0 - 90. Raise an Exception if there are any
-        errors.
+        Focus must be  in the range 0 - 90 or +/-.
+        
         """
         
         #Handle the nudge case

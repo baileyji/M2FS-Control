@@ -1261,45 +1261,71 @@ EN,,^h
 #FANCYMV;'(axis,absolute)
 'Stack and XQ fancy footwork
 JS#ZS;IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4]);ed4=_ED4;ret[ed4]=_JS;ELSE
+
 ^h=ENONE
+
 'Compute delta
 ^b=@RND[^b]
 ~a=^a;^c=^b-_TD~a
+
+'c=new-old
+
 IF(^c<>0)
 REM ~a=^a;MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
+
 'If required move is less than the minimum increment
-IF(@ABS[^c]<mininc[^a])
-'First move mininc[^a]+@ABS[^c] in direction we last headed
-IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
-ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
+#########if pos is in front of us then back up or overshoot
+#########if position is behind us then backlash will take care of it
+
+~a=^a;IF((@ABS[^c]<mininc[^a])&(^b>_TD~a))
+#####back up or overshoot
+'First try moveing mininc[^a] forward
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a]
 'Verify the limit isn't tripped in the the direction of inteded motion
 'Will evaluate to cmd err if only a sigle limit is disabled
 'The instrument doesnt use have LD= 1 or 2 so non issue 
-~a=^a;IF((_LD~a<>3)&(((ldelta[^a]>0)&(_LF~a=0))|((ldelta[^a]<0)&(_LR~a=0))))
-'Starting the move will cause a command error
-^h=ELIMSW
-ELSE
+~a=^a;IF((_LD~a<>3)&(_LF~a=0))
+~a=^a;^d=_TD~a-mininc[^a]-BACKLASH[^a]
+ELSE;~a=^a;^d=_TD~a+mininc[^a];ENDIF
+'Move
+~a=^a;PA~a=^d;SH~a;BG~a;MC~a
+
+'Check position to see if we didn't reach our goal (i.e. we hit + limit)
+'If the - lim is tripped then a wire or something broke, not mech possible
+~a=^a;IF(_TD~a<>^d)
+~a=^a;^d=_TD~a-2*mininc[^a])-BACKLASH[^a]
 ~a=^a;PA~a=^d;SH~a;BG~a;MC~a
 ENDIF
-'Check position to see if we didn't reach our goal (i.e. we hit a limit)
-~a=^a;IF(_TD~a<>^d)
-'Figure how far we need to move in the other direction
-IF(ldelta[^a]>0);~a=^a;^d=_TD~a-(2*(mininc[^a]+@ABS[^c]))
-ELSE;~a=^a;^d=_TD~a+(2*(mininc[^a]+@ABS[^c]));ENDIF
-'Compute delta
-~a=^a;^e=^d-_TD~a
-'Handle backlash
-JS#BACKLSH(^a,^e)
+ENDIF
+'Now we are far enough away from the position to get there
+
+if desired position is behind us, go back and overshoot it
+~a=^a;IF(^b<_TD~a)
+~a=^a;^d=^b-BACKLASH[^a]
+~a=^a;PA~a=^d;SH~a;BG~a;MC~a
+ENDIF
+
+'if we hit the -lim then thats ok
+
+wait for a frac
+'Move forward to the position
+~a=^a;PA~a=^b;SH~a;BG~a;MC~a
+
+
+
 'Move past in the other direction
 'Verify the limit isn't tripped in the the direction of inteded motion
 ~a=^a;IF((_LD~a<>3)& (((^e>0)&(_LF~a=0)) | ((^e<0)&(_LR~a=0))) )
 'Starting the move will cause a command error
 ^h=ELIMSW
 ELSE
+
 ~a=^a;PA~a=^d;SH~a;BG~a;MC~a
 ENDIF
+
 ENDIF;' didn't reach goal
+
+
 'Recompute delta
 ~a=^a;^c=^b-_TD~a
 ENDIF;' very small move

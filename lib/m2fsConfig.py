@@ -318,3 +318,11 @@ class m2fsConfig:
                 return logging.INFO
         return str2loglevel(config.get('LogLevels',name))
 
+    @staticmethod
+    def getIPmethod():
+        """ Get the configured logging level for agent """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
+        return config.get('IP','method').lower()
+

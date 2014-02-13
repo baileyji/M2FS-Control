@@ -163,7 +163,7 @@ class Director(Agent):
         Overrides the default localhost address as the director listens for 
         commands from the GUI
         """
-        return (socket.gethostname(), self.PORT)
+        return ('', self.PORT)
 
     def get_cli_help_string(self):
         """

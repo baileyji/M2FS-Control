@@ -45,6 +45,7 @@ GET_ERRORS='\xA1'
 GET_MOVING='\x93'
 
 MAESTRO_NOT_RESPONDING_STRING='Guider not responding'
+FOC_POS_LIMIT_MSG='Positive limit reached'
 
 
 class GuiderSerial(SelectedConnection.SelectedSerial):
@@ -139,53 +140,63 @@ class GuiderAgent(Agent):
         Focus must be  in the range 0 - 90. Raise an Exception if there are any
         errors.
         """
+        
+        #Handle the nudge case
         if focus=='+':
             focus=self.focus+FOCUS_NUDGE
+            if focus > MAX_FOC_ROTATION:
+                self.returnFromWorkerThread('GFOCUS',
+                                            'ERROR: '+FOC_POS_LIMIT_MSG)
         elif focus=='-':
             focus=self.focus-FOCUS_NUDGE
-        focus=max(min(90, float(focus)), JITTER_STOP_MOVE)
-        #Determine the move direction so we can nudge backwards after
-        # Otherwise the motor might dance
-        dir=JITTER_STOP_MOVE
-#        if focus > self.focus:
-#            dir=JITTER_STOP_MOVE
-#        elif focus < self.focus:
-#            dir=-JITTER_STOP_MOVE
-#        else:
-#            dir=0
+            if focus < JITTER_STOP_MOVE:
+                self.returnFromWorkerThread('GFOCUS',
+                                            'ERROR: '+FOC_NEG_LIMIT_MSG)
     
-        pwid=deg2pwid(0, MAX_FOC_ROTATION)
-        msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
-        #move to focus pos
-        try:
-            self.connections['guider'].sendMessageBlocking(msg)
-        except WriteError, e:
-            self.logger.info("Focus move failed home move")
-            self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
-            return
-        time.sleep(FOCUS_SLEW_TIME)
+        #Handle the absolute case
+        if focus not in ['+','-']:
+            focus=max( min(MAX_FOC_ROTATION, float(focus)), JITTER_STOP_MOVE)
+            jitter_nudge=JITTER_STOP_MOVE
 
+            #Home the motor
+            pwid=deg2pwid(0, MAX_FOC_ROTATION)
+            msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
+            #move to focus pos
+            try:
+                self.connections['guider'].sendMessageBlocking(msg)
+            except WriteError, e:
+                self.logger.info("Focus move failed home move: "+str(e))
+                self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
+                return
+            time.sleep(FOCUS_SLEW_TIME)
+        else:
+            #Determine the move direction so we can nudge backwards
+            # Otherwise the motor will dance
+            if focus > self.focus:
+                jitter_nudge=JITTER_STOP_MOVE
+            else:
+                jitter_nudge=-JITTER_STOP_MOVE
+    
+
+        #Move to the desired focus
         pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
-        #move to focus pos
         try:
             self.connections['guider'].sendMessageBlocking(msg)
         except WriteError, e:
-            self.logger.info("Focus move failed initial move")
+            self.logger.info("Focus move failed: "+str(e))
             self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
             return
-
-        self.focus=focus
-        #give the move enough time
         time.sleep(FOCUS_SLEW_TIME)
+
         #Nudge the focus backwards so the servo doesn't dance
-        focus-=dir
+        focus-=jitter_nudge
         pwid=deg2pwid(focus, MAX_FOC_ROTATION)
         msg=SET_TARGET.format(channel=FOCUS_CHANNEL, target=pwid2bytes(pwid))
         try:
             self.connections['guider'].sendMessageBlocking(msg)
         except WriteError, e:
-            self.logger.debug("Focus move failed jitter correction move")
+            self.logger.debug("Focus failed jitter correction move: " + str(e))
             self.returnFromWorkerThread('GFOCUS', 'ERROR: ' + str(e))
             return
         self.focus=focus
@@ -410,11 +421,12 @@ def validFocusValue(focus):
     """
     if focus in ['+', '-']:
         return True
-    try:
-        valid = (JITTER_STOP_MOVE <= float(focus) <=MAX_FOC_ROTATION)
-    except Exception:
-        valid=False
-    return valid
+    else:
+        try:
+            valid = (JITTER_STOP_MOVE <= float(focus) <=MAX_FOC_ROTATION)
+        except Exception:
+            valid=False
+        return valid
 
 def validFilterValue(filter):
     """

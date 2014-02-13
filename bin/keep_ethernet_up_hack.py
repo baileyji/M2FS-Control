@@ -1,62 +1,101 @@
 #!/usr/bin/env python2.7
 import sys, dbus, time, logging
+sys.path.append(sys.path[0]+'/../lib/')
+from m2fsConfig import m2fsConfig
 
 public_adapter = "/net/connman/service/ethernet_b88d1255cd7e_cable"
 
 fls_adapter = "/net/connman/service/ethernet_b88d1255d1ee_cable"
 
+#Set up logging
 logger=logging.getLogger()
-if logger.handlers==[]:
-    # create console handler
-    ch = logging.StreamHandler()
-    ch.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-    ch.setLevel(logging.INFO)
-    # add handlers to logger
-    logger.addHandler(ch)
-    #Set the default logging level
-    logger.setLevel(logging.INFO)
+# create console handler
+ch = logging.StreamHandler()
+ch.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+ch.setLevel(logging.INFO)
+# add handlers to logger
+logger.addHandler(ch)
+#Set the default logging level
+logger.setLevel(logging.INFO)
 
-bus = dbus.SystemBus()
 
-def make_variant(string):
+def dbus_string(string):
 	return dbus.String(string, variant_level=1)
 
-FLS_ADAPTER_ADDRESS=make_variant('192.168.0.1')
-FLS_ADAPTER_NETMASK=make_variant('255.255.255.0')
+def dbus_array(x):
+    return dbus.Array(x, signature=dbus.Signature('s'))
 
-PUBLIC_ADAPTER_ADDRESS=make_variant('200.28.147.41')
-PUBLIC_ADAPTER_NETMASK=make_variant('255.255.255.0')
+FLS_ADAPTER_ADDRESS=dbus_string('192.168.0.1')
+FLS_ADAPTER_NETMASK=dbus_string('255.255.255.0')
+FLS_ADAPTER_GATEWAY=dbus_string('192.168.0.1')
+IPV4_SETTINGS={"Method": dbus_string('manual'),
+               "Address":FLS_ADAPTER_ADDRESS,
+               "Netmask":FLS_ADAPTER_NETMASK,
+               "Gateway":FLS_ADAPTER_GATEWAY}
 
-CONNECT_TIMOUT=10000
 
+PUBLIC_ADAPTER_ADDRESS=dbus_string('200.28.147.41')
+PUBLIC_ADAPTER_NETMASK=dbus_string('255.255.255.0')
+PUBLIC_ADAPTER_GATEWAY=dbus_string('200.28.147.1')
+PUBLIC_IPV4_SETTINGS={"Method": dbus_string('manual'),
+                      "Address":PUBLIC_ADAPTER_ADDRESS,
+                      "Netmask":PUBLIC_ADAPTER_NETMASK,
+                      "Gateway":PUBLIC_ADAPTER_GATEWAY}
+PUBLIC_DOMAINS=dbus_array(['lco.cl'])
+PUBLIC_TIMESERVERS=dbus_array(['200.28.147.16','200.28.147.17',
+                               '200.28.147.1'])
+PUBLIC_NAMESERVERS=dbus_array(['200.28.147.2', '200.28.147.4',
+                               '139.229.97.50','139.229.97.26'])
+ 
+CONNECT_TIMEOUT=10000
 
+########################### Script Starts #############################
+
+bus = dbus.SystemBus()
 manager = dbus.Interface(bus.get_object('net.connman', '/'), 'net.connman.Manager')
+
+def disconnect(service):
+    try:
+        service.Disconnect()
+    except Exception:
+        pass
 
 def bringPublicUpDHCP():
     adapter = bus.get_object('net.connman', public_adapter)
     service = dbus.Interface(adapter, 'net.connman.Service')
-    service.SetProperty("IPv4.Configuration", {"Method": make_variant('dhcp') })
-    service.Connect(timeout=CONNECT_TIMOUT)
+    
+    logger.info('Connecting public adapter via DHCP')
+    
+    disconnect(service)
+    service.SetProperty("IPv4.Configuration", {"Method": dbus_string('dhcp') })
+    service.Connect(timeout=CONNECT_TIMEOUT)
 
 def bringPublicUpFIXED():
     adapter = bus.get_object('net.connman', public_adapter)
     service = dbus.Interface(adapter, 'net.connman.Service')
-    setting_dict={"Method": make_variant('manual'),
-                  "Address":PUBLIC_ADAPTER_ADDRESS,
-                  "Netmask":PUBLIC_ADAPTER_NETMASK,
-                  "Gateway":PUBLIC_ADAPTER_ADDRESS}
-    service.SetProperty("IPv4.Configuration", setting_dict)
-    service.Connect(timeout=CONNECT_TIMOUT)
+    
+    logger.info('Connecting public adapter via static config')
+    
+    disconnect(service)
+    logger.info('IPV4')
+    service.SetProperty("IPv4.Configuration", PUBLIC_IPV4_SETTINGS)
+    logger.info('domain')
+    service.SetProperty("Domains.Configuration", PUBLIC_DOMAINS)
+    logger.info('time')
+    service.SetProperty("Timeservers.Configuration", PUBLIC_TIMESERVERS)
+    logger.info('name')
+    service.SetProperty("Nameservers.Configuration", PUBLIC_NAMESERVERS)
+    service.Connect(timeout=CONNECT_TIMEOUT)
 
 def bringFLSUp():
     adapter=bus.get_object('net.connman', fls_adapter)
     service = dbus.Interface(adapter, 'net.connman.Service')
-    setting_dict={"Method": make_variant('manual'),
-                  "Address":FLS_ADAPTER_ADDRESS,
-                  "Netmask":FLS_ADAPTER_NETMASK,
-                  "Gateway":FLS_ADAPTER_ADDRESS}
-    service.SetProperty("IPv4.Configuration", setting_dict)
-    service.Connect(timeout=CONNECT_TIMOUT)
+    
+    logger.info('Connecting FLS adapter via static config')
+                      
+    disconnect(service)
+    service.SetProperty("IPv4.Configuration", FLS_IPV4_SETTINGS)
+    service.Connect(timeout=CONNECT_TIMEOUT)
 
 def adapterOffline(adapter_path):
     services = manager.GetServices()
@@ -71,10 +110,18 @@ def adapterOffline(adapter_path):
     return False
 
 if __name__=='__main__':
+    method=''
     while True:
         try:
-            if adapterOffline(public_adapter):
-                bringPublicUpFIXED()
+            desiredMethod=m2fsConfig.getIPmethod()
+            if desiredMethod!=method or adapterOffline(public_adapter):
+                if desiredMethod!=method:
+                    logger.info('Switching to {} IP'.format(desiredMethod))
+                if desiredMethod == 'dhcp':
+                    bringPublicUpDHCP()
+                else:
+                    bringPublicUpFIXED()
+                method=desiredMethod
         except Exception as e:
             logger.error(str(e))
         try:

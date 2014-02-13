@@ -214,6 +214,8 @@ void Tetris::tellSlitPosition(uint8_t slit) {
   
 //No Deceleration
 void Tetris::stop() {
+  _homed_move_in_progress=0;
+  _calibration_in_progress=0;
   _motor.moveTo(_motor.currentPosition());
 }
 
@@ -258,6 +260,7 @@ void Tetris::positionRelativeMove(long d){
 
 void Tetris::positionAbsoluteMove(long p){
   if (p == _motor.currentPosition()) return;
+  _calibration_in_progress=0;
   //Handle backlash
   if (_lastDir<0 && (p>_motor.currentPosition()))
   {

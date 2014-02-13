@@ -59,11 +59,6 @@ g[0]=0;g[1]=0;g[2]=0;g[3]=0;g[4]=0;g[5]=0;g[6]=0;g[7]=0
 h[0]=0;h[1]=0;h[2]=0;h[3]=0;h[4]=0;h[5]=0;h[6]=0;h[7]=0
 ret[0]=0;ret[1]=0;ret[2]=0;ret[3]=0;ret[4]=0;ret[5]=0;ret[6]=0;ret[7]=0
 
-'Delta of last move, maintained by #BACKLSH
-DM ldelta[8]
-ldelta[GESAX]=0;ldelta[FLSINAX]=0;ldelta[FOCAX]=0;ldelta[FESINAX]=0
-ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
-
 'Possible Axis positions
 out=0
 in=1
@@ -473,7 +468,7 @@ lrhomng=true
 'If not stopped by ST in interrupt routine turn off and fail
 ' else Define the new position as home
 IF (_SCF<>4);~a=^a;MO~a;^h=EHMERR
-ELSE;~a=^a;DP~a=0;axiscal[^a]=true;ldelta[^a]=^b
+ELSE;~a=^a;DP~a=0;axiscal[^a]=true
 ENDIF
 ENDIF
 ' Turn off input interrupt and store status
@@ -1175,7 +1170,7 @@ IF (^h=ENONE)
 'If we didn't stop because of homing then the home switch broke.
 ~a=^a;IF(_SC~a<>10);ST~a;MC~a;~a=^a;MO~a;^h=EHMERR
 ELSE;'Define the new position as home
-~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
+~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0
 ENDIF;ENDIF;ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -1242,7 +1237,7 @@ ENDIF
 'If success, make this the reference position
 IF (^h=ENONE)
 'MG "Calibrated axis",^a
-JS#ZERSTP(^a);axiscal[^a]=true;ldelta[^a]=10*bcklsh[^a]
+JS#ZERSTP(^a);axiscal[^a]=true
 ELSE
 'MG "Failed to calibrate axis",^a
 ~a=^a;MC~a;~a=^a;MO~a
@@ -1334,7 +1329,7 @@ IF(^f)
 'Wait until we stop moving
 #MOV2LI1;WT 100;~a=^a;JP#MOV2LI1, (_SC~a = 0);~a=^a;MC~a
 'Determine the expected stop code & lest the last delta
-IF(^d>0);ldelta[^a]=^e;^f=2;ELSE;ldelta[^a]=-^e;^f=3;ENDIF
+IF(^d>0);^f=2;ELSE;^f=3;ENDIF
 'If the stop code is not that for the expected limit switch we failed
 ~a=^a;IF (_SC~a<>^f);MO~a;^h=ELIMSWF;ENDIF
 ENDIF

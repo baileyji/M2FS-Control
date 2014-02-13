@@ -61,13 +61,37 @@ bool Tetris::isCalibrated() {
 }
 
 void Tetris::defineSlitPosition(uint8_t slit, long position) {
-  if (slit <7)
-    _slitPositions[slit]=position;
+  if (slit < N_SLIT_POS-1) {
+    if (slit == 0) {
+      for (uint8_t i=1; i<N_SLIT_POS-1; i++) {
+        _slitPositions[i]-=_slitPositions[0]; //get relative offsets
+      }
+      _slitPositions[0]=position; // new 0
+      for (uint8_t i=1; i<N_SLIT_POS-1; i++) {
+        _slitPositions[i]+=_slitPositions[0]; //convert back to slit positions
+      }
+    }
+    else {
+      _slitPositions[slit]=_slitPositions[0]+position;
+    }
+  }
 }
 
 void Tetris::defineSlitPosition(uint8_t slit) {
-  if (slit <7)
-    _slitPositions[slit]=_motor.currentPosition();
+  if (slit < N_SLIT_POS-1) {
+    if (slit == 0) {
+      for (uint8_t i=1; i<N_SLIT_POS-1; i++) {
+        _slitPositions[i]-=_slitPositions[0]; //get relative offsets
+      }
+      _slitPositions[0]=_motor.currentPosition(); //new 0
+      for (uint8_t i=1; i<N_SLIT_POS-1; i++) {
+        _slitPositions[i]+=_slitPositions[0]; //convert back to slit positions
+      }
+    }
+    else {
+      _slitPositions[slit]=_motor.currentPosition();
+    }
+  }
 }
 
 void Tetris::dumbMoveToSlit(uint8_t slit) {
@@ -177,13 +201,13 @@ int32_t Tetris::currentPosition() {
 }
 
 int32_t Tetris::getSlitPosition(uint8_t slit) {
-    if ( slit > 6 ) return 0;
-    return _slitPositions[slit];
+    if ( slit > N_SLIT_POS-1 ) return 0;
+    if (slit == 0) return _slitPositions[0];
+    else return _slitPositions[slit]-_slitPositions[0];
 }
 
 void Tetris::tellSlitPosition(uint8_t slit) {
-  if (slit <7)
-    Serial.print(_slitPositions[slit]);
+  Serial.print(getSlitPosition(slit));
 }
   
 //No Deceleration

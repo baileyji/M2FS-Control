@@ -29,6 +29,7 @@
 //271.5um = 587 step +- 60
 //SLIT6 45um
 
+#define N_SLIT_POS 7
 #define DEFAULT_POS_SLIT1 -2275 //-2500
 #define DEFAULT_POS_SLIT2 -3100 //-3400
 #define DEFAULT_POS_SLIT3 -3850 //-4250
@@ -91,7 +92,7 @@ class Tetris
     int8_t _lastDir;
     bool _calibrated;
     unsigned int _backlash;
-    long _slitPositions[7];
+    long _slitPositions[N_SLIT_POS];
     long _targetAfterHome;
     AccelStepper _motor;
 

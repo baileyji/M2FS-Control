@@ -14,9 +14,9 @@
 #define CLOSED 0
 #define OPEN 1
 
-#define RED_OPEN_US 1400
-#define RED_PARTIAL_US 2080
-#define RED_CLOSED_US 2100
+#define RED_OPEN_US 1325
+#define RED_PARTIAL_US 2050
+#define RED_CLOSED_US 2073
 
 #define BLUE_OPEN_US 1250
 #define BLUE_PARTIAL_US 2000

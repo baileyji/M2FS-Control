@@ -8,10 +8,10 @@
 
 #define POWERDOWN_DELAY_US  1000
 #define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "Fibershoe v0.9"
+#define VERSION_STRING "Fibershoe v1.2"
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
-#define N_COMMANDS 27
+#define N_COMMANDS 31
 
 //#define DEBUG
 //#define DEBUG_EEPROM
@@ -21,13 +21,18 @@
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
-//EEPROM Addresses
+//EEPROM Addresses (Mega has 4KB so valid adresses are 0x0000 - 0x0FFF
 #define EEPROM_LAST_SAVED_POSITION_CRC16_ADDR       0x0000
-#define EEPROM_LAST_SAVED_POSITION_ADDR             0x0002
+#define EEPROM_LAST_SAVED_POSITION_ADDR             0x0002 //32 bytes, ends at 0x0022
 
 #define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x0080
-#define EEPROM_SLIT_POSITIONS_ADDR                  0x0082
+#define EEPROM_SLIT_POSITIONS_ADDR                  0x0082 //224 bytes, ends at 0x0162
 #define N_SLIT_POSITIONS                            (N_TETRI*7)
+
+#define EEPROM_BACKLASH_CRC16_ADDR                  0x0200
+#define EEPROM_BACKLASH_ADDR                        0x0202 // 32 bytes, ends at 0x0222
+
+#define EEPROM_BOOT_COUNT_ADDR  0x0600
 
 #pragma mark Globals
 
@@ -61,7 +66,10 @@ bool locking_screw_disengaged=true; //Boot assuming locking nut is disengaged
 bool shoeOnline=false; //Always boot in offline mode
 
 //Defaults
-bool leave_tetris_on_when_idle=true; //Activehold default
+bool leave_tetris_on_when_idle=false; //Activehold default
+bool home_slits_each_move=true;
+
+#pragma mark Commands
 
 //Commands
 typedef struct {
@@ -77,12 +85,16 @@ const Command commands[N_COMMANDS]={
     {"AH", AHcommand, false},
     //Define backlash
     {"BL", BLcommand, true},
+    //Retrieve backlash
+    {"BG", BGcommand, true},
     //Connect Shoe restore slit positions and eanble all commands
     {"CS", CScommand, true},
     //Cycle tetris A N times from stressBottomP to stressTopP
     {"CY", CYcommand, false},
     //Drive to hardstop
     {"DH", DHcommand, false},
+    //Enable direct move mode: move directly from one slit position to another
+    {"DM", DMcommand, true},
     //Define current position as X
     {"DP", DPcommand, false},
     //Disconnect Shoe, power off tetris shield save current position data
@@ -90,6 +102,8 @@ const Command commands[N_COMMANDS]={
     {"DS", DScommand, true},
     //Get activehold status
     {"GH", GHcommand, true},
+    //Enable homed move mode: move home between slit moves
+    {"HM", HMcommand, true},
     //Turn motor(s) off
     {"MO", MOcommand, false},
     //Position absolute move, 
@@ -126,7 +140,8 @@ const Command commands[N_COMMANDS]={
     //Tetris shield Vreg on
     {"VE", enableTetrisVreg, false},
     //Tetris shield Vreg off
-    {"VO",disableTetrisVreg, false}
+    {"VO",disableTetrisVreg, false},
+    {"ZB",ZBcommand, true},
 };
 
 #pragma mark Serial Event Handler
@@ -155,7 +170,12 @@ void serialEvent() {
 
 #pragma mark Setup & Loop
 
+uint32_t boottime;
 void setup() {
+
+    
+    boottime=millis();
+
     //Set up R vs. B side detection
     pinMode(R_SIDE_POLL_PIN,INPUT);
     digitalWrite(R_SIDE_POLL_PIN, LOW);
@@ -176,7 +196,7 @@ void setup() {
     pinMode(TETRIS_MOTORS_POWER_ENABLE, OUTPUT);
 
     //Tetris Drivers
-    //NB The ! should be deleted when the shou drivers are inserted into the
+    //NB The ! should be deleted when the shoe drivers are inserted into the
     //correct shoes. As of the comissioning run, the boards are swapped
     //and tetrisShieldIsR() returns true for the B shoe and false for the R shoe
     // -JB 8/22/13
@@ -218,17 +238,37 @@ void setup() {
     }
 
 
-    //Restore the nominal slit positions from EEPROM
+    //Restore the nominal slit positions & backlash amounts from EEPROM
+    loadSlitPositionsFromEEPROM();
+    loadBacklashFromEEPROM();
 
-    
     // Start serial connection
     Serial.begin(115200);
     
-    loadSlitPositionsFromEEPROM();
-
+    boottime=millis()-boottime;
+    uint8_t bootcount;
+    bootcount=bootCount(true);
+    
+//    Serial.print("#Booted for ");
+//    Serial.print((uint16_t) bootcount);
+//    Serial.print(" time in ");
+//    Serial.print(boottime);
+//    Serial.println(" ms.");
 }
 
-//Main loop, funs forever at full steam ahead
+
+uint8_t bootCount(bool set) {
+    uint8_t count;
+    count=EEPROM.read(EEPROM_BOOT_COUNT_ADDR);
+    if (set==true && count < 200) {
+        count++;
+        //increment & save boot count
+        EEPROM.write(EEPROM_BOOT_COUNT_ADDR, count);
+    }
+    return count;
+}
+
+//Main loop, runs forever at full steam ahead
 void loop() {
 
     monitorLockingNutState();
@@ -448,6 +488,11 @@ bool enableTetrisVreg() {
 
 #pragma mark Command Handlers
 
+bool ZBcommand(){
+    EEPROM.write(EEPROM_BOOT_COUNT_ADDR, 0);
+    return true;
+}
+
 bool CScommand() {
     //Come online if the locking nut is engaged
     if (locking_screw_disengaged)
@@ -494,6 +539,16 @@ bool PHcommand() {
 // tetris turns on motor automatically for move
 bool AHcommand() {
   leave_tetris_on_when_idle=true;
+  return true;
+}
+
+bool HMcommand() {
+  home_slits_each_move=true;
+  return true;
+}
+
+bool DMcommand() {
+  home_slits_each_move=false;
   return true;
 }
 
@@ -631,7 +686,25 @@ bool BLcommand() {
   if(axis==0) for(int i=0;i<8;i++) tetris[i].setBacklash(param);
   else tetris[axis-1].setBacklash(param);
 
+  saveBacklashToEEPROM();
   return true;
+}
+
+// Get backlash setting -> #
+bool BGcommand(){
+    
+    unsigned char axis = getAxisForCommand();
+    if ( axis >8 ) return false;
+    
+    if (axis==0) {for(int i=0;i<8;i++) {
+        tetris[i].tellBacklash();
+        if(i<7) cout<<", ";
+    }}
+    else {
+        tetris[axis-1].tellBacklash();
+    }
+    cout<<endl;
+    return true;
 }
 
 //Move to a nominal slit position
@@ -651,8 +724,14 @@ bool SLcommand() {
     if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
     else if (tetris[axis-1].moving()) return false;
 
-    if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit);
-    else tetris[axis-1].dumbMoveToSlit(slit);
+    if (home_slits_each_move) {
+      if(axis==0) for(int i=0;i<8;i++) tetris[i].homedMoveToSlit(slit);
+      else tetris[axis-1].homedMoveToSlit(slit);
+    }
+    else {
+      if(axis==0) for(int i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit);
+      else tetris[axis-1].dumbMoveToSlit(slit);
+    }
   }
   else if (command_length==11) { //Set all the slits
 
@@ -666,7 +745,12 @@ bool SLcommand() {
     
     for(int i=0;i<8;i++) if (tetris[i].moving()) return false;
 
-    for (unsigned char i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit[i]);  
+    if (home_slits_each_move) {
+      for (unsigned char i=0;i<8;i++) tetris[i].homedMoveToSlit(slit[i]);
+    }
+    else {
+      for (unsigned char i=0;i<8;i++) tetris[i].dumbMoveToSlit(slit[i]);
+    }
   }
   else return false;
 
@@ -982,5 +1066,52 @@ void saveMotorPositionsToEEPROM() {
         uint32_t t1=millis();
         cout<<"saveMotorPositionsToEEPROM took "<<t1-t<<" ms.\n";
     #endif
+}
+
+//Load the nominal slits positions for all the slits from EEPROM
+bool loadBacklashFromEEPROM() {
+    uint16_t crc, saved_crc;
+    uint16_t backlash[N_TETRI];
+    bool ret=false;
+#ifdef DEBUG_EEPROM
+    uint32_t t=millis();
+#endif
+    //Fetch the stored slit positions & CRC16
+    EEPROM.readBlock<uint16_t>(EEPROM_BACKLASH_ADDR, backlash, N_TETRI);
+    saved_crc=EEPROM.readInt(EEPROM_BACKLASH_CRC16_ADDR);
+    crc=OneWire::crc16((uint8_t*) backlash, N_TETRI*2);
+    //If the CRC matches, restore the positions
+    if (crc == saved_crc) {
+        for (uint8_t i=0; i<N_TETRI; i++) {
+            tetris[i].setBacklash(backlash[i]);
+        }
+        ret=true;
+    }
+#ifdef DEBUG_EEPROM
+    uint32_t t1=millis();
+    cout<<"loadBacklashFromEEPROM took "<<t1-t<<" ms.\n";
+#endif
+    return ret;
+}
+
+//Store the backlash amount for for all the tetri to EEPROM
+void saveBacklashToEEPROM() {
+    uint16_t crc;
+    uint16_t backlash[N_TETRI];
+#ifdef DEBUG_EEPROM
+    uint32_t t=millis();
+#endif
+    //Fetch the defined slit positions
+    for (uint8_t i=0; i<N_TETRI; i++) {
+        backlash[i]=tetris[i].getBacklash();
+    }
+    //Store them with their CRC16
+    EEPROM.updateBlock<uint16_t>(EEPROM_BACKLASH_ADDR, backlash, N_TETRI);
+    crc=OneWire::crc16((uint8_t*) backlash, N_TETRI*2);
+    EEPROM.writeInt(EEPROM_BACKLASH_CRC16_ADDR, crc);
+#ifdef DEBUG_EEPROM
+    uint32_t t1=millis();
+    cout<<"saveBacklashToEEPROM took "<<t1-t<<" ms.\n";
+#endif
 }
 

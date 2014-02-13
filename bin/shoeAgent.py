@@ -5,7 +5,7 @@ import SelectedConnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 
-EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v0.9'
+EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.1'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v0.5'
 SHOE_AGENT_VERSION_STRING_SHORT='v0.5'
 
@@ -46,6 +46,20 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
     _implementationSpecificDisconnect is overridden to guarantee the shoe is 
     told to power down whenever the serial connection closes.
     """
+    def _preConnect(self):
+        """
+        Attempt at workaround for 
+        https://bugs.launchpad.net/digitemp/+bug/920959
+        """
+        try:
+            from subprocess import call
+            s='stty crtscts < {device};stty -crtscts < {device}'.format(
+                device=self.port)
+            ret=call(s,shell=True)
+        except Exception, e:
+            raise SelectedConnection.ConnectError(
+                    'rtscts hack failed. {}:{}:{}'.format(s,ret,str(e)))
+
     def _postConnect(self):
         """
         Implement the post-connect hook
@@ -105,6 +119,8 @@ class ShoeAgent(Agent):
             'SLITS':self.SLITS_command_handler,
             #Get/Set the step position corresponding to a slit on a tetris
             'SLITS_SLITPOS':self.SLITPOS_command_handler,
+            #Get/Set the backlash for a tetris
+            'SLITS_BACKLASH':self.BACKLASH_command_handler,
             #Get the current step position of a tetris 
             'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
             #Turn active holding of the slit position on or off
@@ -300,7 +316,6 @@ class ShoeAgent(Agent):
         """
         if self.connections['shoe'].rlock.acquire(False):
             try:
-                
                 response=self._send_command_to_shoe('TE')
             except IOError, e:
                 response='UNKNOWN'
@@ -435,6 +450,7 @@ class ShoeAgent(Agent):
                 pos=command_parts[3]
                 try:
                     self._send_command_to_shoe('SS'+tetrisID+slit+pos)
+                    response='OK'
                 except IOError:
                     response='ERROR: Shoe not in cradle %s' % self.args.SIDE
             command.setReply(response)
@@ -519,6 +535,44 @@ class ShoeAgent(Agent):
             tetrisID='ABCDEFGH'[int(command_parts[1])-1]
             steps=command_parts[2]
             command.setReply(self._do_online_only_command('PR'+tetrisID+steps))
+        else:
+            self.bad_command_handler(command)
+
+    def BACKLASH_command_handler(self, command):
+        """
+        Retrieve or set the backlash amount of a tetris
+        
+        This command has one or two arguments: the tetris ID (1-8) and the
+        backlash amount or a question mark.
+        
+        Setting only affects subsequent moves.
+        """
+        #Vet the command
+        command_parts=command.string.split(' ')
+        
+        validSet=(len(command_parts)>2 and len(command_parts[1])==1 and
+                  command_parts[1] in '12345678' and longTest(command_parts[2]))
+        validGet=(len(command_parts)>1 and command_parts[1]=='?')
+        
+        if validGet or validSet:
+            #Extract the tetris ID
+            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
+            #If getting
+            if '?' in command.string:
+                #Get the backlash amount from the tetris
+                try:
+                    response=self._send_command_to_shoe('BG'+tetrisID)
+                except IOError:
+                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
+            else:
+                #Set the backlash amount from the tetris
+                amt=command_parts[2]
+                try:
+                    self._send_command_to_shoe('BL'+tetrisID+amt)
+                    response='OK'
+                except IOError:
+                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
+            command.setReply(response)
         else:
             self.bad_command_handler(command)
         

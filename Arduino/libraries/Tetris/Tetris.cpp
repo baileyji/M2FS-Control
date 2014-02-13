@@ -15,6 +15,7 @@ Tetris::Tetris(int rst_pin, int stby_pin, int dir_pin, int ck_pin, int phase_pin
   _calibration_in_progress=0;
   _lastDir=1;
   _backlash=DEFAULT_BACKLASH;
+    _homed_move_in_progress=0;
 	
 	_slitPositions[0]=DEFAULT_POS_SLIT1;
 	_slitPositions[1]=DEFAULT_POS_SLIT2;
@@ -74,7 +75,28 @@ void Tetris::dumbMoveToSlit(uint8_t slit) {
     positionAbsoluteMove(_slitPositions[slit]);
 }
 
+void Tetris::homedMoveToSlit(uint8_t slit) {
+    if (slit>=0 && slit <8) {
+        _targetAfterHome=_slitPositions[slit];
+        _homed_move_in_progress=2;
+        moveToHardStop();
+    }
+}
+
+void Tetris::moveToHardStop() {
+    //Move to the hardstop, based on the current position
+    // will overshoot by _backlash to ensure we hit the stop
+    if (_motor.currentPosition() > 0 ) {
+        positionRelativeMove((-_motor.currentPosition()) - HOME_MOVE_OVERSHOOT);
+    } else if (_motor.currentPosition() < 0 ) {
+        positionRelativeMove((-_motor.currentPosition()) + HOME_MOVE_OVERSHOOT);
+    }
+}
+
 void Tetris::run(){
+  //Calibration is a three step process, move to limit, then
+  // move to take out the backlash
+  // then stop and call position 0
   if (_calibration_in_progress != 0 && 
       _motor.currentPosition() == _motor.targetPosition()) {
     if (_calibration_in_progress==2) { //enter second stage
@@ -85,10 +107,30 @@ void Tetris::run(){
     else { // final stage, we are calibrated
       _calibrated=true;
       _calibration_in_progress=0;
+      _lastDir=-1;
     }
   }
+  //Homed moves happen in two(three?) stages
+  //
+  if (_homed_move_in_progress != 0 &&
+      _motor.currentPosition() == _motor.targetPosition() ) {
+      if (_homed_move_in_progress==2) {
+          _motor.setCurrentPosition(_backlash);
+          _motor.moveTo(0);
+          _homed_move_in_progress=1;
+      }
+      else {
+          _lastDir=-1;
+          positionAbsoluteMove(_targetAfterHome);
+          _homed_move_in_progress=0;
+          
+      }
+  }
+  
+  //Move the motor
   _motor.run();
 }
+
 
 void Tetris::motorOff() {
   //Per TB6608 datasheet: STBY must be low @ pwr on/off
@@ -116,6 +158,14 @@ bool Tetris::motorIsOn() {
 
 void Tetris::setBacklash(unsigned int b){
   _backlash=b;
+}
+
+uint16_t Tetris::getBacklash(){
+    return _backlash;
+}
+
+void Tetris::tellBacklash() {
+    Serial.print(_backlash);
 }
 
 void Tetris::tellPosition() {

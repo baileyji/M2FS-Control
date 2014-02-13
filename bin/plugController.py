@@ -10,13 +10,15 @@ from fnmatch import fnmatch
 from glob import glob
 import shutil
 
+
+MAX_ID_STRING_LEN=26 #Based on christop and what the fits header can handle
 PLUG_CONTROLLER_VERSION_STRING='Plugging Controller v0.1'
 UPLOAD_CHECK_INTERVAL=5
 FILE_SIZE_LIMIT_BYTES=1048576
 
 PLATEMANAGER_LOG_LEVEL=logging.DEBUG
 
-CATERGORIZE_UPLOAD_WARNING='Exception encountered while sorting uploads: '
+CATERGORIZE_UPLOAD_WARNING='Exception while procesing uploads {file}: {err}'
 
 import contextlib
 @contextlib.contextmanager
@@ -135,7 +137,11 @@ class PlateManager(threading.Thread):
                     except IOError, e:
                         rejectFiles.append((fname,e))
             except Exception, e:
-                self.logger.warning(CATERGORIZE_UPLOAD_WARNING + str(e))
+                import traceback
+                e=traceback.format_exception_only(type(e),e)[0][0:-1]
+                self.logger.warning(CATERGORIZE_UPLOAD_WARNING.format(
+                                    file=fname,
+                                    err=e))
                 trashFiles.append(fname)
         return {'good':goodFiles,'trash':trashFiles,'reject':rejectFiles}
     
@@ -204,9 +210,11 @@ class PlateManager(threading.Thread):
         try:
             return plate.Plate(self._plates[name])
         except IOError:
-            err='Platefile %s has gone missing from the disk.' % self._plates[name]
+            import os.path
+            err=('Platefile %s has gone missing from the disk.' %
+                 os.path.basename(self._plates[name]))
             self.logger.error(err)
-            self._plate.pop(name)
+            self._plates.pop(name)
             raise KeyError(err)
         finally:
             self.lock.release()
@@ -244,6 +252,7 @@ class PlugController(Agent):
         self.plateManager=PlateManager()
         self.plateManager.start()
         self.active_plate=plate.Plate(None)
+        self.active_setup=self.active_plate.getSetup(None)
         self.command_handlers.update({
             #Return a list of all known plates
             'PLATELIST': self.PLATELIST_command_handler,
@@ -301,7 +310,9 @@ class PlugController(Agent):
                 else:
                     try:
                         self.active_plate=self.plateManager.getPlate(plate_name)
-                        setups="'"+"' '".join(self.active_plate.listSetups())+"'"
+                        setupList=self.active_plate.listSetups()
+                        self.active_setup=self.active_plate.getSetup(setupList[0])
+                        setups="'"+"' '".join(setupList)+"'"
                         command.setReply(setups)
                     except KeyError, e:
                         command.setReply('ERROR: %s' % str(e))
@@ -407,11 +418,18 @@ class PlugController(Agent):
         
         Red CCD first followed by the B CCD.
         """
-        fiberStates=['{0}:{1}:{2}:{3}'.format(tetris, groove,
-                        holeID_by_tetris_groove_side(tetris, groove, side),
-                        fiberID_by_tetris_groove_side(tetris, groove, side))
-                        for tetris in range(1,9) for groove in range(1,17) ]
-        return ' '.join(fiberStates)
+        #For now return the expected plug positions
+        nom=self.active_setup.get_nominal_fiber_hole_dict()
+        nomstate=['{0}:{1}:{2}'.format(tetris, groove,
+                   nom.get(fiberID_by_tetris_groove_side(tetris, groove, side),
+                           'unplugged')[0:MAX_ID_STRING_LEN])
+                   for tetris in range(1,9) for groove in range(1,17) ]
+        return ' '.join(nomstate)
+
+#        fiberStates=['{0}:{1}:{2}'.format(tetris, groove,
+#                        holeID_by_tetris_groove_side(tetris, groove, side))
+#                        for tetris in range(1,9) for groove in range(1,17) ]
+#        return ' '.join(fiberStates)
 
 def fiberID_by_tetris_groove_side(tetris, groove, side):
     """
@@ -425,7 +443,7 @@ def fiberID_by_tetris_groove_side(tetris, groove, side):
     fiberColor=m2fsConfig.getShoeColorInCradle(side)
     if not fiberColor:
         fiberColor='UNKNOWN'
-    return '{0}-{1:02}-{2:02}'.format(fiberColor,tetris, groove)
+    return '{0}{1:01}-{2:02}'.format(fiberColor,tetris, groove)
 
 def holeID_by_tetris_groove_side(tetris, groove, side):
     """

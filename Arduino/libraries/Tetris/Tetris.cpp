@@ -201,7 +201,7 @@ int32_t Tetris::currentPosition() {
 }
 
 int32_t Tetris::getSlitPosition(uint8_t slit) {
-    if ( slit > N_SLIT_POS-1 ) return 0;
+    if ( slit > N_SLIT_POS-2) return 0;
     if (slit == 0) return _slitPositions[0];
     else return _slitPositions[slit]-_slitPositions[0];
 }

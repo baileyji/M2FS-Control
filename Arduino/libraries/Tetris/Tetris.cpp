@@ -124,8 +124,9 @@ void Tetris::run(){
   if (_calibration_in_progress != 0 && 
       _motor.currentPosition() == _motor.targetPosition()) {
     if (_calibration_in_progress==2) { //enter second stage
-      _motor.setCurrentPosition(_backlash);
-      _motor.moveTo(0);
+//      _motor.setCurrentPosition(_backlash); //commented for calrity since _backlash=0
+//      _motor.moveTo(0);
+      _motor.setCurrentPosition(0);
       _calibration_in_progress=1;
     }
     else { // final stage, we are calibrated
@@ -139,8 +140,9 @@ void Tetris::run(){
   if (_homed_move_in_progress != 0 &&
       _motor.currentPosition() == _motor.targetPosition() ) {
       if (_homed_move_in_progress==2) {
-          _motor.setCurrentPosition(_backlash);
-          _motor.moveTo(0);
+          //_motor.setCurrentPosition(_backlash); //commented for calrity since _backlash=0
+          //_motor.moveTo(0);
+          _motor.setCurrentPosition(0);
           _homed_move_in_progress=1;
       }
       else {

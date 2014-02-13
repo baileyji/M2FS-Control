@@ -59,6 +59,10 @@ g[0]=0;g[1]=0;g[2]=0;g[3]=0;g[4]=0;g[5]=0;g[6]=0;g[7]=0
 h[0]=0;h[1]=0;h[2]=0;h[3]=0;h[4]=0;h[5]=0;h[6]=0;h[7]=0
 ret[0]=0;ret[1]=0;ret[2]=0;ret[3]=0;ret[4]=0;ret[5]=0;ret[6]=0;ret[7]=0
 
+
+DM calp[8];
+calp[0]=0;calp[1]=0;calp[2]=0;calp[3]=0;calp[4]=0;calp[5]=0;calp[6]=0;calp[7]=0
+
 'Possible Axis positions
 out=0
 in=1
@@ -468,7 +472,7 @@ lrhomng=true
 'If not stopped by ST in interrupt routine turn off and fail
 ' else Define the new position as home
 IF (_SCF<>4);~a=^a;MO~a;^h=EHMERR
-ELSE;~a=^a;DP~a=0;axiscal[^a]=true
+ELSE;~a=^a;calp[^a]=_TD~a;DP~a=0;axiscal[^a]=true
 ENDIF
 ENDIF
 ' Turn off input interrupt and store status
@@ -1170,7 +1174,7 @@ IF (^h=ENONE)
 'If we didn't stop because of homing then the home switch broke.
 ~a=^a;IF(_SC~a<>10);ST~a;MC~a;~a=^a;MO~a;^h=EHMERR
 ELSE;'Define the new position as home
-~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0
+~a=^a;MC~a;~a=^a;calp[^a]=_TD~a;DP~a=0;axiscal[^a]=true;^h=0
 ENDIF;ENDIF;ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -1237,6 +1241,7 @@ ENDIF
 'If success, make this the reference position
 IF (^h=ENONE)
 'MG "Calibrated axis",^a
+~a=^a;calp[^a]=_TD~a;
 JS#ZERSTP(^a);axiscal[^a]=true
 ELSE
 'MG "Failed to calibrate axis",^a

@@ -3,7 +3,7 @@ import SelectedConnection
 from SelectedConnection import logger
 from m2fsConfig import m2fsConfig
 
-EXPECTED_M2FS_DMC_VERSION='0.1000'
+EXPECTED_M2FS_DMC_VERSION='0.2000'
 #Timeout to use if we must force open a connection to the galil to do a reset
 GALIL_RESET_CONNECTION_TIMEOUT=0.5
 #Normal io timout for galil communication

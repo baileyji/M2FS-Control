@@ -5,9 +5,9 @@ import SelectedConnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 
-EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.1'
-SHOE_AGENT_VERSION_STRING='Shoe Agent v0.5'
-SHOE_AGENT_VERSION_STRING_SHORT='v0.5'
+EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.3'
+SHOE_AGENT_VERSION_STRING='Shoe Agent v1.0'
+SHOE_AGENT_VERSION_STRING_SHORT='v1.0'
 
 DH_TIME=35
 SHOE_BOOT_TIME=2

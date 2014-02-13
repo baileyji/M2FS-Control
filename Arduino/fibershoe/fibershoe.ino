@@ -8,7 +8,8 @@
 
 #define POWERDOWN_DELAY_US  1000
 #define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "Fibershoe v1.2"
+#define VERSION_STRING "Fibershoe v1.3"
+#define VERSION_INT32 0x000000FF
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
 #define N_COMMANDS 31
@@ -32,7 +33,9 @@
 #define EEPROM_BACKLASH_CRC16_ADDR                  0x0200
 #define EEPROM_BACKLASH_ADDR                        0x0202 // 32 bytes, ends at 0x0222
 
-#define EEPROM_BOOT_COUNT_ADDR  0x0600
+#define EEPROM_BOOT_COUNT_ADDR  0x0600  // One byte
+
+#define EEPROM_VERSION_ADDR 0x0610  //12 bytes (version int repeated thrice
 
 #pragma mark Globals
 
@@ -967,6 +970,37 @@ bool CYcommand() {
 }
 
 #pragma mark EEPROM Commands
+
+//Return true if data in eeprom is consistent with current software
+// version
+bool versionMatch() {
+
+  uint32_t versions[3];
+  EEPROM.readBlock<uint32_t>(EEPROM_VERSION_ADDR, versions, 3);
+  if (versions[0]!=versions[1] || versions[1] != versions[2] ||
+      versions[0]!=versions[2]) {
+    //version corrupt or didn't exist
+    versions[0]=VERSION_INT32;
+    versions[1]=VERSION_INT32;
+    versions[2]=VERSION_INT32;
+    EEPROM.updateBlock<uint32_t>(EEPROM_VERSION_ADDR, versions, 3);
+    return false;
+  }
+  else if (versions[0]!=VERSION_INT32) {
+    //Version changed do what ever needs doing
+    
+    //Update the version
+    versions[0]=VERSION_INT32;
+    versions[1]=VERSION_INT32;
+    versions[2]=VERSION_INT32;
+    EEPROM.updateBlock<uint32_t>(EEPROM_VERSION_ADDR, versions, 3);
+    
+    return false;
+  }
+  
+  return true;
+  
+}
 
 //Load the nominal slits positions for all the slits from EEPROM
 bool loadSlitPositionsFromEEPROM() {

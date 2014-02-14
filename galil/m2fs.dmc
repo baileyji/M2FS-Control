@@ -384,6 +384,12 @@ XQ #MOMONI,2
 'Query the Filter elevator position to initialize nearfilt
 JS#QUFELP
 
+'GESR +limit is too far forward
+'FLA=280000
+
+'GESB +limit is too far forward
+'FLA=~270000
+
 'Idle forever
 #AUTO1
 ' Monitor the axis locks for the HiRes stage

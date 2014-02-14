@@ -1273,7 +1273,7 @@ REM ~a=^a;MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
 'If reverse motion allowed or reverse limit disabled move backward
 'The instrument doesnt use have LD= 1 or 2 so non issue
 ~a=^a;IF((_LD~a=3)|(_LD~a=2)|(_LR~a=1))
-~a=^a;^d=_TD~a-mininc[^a]-2*bcklsh[^a]-@ABS[^c];PA~a=^d;SH~a;
+~a=^a;^d=_TD~a-mininc[^a]-(2*bcklsh[^a])-@ABS[^c];PA~a=^d;SH~a;
 'Set a trip point timout in case we hit a limit
 ~a=^a;TW~a=(@ABS[(1100*((^d-_TD~a)/_SP~a))]+100);BG~a;MC~a
 'wait for a bit to settle

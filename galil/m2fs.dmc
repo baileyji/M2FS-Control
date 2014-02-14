@@ -192,18 +192,18 @@ DM bcklsh[8];'backlash in steps, for reference
 bcklsh[GESAX]=77;'76.2 microns
 bcklsh[FLSINAX]=15;'Determined experimentally
 bcklsh[FOCAX]=18;'880 microradians (estimate based on LRTLT stage)
-bcklsh[FESINAX]=55;' ABOUT 52-58
+bcklsh[FESINAX]=60;' ABOUT 52-58
 bcklsh[FESELAX]=15;'Determined experimentally
-bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
-bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
-bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
+bcklsh[LRTLTAX]=35;'200 microradians (34.48 usteps)
+bcklsh[HRTLTAX]=129;'10 microns (128.2 usteps)
+bcklsh[HRAZAX]=129;'10 microns (128.2 usteps)
 
 DM mininc[8];'minimum incremental motion
-mininc[GESAX]=0
-mininc[FLSINAX]=0
-mininc[FOCAX]=0
-mininc[FESINAX]=0
-mininc[FESELAX]=0;'<20 by touch
+mininc[GESAX]=bcklsh[GESAX]
+mininc[FLSINAX]=bcklsh[FLSINAX]
+mininc[FOCAX]=bcklsh[FOCAX]
+mininc[FESINAX]=bcklsh[FESINAX]
+mininc[FESELAX]=bcklsh[FESELAX];'<20 by touch
 mininc[LRTLTAX]=4;'Per DS: 21 microradians = 3.62 us => 4 usteps = 23.2 urad
 mininc[HRTLTAX]=13;'microsteps, 1 micron
 mininc[HRAZAX]=13;'microsteps, 1 micron

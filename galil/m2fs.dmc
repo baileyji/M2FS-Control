@@ -59,10 +59,9 @@ g[0]=0;g[1]=0;g[2]=0;g[3]=0;g[4]=0;g[5]=0;g[6]=0;g[7]=0
 h[0]=0;h[1]=0;h[2]=0;h[3]=0;h[4]=0;h[5]=0;h[6]=0;h[7]=0
 ret[0]=0;ret[1]=0;ret[2]=0;ret[3]=0;ret[4]=0;ret[5]=0;ret[6]=0;ret[7]=0
 
-'Delta of last move, maintained by #BACKLSH
-DM ldelta[8]
-ldelta[GESAX]=0;ldelta[FLSINAX]=0;ldelta[FOCAX]=0;ldelta[FESINAX]=0
-ldelta[FESELAX]=0;ldelta[LRTLTAX]=0;ldelta[HRTLTAX]=0;ldelta[HRAZAX]=0
+
+DM calp[8];
+calp[0]=0;calp[1]=0;calp[2]=0;calp[3]=0;calp[4]=0;calp[5]=0;calp[6]=0;calp[7]=0
 
 'Possible Axis positions
 out=0
@@ -193,18 +192,18 @@ DM bcklsh[8];'backlash in steps, for reference
 bcklsh[GESAX]=77;'76.2 microns
 bcklsh[FLSINAX]=15;'Determined experimentally
 bcklsh[FOCAX]=18;'880 microradians (estimate based on LRTLT stage)
-bcklsh[FESINAX]=55;' ABOUT 52-58
+bcklsh[FESINAX]=60;' ABOUT 52-58
 bcklsh[FESELAX]=15;'Determined experimentally
-bcklsh[LRTLTAX]=34;'200 microradians (34.48 usteps)
-bcklsh[HRTLTAX]=128;'10 microns (128.2 usteps)
-bcklsh[HRAZAX]=128;'10 microns (128.2 usteps)
+bcklsh[LRTLTAX]=35;'200 microradians (34.48 usteps)
+bcklsh[HRTLTAX]=129;'10 microns (128.2 usteps)
+bcklsh[HRAZAX]=129;'10 microns (128.2 usteps)
 
 DM mininc[8];'minimum incremental motion
-mininc[GESAX]=0
-mininc[FLSINAX]=0
-mininc[FOCAX]=0
-mininc[FESINAX]=0
-mininc[FESELAX]=0;'<20 by touch
+mininc[GESAX]=bcklsh[GESAX]
+mininc[FLSINAX]=bcklsh[FLSINAX]
+mininc[FOCAX]=bcklsh[FOCAX]
+mininc[FESINAX]=bcklsh[FESINAX]
+mininc[FESELAX]=bcklsh[FESELAX];'<20 by touch
 mininc[LRTLTAX]=4;'Per DS: 21 microradians = 3.62 us => 4 usteps = 23.2 urad
 mininc[HRTLTAX]=13;'microsteps, 1 micron
 mininc[HRAZAX]=13;'microsteps, 1 micron
@@ -352,7 +351,7 @@ TR0;EO0
 'Stop all threads, motions, motors off
 HX1;HX2;HX3;HX4;HX5;HX6;HX7;ST;MC;MO*
 'Set just booted flag
-m2fsver=.1;bootup1=1
+m2fsver=.2;bootup1=1
 JS#M2FSCFG
 JS#INIT
 
@@ -384,6 +383,12 @@ XQ #MOMONI,2
 
 'Query the Filter elevator position to initialize nearfilt
 JS#QUFELP
+
+'GESR +limit is too far forward
+'FLA=280000
+
+'GESB +limit is too far forward
+'FLA=~270000
 
 'Idle forever
 #AUTO1
@@ -473,7 +478,7 @@ lrhomng=true
 'If not stopped by ST in interrupt routine turn off and fail
 ' else Define the new position as home
 IF (_SCF<>4);~a=^a;MO~a;^h=EHMERR
-ELSE;~a=^a;DP~a=0;axiscal[^a]=true;ldelta[^a]=^b
+ELSE;~a=^a;calp[^a]=_TD~a;DP~a=0;axiscal[^a]=true
 ENDIF
 ENDIF
 ' Turn off input interrupt and store status
@@ -1175,7 +1180,7 @@ IF (^h=ENONE)
 'If we didn't stop because of homing then the home switch broke.
 ~a=^a;IF(_SC~a<>10);ST~a;MC~a;~a=^a;MO~a;^h=EHMERR
 ELSE;'Define the new position as home
-~a=^a;MC~a;~a=^a;DP~a=0;axiscal[^a]=true;^h=0;ldelta[^a]=-10*bcklsh[^a]
+~a=^a;MC~a;~a=^a;calp[^a]=_TD~a;DP~a=0;axiscal[^a]=true;^h=0
 ENDIF;ENDIF;ENDIF
 axiserr[^a]=^h
 ENDIF
@@ -1233,7 +1238,7 @@ WT 500
 '500 counts is plenty to move totally off the negative limit
 JS#ENC2STP(^a,500);^b=_JS
 'Move off limit slowly and stop
-~a=^a;PR~a=^b;BG~a
+~a=^a;SP~a=axhmspd[^a];PR~a=^b;BG~a
 #CALENA3;WT 25;~a=^a;JP#CALENA3, ((_LR~a=0) & (_SC~a=0));ST~a;MC~a
 'If we didn't get off the limit, fail
 ~a=^a;IF(_LR~a=0);^h=ELIMSWF;ENDIF
@@ -1242,7 +1247,8 @@ ENDIF
 'If success, make this the reference position
 IF (^h=ENONE)
 'MG "Calibrated axis",^a
-JS#ZERSTP(^a);axiscal[^a]=true;ldelta[^a]=10*bcklsh[^a]
+~a=^a;calp[^a]=_TD~a;
+JS#ZERSTP(^a);axiscal[^a]=true
 ELSE
 'MG "Failed to calibrate axis",^a
 ~a=^a;MC~a;~a=^a;MO~a
@@ -1267,55 +1273,36 @@ JS#ZS;IF(_JS<1);ed4=_ED4;JS#FANCYMV(a[ed4],b[ed4]);ed4=_ED4;ret[ed4]=_JS;ELSE
 ~a=^a;^c=^b-_TD~a
 IF(^c<>0)
 REM ~a=^a;MG "FANCYMV: Move axis",^a," from",_TD~a," to",^b
-'If required move is less than the minimum increment
-IF(@ABS[^c]<mininc[^a])
-'First move mininc[^a]+@ABS[^c] in direction we last headed
-IF(ldelta[^a]>0);~a=^a;^d=_TD~a+mininc[^a]+@ABS[^c]
-ELSE;~a=^a;^d=_TD~a-mininc[^a]-@ABS[^c];ENDIF
-~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axlmspd[^a]
-'Verify the limit isn't tripped in the the direction of inteded motion
-'Will evaluate to cmd err if only a sigle limit is disabled
-'The instrument doesnt use have LD= 1 or 2 so non issue 
-~a=^a;IF((_LD~a<>3)&(((ldelta[^a]>0)&(_LF~a=0))|((ldelta[^a]<0)&(_LR~a=0))))
-'Starting the move will cause a command error
-^h=ELIMSW
-ELSE
-~a=^a;PA~a=^d;SH~a;BG~a;MC~a
-ENDIF
-'Check position to see if we didn't reach our goal (i.e. we hit a limit)
-~a=^a;IF(_TD~a<>^d)
-'Figure how far we need to move in the other direction
-IF(ldelta[^a]>0);~a=^a;^d=_TD~a-(2*(mininc[^a]+@ABS[^c]))
-ELSE;~a=^a;^d=_TD~a+(2*(mininc[^a]+@ABS[^c]));ENDIF
-'Compute delta
-~a=^a;^e=^d-_TD~a
-'Handle backlash
-JS#BACKLSH(^a,^e)
-'Move past in the other direction
-'Verify the limit isn't tripped in the the direction of inteded motion
-~a=^a;IF((_LD~a<>3)& (((^e>0)&(_LF~a=0)) | ((^e<0)&(_LR~a=0))) )
-'Starting the move will cause a command error
-^h=ELIMSW
-ELSE
-~a=^a;PA~a=^d;SH~a;BG~a;MC~a
-ENDIF
-ENDIF;' didn't reach goal
-'Recompute delta
-~a=^a;^c=^b-_TD~a
-ENDIF;' very small move
-'Handle backlash
-JS#BACKLSH(^a,^c)
-'Start move to position
-'Verify the limit isn't tripped in the the direction of inteded motion
-~a=^a;IF((_LD~a<>3)& (((^c>0)&(_LF~a=0)) | ((^c<0)&(_LR~a=0))) )
-'Starting the move will cause a command error
-^h=ELIMSW
-ELSE
 ~a=^a;AC~a=axaccel[^a];DC~a=axdecel[^a];SP~a=axspd[^a]
+'If required move is < minimum increment or desired position is behind us
+~a=^a;IF((@ABS[^c]<mininc[^a])|(^b<_TD~a))
+'If reverse motion allowed or reverse limit disabled move backward
+'The instrument doesnt use have LD= 1 or 2 so non issue
+~a=^a;IF((_LD~a=3)|(_LD~a=2)|(_LR~a=1))
+~a=^a;^d=_TD~a-mininc[^a]-(2*bcklsh[^a])-@ABS[^c];PA~a=^d;SH~a;
+'Set a trip point timout in case we hit a limit
+~a=^a;TW~a=(@ABS[(1100*((^d-_TD~a)/_SP~a))]+100);BG~a;MC~a
+'wait for a bit to settle
+AT0;AT100
+ENDIF
+ENDIF
+'Now we are far enough away from the position to get there 
+' and we need to move forward
+'(or we ran into the negative limit and we've done the best we can)
+'if desired position is behind us, something is wrong (we hit the limit)
+~a=^a;IF(^b<_TD~a)
+^h=ELIMSW
+ELSE
+'Move forward to the position
+'Verify the forward limit isnt tripped
+~a=^a;IF((_LD~a=3)|(_LD~a=1)|(_LF~a=1))
 'NB setting TW to value larger than max is ok
 ~a=^a;PA~a=^b;SH~a
 ~a=^a;TW~a=(@ABS[(1100*((^b-_TD~a)/_SP~a))]+100);BG~a
+ELSE
+^h=ELIMSW
 ENDIF
+ENDIF;'position in front of us
 ENDIF;'nonzero move
 ENDIF;'footwork
 EN 1,,^h
@@ -1353,38 +1340,13 @@ IF(^f)
 'Wait until we stop moving
 #MOV2LI1;WT 100;~a=^a;JP#MOV2LI1, (_SC~a = 0);~a=^a;MC~a
 'Determine the expected stop code & lest the last delta
-IF(^d>0);ldelta[^a]=^e;^f=2;ELSE;ldelta[^a]=-^e;^f=3;ENDIF
+IF(^d>0);^f=2;ELSE;^f=3;ENDIF
 'If the stop code is not that for the expected limit switch we failed
 ~a=^a;IF (_SC~a<>^f);MO~a;^h=ELIMSWF;ENDIF
 ENDIF
 axiserr[^a]=^h;'Store status
 ENDIF
 EN ,,^h
-
-
-'***************************************************************************
-' Direction Change Query (Axis,position delta/direction)
-' For internal use only
-'***************************************************************************
-#DIRCNGQ
-EN,,(((ldelta[^a]<0)&(^b>0)) | ((ldelta[^a]>0)&(^b<0)))
-
-
-'***************************************************************************
-' Back LaSH correction(axis, position delta)
-' Routine applies a backlash correction if direction change
-' For internal use only
-'***************************************************************************
-#BACKLSH
-'Figure out if a change in direction
-JS#DIRCNGQ(^a,^b)
-IF(_JS=true)
-'Correct for backlash by simply changing the current position
-~a=^a;IF(^b>0);^c=_TD~a-bcklsh[^a];ELSE;^c=_TD~a+bcklsh[^a];ENDIF
-JS#DPWAFE(^a,^c)
-ENDIF
-ldelta[^a]=^b
-EN
 
 
 '***************************************************************************

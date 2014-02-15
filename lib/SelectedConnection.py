@@ -101,6 +101,7 @@ class SelectedConnection(object):
         if self.isOpen():
             return
         try:
+            self._preConnect()
             self._implementationSpecificConnect()
             self._postConnect()
         except Exception, e:
@@ -115,6 +116,16 @@ class SelectedConnection(object):
         Override in subclass
         """
         return false
+    
+    def _preConnect(self):
+        """
+        Called prior to establishing a connection.
+        
+        Subclass may implement and throw and exception if the connection
+        should not be made. Any return values are ignored. Exception text
+        will be raised as a connect error.
+        """
+        pass
     
     def _postConnect(self):
         """

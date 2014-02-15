@@ -101,9 +101,8 @@ void Tetris::dumbMoveToSlit(uint8_t slit) {
 
 void Tetris::homedMoveToSlit(uint8_t slit) {
     if (slit>=0 && slit <8) {
-        _targetAfterHome=_slitPositions[slit];
-        _homed_move_in_progress=2;
         moveToHardStop();
+        _targetAfterHome=_slitPositions[slit];
     }
 }
 
@@ -115,6 +114,8 @@ void Tetris::moveToHardStop() {
     } else if (_motor.currentPosition() < 0 ) {
         positionRelativeMove((-_motor.currentPosition()) + HOME_MOVE_OVERSHOOT);
     }
+    _homed_move_in_progress=2;
+    _targetAfterHome=0;
 }
 
 void Tetris::run(){

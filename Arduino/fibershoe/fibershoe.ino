@@ -12,7 +12,7 @@
 #define VERSION_INT32 0x000000FF
 #define DIRECTION_CW  LOW
 #define DIRECTION_CCW HIGH
-#define N_COMMANDS 31
+#define N_COMMANDS 32
 
 //#define DEBUG
 //#define DEBUG_EEPROM
@@ -103,6 +103,8 @@ const Command commands[N_COMMANDS]={
     //Disconnect Shoe, power off tetris shield save current position data
     //  and disable motion & shield power commands
     {"DS", DScommand, true},
+    //Drive to the hardstop and zero
+    {"DZ", DZcommand, false},
     //Get activehold status
     {"GH", GHcommand, true},
     //Enable homed move mode: move home between slit moves
@@ -901,6 +903,20 @@ bool DHcommand() {
   return true;
 }
 
+//Drive to just past zero and zero
+bool DZcommand() {
+    unsigned char axis = getAxisForCommand();
+    if ( axis >8 ) return false;
+    
+    if(axis==0) for(int i=0;i<8;i++) {if (tetris[i].moving()) return false;}
+    else if (tetris[axis-1].moving()) return false;
+    
+    if(axis==0) for(int i=0;i<8;i++) tetris[i].moveToHardStop();
+    else tetris[axis-1].moveToHardStop();
+    
+    return true;
+}
+
 //Print the commands
 bool PCcommand() {
     cout<<pstr("#PC   Print Commands - Print the list of commands");Serial.write('\r');
@@ -921,6 +937,7 @@ bool PCcommand() {
     cout<<pstr("#MOx  Motor Off - Turn off motor in tetris x");Serial.write('\r');
     cout<<pstr("#STx  Stop - Stop motion of tetris x");Serial.write('\r');
     cout<<pstr("#DHx  Drive Hardstop - Drive tetris x to the hardstop");Serial.write('\r');
+    cout<<pstr("#DZx Drive Zero - Drive from current position to just past hardstop and rezero.");Serial.write('\r');
 
     cout<<pstr("#DPx# Define Position - Define the current position of tetris x to be #");Serial.write('\r');
     cout<<pstr("#PAx# Position Absolute - Command tetris x to move to position #");Serial.write('\r');
@@ -934,6 +951,7 @@ bool PCcommand() {
     cout<<pstr("#CY # low# high# Cycle - Cycl tetris A # times from low# to high#. low# must be > high#");Serial.write('\r');
     
     cout<<pstr("#SSx#[#] Slit Set - Set the step position of slit # for tetris x to the current position. If given the second number is used to define the position.");Serial.write('\r');
+
   
     return true;
 }

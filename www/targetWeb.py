@@ -2,7 +2,7 @@
 from flask import Flask, render_template, request, Response
 from flask_wtf.csrf import CsrfProtect
 from flask_wtf import Form
-from wtforms import SelectMultipleField, SubmitField
+from wtforms import SelectMultipleField, SubmitField, BooleanField,RadioField
 from wtforms import validators
 from m2fs.plate.summarize import generate_tlist_file, generate_summary_file
 import sys, time, threading, os, re
@@ -35,11 +35,26 @@ def tlist_filename():
 def summary_filename():
     return 'summary.txt'
 
-def get_zip(platefiles):
+def get_zip(targs):
     import zipfile, StringIO
-    if not platefiles:
+    if not targs:
         return ''
-    summary_lines, trecs=generate_summary_file(platefiles)
+    
+    try:
+        with open('./targetweb.cache','r') as fp:
+            entries=fp.readlines()
+    except IOError:
+        entries=[]
+
+    entries+=[t for t in targs if t not in entries]
+
+    try:
+        with open('./targetweb.cache','w') as fp:
+            entries=fp.write('\n'.join(entries))
+    except IOError:
+        pass
+
+    summary_lines, trecs=generate_summary_file(entries)
     tlist_lines=generate_tlist_file(trecs)
     
     o = StringIO.StringIO()
@@ -52,10 +67,9 @@ def get_zip(platefiles):
     return result
 
 class TargetSelect(Form):
-    select_size=30
-    targets = SelectMultipleField('Targets',
-                                  validators=[validators.Required()])
-    submit = SubmitField("Make Targetlist")
+    targets = SelectMultipleField('Targets', validators=[validators.Required()])
+    new= BooleanField('New list', default=False)
+    submit = SubmitField("Get list")
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -65,27 +79,26 @@ def index():
     if request.method == 'POST' and form.targets.data:
         data=get_zip(form.targets.data)
         return Response(data, mimetype="application/octet-stream",
-                        headers={"Content-Disposition":
-                                 "attachment;filename=selected.zip"})
+                        headers={"Content-Disposition": "attachment;"
+                                 "filename=selected.zip"})
 
     return render_template('targetlist.html', form=form)
 
 
-def parse_cl():
-    parser = argparse.ArgumentParser(description='Help undefined',
-    add_help=True)
-    parser.add_argument('-d','--dir', dest='dir',
-                        action='store', required=False, type=str,
-                        help='',default='./')
-    return parser.parse_args()
+#def parse_cl():
+#    parser = argparse.ArgumentParser(description='Help undefined',
+#    add_help=True)
+#    parser.add_argument('-d','--dir', dest='dir',
+#                        action='store', required=False, type=str,
+#                        help='',default='./')
+#    return parser.parse_args()
 
 
 if __name__ =='__main__':
+    global entries
+    #Load Cached target order
+    with open('./targetweb.cache','a+r') as fp:
+        entries=fp.readlines()
     app.run(debug=True)
 
-
-
-
-
-possible_targets=[('cpp', 'C++'), ('py', 'Python'), ('text', 'Plain Text')]
 

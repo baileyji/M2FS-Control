@@ -4,18 +4,9 @@
 
 <form method="POST" action="/">
     {{ form.targets(size=form.select_size, multiple=True) }}
+    <br>
+    {{ form.new.label }} {{ form.new }}
     {{ form.submit }}
 </form>
-
-<!--
-<select size= multiple=true>
-    <option value="volvo">Volvo</option>
-    <option value="saab">Saab</option>
-    <option value="opel">Opel</option>
-    <option value="audi">Audi</option>
-</select>
-
-<button type="button" onclick="alert('Hello world!')">Click Me!</button>
--->
 
 {% endblock %}

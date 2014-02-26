@@ -7,3 +7,4 @@ PicoP_Angstrom_Linux_SDK/*
 *.log
 *.log.gz
 *.xc*
+targetweb.cache

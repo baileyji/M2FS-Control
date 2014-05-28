@@ -23,6 +23,7 @@ REM For parameters look lower to the Parameters section.
 GESAX=0
 FLSINAX=1
 FOCAX=2
+'NB the filter inserted axes are hardcoded in places, sorry
 FESINAX=3
 FESELAX=4
 LRTLTAX=5
@@ -304,6 +305,7 @@ filmove=0
 'FESIN related defines
 fesremp=12;'The removed position in steps of the FESIN arm, must be >0
 FESXXX=false;'True if the inserter was just moved to fesremp
+fesinlr=false;'False if the removal hack has not been used
 
 'FLS related defines
 flsbkof=25;'The steps to backoff after inserting
@@ -417,8 +419,8 @@ EN
 '***************************************************************************
 #SHTDWN
 HX4;HX5;HX6;ST*;MC;MO*
-a[3]=9;XQ#PICKFIL,4
-a[4]=0;XQ#SETLRTL,5
+a[4]=9;XQ#PICKFIL,4
+a[5]=0;XQ#SETLRTL,5
 JP#IDLE
 EN
 
@@ -896,7 +898,28 @@ EN,,^h
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#RMFESIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FESINAX;axiserr[^a]=ENONE
-IF(_LRD=1);' If not retracted
+
+'If reverse movement not allowed
+'Case 0 magnetic sensor/tape is faulty, limit failure, etc
+'Case 1 retracted too far, sitting on - lim, + move will fix
+'Case 2 inserter is in, nothing over - lim, - move will fix need to disable LRD
+IF((_LRD=0)&(fesinlr=false))
+'Case 1
+IF(_LFD=1);PRD=axmaxp[FESINAX]/5.0;SHD;BGD;MCD;MOD;ENDIF
+'Case 2
+IF(_LRD=0)
+'Start a backward move of max travel
+LDD=2;PRD=-axmaxp[FESINAX];SHD;BGD
+'Wait until limit is reset or motion stops
+#RMFESI2;WT 100;JP#RMFESI2, ((_LRD=0)&(_SCD=0));STD;MCD;MOD;LDD=0
+'Move back out a touch incase we coasted onto the - limit
+IF(_LFD=1);PRD=axmaxp[FESINAX]/5.0;SHD;BGD;MCD;MOD;ENDIF
+'Only try this hack once, something could really be wrong
+FESXXX=false;fesinlr=true
+ENDIF
+ENDIF
+
+IF(_LRD=1);' If movement out allowed not retracted
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
 IF(^h=ENONE);'Remove the FESIN if all is well

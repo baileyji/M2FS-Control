@@ -7,15 +7,14 @@ from wtforms import validators
 from m2fs.plate.summarize import generate_tlist_file, generate_summary_file
 import sys, time, threading, os, re
 sys.path.append(sys.path[0]+'/../lib/')
-sys.path.append(sys.path[0]+'/../hole_mapper/')
 from m2fsConfig import m2fsConfig
 from glob import glob
 import plate
 
 MAX_SELECT_LEN=30
 
-app = Flask(__name__, template_folder='www/templates/',
-            static_folder='www/static/')
+app = Flask(__name__, template_folder='./www/templates/',
+            static_folder='./www/static/')
 
 app.secret_key = 'development key'
 

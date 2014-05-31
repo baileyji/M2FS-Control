@@ -6,8 +6,8 @@ WantedBy=director.service
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/www/targetWeb.py
-WorkingDirectory=/M2FS-Control/www/
+ExecStart=/M2FS-Control/bin/targetWeb.py
+WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always
 KillMode=control-group

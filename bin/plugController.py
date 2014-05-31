@@ -4,7 +4,7 @@ sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
 from agent import Agent
-import plate
+import pcplate as plate
 from m2fsConfig import m2fsConfig
 from fnmatch import fnmatch
 from glob import glob

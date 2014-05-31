@@ -1,0 +1,9 @@
+#Cassette name, then space, then comma separated list of dead fiber numbers
+
+# treat as ok
+#B8 3
+#B6 13
+#B5 7
+#B4 4
+#R8 3
+#R8 8

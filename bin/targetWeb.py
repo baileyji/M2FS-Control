@@ -7,23 +7,27 @@ from wtforms import validators
 from m2fs.plate.summarize import generate_tlist_file, generate_summary_file
 import sys, time, threading, os, re
 sys.path.append(sys.path[0]+'/../lib/')
+sys.path.append(sys.path[0]+'/../hole_mapper/')
 from m2fsConfig import m2fsConfig
 from glob import glob
 import plate
 
 MAX_SELECT_LEN=30
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='www/templates/',
+            static_folder='www/static/')
+
 app.secret_key = 'development key'
 
 def get_possible_targets():
     targets=[]
-    _plateDir=os.getcwd()+os.sep+m2fsConfig.getPlateDir()
+    _plateDir=os.path.join(os.getcwd(), m2fsConfig.getPlateDir())
+    print 'Looking for plates in {}'.format(_plateDir)
     files=glob(_plateDir+'*.plate')
     for file in files:
         if os.path.basename(file).lower()!='none.plate':
             try:
-                p=plate.Plate(file)
+                p=plate.load_dotplate(file)
                 targets.append((file, p.name))
             except IOError:
                 pass

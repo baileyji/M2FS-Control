@@ -1,0 +1,15 @@
+[Unit]
+Description=M2FS Target Webpage
+
+[Install]
+WantedBy=director.service
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/www/targetWeb.py
+WorkingDirectory=/M2FS-Control/www/
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

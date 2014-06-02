@@ -26,6 +26,7 @@ speedR=Turbo
 
 n_ampsR=4
 
+#active_fibers[1-8][R|B]
 active_fibersR = 1,1,1,1, 0,0,1,1, 1,1,1,1, 0,0,1,1
 
 modeB=hires 

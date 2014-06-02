@@ -1,7 +1,0 @@
-[Plate]
-formatversion=0.1
-name=None
-[Setup1]
-name=Null
-[Setup1:Targets]
-H:Null

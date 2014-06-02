@@ -1,0 +1,80 @@
+[0]
+plate= Christian1
+field= NGC6266
+config= 15
+assign_to=any
+
+[1]
+plate= Christian1
+field= NGC6266
+config= 15b
+assign_to=any
+
+[2]
+plate= Mateo
+field= 020.1n06.1
+config= 7
+assign_to =any
+
+[3]
+plate= Kimicki1
+field= TrChest_1
+config= 7
+assign_to =any
+
+[4]
+plate= Kimicki2
+field= SouthPillars
+config= 7
+assign_to =any
+
+[5old]
+plate= Christian2
+field= NGC6553
+config= 15
+assign_to=any
+
+[5]
+plate= Christian2
+field= NGC6553
+config= 15b
+assign_to=any
+
+[6]
+plate= Crater2
+field= Crater2
+config= 1
+assign_to=any
+
+[7]
+plate= Christian2
+field= NGC104
+config= 15b
+assign_to=any
+
+[8]
+field= Trumpler14
+plate=Kimicki1
+config= 7
+assign_to=any
+
+[9]
+plate=Christian1
+field=NGC6273
+config= 15b
+assign_to=any
+
+
+[10]
+plate=Christian2
+field=NGC6553
+config=15b
+assign_to=any
+assign_given= Christian2:NGC6553:15b
+
+[11]
+plate=Christian2
+field=NGC6553
+config=15b
+assign_to=any
+assign_given= Christian2:NGC6553:15b:d677e8

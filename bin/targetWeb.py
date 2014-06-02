@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from flask import Flask, render_template, request, Response
+from flask import Flask, render_template, request, Response, make_response
 from flask_wtf.csrf import CsrfProtect
 from flask_wtf import Form
 from wtforms import SelectMultipleField, SubmitField, BooleanField,RadioField
@@ -9,7 +9,7 @@ sys.path.append(sys.path[0]+'/../lib/')
 sys.path.append(sys.path[0]+'/../')
 from m2fsConfig import m2fsConfig
 from glob import glob
-from hole_mapper.plate import load_dotplate
+from hole_mapper.plate import load_dotplate, get_all_plate_names
 from jbastro.astroLib import sexconvert
 
 MAX_SELECT_LEN=30
@@ -26,6 +26,7 @@ ROTATOR_SETTING='-7.18'
 
 
 def generate_tlist_file(platefiles):
+    
     fields=[]
     
     file_lines=[]
@@ -67,8 +68,9 @@ def generate_tlist_file(platefiles):
             continue
 
         for f in p.fields:
+            id=(p.name+':'+f.name).replace(' ', '_').replace(':', '_')
             s=obsfmt.format(n=len(file_lines),
-                            id=(p.name+':'+f.name).replace(' ', '_'),
+                            id=id,
                             ra=sexconvert(f.ra, ra=True, dtype=str),
                             de=sexconvert(f.dec, dtype=str),
                             eq=f.epoch,
@@ -122,21 +124,6 @@ def generate_tlist_file(platefiles):
 
     return file_lines
 
-
-def get_possible_targets():
-    targets=[]
-    _plateDir=os.path.join(os.getcwd(), m2fsConfig.getPlateDir())
-    print 'Looking for plates in {}'.format(_plateDir)
-    files=glob(_plateDir+'*.plate')
-    for file in files:
-        if os.path.basename(file).lower()!='none.plate':
-            try:
-                p=load_dotplate(file)
-                targets.append((file, p.name))
-            except IOError:
-                pass
-    return targets
-
 def tlist_filename():
     return 'targets.txt'
 
@@ -150,7 +137,7 @@ def get_zip():
         return ''
 
     tlist_lines=generate_tlist_file(TARGET_CACHE)
-    
+
     o = StringIO.StringIO()
     zf = zipfile.ZipFile(o, mode='w')
     zf.writestr(tlist_filename(), ''.join(tlist_lines))
@@ -169,7 +156,8 @@ class TargetSelect(Form):
 def index():
     global TARGET_CACHE
     form = TargetSelect(request.form)
-    form.targets.choices=get_possible_targets()
+    platedict=get_all_plate_names()
+    form.targets.choices=zip(platedict.values(),platedict.keys())
     form.select_size=min(len(form.targets.choices)+1, MAX_SELECT_LEN)
     if request.method == 'POST' and form.targets.data:
 
@@ -177,7 +165,7 @@ def index():
             TARGET_CACHE=[]
         else:
             try:
-                with open(TARGET_CACHE_FILE,'a+r') as fp:
+                with open(TARGET_CACHE_FILE,'r') as fp:
                     TARGET_CACHE=fp.readlines()
             except IOError:
                 TARGET_CACHE=[]
@@ -188,9 +176,15 @@ def index():
         except IOError:
             pass
 
-        return Response(get_zip(), mimetype="application/octet-stream",
-                        headers={"Content-Disposition": "attachment;"
-                                 "filename=selected.zip"})
+        response=make_response(''.join(generate_tlist_file(TARGET_CACHE)))
+        import datetime
+        fn='M2FS{}.cat'.format(datetime.datetime.now().strftime("%B%Y"))
+        response.headers['Content-Disposition']=('attachment; '
+                                                 'filename={}'.format(fn))
+        return response
+#        return Response(get_zip(), mimetype="application/octet-stream",
+#                        headers={"Content-Disposition": "attachment;"
+#                                 "filename=selected.zip"})
 
     return render_template('targetlist.html', form=form)
 

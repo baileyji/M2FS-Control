@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+{% block content %}
+<h1>Select Targets</h1>
+
+<form method="POST" action="/">
+    {{ form.targets(size=form.select_size, multiple=True) }}
+    <br>
+    {{ form.new.label }} {{ form.new }}
+    {{ form.submit }}
+</form>
+
+{% endblock %}

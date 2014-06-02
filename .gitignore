@@ -1,3 +1,4 @@
+plates/backups/*
 *.pyc
 * (Autosaved).txt
 m2fs/*
@@ -8,3 +9,7 @@ PicoP_Angstrom_Linux_SDK/*
 *.log.gz
 *.xc*
 targetweb.cache
+.com.apple.timemachine.supported
+plates/output/*.fibermap
+plates/output/*.m2fs
+plates/output/*.eps

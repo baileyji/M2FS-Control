@@ -5,6 +5,7 @@ GALIL_R=('localhost',40000)
 GUIDER=('localhost',49000)
 DATALOGGER=('localhost',45000)
 DIRECTOR=(socket.gethostname(),51800)
+PLUG=('localhost',34520)
 
 def cg():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

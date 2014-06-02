@@ -1,0 +1,8 @@
+[submodule "hole_mapper"]
+	path = hole_mapper
+	url = https://baileyji@github.com/baileyji/hole_mapper.git
+	branch = master
+[submodule "jbastro"]
+	path = jbastro
+	url = https://baileyji@github.com/baileyji/jbastro.git
+	branch = master

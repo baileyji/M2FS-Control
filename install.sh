@@ -37,7 +37,8 @@ easy_install pip
 pip install pyserial==2.6
 pip install construct==2.0.6
 pip install ipython
-
+pip install flask
+pip install flask_wtf
 
 #useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsuser") m2fsuser
 #useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsadmin") m2fsadmin

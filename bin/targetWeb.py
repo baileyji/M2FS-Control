@@ -10,7 +10,7 @@ sys.path.append(sys.path[0]+'/../')
 from m2fsConfig import m2fsConfig
 from glob import glob
 from hole_mapper.plate import load_dotplate, get_all_plate_names
-from jbastro.astroLib import sexconvert
+from jbastro.astrolibsimple import sexconvert
 
 MAX_SELECT_LEN=30
 

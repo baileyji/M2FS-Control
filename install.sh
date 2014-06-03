@@ -31,6 +31,7 @@ opkg install ntp
 cp ./etc/ntp.conf /etc/
 
 #Get pip
+#easy_install -U setuptools #needed by astropy
 easy_install pip
 
 #install ipython and needed python packages
@@ -39,6 +40,7 @@ pip install construct==2.0.6
 pip install ipython
 pip install flask
 pip install flask_wtf
+#pip install astropy #needs numpy >1.8 which bombed on install
 
 #useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsuser") m2fsuser
 #useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsadmin") m2fsadmin

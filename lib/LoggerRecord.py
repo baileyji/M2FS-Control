@@ -232,8 +232,8 @@ class LoggerRecord(object):
         if (self.sideR['accels']!=None and other.sideB['accels']!=None or
             self.sideB['accels']!=None and other.sideR['accels']!=None):
             return False
-        if int(other.unixtime)/60 != int(self.unixtime)/60:
-            return False
+#        if int(other.unixtime)/60 != int(self.unixtime)/60:
+#            return False
         return True
     
     def merge(self, other, force=False):

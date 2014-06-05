@@ -7,7 +7,7 @@ import logging
 import logging.handlers
 import LoggerRecord
 
-LOGGING_LEVEL=logging.INFO
+LOGGING_LEVEL=m2fsConfig.getAgentLogLevel('DataloggerAgent')
 
 SELECT_TIMEOUT=5
 

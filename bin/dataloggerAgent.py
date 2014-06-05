@@ -59,7 +59,7 @@ class DataloggerAgent(Agent):
         self.command_handlers.update({
             #Return a list of the temperature values
             'TEMPS':self.TEMPS_command_handler})
-        self.logger.setLevel(LOGGING_LEVEL)
+#        self.logger.setLevel(LOGGING_LEVEL)
         self.bUpdateTime=0
         self.rUpdateTime=0
         self.shUpdateTime=0

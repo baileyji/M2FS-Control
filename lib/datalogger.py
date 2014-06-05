@@ -6,6 +6,7 @@ import Queue
 import logging
 import logging.handlers
 import LoggerRecord
+from m2fsConfig import m2fsConfig
 
 LOGGING_LEVEL=m2fsConfig.getAgentLogLevel('DataloggerAgent')
 

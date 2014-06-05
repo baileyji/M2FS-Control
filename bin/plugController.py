@@ -1,6 +1,8 @@
 #!/usr/bin/env python2.7
 import sys, time, threading, os, re
 sys.path.append(sys.path[0]+'/../lib/')
+sys.path.append(sys.path[0]+'/../')
+sys.path.append(sys.path[0]+'/../jbastro/')
 import logging
 import logging.handlers
 from agent import Agent

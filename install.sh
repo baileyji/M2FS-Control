@@ -40,6 +40,7 @@ pip install construct==2.0.6
 pip install ipython
 pip install flask
 pip install flask_wtf
+pip install ipdb
 #pip install astropy #needs numpy >1.8 which bombed on install
 
 #useradd -m -p $(perl -e 'print crypt($ARGV[0], "password")' "m2fsuser") m2fsuser

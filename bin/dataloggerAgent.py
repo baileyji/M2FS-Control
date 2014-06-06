@@ -157,7 +157,7 @@ class DataloggerAgent(Agent):
         """
 
         timeDelta=record.unixtime-self.currentRecord.unixtime
-        if timeDelta >= 0:
+        if True or timeDelta >= 0:
             
             #update the timestamps for the data
             if record.haveBData():
@@ -175,19 +175,19 @@ class DataloggerAgent(Agent):
             self.currentRecord.unixtime=record.unixtime
     
             #Clear out any data that is too old
-            if (self.currentRecord.unixtime - self.rUpdateTime) > READING_EXPIRE_INTERVAL:
-                self.logger.debug('R values expired, clearing')
-                for k in self.currentRecord.sideR.keys():
-                    self.currentRecord.sideR[k]=None
-            
-            if (self.currentRecord.unixtime - self.bUpdateTime) > READING_EXPIRE_INTERVAL:
-                self.logger.debug('B values expired, clearing')
-                for k in self.currentRecord.sideB.keys():
-                    self.currentRecord.sideB[k]=None
-            
-            if (self.currentRecord.unixtime - self.shUpdateTime) > READING_EXPIRE_INTERVAL:
-                self.logger.debug('SH value expired, clearing')
-                self.currentRecord.shackhartmanTemp=None
+#            if (self.currentRecord.unixtime - self.rUpdateTime) > READING_EXPIRE_INTERVAL:
+#                self.logger.debug('R values expired, clearing')
+#                for k in self.currentRecord.sideR.keys():
+#                    self.currentRecord.sideR[k]=None
+#            
+#            if (self.currentRecord.unixtime - self.bUpdateTime) > READING_EXPIRE_INTERVAL:
+#                self.logger.debug('B values expired, clearing')
+#                for k in self.currentRecord.sideB.keys():
+#                    self.currentRecord.sideB[k]=None
+#            
+#            if (self.currentRecord.unixtime - self.shUpdateTime) > READING_EXPIRE_INTERVAL:
+#                self.logger.debug('SH value expired, clearing')
+#                self.currentRecord.shackhartmanTemp=None
 
             #Don't keep track of accelerations
             self.currentRecord.sideB['accels']=None

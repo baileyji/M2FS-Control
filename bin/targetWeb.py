@@ -7,6 +7,7 @@ from wtforms import validators
 import sys, time, threading, os, re
 sys.path.append(sys.path[0]+'/../lib/')
 sys.path.append(sys.path[0]+'/../')
+sys.path.append(sys.path[0]+'/../jbastro/')
 from m2fsConfig import m2fsConfig
 from glob import glob
 from hole_mapper.plate import load_dotplate, get_all_plate_names

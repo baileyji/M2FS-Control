@@ -152,7 +152,7 @@ class TargetSelect(Form):
     new= BooleanField('New list', default=False)
     submit = SubmitField("Get list")
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/targetlist', methods=['GET', 'POST'])
 def index():
     global TARGET_CACHE
     form = TargetSelect(request.form)
@@ -199,6 +199,6 @@ def index():
 
 
 if __name__ =='__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0',port=8080,debug=True)
 
 

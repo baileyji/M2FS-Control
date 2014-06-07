@@ -86,7 +86,7 @@ def main():
             else:
                 print "XQ#AUTO,0 failed: '"+resp+"'"
     else:
-        print "Upload failed: '"+resp+"'"
+        print "Upload failed (Remember to stop galil[R|B].service): '"+resp+"'"
     ser.close()
     exit(0)
 

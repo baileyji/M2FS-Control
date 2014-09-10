@@ -7,6 +7,7 @@ from wtforms import validators
 import sys, time, threading, os, re
 sys.path.append(sys.path[0]+'/../lib/')
 sys.path.append(sys.path[0]+'/../')
+sys.path.append(sys.path[0]+'/../jbastro/')
 from m2fsConfig import m2fsConfig
 from glob import glob
 from hole_mapper.plate import load_dotplate, get_all_plate_names
@@ -152,7 +153,7 @@ class TargetSelect(Form):
     new= BooleanField('New list', default=False)
     submit = SubmitField("Get list")
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/targetlist', methods=['GET', 'POST'])
 def index():
     global TARGET_CACHE
     form = TargetSelect(request.form)
@@ -199,6 +200,6 @@ def index():
 
 
 if __name__ =='__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0',port=8080,debug=True)
 
 

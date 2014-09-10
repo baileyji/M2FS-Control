@@ -820,6 +820,9 @@ class Agent(object):
             for command in self.commands:
                 self.logger.debug(command)
             
+            #Deal with incomming sockets that died
             self.cull_dead_sockets_and_their_commands()
+            
+            #Respond to any commands
             self.handle_completed_commands()
         

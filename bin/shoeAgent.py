@@ -108,7 +108,12 @@ class ShoeAgent(Agent):
         #Initialize the shoe
         if not self.args.DEVICE:
             self.args.DEVICE='/dev/shoe'+self.args.SIDE
-        self.connections['shoe']=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
+#        if self.args.simulator:
+#            self.connections['shoe']=SelectedConnection.SimConnection(
+#                 self.args.DEVICE, timeout=1)
+#        else:
+        self.connections['shoe']=ShoeSerial(self.args.DEVICE,
+                                            115200, timeout=1)
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
         self.command_handlers.update({

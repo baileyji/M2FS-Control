@@ -1,0 +1,29 @@
+[0]
+plate= FornaxYS1
+field= Fornax_youngstars_1_LoRes
+config= 7
+assign_to=single
+
+[1]
+plate= FornaxYS1
+field= Fornax_youngstars_1_HiRes
+config= 7
+assign_to=single
+
+[2]
+plate= SallySMC
+field= SMCField_2
+config= 16
+assign_to=any
+
+[3]
+plate= SallySMC
+field= SMCField_3
+config= 16
+assign_to=any
+
+[4]
+plate= SallySMC
+field= SMCField_1
+config= 16
+assign_to=any

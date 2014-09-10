@@ -1,0 +1,21 @@
+name= Sally_BStar
+
+mode=hires 
+
+filter=BStar_O80_87
+
+binning=4x3
+speed=Slow
+n_amps=4
+
+slit=180
+
+active_fibers = 0,0,0,0, 0,1,1,0, 0,0,0,0, 0,0,0,0
+
+azimuthB=0.0
+hielB =0.0
+
+azimuthR=0.0
+hielR=0.0
+
+

@@ -1,0 +1,28 @@
+name= Christian
+
+mode=hires 
+
+filter=  CaT-OneOrder
+
+binning=2x2
+speed=Slow
+n_amps=4
+
+slit=125
+
+active_fibers1= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+active_fibers2= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+active_fibers3= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+active_fibers4= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+active_fibers5= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+active_fibers6= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+active_fibers7= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+active_fibers8= 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+
+azimuthB=-.89
+hielB =.22
+
+azimuthR=-.99
+hielR=.2
+
+

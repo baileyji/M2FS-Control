@@ -1,0 +1,21 @@
+name= CaTriplet
+
+mode=hires 
+
+filter=  CaT-OneOrder
+
+binning=2x2
+speed=Slow
+n_amps=4
+
+slit=125
+
+active_fibers = 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1
+
+azimuthB=-.89
+hielB =.22
+
+azimuthR=-.99
+hielR=.2
+
+

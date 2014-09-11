@@ -2,8 +2,8 @@
 from flask import Flask, render_template, request, Response, make_response, redirect
 from flask_wtf.csrf import CsrfProtect
 from flask_wtf import Form
-from wtforms import SelectMultipleField, SubmitField, BooleanField,RadioField
-from wtforms import validators
+from wtforms import SelectMultipleField, SubmitField, BooleanField, RadioField
+from wtforms import DecimalField, validators
 import sys, time, threading, os, re
 sys.path.append(sys.path[0]+'/../lib/')
 sys.path.append(sys.path[0]+'/../')
@@ -26,10 +26,12 @@ app = Flask(__name__, template_folder='../www/templates/',
 
 app.secret_key = 'development key'
 
-ROTATOR_SETTING='-7.18'
+ROTATOR_SETTING=-7.22
 
 
-def generate_tlist_file(platefiles):
+def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING):
+    
+    rot='{:.2f}'.format(rotator)
     
     fields=[]
     
@@ -64,7 +66,7 @@ def generate_tlist_file(platefiles):
 
     for f in platefiles:
         try:
-            p=load_dotplate(f)
+            p=load_dotplate(f, singleton_ok=True)
             if p.file_version=='0.1':
                 raise Exception("Can't process v0.1"+f)
         except Exception, e:
@@ -80,7 +82,7 @@ def generate_tlist_file(platefiles):
                             eq=f.epoch,
                             pmRA=f.pm_ra,
                             pmDE=f.pm_dec,
-                            irot=ROTATOR_SETTING,
+                            irot=rot,
                             rotmode='EQU',
                             gra1=sexconvert(0,dtype=str),
                             gde1=sexconvert(0,dtype=str),
@@ -99,7 +101,7 @@ def generate_tlist_file(platefiles):
                                 eq=t.epoch,
                                 pmRA=t.pm_ra,
                                 pmDE=t.pm_dec,
-                                irot=ROTATOR_SETTING,
+                                irot=rot,
                                 rotmode='EQU',
                                 gra1=sexconvert(0,dtype=str),
                                 gde1=sexconvert(0,dtype=str),
@@ -114,7 +116,7 @@ def generate_tlist_file(platefiles):
                                 eq=t.epoch,
                                 pmRA=t.pm_ra,
                                 pmDE=t.pm_dec,
-                                irot=ROTATOR_SETTING,
+                                irot=rot,
                                 rotmode='EQU',
                                 gra1=sexconvert(0,dtype=str),
                                 gde1=sexconvert(0,dtype=str),
@@ -155,8 +157,8 @@ class TargetSelect(Form):
     targets = SelectMultipleField('Targets',
                                   validators=[validators.Required()])
     new= BooleanField('New list', default=False)
+    rot = DecimalField(default=ROTATOR_SETTING, label='Rotator setting')
     submit = SubmitField("Get list")
-
 
 
 @app.route('/targetlist', methods=['GET', 'POST'])
@@ -186,7 +188,9 @@ def index():
 
         fn='M2FS{}.cat'.format(datetime.datetime.now().strftime("%B%Y"))
 
-        dat=StringIO.StringIO(''.join(generate_tlist_file(TARGET_CACHE)))
+        import ipdb;ipdb.set_trace()
+        dat=StringIO.StringIO(''.join(generate_tlist_file(TARGET_CACHE,
+                                                          rotator=form.rot.data)))
         dat.seek(0)
         
         return send_file(dat, mimetype='text/plain',

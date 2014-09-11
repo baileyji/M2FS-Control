@@ -21,6 +21,9 @@ MAX_SELECT_LEN=30
 TARGET_CACHE=[]
 TARGET_CACHE_FILE='./targetweb.cache'
 
+#Go ahead and call this to save time when the page is accessed the first time
+get_all_plate_names()
+
 app = Flask(__name__, template_folder='../www/templates/',
             static_folder='../www/static')
 

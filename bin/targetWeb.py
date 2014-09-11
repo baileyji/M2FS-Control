@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from flask import Flask, render_template, request, Response, make_response
+from flask import Flask, render_template, request, Response, make_response, redirect
 from flask_wtf.csrf import CsrfProtect
 from flask_wtf import Form
 from wtforms import SelectMultipleField, SubmitField, BooleanField,RadioField
@@ -13,13 +13,16 @@ from glob import glob
 from hole_mapper.plate import load_dotplate, get_all_plate_names
 from jbastro.astrolibsimple import sexconvert
 
+from flask import send_file
+import StringIO, datetime
+
 MAX_SELECT_LEN=30
 
 TARGET_CACHE=[]
 TARGET_CACHE_FILE='./targetweb.cache'
 
 app = Flask(__name__, template_folder='../www/templates/',
-            static_folder='../www/static/')
+            static_folder='../www/static')
 
 app.secret_key = 'development key'
 
@@ -149,17 +152,21 @@ def get_zip():
     return result
 
 class TargetSelect(Form):
-    targets = SelectMultipleField('Targets', validators=[validators.Required()])
+    targets = SelectMultipleField('Targets',
+                                  validators=[validators.Required()])
     new= BooleanField('New list', default=False)
     submit = SubmitField("Get list")
+
+
 
 @app.route('/targetlist', methods=['GET', 'POST'])
 def index():
     global TARGET_CACHE
-    form = TargetSelect(request.form)
+    form = TargetSelect()
     platedict=get_all_plate_names()
     form.targets.choices=zip(platedict.values(),platedict.keys())
     form.select_size=min(len(form.targets.choices)+1, MAX_SELECT_LEN)
+    print form.validate_on_submit()
     if request.method == 'POST' and form.targets.data:
 
         if form.new.data:
@@ -177,26 +184,18 @@ def index():
         except IOError:
             pass
 
-        response=make_response(''.join(generate_tlist_file(TARGET_CACHE)))
-        import datetime
         fn='M2FS{}.cat'.format(datetime.datetime.now().strftime("%B%Y"))
-        response.headers['Content-Disposition']=('attachment; '
-                                                 'filename={}'.format(fn))
-        return response
+
+        dat=StringIO.StringIO(''.join(generate_tlist_file(TARGET_CACHE)))
+        dat.seek(0)
+        
+        return send_file(dat, mimetype='text/plain',
+            attachment_filename=fn,as_attachment=True)
 #        return Response(get_zip(), mimetype="application/octet-stream",
 #                        headers={"Content-Disposition": "attachment;"
 #                                 "filename=selected.zip"})
 
     return render_template('targetlist.html', form=form)
-
-
-#def parse_cl():
-#    parser = argparse.ArgumentParser(description='Help undefined',
-#    add_help=True)
-#    parser.add_argument('-d','--dir', dest='dir',
-#                        action='store', required=False, type=str,
-#                        help='',default='./')
-#    return parser.parse_args()
 
 
 if __name__ =='__main__':

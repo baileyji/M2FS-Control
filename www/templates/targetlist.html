@@ -2,7 +2,7 @@
 {% block content %}
 <h1>Select Targets</h1>
 
-<form method="POST" action="/">
+<form method="POST" action="/targetlist">
     {{ form.targets(size=form.select_size, multiple=True) }}
     <br>
     {{ form.new.label }} {{ form.new }}

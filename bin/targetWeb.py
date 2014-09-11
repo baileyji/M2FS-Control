@@ -188,7 +188,6 @@ def index():
 
         fn='M2FS{}.cat'.format(datetime.datetime.now().strftime("%B%Y"))
 
-        import ipdb;ipdb.set_trace()
         dat=StringIO.StringIO(''.join(generate_tlist_file(TARGET_CACHE,
                                                           rotator=form.rot.data)))
         dat.seek(0)

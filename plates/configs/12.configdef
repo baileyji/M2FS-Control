@@ -1,0 +1,21 @@
+name= Halpha+Li_Narrow
+
+mode=hires 
+
+filter=Halpha_Li
+
+binning=1x2
+speed=Slow
+n_amps=4
+
+slit=75
+
+active_fibers=1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0
+
+azimuthB=-.055
+hielB =0.4
+
+azimuthR=-0.65
+hielR=1.0
+
+

@@ -1,10 +1,10 @@
-name= Christian
+name= Bulge_Clusters_Orig
 
 mode=hires 
 
-filter=  CaT-OneOrder
+filter=  BulgeGC_1
 
-binning=2x2
+binning=1x2
 speed=Slow
 n_amps=4
 
@@ -19,10 +19,10 @@ active_fibers6= 1,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1
 active_fibers7= 1,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1
 active_fibers8= 1,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1
 
-azimuthB=-.89
-hielB =.22
+azimuthB=-.5
+hielB =.41
 
-azimuthR=-.99
-hielR=.2
+azimuthR=-.55
+hielR=.8
 
 

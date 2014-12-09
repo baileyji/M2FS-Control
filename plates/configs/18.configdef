@@ -1,0 +1,21 @@
+name= Fornax_Mixed_Pops
+
+mode=hires 
+
+filterB=Mgb-Rev2
+filterR=BK7
+
+binning=2x2
+speed=Slow
+n_amps=4
+
+slit=180
+
+active_fibers = 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1
+
+azimuthB=-.04
+hielB =0.4
+
+loelR=7.82
+
+

@@ -1,5 +1,86 @@
-This directory contains all of the valid plate files that have been
-uploaded to M2FS via the upload directory. Place new plate files into the
-upload directory. They will be vetted and moved into this directory or 
-the rejected directory. If a plate file has the same name as an existing plate
-file it will be rejected.
+This directory contains the various plate directories. The important ones are config, plates, setups, & output.
+
+plates - stick new plate files here. If you are going to change the information in a .plate file you had better be prepared for unexpected consequences. You could (IN THEORY) add a column to the drilled section called fiber, and manually specify fiber names for particular targets if you make sure to follow all the rules that will apply when you assign the field later and put dashes everywhere else in the column. Changing the filename shouldn't break anything, but won't change the plate name. 
+
+output - on m2fs, stick the generated .fibermap files here. On your computer, new fiber maps and files are written here. You can edit the fiber assignments in these files if you want, and the changes will be reflected in the headers.
+
+setups - create setup definition files here. More on this later. One day there may be web based tool for this. These don't need to be copied to M2FS
+
+configs - stick instrument configdef files here. See the readme in the directory for format info. the deadfibers file is also located here. These files don't need to be copied to M2FS.
+
+backups - intended for use auto backing up files with timestamps, code is offline at present
+
+ 
+Using hole_mapper code. There are two programs: plateplanner.py and platemapper.py
+plateplanner.py is for designing plates and generates the .plate files. It is described elsewhere.
+
+platemapper.py is used to generate fiber assignments for plates and is discussed here.
+
+Execution is: plateplanner.py -d path/to/this/directory, but doing running the program prior to the following steps is pointless.
+
+
+Getting a plate assigned:
+create a new entry in your .setup file by adding [#] where # is a value not already in brackets elsewhere in that .setup file. I use numbers, but it doesn't really matter. A value with brackets in it (brackets in the brackets) is probably going to break things. 
+
+
+1) Determine the plate name. This is the value of the 'plate' key in the plate file, should be the second line, grep for [Plate] if you are having a hard time. Add the key value pair:
+plate=plate_name
+
+2) Determine the field name on the plate. This is one of the comma separated strings to the key 'field' in the plate file file. it should be near the plate name.
+Add the key value pair:
+field=field_name
+
+3) Figure out what config you will be using. If a configdef doesn't exist, go create it. see the instructions in that directory. Add the key value pair:
+config=config_name
+
+4) Decide where you want the fibers assigned. R, B, single, or any. single says r or b, just not both, any says stick the fibers anywhere that is ok with deadfibers and the config. Add the key:
+assign_to=r|b|single|any
+
+---This is the end of the required keys continue reading for more options
+
+4) Figure out if you are assigning the fibers with some other field on the plate. If so,
+BLAH BLAH. If you are going to use this contact Jeb.
+Add the key value pair:
+assign_with= other_setup_name
+
+5) Figure out if you are assigning fibers given a previous assignment for this field. For example, the field has 1k targets and you have a setup with the best 256 and now you want a setup with the next best 256. If so, get the setup name for that setup
+and add the key value pair:
+assign_given=other_setup_name
+
+6) If no targets should be dropped due to collisions with other setups add the key value pair:
+keepall=True
+
+7) If all targets (remember, skye aren't targets) with max priority in a field should be kept and mustkeep wasn't set in the original field file then you can add the key value pair:
+mustkeep=True
+
+This setting overrides the field setting, so it can also be used to turn mustkeep off.
+If you are just assigning a single setup then this setting doesn't do anything 
+
+8) Note minsky is not defined here, it is part of the field definition. 
+
+
+
+Once you have defined your section it might look something like
+[3.]
+plate=neverland
+field=sag_33v2
+assign_to=any
+config=56
+
+or 
+
+[-1]
+plate=houston
+field=sag_33v38
+assign_to=r
+config=12b
+keepall=True
+mustkeep=True
+assign_with=Bob:fornax:15
+
+Now save your file, run platemapper, select your new setup in the list, and click Make plug. The assignment file should not be in output along with a eps for printing and drawing.
+
+
+
+Other settings:
+filet names must be added to holemapper/config.py's KNOWN_FILTERS list it must match what is specified in the .configdef file

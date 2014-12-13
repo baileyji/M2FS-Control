@@ -3,3 +3,34 @@ plate= BricenoD14
 field= oriOB1_cvso114
 config= 12
 assign_to=any
+
+
+[1]
+plate= KounkelD14
+field= ngc2024
+config= 12
+assign_to=any
+
+[2]
+plate= BricenoD14
+field= oriOB1_cvso727
+config= 12
+assign_to=any
+
+[3]
+plate= SongD14
+field= LMC-plate1
+config= 1
+assign_to=any
+
+[4]
+plate= SongD14
+field= LMC-plate2
+config= 1
+assign_to=any
+
+[5]
+plate= SongD14
+field= LMC-plate2
+config= 1
+assign_to=any

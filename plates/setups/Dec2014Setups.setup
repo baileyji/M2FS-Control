@@ -162,3 +162,21 @@ plate= carina274_4
 field= carina274_4
 config= 1
 assign_to=any
+
+[20]
+plate= UDS1
+field= UDS1
+config= 3
+assign_to=any
+
+[21]
+plate= GOODSS1
+field= GOODSS1
+config= 3
+assign_to=any
+
+[22]
+plate= jsimonScl_h3
+field= jsimon_sculptor_h3
+config= 13
+assign_to=any

@@ -4,7 +4,7 @@ mode=hires
 
 filter=Mgb_FourOrders
 
-binning=4x3
+binning=2x2
 speed=Slow
 n_amps=4
 

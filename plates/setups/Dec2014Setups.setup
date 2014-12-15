@@ -31,6 +31,134 @@ assign_to=any
 
 [5]
 plate= SongD14
-field= LMC-plate2
+field= LMC-plate3
+config= 1
+assign_to=any
+
+[6]
+plate= KounkelD14
+field= ONC2
+config= 12
+assign_to=any
+
+[7]
+plate= KounkelD14
+field= ONC1
+config= 12
+assign_to=any
+
+[8]
+plate= KounkelD14
+field= ONC3
+config= 12
+assign_to=any
+
+[9]
+plate= KounkelD14
+field= l1622
+config= 12
+assign_to=any
+
+[10]
+plate= KounkelD14
+field= ngc2023
+config= 12
+assign_to=any
+
+[11]
+plate= KounkelD14
+field= ngc2068
+config= 12
+assign_to=any
+
+[12]
+plate= c45c91c378c496
+field= carina045
+config= 1
+assign_to=any
+
+[13]
+plate= c45c91c378c496
+field= carina091
+config= 1
+assign_to=any
+
+[14]
+plate= c45c91c378c496
+field= carina378
+config= 1
+assign_to=any
+
+[15]
+plate= c45c91c378c496
+field= carina496
+config= 1
+assign_to=any
+
+
+[16a]
+plate= FornaxYS1
+field= Fornax_youngstars_1_LoRes
+config= 18
+assign_to=R
+keepall=True
+[16b]
+plate= FornaxYS1
+field= Fornax_youngstars_1_HiRes_RGB
+config= 18
+assign_to=B
+[16c]
+plate= FornaxYS1
+field= Fornax_youngstars_1_HiRes
+config= 18
+assign_to=B
+
+[17a]
+plate= FornaxYS2
+field= Fornax_youngstars_2_LoRes
+config= 18
+assign_to=R
+keepall=True
+[17b]
+plate= FornaxYS2
+field= Fornax_youngstars_2_HiRes_RGB
+config= 18
+assign_to=B
+[17c]
+plate= FornaxYS2
+field= Fornax_youngstars_2_HiRes
+config= 18
+assign_to=B
+
+[18a]
+plate= jsimonScl_h3
+field= jsimon_sculptor_h3
+config= 14
+assign_to=any
+[18b]
+plate= jsimonScl_h3
+field= jsimon_sculptor_h3
+config= 14
+assign_to=any
+
+
+[19]
+plate= carina274_2
+field= carina274_2
+config= 1
+assign_to=any
+[19a]
+plate= carina274_1
+field= carina274_1
+config= 1
+assign_to=any
+[19b]
+plate= carina274_3
+field= carina274_3
+config= 1
+assign_to=any
+[19c]
+plate= carina274_4
+field= carina274_4
 config= 1
 assign_to=any

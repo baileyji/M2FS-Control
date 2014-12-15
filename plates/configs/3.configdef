@@ -1,0 +1,19 @@
+name= SFR-LoRes1
+
+mode=lores 
+
+filter=  BK7
+
+binning=2x2
+speed=Slow
+n_amps=4
+
+slit=180
+
+active_fibers = 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1
+
+loelB =10.6
+
+loelR=11.15
+
+

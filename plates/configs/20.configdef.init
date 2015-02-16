@@ -2,7 +2,7 @@ name= EPersson
 
 mode=hires 
 
-filter=Persson_blue
+filter=RRLyr_1
 
 binning=2x2
 speed=Slow
@@ -10,7 +10,7 @@ n_amps=4
 
 slit=180
 
-active_fibers = 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0
+active_fibers = 0,0,0,0, 0,1,0,0, 0,0,0,0, 0,0,0,0
 
 azimuthB=-.04
 hielB =0.4

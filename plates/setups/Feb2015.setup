@@ -1,0 +1,146 @@
+[0]
+plate= BricenoF15
+field= ori_3
+config=12
+assign_to=any
+[1]
+plate= BricenoF15
+field= ori_4
+config=12
+assign_to=any
+[2]
+plate= BricenoF15
+field= ori_9
+config=12
+assign_to=any
+[3]
+plate= BricenoF15
+field= ori_11
+config=12
+assign_to=any
+
+[4]
+plate= BricenoF15
+field= ori_1
+config=3
+#I’m guessing about this config, it specifies all fibers in lores mode so it is
+# good enough for assignment purposes
+assign_to=any
+[5]
+plate= BricenoF15
+field= ori_2
+config=3
+#I’m guessing about this config, it specifies all fibers in lores mode so it is
+# good enough for assignment purposes
+assign_to=any
+
+[6]
+plate=BlancF15
+field= COSMOS1
+config= 3
+assign_to=any
+
+#[7]
+#plate= EricPF15
+#field= N3201
+#config=19
+#assign_to=any
+#[8]
+#plate= EricPF15
+#field= oCen
+#config=19
+#assign_to=any
+
+[9]
+plate= IanRF15
+field= roederer_ngc2298_2014b
+config=13
+assign_to=any
+
+#[10]
+#plate=SimonF15
+#field= jsimon_des1
+#assign_to=any
+#config=
+
+
+#These are all for C. Johnson. I picked config 14 because he specifies “MgB extended”
+#as his filter and 14 is “Mgb_FourOrders”. It is NOT the correct config at the very least
+#it has the wrong slit. On Past runs it looks like we used 15b but that uses the “BulgeGC_1”
+# filter and I don’t know if that is correct.
+[11]
+plate= JohnsonF15
+field=NGC5139_01_bright
+config=14
+assign_to=any
+[12]
+plate= JohnsonF15
+field= NGC5139_02_bright
+config=14
+assign_to=any
+[13]
+plate= JohnsonF15
+field= NGC5139_03_bright
+config=14
+assign_to=any
+[14]
+plate= JohnsonF15
+field= NGC5139_05_bright
+config=14
+assign_to=any
+[15]
+plate= JohnsonF15
+field= NGC5139_05_faint
+config=14
+assign_to=any
+[16]
+plate= JohnsonF15
+field= NGC5139_01_faint
+config=14
+assign_to=any
+[17]
+plate= JohnsonF15
+field= NGC5139_02_faint
+config=14
+assign_to=any
+[18]
+plate= JohnsonF15
+field= NGC5139_03_faint
+config=14
+assign_to=any
+[19]
+plate= JohnsonF15
+field= NGC5139_04_bright
+config=14
+assign_to=any
+[20]
+plate= JohnsonF15
+field= NGC5139_04_faint
+config=14
+assign_to=any
+
+
+
+[21]
+plate=BaileyF15
+field=N2516_56
+config=5b
+assign_to=any
+[22]
+plate=BaileyF15
+field= N2548_62
+config=5b
+assign_to=any
+[23]
+plate=BaileyF15
+field=N2548_0
+config=5b
+assign_to=any
+
+
+
+
+
+
+
+

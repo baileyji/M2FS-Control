@@ -1,0 +1,23 @@
+name= HotJupiter-TwoOrder
+
+mode=hires 
+
+hielB=.38
+azimuthB=-.75
+
+hielR=.8
+azimuthR=-.77
+
+filter= HotJupiter
+
+binning=1x1
+
+speed=Slow
+
+n_amps=4
+
+slit=45
+
+active_fibers = 0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1
+
+

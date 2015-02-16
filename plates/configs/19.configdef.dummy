@@ -1,0 +1,20 @@
+name= EPersson
+
+mode=hires 
+
+filter=Persson_blue
+
+binning=2x2
+speed=Slow
+n_amps=4
+
+slit=180
+
+active_fibers = 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0
+
+azimuthB=-.04
+hielB =0.4
+
+azimuthR=-.04
+hielR =0.4
+

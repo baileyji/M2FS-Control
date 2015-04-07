@@ -312,6 +312,25 @@ class ShoeAgent(Agent):
             command.setReply(response)
         else:
             self.bad_command_handler(command)
+
+    def _stowShutdown(self):
+        """
+        Perform a stowed shutdown
+        """
+        #wait here until the show connection is free. Any threads running
+        #will then stall if they need the shoe, program will be unresponsive
+        # to socket interface
+        self.connections['shoe'].rlock.acquire(blocking=True)
+        
+        #drive to hardstop and then 180
+        resp=self._do_online_only_command('ST*')
+        if resp !='OK': log.error(resp)
+        
+        resp=self._send_command_to_shoe('HM')
+        if resp !='OK': log.error(resp)
+        
+        resp=self._do_online_only_command('SL*2')
+        if resp !='OK': log.error(resp)
     
     def TEMP_command_handler(self, command):
         """

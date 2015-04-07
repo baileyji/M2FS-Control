@@ -366,24 +366,26 @@ class Director(Agent):
             #Check to see if we've made it into plug mode sucess
             reply='OFF'
             command.setReply(reply)
-        elif 'OFF' in command.string and 'ON' not in command.string:
-            #Turn plugmode off
-            try:
-                self.connections['GalilAgentR'].sendMessage('FLSIM OUT')
-                self.connections['GalilAgentB'].sendMessage('FLSIM OUT')
-                command.setReply('OK')
-            except WriteError:
-                command.setReply('ERROR: Could not set pickoff position')
-        elif 'ON' in command.string and 'OFF' not in command.string:
-            #Turn plugmode on
-            try:
-                self.connections['GalilAgentR'].sendMessage('FLSIM IN')
-                self.connections['GalilAgentB'].sendMessage('FLSIM IN')
-                command.setReply('OK')
-            except WriteError:
-                command.setReply('ERROR: Could not set pickoff position')
         else:
-            self.bad_command_handler(command)
+            command.setReply('ERROR: Not implemented')
+#        elif 'OFF' in command.string and 'ON' not in command.string:
+#            #Turn plugmode off
+#            try:
+#                self.connections['GalilAgentR'].sendMessage('FLSIM OUT')
+#                self.connections['GalilAgentB'].sendMessage('FLSIM OUT')
+#                command.setReply('OK')
+#            except WriteError:
+#                command.setReply('ERROR: Could not set pickoff position')
+#        elif 'ON' in command.string and 'OFF' not in command.string:
+#            #Turn plugmode on
+#            try:
+#                self.connections['GalilAgentR'].sendMessage('FLSIM IN')
+#                self.connections['GalilAgentB'].sendMessage('FLSIM IN')
+#                command.setReply('OK')
+#            except WriteError:
+#                command.setReply('ERROR: Could not set pickoff position')
+#        else:
+#            self.bad_command_handler(command)
 
     def get_status_list(self):
         """

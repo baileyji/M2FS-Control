@@ -5,9 +5,11 @@
 <form method="POST" action="/targetlist">
     {{ form.targets(size=form.select_size, multiple=True) }}
     <br>
-    {{ form.new.label }} {{ form.new }}
-    <br>
     {{ form.rot.label }} {{ form.rot }}
+    <br>
+    {{ form.tnum.label }} {{ form.tnum }}
+    <br>
+    {{ form.snum.label }} {{ form.snum }}
     {{ form.submit }}
 </form>
 

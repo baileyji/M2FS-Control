@@ -2,10 +2,14 @@
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
 
+export PYTHONPATH=$PYTHONPATH:/M2FS-Control/jbastro:/M2FS-Control
+
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
 PATH=$PATH:/usr/lib/connman/test
+
+GIT_SSH=/home/root/ssh-git.sh
 
 # don't put duplicate lines or lines starting with space in the history.
 # See bash(1) for more options

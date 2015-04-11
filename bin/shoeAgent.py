@@ -317,6 +317,10 @@ class ShoeAgent(Agent):
         """
         Perform a stowed shutdown
         """
+        
+        if 'shoe' not in self.connections: return
+        
+        failmsg="Stowed shutdown of {} failed: {}"
         #wait here until the show connection is free. Any threads running
         #will then stall if they need the shoe, program will be unresponsive
         # to socket interface
@@ -324,13 +328,50 @@ class ShoeAgent(Agent):
         
         #drive to hardstop and then 180
         resp=self._do_online_only_command('ST*')
-        if resp !='OK': log.error(resp)
+        if resp !='OK': self.logger.error(resp)
+
+        status=self._do_online_only_command('TS')
+        if status.startswith('ERROR:'):
+            self.logger.error(failmsg.format(self.name, status))
+            return
         
-        resp=self._send_command_to_shoe('HM')
-        if resp !='OK': log.error(resp)
+        #determine which tetri are uncalibrated
+        uncalByte=status.split(' ')[2]
+        if uncalByte!='0':
+            calibrated=map(lambda x: int(x)-1,
+                             byte2bitNumberString(int(uncalByte)).split(' '))
+            uncalibrated=[x for x in range(0,8) if x not in calibrated]
+        else:
+            uncalibrated=range(0,8)
         
-        resp=self._do_online_only_command('SL*2')
-        if resp !='OK': log.error(resp)
+        #Move calibrated and calibrate uncalibrated
+        for i in range(0,8):
+            if i in uncalibrated:
+                resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
+            else:
+                cmd='SL'+'ABCDEFGH'[i]+'2'
+                resp=self._do_online_only_command(cmd)
+            if resp !='OK':
+                self.logger.error(failmsg.format(self.name, resp))
+                return
+        
+        #wait
+        time.sleep(MAX_SLIT_MOVE_TIME)
+
+        #wait some more
+        if len(uncalibrated) > 0:
+            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
+
+        #move any that started out uncalibrated
+        for i in uncalibrated:
+            cmd='SL'+'ABCDEFGH'[i]+'2'
+            resp=self._do_online_only_command(cmd)
+            if resp !='OK':
+                self.logger.error(failmsg.format(self.name, resp))
+                return
+
+        return
+
     
     def TEMP_command_handler(self, command):
         """

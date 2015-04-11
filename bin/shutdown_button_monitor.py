@@ -1,3 +1,4 @@
+#!/usr/bin/env python2.7
 import time, os
 from serial import Serial, SerialException
 serial=Serial()
@@ -9,13 +10,14 @@ if __name__=='__main__':
             if not serial.isOpen():
                 print 'Opening...'
                 serial.open()
-                print 'Open'
+                serial.flushInput()
+                print 'open.'
             else:
                 data=serial.readline()
-                print 'Got: "{}"'.format(data)
+#                print 'Got: "{}"'.format(data)
                 if 'SHUTDOWN' in data:
                     print 'shutdown now'
-#                    os.system('shutdown now')
+                    os.system('shutdown now')
         except SerialException:
             print 'Serial exception'
             time.sleep(1)

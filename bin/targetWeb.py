@@ -16,13 +16,31 @@ from jbastro.astrolibsimple import sexconvert
 from flask import send_file
 import StringIO, datetime
 
+import logging
+def setup_logging(loglevel=logging.DEBUG):
+    
+    log = logging.getLogger()
+    log.setLevel(loglevel)
+    log_formatter = logging.Formatter("%(asctime)s - %(levelname)s :: %(message)s")
+#    console_handler = logging.StreamHandler()
+#    console_handler.setFormatter(log_formatter)
+#    log.addHandler(console_handler)
+
+setup_logging()
+_log=logging.getLogger()
+
 MAX_SELECT_LEN=30
 
 TARGET_CACHE=[]
 TARGET_CACHE_FILE='./targetweb.cache'
 
 #Go ahead and call this to save time when the page is accessed the first time
+_log.info('Preloading all plates')
+import time
+tic=time.time()
 get_metadata('')
+toc=time.time()
+_log.info('Preloading finished in {:.0f} seconds.'.format(toc-tic))
 
 app = Flask(__name__, template_folder='../www/templates/',
             static_folder='../www/static')
@@ -181,6 +199,6 @@ def index():
 
 
 if __name__ =='__main__':
-    app.run(host='0.0.0.0',port=8080,debug=True)
+    app.run(host='0.0.0.0',port=8080,debug=False)
 
 

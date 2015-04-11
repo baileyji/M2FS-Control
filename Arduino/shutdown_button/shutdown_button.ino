@@ -21,11 +21,11 @@ const int PRESSED=LOW;
 
 
 
-const int SHUTDOWN_TIME=150000; //ms
+const long SHUTDOWN_TIME=150000; //ms
 
-const int SHUTDOWN_PRESS_TIME=10000; //ms
+const long SHUTDOWN_PRESS_TIME=10000; //ms
 
-const int UPS_RELAY_TIME=2500; //ms
+const long UPS_RELAY_TIME=2000; //ms
 
 unsigned long unpressed_time;
 
@@ -64,7 +64,8 @@ void loop() {
     delay(UPS_RELAY_TIME);
     digitalWrite(LED_PIN, LED_OFF);
     digitalWrite(RELAY_PIN, LOW);
-    unpressed_time=millis();
+    //unpressed_time=millis();
+    while (true) delay(100);
   } 
  
 }

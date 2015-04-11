@@ -6,6 +6,9 @@
 # 1-foo.bar.5 Galil R
 # 1-foo.bar.7 & 8 free as of Jul 2012
 
+#Shutdown button
+#ATTRS{serial}=="6493234393835101D180", SYMLINK+="shutdownButton"
+
 #Dataloggers
 ATTRS{serial}=="FTULNI5D", SYMLINK+="dataloggerB"
 ATTRS{serial}=="FTULQCGO", SYMLINK+="dataloggerR"

@@ -1,26 +1,15 @@
 #Cassette name (e.g. B6), then space, then comma separated list of dead fiber numbers
 # e.g. R6 9 or B4 2,3,4, 
-#Weak
-R6 5
-B5 8
-B6 9
-
-#B3 14 ?No longer dead
-#B1 1  ?No longer dead
-
-#new weak
-#R8 5
-#R3 1
-#R7 1
-#B1 7
-#B3 2  transient probably fine now
-#B4 15
-#B5 8,13
-#B6 9
-#B8 14,15
-
-#dead
-R6 9
+R3 1
 R4 11
-R7 12
-B1 13,14
+R6 5,9
+R7 1,4,12
+R8 1,5,10
+
+B8 14
+B6 9
+B5 8,13,14
+B3 2,14
+B2 1
+B1 1,7,10,13,14
+

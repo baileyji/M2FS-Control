@@ -13,7 +13,7 @@ hielR=1.337
 azimuthR=2.341
 
 #The name of an m2fs filter, case insensitive see list at m2fs.astro.lsa.umich.edu
-filterR= IanR
+filterR= IanR_O77_80
 
 #See list of binning options online specified in the form of #x#
 binningR= 3x3
@@ -32,7 +32,7 @@ active_fibersR = 1,1,1,1, 0,0,1,1, 1,1,1,1, 0,0,1,1
 modeB=hires 
 elevationB=1.337
 azimuthB=2.341
-filterB= IanR
+filterB= IanR_O77_80
 binningB= 3x3
 speedB=Turbo
 n_ampsB=4

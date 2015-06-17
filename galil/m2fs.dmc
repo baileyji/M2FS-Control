@@ -253,6 +253,8 @@ lrtinhx=$9;'  Digital in corresponding to the LoRes origin sensor in hex
 lrtathm=1 ;'  value of origin sensor (via @IN) when at home
 lrhomng=false;' Is the axis trying to home at present
 lrswapp=-423000;' step position for lr grating swap
+lrswpip=false;' is a lores swap in progress
+lrswptd=-1;' thread doing lores swap
 
 'Filter related defines
 nfilt=8;' Number of filter slots
@@ -508,7 +510,7 @@ JS#ZS;IF (_JS<1);JS#GETLRTL;ed4=_ED4;ret[ed4]=0;ELSE
 'Error status
 IF(axiserr[^a]<>ENONE);JS#ERRMSG(^a,axiserr[^a])
 'Move in progress
-ELSE; ~a=^a;IF(_TS~a & $80);MG "GETLRTL: MOVING"
+ELSE; ~a=^a;IF((_TS~a & $80)|(lrswpip=true));MG "GETLRTL: MOVING"
 'Not calibrated
 ELSE; IF(axiscal[^a]<>true);MG "GETLRTL: UNCALIBRATED"
 'report position
@@ -519,7 +521,7 @@ EN
 
 '***************************************************************************
 ' Set LoRes TiLt(angle)
-' Set the lo res tilt angle
+' Set the lo res tilt angle does not check for lrswap move in progress
 '***************************************************************************
 #SETLRTL
 'Stack and XQ fancy footwork
@@ -660,14 +662,14 @@ EN,,^h
 
 
 '***************************************************************************
-' Get GES (simple, ignore analog encoder)
+' Get GES (simple, ignore analog encoder) turns out steps are more accurate
 ' Return the GES position
 '***************************************************************************
 #GETGES2
 JS#ZS;IF(_JS<1);JS#GETGES2;ed4=_ED4;ret[ed4]=0;ELSE
 ^a=GESAX
 'Determine status
-~a=^a;IF (_TS~a & $80);^h=moving
+~a=^a;IF((_TS~a & $80)|(lrswpip=true));^h=moving
 ELSE;IF(anapcln[^a]<>-1);^h=moving;'settle
 ELSE;IF(axiscal[^a]<>true);^h=unknown
 ELSE
@@ -693,11 +695,14 @@ EN
 
 '***************************************************************************
 ' LoRes grating swap
+' will leave lrswpip=true if there is a command error
 '***************************************************************************
 #LRSWAP
 'Stack and XQ fancy footwork
 JS#ZS;IF(_JS<1);JS#LRSWAP;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE
+'store executing thread so cmderr can know to clear lrswpip if needed
+lrswptd=_ED4;lrswpip=true
 ^a=LRTLTAX;axiserr[^a]=ENONE
 'Calibrate LRTLT if needed
 IF (axiscal[^a]<>true);JS#CALLRT;^h=_JS;ENDIF
@@ -714,6 +719,7 @@ JS#FANCYMV(LRTLTAX,lrswapp);JS#FANCYMV(GESAX,gesgsp);^h=_JS
 JS#QUGESP2;IF (_JS<>lrswap);^h=EFAIL;axiserr[GESAX]=EFAIL;ENDIF
 ENDIF
 ENDIF
+lrswptd=-1;lrswpip=false
 EN,,^h
 
 
@@ -1667,6 +1673,8 @@ EN
 ' Routine executed whenever a program error occurs
 '***************************************************************************
 #CMDERR
+'if command error while doing lores swap unset lores swap in prog. flag
+IF(_ED1=lrswptd);lrswpip=false;lrswptd=-1;ENDIF
 IF((_ED1=2)&(_TC=7))
 'MOMON is trying to kill motors but they are running, ignore
 ELSE

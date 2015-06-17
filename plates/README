@@ -22,7 +22,7 @@ plateplanner.py is for designing plates and generates the .plate files. It is de
 
 platemapper.py is used to generate fiber assignments for plates and is discussed here.
 
-Execution is (in dir of plateplanner.py): "plateplanner.py -d path/to/this/directory", but running the program prior to the following steps is pointless.
+Execution is (in dir of platemapper.py): "platemapper.py -d path/to/this/directory", but running the program prior to the following steps is pointless.
 
 
 --Getting a plate assigned:

@@ -10,11 +10,24 @@ sys.path.append(sys.path[0]+'/../')
 sys.path.append(sys.path[0]+'/../jbastro/')
 from m2fsConfig import m2fsConfig
 from glob import glob
-from hole_mapper.plate import load_dotplate, get_all_plate_names
+from hole_mapper.platedata import get_metadata, get_all_plate_names
 from jbastro.astrolibsimple import sexconvert
 
 from flask import send_file
 import StringIO, datetime
+
+import logging
+def setup_logging(loglevel=logging.DEBUG):
+    
+    log = logging.getLogger()
+    log.setLevel(loglevel)
+    log_formatter = logging.Formatter("%(asctime)s - %(levelname)s :: %(message)s")
+#    console_handler = logging.StreamHandler()
+#    console_handler.setFormatter(log_formatter)
+#    log.addHandler(console_handler)
+
+setup_logging()
+_log=logging.getLogger()
 
 MAX_SELECT_LEN=30
 
@@ -22,17 +35,22 @@ TARGET_CACHE=[]
 TARGET_CACHE_FILE='./targetweb.cache'
 
 #Go ahead and call this to save time when the page is accessed the first time
-get_all_plate_names()
+_log.info('Preloading all plates')
+import time
+tic=time.time()
+get_metadata('')
+toc=time.time()
+_log.info('Preloading finished in {:.0f} seconds.'.format(toc-tic))
 
 app = Flask(__name__, template_folder='../www/templates/',
             static_folder='../www/static')
 
 app.secret_key = 'development key'
 
-ROTATOR_SETTING=-7.22
+ROTATOR_SETTING=-7.24
 
 
-def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING):
+def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING, n0=1,sn0=1):
     
     rot='{:.2f}'.format(rotator)
     
@@ -66,19 +84,18 @@ def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING):
     '{gra2:<11} {gde2:<11} {geq2:<11}\n')
 
     stds_listed=[]
+    ndx=n0
+    stdndx=sn0
+    pmetadata=get_metadata(platefiles)
+    for pf,p in zip(platefiles,pmetadata):
 
-    for f in platefiles:
-        try:
-            p=load_dotplate(f, singleton_ok=True)
-            if p.file_version=='0.1':
-                raise Exception("Can't process v0.1"+f)
-        except Exception, e:
-            print 'Platefile Error: {}'.format(e)
+        if p is None:
+            file_lines.append('Error with plate {}'.format(pf))
             continue
 
         for f in p.fields:
             id=(p.name+':'+f.name).replace(' ', '_').replace(':', '_')
-            s=obsfmt.format(n=len(file_lines),
+            s=obsfmt.format(n=ndx,
                             id=id,
                             ra=sexconvert(f.ra, ra=True, dtype=str),
                             de=sexconvert(f.dec, dtype=str),
@@ -95,9 +112,20 @@ def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING):
                             geq1=0)
                             
             file_lines.append(s)
-            
+            ndx+=1
+
+        file_lines.append('\n')
+
+    file_lines.append('#Standards \n\n')
+    for pf,p in zip(platefiles,pmetadata):
+
+        if p is None:
+            file_lines.append('Error with plate {}'.format(pf))
+            continue
+
+        for f in p.fields:
             for t in f.standards:
-                s=obsfmt.format(n=len(file_lines),
+                s=obsfmt.format(n=stdndx,
                                 id=t.id.replace(' ', '_'),
                                 ra=sexconvert(t.ra, ra=True, dtype=str),
                                 de=sexconvert(t.dec, dtype=str),
@@ -129,82 +157,48 @@ def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING):
                                 geq1=0)
                 if std_rec not in stds_listed:
                     file_lines.append(s)
+                    stdndx+=1
                     stds_listed.append(std_rec)
 
     return file_lines
 
-def tlist_filename():
-    return 'targets.txt'
-
-def summary_filename():
-    return 'summary.txt'
-
-def get_zip():
-    global TARGET_CACHE
-    import zipfile, StringIO
-    if not TARGET_CACHE:
-        return ''
-
-    tlist_lines=generate_tlist_file(TARGET_CACHE)
-
-    o = StringIO.StringIO()
-    zf = zipfile.ZipFile(o, mode='w')
-    zf.writestr(tlist_filename(), ''.join(tlist_lines))
-#    zf.writestr(summary_filename(), ''.join(summary_lines))
-    zf.close()
-    o.seek(0)
-    result = o.read()
-    return result
-
 class TargetSelect(Form):
     targets = SelectMultipleField('Targets',
                                   validators=[validators.Required()])
-    new= BooleanField('New list', default=False)
+#    new= BooleanField('New list', default=False)
     rot = DecimalField(default=ROTATOR_SETTING, label='Rotator setting')
+    tnum = DecimalField(default=1, places=0, label='Starting Target Number')
+    snum = DecimalField(default=1, places=0, label='Starting Standard Number')
     submit = SubmitField("Get list")
 
 
 @app.route('/targetlist', methods=['GET', 'POST'])
 def index():
-    global TARGET_CACHE
+
     form = TargetSelect()
     platedict=get_all_plate_names()
-    form.targets.choices=zip(platedict.values(),platedict.keys())
+    form.targets.choices=zip(platedict,platedict)#.values(),platedict.keys())
     form.select_size=min(len(form.targets.choices)+1, MAX_SELECT_LEN)
     print form.validate_on_submit()
     if request.method == 'POST' and form.targets.data:
 
-        if form.new.data:
-            TARGET_CACHE=[]
-        else:
-            try:
-                with open(TARGET_CACHE_FILE,'r') as fp:
-                    TARGET_CACHE=fp.readlines()
-            except IOError:
-                TARGET_CACHE=[]
-        TARGET_CACHE+=[t for t in form.targets.data if t not in TARGET_CACHE]
-        try:
-            with open(TARGET_CACHE_FILE,'w') as fp:
-                fp.write('\n'.join(TARGET_CACHE))
-        except IOError:
-            pass
+        TARGET_CACHE=[t for t in form.targets.data]
 
         fn='M2FS{}.cat'.format(datetime.datetime.now().strftime("%B%Y"))
 
         dat=StringIO.StringIO(''.join(generate_tlist_file(TARGET_CACHE,
-                                                          rotator=form.rot.data)))
+                                                          rotator=form.rot.data,
+                                                          n0=form.tnum.data,
+                                                          sn0=form.snum.data)))
         dat.seek(0)
         
         return send_file(dat, mimetype='text/plain',
-            attachment_filename=fn,as_attachment=True)
-#        return Response(get_zip(), mimetype="application/octet-stream",
-#                        headers={"Content-Disposition": "attachment;"
-#                                 "filename=selected.zip"})
+            attachment_filename=fn,as_attachment=False)
 
     return render_template('targetlist.html', form=form)
 
 
 if __name__ =='__main__':
-    app.run(host='0.0.0.0',port=8080,debug=True)
+    app.run(host='0.0.0.0',port=8080,debug=False)
 
 

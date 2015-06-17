@@ -13,3 +13,6 @@ targetweb.cache
 plates/output/*.fibermap
 plates/output/*.m2fs
 plates/output/*.eps
+*.configdef
+*.plate
+*.setup

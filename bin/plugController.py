@@ -14,7 +14,9 @@ import shutil
 
 from hole_mapper import pathconf
 pathconf.ROOT=m2fsConfig.getPlateDir()
-from hole_mapper import fibermap
+from hole_mapper import fibermap, platedata
+
+platedata.get_platenames_for_known_fibermaps()
 
 
 MAX_ID_STRING_LEN=26 #Based on christop and what the fits header can handle
@@ -70,7 +72,7 @@ class PlugController(Agent):
         
         The list of available plates is maintained by the plate manager.
         """
-        plateList=fibermap.get_platenames_for_known_fibermaps()
+        plateList=platedata.get_platenames_for_known_fibermaps()
         plateList=[ p.replace(' ', '_') for p in plateList]
         #\n is required to force sending of empty response if needed
         command.setReply(' '.join(plateList)+'\n')
@@ -93,7 +95,8 @@ class PlugController(Agent):
             if not plate_name:
                 self.bad_command_handler(command)
             else:
-                fibermaps=fibermap.get_fibermap_names_for_plate(plate_name)
+                fibermaps=platedata.get_fibermap_names_for_plate(plate_name)
+                fibermaps.sort()
                 if fibermaps:
                     command.setReply("'"+"' '".join(fibermaps)+"'")
                 else:
@@ -112,7 +115,7 @@ class PlugController(Agent):
         else:
             setup_name=command.string.partition(' ')[2]
             try:
-                self.map=fibermap.get_fibermap_for_setup(setup_name)
+                self.map=platedata.get_fibermap_for_setup(setup_name)
                 command.setReply('OK')
             except ValueError:
                 command.setReply('!ERROR: Invalid Setup.')

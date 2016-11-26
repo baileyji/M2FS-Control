@@ -32,7 +32,7 @@ def main():
         exit(0)
 
     try:
-        f =open(args.file,'w')
+        f=open(args.file,'w')
     except IOError:
         print "Could not open file for writing"
         exit(1)
@@ -40,13 +40,17 @@ def main():
     ser.flushInput()
     ser.flushOutput()
     ser.write('LS\r')
-    resp=ser.readline()
-    if resp:
-        f.write(resp)
-    while resp !=':':
-        resp=ser.readline()
-        if resp:
-            f.write(resp)
+    resp=ser.read(80*2001)
+    lines=resp.split('\r\n')
+    for l in lines:
+        f.write(l+'\n')
+#    resp=ser.readline()
+#    if resp:
+#        f.write(resp)
+#    while resp !=':':
+#        resp=ser.readline()
+#        if resp:
+#            f.write(resp)
 
     f.close()
     ser.close()

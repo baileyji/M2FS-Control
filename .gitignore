@@ -16,3 +16,5 @@ plates/output/*.eps
 *.configdef
 *.plate
 *.setup
+*.old
+.idea

@@ -1,2 +1,10 @@
 #Cassette name (e.g. B6), then space, then comma separated list of dead fiber numbers
 # e.g. R6 9 or B4 2,3,4 
+#Current as of start of Nov 16 run
+B1 13
+R3 16
+R4 13
+
+#Varying degrees of weak or OOF
+#R1-9, 1-11, 7-11, 8-15
+#B1-15, 4-3,5-14,6-10,7-1,7-2 

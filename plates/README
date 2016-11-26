@@ -15,14 +15,14 @@ backups - intended for use auto backing up files with timestamps, code is offlin
 
 -------------------------
 Using hole_mapper code. 
--------------------------
+------------------------- 
 There are two programs: plateplanner.py and platemapper.py
 
 plateplanner.py is for designing plates and generates the .plate files. It is described elsewhere.
 
 platemapper.py is used to generate fiber assignments for plates and is discussed here.
 
-Execution is (in dir of platemapper.py): "platemapper.py -d path/to/this/directory", but running the program prior to the following steps is pointless.
+Execution is (in dir of platemapper.py): "platemapper.py -d path/to/this/directory", but running the program prior to the following steps is pointless. Where this directory is the one containing this file.
 
 
 --Getting a plate assigned:
@@ -59,10 +59,9 @@ keepall=True
 mustkeep=True
 This setting overrides the field setting, so it can also be used to turn mustkeep off.
 If you are just assigning a single setup then this setting doesn't do anything 
+mustkeep may 
 
-9) NB: minsky is not defined here, it is part of the field definition. you can try adding it as a key to override the setting
-but it might not do anything 
-
+9) NB: minsky is not defined here, it is part of the field definition. 
 
 Other Notes:
 filter names must be added to holemapper/config.py's KNOWN_FILTERS list. They must match what is specified in the .configdef file
@@ -88,6 +87,6 @@ mustkeep=True
 assign_with=Bob:fornax:15
 
 Now save your file, run platemapper, select your new setup in the list, and click Make Plug. The assignment file should now be in output along with an eps file for printing and drawing.
-
+platemapper.py -d /dir/containing/plate_
 
 

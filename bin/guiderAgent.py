@@ -389,16 +389,6 @@ def pwid2bytes(pwid):
     
     See p. 40 of maestro.pdf
     """
-    target=int(round(pwid*4))
-    targetH, targetL = (target&0x3f80)>>7, (target  &0x007F)
-    return chr(targetL)+chr(targetH)
-
-def pwid2bytes(pwid):
-    """
-    Convert a pulse width to the two byte form needed to command the Maestro
-    
-    See p. 40 of maestro.pdf
-    """
     target=int(round(pwid)*4)
     targetH, targetL = (target&0x3f80)>>7, (target  &0x007F)
     return chr(targetL)+chr(targetH)

@@ -179,6 +179,10 @@ class DataloggerListener(threading.Thread):
                         if 'Fatal Error' in msg:
                             self.logger.info(translateErrorByte(msg.split(': ')[1]))
                         self.logger.info(msg)
+                        if 'PD' in msg:
+                            self.logger.info('Logger powered down, closing serial')
+                            self.datalogger.close()
+                            time.sleep(1)
                     else:
                         pass
             except SerialException, e:

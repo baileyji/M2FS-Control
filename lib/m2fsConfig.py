@@ -326,3 +326,9 @@ class m2fsConfig:
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
         return config.get('IP','method').lower()
 
+def getMCalLEDAddress():
+    """Return the IP and port for the MCalLED unit"""
+    # config = ConfigParser.RawConfigParser()
+    # config.optionxform = str
+    # config.readfp(open(m2fsConfig.getConfDir() + 'm2fs_mcalled.conf', 'r'))
+    return (192.168.2.173',8888)

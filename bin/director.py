@@ -7,7 +7,7 @@ import SelectedConnection
 from m2fsConfig import m2fsConfig
 import PyNUT
 
-DIRECTOR_VERSION_STRING='Director v0.5'
+DIRECTOR_VERSION_STRING='Director v0.6'
 LINUX_SHUTDOWN_COMMAND='shutdown now'
 POLL_NUT_INTERVAL=15
 MIN_UPS_RUNTIME=360
@@ -49,6 +49,9 @@ class Director(Agent):
         #Shack-Hartman Agent
         self.connections['ShackHartmanAgent']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['ShackHartmanAgent'])
+        #MCal Agent
+        self.connections['MCalAgent']=SelectedConnection.SelectedSocket('localhost',
+            agent_ports['MCalAgent'])
         #Plugging Controller
         self.connections['PlugController']=SelectedConnection.SelectedSocket('localhost',
             agent_ports['PlugController'])
@@ -114,6 +117,12 @@ class Director(Agent):
             #Authoritative command discriptions are in shackhartmanAgent.py
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
+            #MCAL Agent Commands
+            #
+            #The director passes the command along to the agent.
+            #
+            #Authoritative command discriptions are in mcalAgent.py
+            'MCLED':self.mcal_command_handler,
             #Guider Agent Commands
             #
             #The director passes the command along to the agent.
@@ -266,6 +275,16 @@ class Director(Agent):
         self.connections['ShackHartmanAgent'].sendMessage(command.string,
             responseCallback=command.setReply, errorCallback=command.setReply)
     
+    def shackhartman_command_handler(self, command):
+        """
+        Handle commands for the MCal system
+        
+        Pass the command string along to the MCal agent. The response and error
+        callbacks are the command's setReply function.
+        """
+        self.connections['MCalAgent'].sendMessage(command.string,
+            responseCallback=command.setReply, errorCallback=command.setReply)
+
     def SLITS_comand_handler(self, command):
         """
         Handle commands for the fiber slit system

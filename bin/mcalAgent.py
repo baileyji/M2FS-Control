@@ -5,7 +5,7 @@ sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 from m2fsConfig import getMCalLEDAddress
 
-MCALLED_AGENT_VERSION_STRING='MCalLED Agent v0.1'
+MCAL_AGENT_VERSION_STRING='MCal Agent v0.1'
 
 
 _sokMCalLED = None
@@ -31,7 +31,7 @@ def send_rcv_mcalled(x, timeout=0.25):
         raise IOError()
 
 
-class MCalLEDAgent(Agent):
+class MCalAgent(Agent):
     """
     This program is responsible for the c
     """
@@ -45,7 +45,7 @@ class MCalLEDAgent(Agent):
     
     def get_version_string(self):
         """ Return a string with the version."""
-        return MCALLED_AGENT_VERSION_STRING
+        return MCAL_AGENT_VERSION_STRING
     
     def get_cli_help_string(self):
         """
@@ -125,5 +125,5 @@ class MCalLEDAgent(Agent):
 
 
 if __name__=='__main__':
-    agent=MCalLEDAgent()
+    agent=MCalAgent()
     agent.main()

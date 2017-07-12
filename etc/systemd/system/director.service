@@ -9,6 +9,7 @@ Wants=guider.service
 #Wants=projector.service
 Wants=shackhartman.service
 Wants=plugController.service
+Wants=mcalled.service
 After=network.target
 
 [Install]

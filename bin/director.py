@@ -275,7 +275,7 @@ class Director(Agent):
         self.connections['ShackHartmanAgent'].sendMessage(command.string,
             responseCallback=command.setReply, errorCallback=command.setReply)
     
-    def shackhartman_command_handler(self, command):
+    def mcal_command_handler(self, command):
         """
         Handle commands for the MCal system
         

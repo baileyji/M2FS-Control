@@ -36,7 +36,7 @@ class MCalAgent(Agent):
     This program is responsible for the c
     """
     def __init__(self):
-        Agent.__init__(self, 'MCalLEDAgent')
+        Agent.__init__(self, 'MCalAgent')
         self.max_clients = 1
         #self.connections['mcled'] = socket connection the LED???
         self.colors = COLORS

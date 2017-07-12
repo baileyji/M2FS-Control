@@ -30,7 +30,7 @@ def dbus_array(x):
 FLS_ADAPTER_ADDRESS=dbus_string('192.168.0.1')
 FLS_ADAPTER_NETMASK=dbus_string('255.255.255.0')
 FLS_ADAPTER_GATEWAY=dbus_string('192.168.0.1')
-IPV4_SETTINGS={"Method": dbus_string('manual'),
+FLS_IPV4_SETTINGS={"Method": dbus_string('manual'),
                "Address":FLS_ADAPTER_ADDRESS,
                "Netmask":FLS_ADAPTER_NETMASK,
                "Gateway":FLS_ADAPTER_GATEWAY}
@@ -127,6 +127,10 @@ def adapterOffline(adapter_path):
 
 if __name__=='__main__':
     method=''
+    try:
+        bringFLSUp()
+    except Exception as e:
+        logger.error(str(e))
     while True:
         try:
             desiredMethod=m2fsConfig.getIPmethod()

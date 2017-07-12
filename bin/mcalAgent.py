@@ -12,10 +12,12 @@ _sokMCalLED = None
 COLORS = ('392','407', 'whi', '740', '770', '875')
 MAXLEVEL = {'392':4096,'407':4096, 'whi':4096, '740':2048, '770':2048, '875':2048}
 
-def send_rcv_mcalled(x, timeout=0.25):
+def send_rcv_mcalled(x, timeout=0.25, log=None):
     global _sokMCalLED
     try:
         if _sokMCalLED is None:
+            if log is not None:
+                log.info('Trying to connect to MCalLED')
             _sokMCalLED = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             _sokMCalLED.connect(getMCalLEDAddress())
             _sokMCalLED.settimeout(timeout)
@@ -24,11 +26,12 @@ def send_rcv_mcalled(x, timeout=0.25):
         # never send more than 30 bytes
         # Expect "ACK #### #### #### #### #### ####\n" or "ERR #### #### #### #### #### ####\n"
     except Exception as e:
-        log.warning(str(e))
+        if log is not None:
+            log.warning(str(e))
         # _sokMCalLED.shutdown(socket.SHUT_RDWR)
         # _sokMCalLED.close()
         _sokMCalLED=None
-        raise IOError()
+        raise IOError(e)
 
 
 class MCalAgent(Agent):
@@ -93,11 +96,13 @@ class MCalAgent(Agent):
 
         for i, c in enumerate(self.colors):
             try:
-                if send_rcv_mcalled('{}{:04}'.format(i + 1, level_dict[c]))[:3] is 'ACK':
+                resp=send_rcv_mcalled('{}{:04}'.format(i + 1, level_dict[c]),
+                                      log=self.logger)
+                if resp[:3] is 'ACK':
                     self.ledValue[c] = level_dict[c]
             except IOError:
                 try:
-                    send('*0000')
+                    send_rcv_mcalled('*0000', log=self.logger)
                     for k in self.ledValue: self.ledValue[k]=0
                 except Exception:
                     pass
@@ -106,7 +111,7 @@ class MCalAgent(Agent):
 
     def get_led_values(self, asdic=False):
         try:
-            values = send_rcv_mcalled('?')
+            values = send_rcv_mcalled('?',log=self.logger)
             values = values.replace('ACK ', '').replace('ERR ', 'Error: ')
             if len(values.split()) !=6:
                 raise IOError('Malformed Reply: "{}"'.format(values))

@@ -50,7 +50,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 // Define a MAC address and IP address
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-IPAddress ip(192, 168, 1, 177);
+IPAddress ip(192, 168, 0, 177);
 
 //Port to listen on
 EthernetServer server(8888);
@@ -60,6 +60,9 @@ boolean alreadyConnected = false;
 unsigned int CMD_LEN = 5;  //[*|1-6]####
 unsigned int cmd_ndx=0;
 char cmdBuffer[6];  //buffer to hold incoming packet
+
+//Levels
+unsigned int levels[] = {0, 0, 0, 0, 0, 0};
 
 /* General overview:
  * WIZ812 -(SPI)-> Arduino -(TWI)-> NXP PCA9685 ->
@@ -94,17 +97,6 @@ void setup() {
   pinMode(ETH_NRST_PIN, OUTPUT);
   digitalWrite(ETH_NRST_PIN, HIGH);
 
-  Ethernet.begin(mac, ip);
-
-  Serial.begin(115200);
-  
-  server.begin();
-
-  Serial.println(F("MCalLED v0.1"));
-  
-//  pinMode(LED_PIN, OUTPUT);  Is SCK Pin
-//  digitalWrite(LED_PIN, LOW);
-
   pinMode(NXP_UV_PIN, OUTPUT);
   digitalWrite(NXP_UV_PIN, LOW);
   pinMode(NXP_BL_PIN, OUTPUT);
@@ -118,15 +110,22 @@ void setup() {
   pinMode(NXP_IR_PIN, OUTPUT);
   digitalWrite(NXP_IR_PIN, LOW);
 
+  Ethernet.begin(mac, ip);
+
+  Serial.begin(115200);
+  
+  server.begin();
+
+  Serial.println("MCalLED v0.2");
+  
 }
 
 
 void do_command(EthernetClient client) {
-  client.write("ACK\n",4);
   
   cmdBuffer[5]='\0';
 
-  Serial.print(F("Parse cmd: "));
+  Serial.print("Parse: ");
   Serial.println(cmdBuffer);
   
   int level=atoi(&cmdBuffer[1]);
@@ -134,43 +133,67 @@ void do_command(EthernetClient client) {
   if (level>4096) level=4096;
 
   switch(cmdBuffer[0]) {
-    case '1' : Serial.print(F("UV: "));
-               Serial.println(level);
+    case '1' : //Serial.print(F("UV: "));
+               //Serial.println(level);
                pwm.setPin(NXP_UV_PIN, level);
+               levels[0]=level;
                break;
-    case '2' : Serial.print(F("BL: "));
-               Serial.println(level);
+    case '2' : //Serial.print(F("BL: "));
+               //Serial.println(level);
                pwm.setPin(NXP_BL_PIN, level);
+               levels[1]=level;
                break;
-    case '3' : Serial.print(F("WH: "));
-               Serial.println(level);
+    case '3' : //Serial.print(F("WH: "));
+               //Serial.println(level);
                pwm.setPin(NXP_WH_PIN, level);
+               levels[2]=level;
                break;
-    case '4' : Serial.print(F("74: "));
-               Serial.println(level);
+    case '4' : //Serial.print(F("74: "));
+               //Serial.println(level);
                pwm.setPin(NXP_74_PIN, level);
+               levels[3]=level;
                break;               
-    case '5' : Serial.print(F("77: "));
-               Serial.println(level);
+    case '5' : //Serial.print(F("77: "));
+               //Serial.println(level);
                pwm.setPin(NXP_77_PIN, level);
+               levels[4]=level;
                break;
-    case '6' : Serial.print(F("85: "));
-               Serial.println(level);
+    case '6' : //Serial.print(F("85: "));
+               //Serial.println(level);
                pwm.setPin(NXP_IR_PIN, level);
+               levels[5]=level;
                break;
-    case '*' : Serial.print(F("*: "));
-               Serial.println(level);
+    case '*' : //Serial.print(F("*: "));
+               //Serial.println(level);
                pwm.setPin(NXP_UV_PIN, level);
                pwm.setPin(NXP_BL_PIN, level);
                pwm.setPin(NXP_WH_PIN, level);
                pwm.setPin(NXP_74_PIN, level);
                pwm.setPin(NXP_77_PIN, level);
-               pwm.setPin(NXP_IR_PIN, level);  
+               pwm.setPin(NXP_IR_PIN, level);
+               levels[0]=level;
+               levels[1]=level;
+               levels[2]=level;
+               levels[3]=level;
+               levels[4]=level;
+               levels[5]=level;
+               break;
+    case '?' : //Serial.println(F("?"));
                break;
   }
   
+  telllevel(client);
+    
 }
 
+void telllevel(EthernetClient client) {
+  char buf[35]; // "ACK 0000 0000 0000 0000 0000 0000\n"
+  buf[34]=0;
+  sprintf(buf,"ACK %04d %04d %04d %04d %04d %04d\n", 
+          levels[0],levels[1],levels[2],levels[3],levels[4],levels[5]);
+  Serial.write(buf, 34);
+  client.write(buf, 34);
+}
 
 void loop() {
   // if there's data available, read a packet
@@ -182,7 +205,8 @@ void loop() {
       // clear out the input buffer:
       client.flush();
       Serial.println(F("Client connected."));
-      client.println("?");
+      //client.println("?");
+      telllevel(client);
       alreadyConnected = true;
     }
 

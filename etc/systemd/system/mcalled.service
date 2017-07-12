@@ -1,0 +1,15 @@
+[Unit]
+Description=M2FS MCalLED
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/M2FS-Control/bin/mcalAgent.py
+WorkingDirectory=/M2FS-Control/
+RestartSec=100ms
+Restart=always
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes

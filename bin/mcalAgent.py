@@ -8,46 +8,39 @@ from m2fsConfig import getMCalLEDAddress
 MCALLED_AGENT_VERSION_STRING='MCalLED Agent v0.1'
 
 
+_sokMCalLED = None
+COLORS = ('392','407', 'whi', '740', '770', '875')
+MAXLEVEL = {'392':4096,'407':4096, 'whi':4096, '740':2048, '770':2048, '875':2048}
+
 def send_rcv_mcalled(x, timeout=0.25):
+    global _sokMCalLED
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(getMCalLEDAddress())
-        sock.settimeout(timeout)
-        sock.sendall(x[:29]+'\n')  # Never send more than 30 bytes
+        if _sokMCalLED is None:
+            _sokMCalLED = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            _sokMCalLED.connect(getMCalLEDAddress())
+            _sokMCalLED.settimeout(timeout)
+            _sokMCalLED.send(x[:29]+'\n')
+        return _sokMCalLED.recv(34).strip()
+        # never send more than 30 bytes
         # Expect "ACK #### #### #### #### #### ####\n" or "ERR #### #### #### #### #### ####\n"
-        return sock.recv(34)
-    finally:
-        sock.shutdown(socket.SHUT_RDWR)
-        sock.close()
+    except Exception as e:
+        log.warning(str(e))
+        # _sokMCalLED.shutdown(socket.SHUT_RDWR)
+        # _sokMCalLED.close()
+        _sokMCalLED=None
+        raise IOError()
 
 
 class MCalLEDAgent(Agent):
     """
-    This program is responsible for the calibration LED for the Shack-Hartman
-    (SH) system and the insertion and removal of the SH lenslet array.
-    
-    The LED is controlled by a simple arduino sketch (shLED.ino), which sets the
-    calibration LED to a brightness value 0-255, based on the value of whatever
-    byte is received over the serial line. 
-    
-    The inserter is controlled by a Pololu 24v12 Simple Motor Controller. The
-    controller is connected to the lenslet limit switches so we just tell it to
-    drive the motor in one direction for insertion, and the other for removal.
-    We know the lenslet is in when the appropriate limit is tripped.
-    Note that the Polou configuration utility must be used to configure the 
-    controller prior to using with the agent. The analog inputs must be 
-    configured as limits and it must not be configured to boot into safe start
-    mode.
-    
-    The controller has an onboard temperature sensor, which we expose so the 
-    datalogger subsystem can keep track of it.
+    This program is responsible for the c
     """
     def __init__(self):
-        Agent.__init__(self, 'ShackHartmanAgent')
-        #Allow two connections so the datalogger agent can poll for temperature
-        self.max_clients = 2
-        #self.connections['shled'] = LEDserial(getMCalLEDAddress())
-        self.ledValue = {'392': 0, '407': 0, 'whi': 0, '740': 0, '770': 0, '875': 0}
+        Agent.__init__(self, 'MCalLEDAgent')
+        self.max_clients = 1
+        #self.connections['mcled'] = socket connection the LED???
+        self.colors = COLORS
+        self.ledValue = {c:0 for c in self.colors}
         self.command_handlers.update({'MCLED': self.MCLED_command_handler})
     
     def get_version_string(self):
@@ -67,51 +60,69 @@ class MCalLEDAgent(Agent):
         """
         Handle geting/setting the LED illumination value 
         
-        Valid command string argument is a number from 0 to 255
+        Valid command string argument is a number from 0 to 4096
+
+        UV BLUE WHITE 740 770 875
         
         If we are getting, just report the most recently set value, if setting 
         convert the command argument to a single byte and send that to the SH 
         led. Respond OK or error as appropriate.
         """
         if '?' in command.string:
-            command.setReply('%i' % self.shledValue)
+            command.setReply(self.get_led_values())
         else:
-            """ Set the LED brightness 0-255 """
+            """ Set the LED brightness 0-4096 """
             command_parts = command.string.split(' ')
             try:
-                color, value = command_parts[0], int(command_parts[1])
-                send_rcv_mcalled('{}{:04}'.format(color, value))
-                self.ledValue[color] = value
+                values = map(int, command_parts)
+                self.safe_set_leds({c:v for c,v in zip(self.colors, values)})
                 command.setReply('OK')
             except (ValueError, IndexError):
                 self.bad_command_handler(command)
             except IOError:
                 command.setReply('ERROR: MCalLED Disconnected')
 
+    def safe_set_leds(self, level_dict):
+        """Get led values"""
+
+        for k in level_dict:
+            try:
+                level_dict[k] = min(MAXLEVEL[k], max(0, int(round(level_dict[k]))))
+            except Exception as e:
+                return 'ERROR: Bad Command for color {}'.format(k)
+
+        for i, c in enumerate(self.colors):
+            try:
+                if send_rcv_mcalled('{}{:04}'.format(i + 1, level_dict[c]))[:3] is 'ACK':
+                    self.ledValue[c] = level_dict[c]
+            except IOError:
+                try:
+                    send('*0000')
+                    for k in self.ledValue: self.ledValue[k]=0
+                except Exception:
+                    pass
+                return 'ERROR: Try Again'
+        return 'OK'
+
+    def get_led_values(self, asdic=False):
+        try:
+            values = send_rcv_mcalled('?')
+            values = values.replace('ACK ', '').replace('ERR ', 'Error: ')
+            if len(values.split()) !=6:
+                raise IOError('Malformed Reply: "{}"'.format(values))
+            return {c:v for c,v in zip(self.colors, values)} if asdic else values
+        except IOError:
+            return {c:'Error' for c in self.colors} if asdic else 'Error: Try Again'
+
     def get_status_list(self):
         """ 
         Return a list of two element tuples to be formatted into a status reply
         
-        Report the Key:Value pairs name:cookie, Lenslet:position, Led:value, 
-        Temp:value, & ErrByte:value pairs.
+        Report the Key:Value pairs name:cookie, color:value
         """
-        lensStatus=self.determineLensletPosition()
-        temp=self.getTemp()
-        err=self.getErrorStatus()
-        try:
-            #TODO Query MCAL for led brightness
-            self.connections['mcled'].sendMessage(chr(self.shledValue))
-            ledStatus = '%i' % self.shledValue
-        except IOError:
-            ledStatus = 'MCalLED Disconnected'
-        return [(self.get_version_string(), self.cookie),
-                ('393', ledStatus),
-                ('407', temp),
-                ('whi', err),
-                ('740', err),
-                ('770', err),
-                ('875', err)]
-    
+        ledv=self.get_led_values(asdic=True)
+        return [(self.get_version_string(), self.cookie)] + [(c, ledv[c]) for c in self.colors]
+
 
 if __name__=='__main__':
     agent=MCalLEDAgent()

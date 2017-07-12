@@ -21,7 +21,8 @@ def send_rcv_mcalled(x, timeout=0.25, log=None):
             _sokMCalLED = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             _sokMCalLED.connect(getMCalLEDAddress())
             _sokMCalLED.settimeout(timeout)
-            _sokMCalLED.send(x[:29]+'\n')
+    
+        _sokMCalLED.send(x[:29]+'\n')
         return _sokMCalLED.recv(34).strip()
         # never send more than 30 bytes
         # Expect "ACK #### #### #### #### #### ####\n" or "ERR #### #### #### #### #### ####\n"

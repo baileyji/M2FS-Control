@@ -78,9 +78,9 @@ class MCalAgent(Agent):
             """ Set the LED brightness 0-4096 """
             command_parts = command.string.split(' ')
             try:
-                values = map(int, command_parts)
-                self.safe_set_leds({c:v for c,v in zip(self.colors, values)})
-                command.setReply('OK')
+                values = map(int, command_parts[1:])
+                reply=self.safe_set_leds({c:v for c,v in zip(self.colors, values)})
+                command.setReply(reply)
             except (ValueError, IndexError):
                 self.bad_command_handler(command)
             except IOError:

@@ -862,8 +862,9 @@ class GalilSerial(SelectedConnection.SelectedSerial):
     
     def set_filter(self, filter):
         """ Select a filter position """
-        if filter not in ['1','2','3','4','5','6','7','8','9','10']:
-            return '!ERROR: Valid fliter choices are 1-10. 9=None 10=load.'
+        if filter not in map(str,range(1,19)):
+            return ('!ERROR: Valid fliter choices are 1-18. 9=None 10=load. 11+ '
+                    'uninserted.)
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
         try:
@@ -982,7 +983,26 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         except ValueError:
             pass
         return self._do_motion_command(command_class, command_string)
-    
+
+    def move_filter(self, amount):
+        """
+        Command the filter inserter to move
+        
+        Note that FILTER will not move if the filter elevator is in an unsafe
+        position. This is a debugging convenience routine.
+        """
+        try:
+            int(amount)
+        except ValueError:
+            return '!ERROR: Inserter move amount must be specified as an integer.'
+        command_class='FILTER'
+        command_string="a[<threadID>]=%s;XQ#MVFESIN,<threadID>" % amount
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
+        return self._do_motion_command(command_class, command_string)
+
     def insert_flsim(self, *args):
         """ Command the insertion of the FLS imager pickoff """
         command_class='FLSIM'

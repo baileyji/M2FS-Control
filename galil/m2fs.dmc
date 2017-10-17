@@ -869,6 +869,26 @@ IF (^a=unknown);MG "GETFESI: UNKNOWN";ENDIF
 ENDIF;ENDIF
 EN
 
+'***************************************************************************
+' MOve FES INserter arm
+'***************************************************************************
+#MVFESIN
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#MVFESIN(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+^b=^a;^h=ENONE;^a=FESINAX;axiserr[^a]=ENONE
+'Make sure the FESEL is in a safe position to remove filter
+JS#FESELSF;^h=_JS
+IF(^h=ENONE);'continue if all is well
+'If we are good to go, make sure commanded position is sane
+JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
+'If we are good to go, MOVE!
+IF(^h=ENONE);FESXXX=false;JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
+~a=^a;IF((_SC~a=2)|(_SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
+ENDIF
+axiserr[^a]=^h
+ENDIF
+EN,,^h
+
 
 '***************************************************************************
 ' INsert FES INserter arm
@@ -1079,6 +1099,7 @@ EN
 ' 1-8= Filters 1-8
 ' 9  = load position
 ' 10 = no filter
+'11-18 = Filters 1-8, no insertion
 ' Forces filternum to be integer
 '***************************************************************************
 #PICKFIL
@@ -1087,7 +1108,7 @@ JS#ZS;IF (_JS<1);ed4=_ED4;JS#PICKFIL(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 'Hope for success, force filternum to an integer
 ^h=ENONE;axiserr[FESELAX]=ENONE;^a=@INT[^a]-1
 'Check for invalid filter id
-IF ((^a<0)|(^a>9));^h=EBADFP
+IF ((^a<0)|(^a>17));^h=EBADFP
 ELSE;'ID valid, get current state of elevator (^b) and inserter (^c)
 JS#WAITAMF(FESELAX)
 JS#QUFELP;^b=_JS-filterp1
@@ -1096,7 +1117,7 @@ IF ((_LFD=0)&(_LRD=1));^c=in;ENDIF
 IF ((_LFD=1)&(FESXXX=true));^c=out;ENDIF
 IF (_TSD & $80); ^c=moving;ENDIF
 'If the desired position = current position we are done
-IF( ((^a=9)&(^c=out)) | ( ((^c=in)|(^a=8)) & (^b=^a) ) );^h=ENONE
+IF( ((^a=9)&(^c=out))|(((^c=in)|(^a=8))&(^b=^a) )|(^b=(^a-10)));^h=ENONE
 ELSE;'We are not in position
 'Set moving flag to prevent a race condition with query
 filmove=1
@@ -1108,6 +1129,9 @@ IF ((^h=ENONE)&(FESXXX=true)&(_LFD=1)&(^a<>9))
 'NB ^a is index of requested filter position in felencp array
 '^d is encoder distance to desired filter position
 '^e=0 is a loop counter
+'^f = true-> we want to go to the filter but not insert
+^f=false;
+IF (^a>9);^a=^a-10;^f=true;ENDIF
 ^e=0
 ^d=(felencp[^a]-felanap)
 #PICKFI1
@@ -1121,7 +1145,7 @@ JS#QUFELP;^b=_JS
 'If we are where we should be...
 IF( ((^b-filterp1)=^a) & (^b<>intermd) )
 'Insert the filter if needed
-IF(^b<>filterld);JS#INFESIN;^h=_JS;ELSE;^h=ENONE;ENDIF
+IF((^b<>filterld) & (^f<>true>));JS#INFESIN;^h=_JS;ELSE;^h=ENONE;ENDIF
 ELSE;^h=EFLTUNSF
 REM MG "PICKFIL: EFLTUNSF"
 ENDIF

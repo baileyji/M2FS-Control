@@ -36,6 +36,8 @@ class GalilAgent(Agent):
             'FILTER_INSERT':self.galil_command_handler,
             #Command the filter inserter to retract
             'FILTER_REMOVE':self.galil_command_handler,
+             #Command the filter inserter to move
+            'FILTER_MOVE':self.galil_command_handler,
             #Get/Set the lorres elevation position
             'LREL':self.galil_command_handler,
             #Get/Set the hires elevation position
@@ -118,6 +120,7 @@ class GalilAgent(Agent):
             'GES':self.connections['galil'].set_ges,
             'FILTER_INSERT':self.connections['galil'].insert_filter,
             'FILTER_REMOVE':self.connections['galil'].remove_filter,
+            'FILTER_MOVE':self.connections['galil'].move_filter,
             'FLSIM_INSERT':self.connections['galil'].insert_flsim,
             'FLSIM_REMOVE':self.connections['galil'].remove_flsim,
             'LREL_CALIBRATE':self.connections['galil'].calibrate_lrel,

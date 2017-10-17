@@ -7,6 +7,8 @@ public_adapter = "/net/connman/service/ethernet_b88d1255cd7e_cable"
 
 fls_adapter = "/net/connman/service/ethernet_b88d1255d1ee_cable"
 
+fixed_mac_adapters = (public_adapter,)
+
 #Set up logging
 logger=logging.getLogger()
 # create console handler
@@ -28,7 +30,7 @@ def dbus_array(x):
 FLS_ADAPTER_ADDRESS=dbus_string('192.168.0.1')
 FLS_ADAPTER_NETMASK=dbus_string('255.255.255.0')
 FLS_ADAPTER_GATEWAY=dbus_string('192.168.0.1')
-IPV4_SETTINGS={"Method": dbus_string('manual'),
+FLS_IPV4_SETTINGS={"Method": dbus_string('manual'),
                "Address":FLS_ADAPTER_ADDRESS,
                "Netmask":FLS_ADAPTER_NETMASK,
                "Gateway":FLS_ADAPTER_GATEWAY}
@@ -53,6 +55,19 @@ CONNECT_TIMEOUT=10000
 
 bus = dbus.SystemBus()
 manager = dbus.Interface(bus.get_object('net.connman', '/'), 'net.connman.Manager')
+
+
+def bbxm_adapter():
+    adapters = [str(e[0]) for e in manager.GetServices()]
+    bb = [a for a in adapters if a not in fixed_mac_adapters]
+    if len(bb)==0:
+        return ''
+    elif len(bb)>1:
+        logger.warning('More that one adapter found when looking for the BB eth '
+                       'Did you forget to add all the USB eth to the list in '
+                       'keep_ethernet_up_hack.py?')
+    else:
+        return bb[0]
 
 def disconnect(service):
     try:
@@ -88,7 +103,7 @@ def bringPublicUpFIXED():
     service.Connect(timeout=CONNECT_TIMEOUT)
 
 def bringFLSUp():
-    adapter=bus.get_object('net.connman', fls_adapter)
+    adapter=bus.get_object('net.connman', bbxm_adapter())
     service = dbus.Interface(adapter, 'net.connman.Service')
     
     logger.info('Connecting FLS adapter via static config')
@@ -109,8 +124,13 @@ def adapterOffline(adapter_path):
                 return True
     return False
 
+
 if __name__=='__main__':
     method=''
+    try:
+        bringFLSUp()
+    except Exception as e:
+        logger.error(str(e))
     while True:
         try:
             desiredMethod=m2fsConfig.getIPmethod()

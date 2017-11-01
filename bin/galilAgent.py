@@ -52,8 +52,7 @@ class GalilAgent(Agent):
             'GES':self.galil_command_handler,
             #Nudge the GES stage by a little
             'GES_MOVE':self.galil_command_handler,
-            #Intention was Insert/Remove/Move FLS pickoff
-            #present reality is it only is a query
+            #Insert/Remove/Move FLS pickoff
             'FLSIM':self.galil_command_handler,
             #Command the FLSIM inserter to insert
             'FLSIM_INSERT':self.galil_command_handler,
@@ -236,6 +235,11 @@ class GalilAgent(Agent):
         command_name,junk,args=command.string.partition(' ')
         query='?' in command.string and not 'GALILRAW' in command.string
         if command_name=='FLSIM':
+            try:
+                int(args)
+                command_name='FLSIM_MOVE'
+            except ValueError:
+                pass
             if args=='IN':
                 command_name='FLSIM_INSERT'
             elif args=='OUT':

@@ -861,11 +861,11 @@ ELSE
 IF ((_LFD=0)&(_LRD=1));^a=in;ENDIF
 IF ((_LFD=1)&(_LRD=0));^a=out;ENDIF
 IF (_TSD & $80); ^a=moving;ENDIF
-IF (^a=out);MG "GETFESI: OUT";ENDIF
-IF (^a=moving);MG "GETFESI: MOVING";ENDIF
-IF (^a=in);MG "GETFESI: IN";ENDIF
-IF (^a=intermd);MG "GETFESI: INTERMEDIATE";ENDIF
-IF (^a=unknown);MG "GETFESI: UNKNOWN";ENDIF
+IF (^a=out);MG "GETFESI: OUT",_TDD;ENDIF
+IF (^a=moving);MG "GETFESI: MOVING",_TDD;ENDIF
+IF (^a=in);MG "GETFESI: IN",_TDD;ENDIF
+IF (^a=intermd);MG "GETFESI: INTERMEDIATE",_TDD;ENDIF
+IF (^a=unknown);MG "GETFESI: UNKNOWN",_TDD;ENDIF
 ENDIF;ENDIF
 EN
 
@@ -925,7 +925,6 @@ EN,,^h
 'Stack and XQ fancy footwork
 JS#ZS;IF (_JS<1);JS#RMFESIN;^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
 ^h=ENONE;^a=FESINAX;axiserr[^a]=ENONE
-
 'If reverse movement not allowed
 'Case 0 magnetic sensor/tape is faulty, limit failure, etc
 'Case 1 retracted too far, sitting on - lim, + move will fix
@@ -945,7 +944,6 @@ IF(_LFD=1);PRD=axmaxp[FESINAX]/5.0;SHD;BGD;MCD;MOD;ENDIF
 FESXXX=false;fesinlr=true
 ENDIF
 ENDIF
-
 IF(_LRD=1);' If movement out allowed not retracted
 'Make sure the FESEL is in a safe position to remove filter
 JS#FESELSF;^h=_JS
@@ -1075,19 +1073,19 @@ IF ((_LFD=1)&(FESXXX=true));^a=out;ENDIF
 IF (_TSD & $80); ^a=moving;ENDIF
 JS#QUFELP;^b=_JS
 IF((^a=moving)|(^b=moving)|(filmove=1));MG "GETFILT: MOVING"
-ELSE;IF(^b=filterld);MG "GETFILT: 9"
-ELSE;IF(^a=unknown);MG "GETFILT: UNKNOWN"
-ELSE;IF(^a=out);MG "GETFILT: 10"
-ELSE;IF((^a=intermd)|(^b=intermd);MG "GETFILT: INTERMEDIATE"
+ELSE;IF(^b=filterld);MG "GETFILT: 9",felanap,_TDE,_TDD
+ELSE;IF(^a=unknown);MG "GETFILT: UNKNOWN",felanap,_TDE,_TDD
+ELSE;IF(^a=out);MG "GETFILT: 10",felanap,_TDE,_TDD
+ELSE;IF((^a=intermd)|(^b=intermd);MG "GETFILT: INTERMEDIATE",felanap,_TDE,_TDD
 ELSE;'One will match
-IF(^b=filterp1);MG "GETFILT: 1";ENDIF
-IF(^b=filterp2);MG "GETFILT: 2";ENDIF
-IF(^b=filterp3);MG "GETFILT: 3";ENDIF
-IF(^b=filterp4);MG "GETFILT: 4";ENDIF
-IF(^b=filterp5);MG "GETFILT: 5";ENDIF
-IF(^b=filterp6);MG "GETFILT: 6";ENDIF
-IF(^b=filterp7);MG "GETFILT: 7";ENDIF
-IF(^b=filterp8);MG "GETFILT: 8";ENDIF
+IF(^b=filterp1);MG "GETFILT: 1",felanap,_TDE,_TDD;ENDIF
+IF(^b=filterp2);MG "GETFILT: 2",felanap,_TDE,_TDD;ENDIF
+IF(^b=filterp3);MG "GETFILT: 3",felanap,_TDE,_TDD;ENDIF
+IF(^b=filterp4);MG "GETFILT: 4",felanap,_TDE,_TDD;ENDIF
+IF(^b=filterp5);MG "GETFILT: 5",felanap,_TDE,_TDD;ENDIF
+IF(^b=filterp6);MG "GETFILT: 6",felanap,_TDE,_TDD;ENDIF
+IF(^b=filterp7);MG "GETFILT: 7",felanap,_TDE,_TDD;ENDIF
+IF(^b=filterp8);MG "GETFILT: 8",felanap,_TDE,_TDD;ENDIF
 ENDIF;ENDIF;ENDIF;ENDIF;ENDIF;ENDIF
 ENDIF
 EN
@@ -1171,10 +1169,10 @@ ELSE
 IF ((_LFB=1)&(_LRB=0));^h=out;ENDIF
 IF ((_LFB=0)&(_LRB=1));^h=in;ENDIF
 IF (_TSB & $80); ^h=moving;ENDIF
-IF (^h=out);MG "GETFLSI: OUT";ENDIF
-IF (^h=moving);MG "GETFLSI: MOVING";ENDIF
-IF (^h=in);MG "GETFLSI: IN";ENDIF
-IF (^h=unknown);MG "GETFLSI: UNKNOWN";ENDIF
+IF (^h=out);MG "GETFLSI: OUT",_TDB;ENDIF
+IF (^h=moving);MG "GETFLSI: MOVING",_TDB;ENDIF
+IF (^h=in);MG "GETFLSI: IN",_TDB;ENDIF
+IF (^h=unknown);MG "GETFLSI: UNKNOWN",_TDB;ENDIF
 ENDIF;ENDIF
 EN
 
@@ -1194,6 +1192,23 @@ axiserr[^a]=^h
 ENDIF
 EN,,^h
 
+
+'***************************************************************************
+' MoVe FLS INserter arm
+' (will not calibrate, do insert or remove first, though safe w/o)
+'***************************************************************************
+#MVFLSIN
+'Stack and XQ fancy footwork
+JS#ZS;IF (_JS<1);ed4=_ED4;JS#MVFLSIN(a[ed4]);^h=_JS;ed4=_ED4;ret[ed4]=_JS;ELSE
+^b=^a;^h=ENONE;^a=FLSINAX;axiserr[^a]=ENONE
+'make sure commanded position is sane
+JS#SANEPOS(^a,^b);IF(_JS<>true);^h=ECRAZY;ENDIF
+'If we are good to go, MOVE!
+IF(^h=ENONE);JS#FANCYMV(^a,^b);^h=_JS;~a=^a;MC~a
+~a=^a;IF((_SC~a=2)|(_SC~a=3));^h=ELIMSW;ENDIF;MO~a;ENDIF
+axiserr[^a]=^h;'Store status
+ENDIF
+EN,,^h
 
 '***************************************************************************
 ' ReMove FLS INserter arm

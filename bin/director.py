@@ -7,7 +7,7 @@ import SelectedConnection
 from m2fsConfig import m2fsConfig
 import PyNUT
 
-DIRECTOR_VERSION_STRING='Director v0.6'
+DIRECTOR_VERSION_STRING='Director v0.7'
 LINUX_SHUTDOWN_COMMAND='shutdown now'
 POLL_NUT_INTERVAL=15
 MIN_UPS_RUNTIME=360
@@ -96,7 +96,11 @@ class Director(Agent):
             'FILTER':self.galil_command_handler,
             'FILTER_INSERT':self.galil_command_handler,
             'FILTER_REMOVE':self.galil_command_handler,
+            'FILTER_MOVE':self.galil_command_handler,
             'FLSIM':self.galil_command_handler,
+            'FLSIM_INSERT':self.galil_command_handler,
+            'FLSIM_REMOVE':self.galil_command_handler,
+            'FLSIM_MOVE':self.galil_command_handler,
             'GES_DEFHRSTEP':self.galil_command_handler,
             'GES_DEFLRSTEP':self.galil_command_handler,
             'GES_DEFHRENC':self.galil_command_handler,

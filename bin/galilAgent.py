@@ -52,8 +52,15 @@ class GalilAgent(Agent):
             'GES':self.galil_command_handler,
             #Nudge the GES stage by a little
             'GES_MOVE':self.galil_command_handler,
-            #Insert/Remove FLS pickoff
+            #Intention was Insert/Remove/Move FLS pickoff
+            #present reality is it only is a query
             'FLSIM':self.galil_command_handler,
+            #Command the FLSIM inserter to insert
+            'FLSIM_INSERT':self.galil_command_handler,
+            #Command the FLSIM inserter to retract
+            'FLSIM_REMOVE':self.galil_command_handler,
+             #Command the FLSIM inserter to move
+            'FLSIM_MOVE':self.galil_command_handler,
             #Force Calibration of the named axis
             'LREL_CALIBRATE':self.galil_command_handler,
             'HREL_CALIBRATE':self.galil_command_handler,
@@ -123,6 +130,7 @@ class GalilAgent(Agent):
             'FILTER_MOVE':self.connections['galil'].move_filter,
             'FLSIM_INSERT':self.connections['galil'].insert_flsim,
             'FLSIM_REMOVE':self.connections['galil'].remove_flsim,
+            'FLSIM_MOVE':self.connections['galil'].move_flsim,
             'LREL_CALIBRATE':self.connections['galil'].calibrate_lrel,
             'HREL_CALIBRATE':self.connections['galil'].calibrate_hrel,
             'HRAZ_CALIBRATE':self.connections['galil'].calibrate_hraz,

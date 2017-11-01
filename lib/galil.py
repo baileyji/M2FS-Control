@@ -1023,6 +1023,24 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             pass
         return self._do_motion_command(command_class, command_string)
     
+    def move_flsim(self, amount):
+        """
+        Command the FLS inserter to move
+        
+        This is a debugging convenience routine.
+        """
+        try:
+            int(amount)
+        except ValueError:
+            return '!ERROR: Inserter move amount must be specified as an integer.'
+        command_class='FLSIM'
+        command_string="a[<threadID>]=%s;XQ#MVFLSIN,<threadID>" % amount
+        try:
+            return self._getErrorMessage(command_class)
+        except ValueError:
+            pass
+        return self._do_motion_command(command_class, command_string)
+    
     def calibrate_lrel(self, *args):
         """ Force calibration of the Lores elevation axis """
         command_class='LREL'

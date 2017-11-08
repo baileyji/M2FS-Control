@@ -101,9 +101,12 @@ class MCalAgent(Agent):
                                       log=self.logger)
                 if resp[:3] is 'ACK':
                     self.ledValue[c] = level_dict[c]
+                else:
+                    self.ledValue[c] = 'Error'
 
                 return 'OK'
             except IOError:
+                self.ledValue[c] = 'Error'
                 return 'ERROR: Try Again'
         return 'OK'
 
@@ -124,8 +127,7 @@ class MCalAgent(Agent):
         
         Report the Key:Value pairs name:cookie, color:value
         """
-        ledv=self.get_led_values(asdic=True)
-        return [(self.get_version_string(), self.cookie)] + [(c, ledv[c]) for c in self.colors]
+        return [(self.get_version_string(), self.cookie)] + [(c, self.ledValue[c][c]) for c in self.colors]
 
 
 if __name__=='__main__':

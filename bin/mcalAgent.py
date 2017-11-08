@@ -12,7 +12,7 @@ _sokMCalLED = None
 COLORS = ('392','407', 'whi', '740', '770', '875')
 MAXLEVEL = {'392':4096,'407':4096, 'whi':4096, '740':2048, '770':2048, '875':2048}
 
-def send_rcv_mcalled(x, timeout=0.25, log=None):
+def send_rcv_mcalled(x, timeout=1.0, log=None):
     global _sokMCalLED
     try:
         if _sokMCalLED is None:
@@ -104,19 +104,6 @@ class MCalAgent(Agent):
 
                 return 'OK'
             except IOError:
-                time.sleep(.25)
-            
-            try:
-                resp=send_rcv_mcalled('{}{:04}'.format(i + 1, level_dict[c]),
-                                      log=self.logger)
-                if resp[:3] is 'ACK':
-                    self.ledValue[c] = level_dict[c]
-            except IOError:
-                try:
-                    send_rcv_mcalled('*0000', log=self.logger)
-                    for k in self.ledValue: self.ledValue[k]=0
-                except Exception:
-                    pass
                 return 'ERROR: Try Again'
         return 'OK'
 
@@ -124,6 +111,7 @@ class MCalAgent(Agent):
         try:
             values = send_rcv_mcalled('?',log=self.logger)
             values = values.replace('ACK ', '').replace('ERR ', 'Error: ')
+            self.logger.debug(values)
             if len(values.split()) !=6:
                 raise IOError('Malformed Reply: "{}"'.format(values))
             return {c:v for c,v in zip(self.colors, values)} if asdic else values

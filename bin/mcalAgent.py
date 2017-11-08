@@ -1,9 +1,9 @@
 #!/usr/bin/env python2.7
-import sys, socket
+import sys, socket, time
 sys.path.append(sys.path[0]+'/../lib/')
 
 from agent import Agent
-from m2fsConfig import getMCalLEDAddress
+import m2fsConfig
 
 MCAL_AGENT_VERSION_STRING='MCal Agent v0.1'
 
@@ -19,7 +19,7 @@ def send_rcv_mcalled(x, timeout=0.25, log=None):
             if log is not None:
                 log.info('Trying to connect to MCalLED')
             _sokMCalLED = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            _sokMCalLED.connect(getMCalLEDAddress())
+            _sokMCalLED.connect(m2fsConfig.getMCalLEDAddress())
             _sokMCalLED.settimeout(timeout)
     
         _sokMCalLED.send(x[:29]+'\n')
@@ -96,6 +96,16 @@ class MCalAgent(Agent):
                 return 'ERROR: Bad Command for color {}'.format(k)
 
         for i, c in enumerate(self.colors):
+            try:
+                resp=send_rcv_mcalled('{}{:04}'.format(i + 1, level_dict[c]),
+                                      log=self.logger)
+                if resp[:3] is 'ACK':
+                    self.ledValue[c] = level_dict[c]
+
+                return 'OK'
+            except IOError:
+                time.sleep(.25)
+            
             try:
                 resp=send_rcv_mcalled('{}{:04}'.format(i + 1, level_dict[c]),
                                       log=self.logger)

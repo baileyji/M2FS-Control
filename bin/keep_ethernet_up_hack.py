@@ -35,19 +35,17 @@ FLS_IPV4_SETTINGS={"Method": dbus_string('manual'),
                "Netmask":FLS_ADAPTER_NETMASK,
                "Gateway":FLS_ADAPTER_GATEWAY}
 
-
-PUBLIC_ADAPTER_ADDRESS=dbus_string('200.28.147.41')
-PUBLIC_ADAPTER_NETMASK=dbus_string('255.255.255.0')
-PUBLIC_ADAPTER_GATEWAY=dbus_string('200.28.147.1')
+ipinfo=m2fsConfig.getIPinfo()
+PUBLIC_ADAPTER_ADDRESS=dbus_string(ipinfo['ip'])
+PUBLIC_ADAPTER_NETMASK=dbus_string(ipinfo['mask'])
+PUBLIC_ADAPTER_GATEWAY=dbus_string(ipinfo['gateway'])
 PUBLIC_IPV4_SETTINGS={"Method": dbus_string('manual'),
                       "Address":PUBLIC_ADAPTER_ADDRESS,
                       "Netmask":PUBLIC_ADAPTER_NETMASK,
                       "Gateway":PUBLIC_ADAPTER_GATEWAY}
-PUBLIC_DOMAINS=dbus_array(['lco.cl'])
-PUBLIC_TIMESERVERS=dbus_array(['200.28.147.16','200.28.147.17',
-                               '200.28.147.1'])
-PUBLIC_NAMESERVERS=dbus_array(['200.28.147.2', '200.28.147.4',
-                               '139.229.97.50','139.229.97.26'])
+PUBLIC_DOMAINS=dbus_array([ipinfo['domain']])
+PUBLIC_TIMESERVERS=dbus_array(ipinfo['timeserver'])
+PUBLIC_NAMESERVERS=dbus_array(ipinfo['nameserver'])
  
 CONNECT_TIMEOUT=10000
 

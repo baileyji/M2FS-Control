@@ -5,8 +5,6 @@ from m2fsConfig import m2fsConfig
 
 public_adapter = "/net/connman/service/ethernet_b88d1255cd7e_cable"
 
-fls_adapter = "" #/net/connman/service/ethernet_c2bfe559cea6_cable"
-
 fixed_mac_adapters = (public_adapter,)
 
 #Set up logging
@@ -26,14 +24,6 @@ def dbus_string(string):
 
 def dbus_array(x):
     return dbus.Array(x, signature=dbus.Signature('s'))
-
-FLS_ADAPTER_ADDRESS=dbus_string('192.168.0.1')
-FLS_ADAPTER_NETMASK=dbus_string('255.255.255.0')
-FLS_ADAPTER_GATEWAY=dbus_string('192.168.0.1')
-FLS_IPV4_SETTINGS={"Method": dbus_string('manual'),
-               "Address":FLS_ADAPTER_ADDRESS,
-               "Netmask":FLS_ADAPTER_NETMASK,
-               "Gateway":FLS_ADAPTER_GATEWAY}
 
 ipinfo=m2fsConfig.getIPinfo()
 PUBLIC_ADAPTER_ADDRESS=dbus_string(ipinfo['ip'])
@@ -100,18 +90,6 @@ def bringPublicUpFIXED():
     service.SetProperty("Nameservers.Configuration", PUBLIC_NAMESERVERS)
     service.Connect(timeout=CONNECT_TIMEOUT)
 
-def bringFLSUp():
-    global fls_adapter
-    if not fls_adapter:
-        return
-    adapter=bus.get_object('net.connman', bbxm_adapter())
-    service = dbus.Interface(adapter, 'net.connman.Service')
-    
-    logger.info('Connecting FLS adapter via static config')
-                      
-    disconnect(service)
-    service.SetProperty("IPv4.Configuration", FLS_IPV4_SETTINGS)
-    service.Connect(timeout=CONNECT_TIMEOUT)
 
 def adapterOffline(adapter_path):
     services = manager.GetServices()
@@ -133,16 +111,6 @@ def getpossibleFLSAdapterPaths():
 if __name__=='__main__':
     method=''
     
-    paths = getpossibleFLSAdapterPaths()
-    if len(paths)==1:
-        fls_adapter = paths[0]
-    else:
-        logger.warning('Did not find the FLS Adapter')
-
-    try:
-        bringFLSUp()
-    except Exception as e:
-        logger.error(str(e))
     while True:
         try:
             desiredMethod=m2fsConfig.getIPmethod()
@@ -154,11 +122,6 @@ if __name__=='__main__':
                 else:
                     bringPublicUpFIXED()
                 method=desiredMethod
-        except Exception as e:
-            logger.error(str(e))
-        try:
-            if fls_adapter and adapterOffline(fls_adapter):
-                bringFLSUp()
         except Exception as e:
             logger.error(str(e))
         time.sleep(30)

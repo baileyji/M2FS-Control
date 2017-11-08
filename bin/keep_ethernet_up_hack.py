@@ -5,7 +5,7 @@ from m2fsConfig import m2fsConfig
 
 public_adapter = "/net/connman/service/ethernet_b88d1255cd7e_cable"
 
-fls_adapter = "/net/connman/service/ethernet_b88d1255d1ee_cable"
+fls_adapter = "" #/net/connman/service/ethernet_c2bfe559cea6_cable"
 
 fixed_mac_adapters = (public_adapter,)
 
@@ -103,6 +103,9 @@ def bringPublicUpFIXED():
     service.Connect(timeout=CONNECT_TIMEOUT)
 
 def bringFLSUp():
+    global fls_adapter
+    if not fls_adapter:
+        return
     adapter=bus.get_object('net.connman', bbxm_adapter())
     service = dbus.Interface(adapter, 'net.connman.Service')
     
@@ -125,8 +128,19 @@ def adapterOffline(adapter_path):
     return False
 
 
+def getpossibleFLSAdapterPaths():
+    services = manager.GetServices()
+    return [entry[0] for entry in services if entry[0]!=public_adapter]
+
 if __name__=='__main__':
     method=''
+    
+    paths = getpossibleFLSAdapterPaths()
+    if len(paths)==1:
+        fls_adapter = paths[0]
+    else:
+        logger.warning('Did not find the FLS Adapter')
+
     try:
         bringFLSUp()
     except Exception as e:
@@ -145,7 +159,7 @@ if __name__=='__main__':
         except Exception as e:
             logger.error(str(e))
         try:
-            if adapterOffline(fls_adapter):
+            if fls_adapter and adapterOffline(fls_adapter):
                 bringFLSUp()
         except Exception as e:
             logger.error(str(e))

@@ -127,7 +127,8 @@ class MCalAgent(Agent):
         
         Report the Key:Value pairs name:cookie, color:value
         """
-        return [(self.get_version_string(), self.cookie)] + [(c, self.ledValue[c][c]) for c in self.colors]
+        return ([(self.get_version_string(), self.cookie)] +
+                [(str(c), str(self.ledValue[c])) for c in self.colors])
 
 
 if __name__=='__main__':

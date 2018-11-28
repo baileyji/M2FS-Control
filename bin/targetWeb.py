@@ -163,23 +163,47 @@ def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING, n0=1,sn0=1):
     return file_lines
 
 class TargetSelect(Form):
-    targets = SelectMultipleField('Targets',
-                                  validators=[validators.Required()])
-#    new= BooleanField('New list', default=False)
+    targets = SelectMultipleField('Targets')#, validators=[validators.Required()])
     rot = DecimalField(default=ROTATOR_SETTING, label='Rotator setting')
     tnum = DecimalField(default=1, places=0, label='Starting Target Number')
     snum = DecimalField(default=1, places=0, label='Starting Standard Number')
     submit = SubmitField("Get list")
 
 
+page = """<!DOCTYPE html>
+<html><head>
+        <title>M2FS Targetlist Generator</title>
+        <strong><link rel="stylesheet" href="/static/css/main.css"></strong></head>
+<body>
+<header><div class="container"><h1 class="logo">M2FS</h1></div></header>
+<div class="container">
+<h1>Select Targets</h1>
+<form method="POST" action="/targetlist">
+    {targ}
+    <br>
+    <label for="rot">Rotator setting</label> <input id="rot" name="rot" type="text" value="-7.24">
+    <br>
+    <label for="tnum">Starting Target Number</label> <input id="tnum" name="tnum" type="text" value="1">
+    <br>
+    <label for="snum">Starting Standard Number</label> <input id="snum" name="snum" type="text" value="1">
+    <input id="submit" name="submit" type="submit" value="Get list">
+</form></div></body></html>"""
+
+
+@app.route('/', methods=['GET', 'POST'])
 @app.route('/targetlist', methods=['GET', 'POST'])
 def index():
-
-    form = TargetSelect()
     platedict=get_all_plate_names(cachefile=TARGET_CACHE_FILE)
-    form.targets.choices=zip(platedict,platedict)#.values(),platedict.keys())
-    form.select_size=min(len(form.targets.choices)+1, MAX_SELECT_LEN)
-    print form.validate_on_submit()
+    logging.getLogger(__name__).info('Fetched {} plate names'.format(len(platedict)))
+    form = TargetSelect()
+    form.targets.choices=zip(platedict,platedict)
+    form.select_size=min(len(platedict)+1, MAX_SELECT_LEN)
+
+    #return foo.format(targ=form.targets(size=form.select_size, multiple=True))
+
+    #logging.getLogger('TWeb').info('Form sized {}'.format(str(form.targets(size=form.select_size, multiple=True))))
+    #print form.validate_on_submit()
+
     if request.method == 'POST' and form.targets.data:
 
         TARGET_CACHE=[t for t in form.targets.data]
@@ -195,7 +219,7 @@ def index():
         return send_file(dat, mimetype='text/plain',
             attachment_filename=fn,as_attachment=False)
 
-    return render_template('targetlist.html', form=form)
+    return page.format(targ=form.targets(size=form.select_size, multiple=True))
 
 
 if __name__ =='__main__':

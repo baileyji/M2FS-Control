@@ -11,9 +11,12 @@ MCAL_AGENT_VERSION_STRING='MCal Agent v0.1'
 _sokMCalLED = None
 COLORS = ('392','407', 'whi', '740', '770', '875')
 MAXLEVEL = {'392':4096,'407':4096, 'whi':4096, '740':2048, '770':2048, '875':2048}
-
-def send_rcv_mcalled(x, timeout=1.0, log=None):
-    global _sokMCalLED
+_accesstime=time.time()
+def send_rcv_mcalled(x, timeout=1.4, log=None):
+    global _sokMCalLED, _accesstime
+    if time.time()-_accesstime>5:
+        _accessime=time.time()
+        _sokMCalLED = None
     try:
         if _sokMCalLED is None:
             if log is not None:
@@ -21,9 +24,14 @@ def send_rcv_mcalled(x, timeout=1.0, log=None):
             _sokMCalLED = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             _sokMCalLED.connect(m2fsConfig.getMCalLEDAddress())
             _sokMCalLED.settimeout(timeout)
-    
+        if log is not None:
+            log.info('"{}"'.format(x[:29]+'\n'))
         _sokMCalLED.send(x[:29]+'\n')
-        return _sokMCalLED.recv(34).strip()
+        ret = _sokMCalLED.recv(34).strip()
+        if log is not None: log.info('"{}"'.format(ret))
+        _accesstime=time.time()
+        return ret
+
         # never send more than 30 bytes
         # Expect "ACK #### #### #### #### #### ####\n" or "ERR #### #### #### #### #### ####\n"
     except Exception as e:
@@ -104,7 +112,6 @@ class MCalAgent(Agent):
                 else:
                     self.ledValue[c] = 'Error'
 
-                return 'OK'
             except IOError:
                 self.ledValue[c] = 'Error'
                 return 'ERROR: Try Again'
@@ -127,8 +134,7 @@ class MCalAgent(Agent):
         
         Report the Key:Value pairs name:cookie, color:value
         """
-        return ([(self.get_version_string(), self.cookie)] +
-                [(str(c), str(self.ledValue[c])) for c in self.colors])
+        return [(self.get_version_string(), self.cookie)] + [(str(c), str(self.ledValue[c])) for c in self.colors]
 
 
 if __name__=='__main__':

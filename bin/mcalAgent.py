@@ -1,9 +1,9 @@
 #!/usr/bin/env python2.7
-import sys, socket
+import sys, socket, time
 sys.path.append(sys.path[0]+'/../lib/')
 
 from agent import Agent
-from m2fsConfig import getMCalLEDAddress
+import m2fsConfig
 
 MCAL_AGENT_VERSION_STRING='MCal Agent v0.1'
 
@@ -12,14 +12,14 @@ _sokMCalLED = None
 COLORS = ('392','407', 'whi', '740', '770', '875')
 MAXLEVEL = {'392':4096,'407':4096, 'whi':4096, '740':2048, '770':2048, '875':2048}
 
-def send_rcv_mcalled(x, timeout=0.25, log=None):
+def send_rcv_mcalled(x, timeout=1.0, log=None):
     global _sokMCalLED
     try:
         if _sokMCalLED is None:
             if log is not None:
                 log.info('Trying to connect to MCalLED')
             _sokMCalLED = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            _sokMCalLED.connect(getMCalLEDAddress())
+            _sokMCalLED.connect(m2fsConfig.getMCalLEDAddress())
             _sokMCalLED.settimeout(timeout)
     
         _sokMCalLED.send(x[:29]+'\n')
@@ -101,12 +101,12 @@ class MCalAgent(Agent):
                                       log=self.logger)
                 if resp[:3] is 'ACK':
                     self.ledValue[c] = level_dict[c]
+                else:
+                    self.ledValue[c] = 'Error'
+
+                return 'OK'
             except IOError:
-                try:
-                    send_rcv_mcalled('*0000', log=self.logger)
-                    for k in self.ledValue: self.ledValue[k]=0
-                except Exception:
-                    pass
+                self.ledValue[c] = 'Error'
                 return 'ERROR: Try Again'
         return 'OK'
 
@@ -114,6 +114,7 @@ class MCalAgent(Agent):
         try:
             values = send_rcv_mcalled('?',log=self.logger)
             values = values.replace('ACK ', '').replace('ERR ', 'Error: ')
+            self.logger.debug(values)
             if len(values.split()) !=6:
                 raise IOError('Malformed Reply: "{}"'.format(values))
             return {c:v for c,v in zip(self.colors, values)} if asdic else values
@@ -126,8 +127,8 @@ class MCalAgent(Agent):
         
         Report the Key:Value pairs name:cookie, color:value
         """
-        ledv=self.get_led_values(asdic=True)
-        return [(self.get_version_string(), self.cookie)] + [(c, ledv[c]) for c in self.colors]
+        return ([(self.get_version_string(), self.cookie)] +
+                [(str(c), str(self.ledValue[c])) for c in self.colors])
 
 
 if __name__=='__main__':

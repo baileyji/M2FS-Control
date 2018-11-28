@@ -319,6 +319,40 @@ class m2fsConfig:
         return str2loglevel(config.get('LogLevels',name))
 
     @staticmethod
+    def getIPinfo():
+        """ Get the configured logging level for agent """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
+        ts=config.get('IP','timeserver').lower().split(',')
+        ts=[ip.strip() for ip in config.get('IP','timeserver').lower().split(',')]
+        ns=[ip.strip() for ip in config.get('IP','nameserver').lower().split(',')]
+        ret = {'ip':config.get('IP','ip').lower(),
+               'mask':config.get('IP','mask').lower(),
+               'gateway':config.get('IP','gateway').lower(),
+               'timeserver':ts,
+               'nameserver':ns,
+               'domain':config.get('IP','domain').lower()}
+        return ret
+
+    @staticmethod
+    def getAXISip():
+        """ Get the configured logging level for agent """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
+        return config.get('AXISIP','ip').lower()
+
+    @staticmethod
+    def getMCalLEDAddress():
+        """ Get the configured logging level for agent """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
+        return (config.get('MCLED','ip').lower(),
+                int(config.get('MCLED','port').lower()))
+
+    @staticmethod
     def getIPmethod():
         """ Get the configured logging level for agent """
         config=ConfigParser.RawConfigParser()

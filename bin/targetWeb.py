@@ -38,7 +38,7 @@ TARGET_CACHE_FILE='./targetweb.cache'
 _log.info('Preloading all plates')
 import time
 tic=time.time()
-get_metadata('')
+get_metadata('', cachefile=TARGET_CACHE_FILE)
 toc=time.time()
 _log.info('Preloading finished in {:.0f} seconds.'.format(toc-tic))
 
@@ -86,7 +86,7 @@ def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING, n0=1,sn0=1):
     stds_listed=[]
     ndx=n0
     stdndx=sn0
-    pmetadata=get_metadata(platefiles)
+    pmetadata=get_metadata(platefiles, cachefile=TARGET_CACHE_FILE)
     for pf,p in zip(platefiles,pmetadata):
 
         if p is None:
@@ -176,7 +176,7 @@ class TargetSelect(Form):
 def index():
 
     form = TargetSelect()
-    platedict=get_all_plate_names()
+    platedict=get_all_plate_names(cachefile=TARGET_CACHE_FILE)
     form.targets.choices=zip(platedict,platedict)#.values(),platedict.keys())
     form.select_size=min(len(form.targets.choices)+1, MAX_SELECT_LEN)
     print form.validate_on_submit()

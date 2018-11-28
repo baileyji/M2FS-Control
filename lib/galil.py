@@ -864,7 +864,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         """ Select a filter position """
         if filter not in map(str,range(1,19)):
             return ('!ERROR: Valid fliter choices are 1-18. 9=None 10=load. 11+ '
-                    'uninserted.)
+                    'uninserted.')
         command_class='FILTER'
         command_string="a[<threadID>]=%s;XQ#PICKFIL,<threadID>" % filter
         try:

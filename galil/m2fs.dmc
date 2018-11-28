@@ -1072,7 +1072,7 @@ IF ((_LFD=0)&(_LRD=1));^a=in;ENDIF
 IF ((_LFD=1)&(FESXXX=true));^a=out;ENDIF
 IF (_TSD & $80); ^a=moving;ENDIF
 JS#QUFELP;^b=_JS
-IF((^a=moving)|(^b=moving)|(filmove=1));MG "GETFILT: MOVING"
+IF((^a=moving)|(^b=moving)|(filmove=1));MG "GETFILT: MOVING",felanap,_TDE,_TDD
 ELSE;IF(^b=filterld);MG "GETFILT: 9",felanap,_TDE,_TDD
 ELSE;IF(^a=unknown);MG "GETFILT: UNKNOWN",felanap,_TDE,_TDD
 ELSE;IF(^a=out);MG "GETFILT: 10",felanap,_TDE,_TDD

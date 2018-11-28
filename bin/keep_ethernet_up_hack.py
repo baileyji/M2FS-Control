@@ -5,8 +5,6 @@ from m2fsConfig import m2fsConfig
 
 public_adapter = "/net/connman/service/ethernet_b88d1255cd7e_cable"
 
-fls_adapter = "/net/connman/service/ethernet_b88d1255d1ee_cable"
-
 fixed_mac_adapters = (public_adapter,)
 
 #Set up logging
@@ -27,27 +25,17 @@ def dbus_string(string):
 def dbus_array(x):
     return dbus.Array(x, signature=dbus.Signature('s'))
 
-FLS_ADAPTER_ADDRESS=dbus_string('192.168.0.1')
-FLS_ADAPTER_NETMASK=dbus_string('255.255.255.0')
-FLS_ADAPTER_GATEWAY=dbus_string('192.168.0.1')
-FLS_IPV4_SETTINGS={"Method": dbus_string('manual'),
-               "Address":FLS_ADAPTER_ADDRESS,
-               "Netmask":FLS_ADAPTER_NETMASK,
-               "Gateway":FLS_ADAPTER_GATEWAY}
-
-
-PUBLIC_ADAPTER_ADDRESS=dbus_string('200.28.147.41')
-PUBLIC_ADAPTER_NETMASK=dbus_string('255.255.255.0')
-PUBLIC_ADAPTER_GATEWAY=dbus_string('200.28.147.1')
+ipinfo=m2fsConfig.getIPinfo()
+PUBLIC_ADAPTER_ADDRESS=dbus_string(ipinfo['ip'])
+PUBLIC_ADAPTER_NETMASK=dbus_string(ipinfo['mask'])
+PUBLIC_ADAPTER_GATEWAY=dbus_string(ipinfo['gateway'])
 PUBLIC_IPV4_SETTINGS={"Method": dbus_string('manual'),
                       "Address":PUBLIC_ADAPTER_ADDRESS,
                       "Netmask":PUBLIC_ADAPTER_NETMASK,
                       "Gateway":PUBLIC_ADAPTER_GATEWAY}
-PUBLIC_DOMAINS=dbus_array(['lco.cl'])
-PUBLIC_TIMESERVERS=dbus_array(['200.28.147.16','200.28.147.17',
-                               '200.28.147.1'])
-PUBLIC_NAMESERVERS=dbus_array(['200.28.147.2', '200.28.147.4',
-                               '139.229.97.50','139.229.97.26'])
+PUBLIC_DOMAINS=dbus_array([ipinfo['domain']])
+PUBLIC_TIMESERVERS=dbus_array(ipinfo['timeserver'])
+PUBLIC_NAMESERVERS=dbus_array(ipinfo['nameserver'])
  
 CONNECT_TIMEOUT=10000
 
@@ -102,15 +90,6 @@ def bringPublicUpFIXED():
     service.SetProperty("Nameservers.Configuration", PUBLIC_NAMESERVERS)
     service.Connect(timeout=CONNECT_TIMEOUT)
 
-def bringFLSUp():
-    adapter=bus.get_object('net.connman', bbxm_adapter())
-    service = dbus.Interface(adapter, 'net.connman.Service')
-    
-    logger.info('Connecting FLS adapter via static config')
-                      
-    disconnect(service)
-    service.SetProperty("IPv4.Configuration", FLS_IPV4_SETTINGS)
-    service.Connect(timeout=CONNECT_TIMEOUT)
 
 def adapterOffline(adapter_path):
     services = manager.GetServices()
@@ -125,12 +104,13 @@ def adapterOffline(adapter_path):
     return False
 
 
+def getpossibleFLSAdapterPaths():
+    services = manager.GetServices()
+    return [entry[0] for entry in services if entry[0]!=public_adapter]
+
 if __name__=='__main__':
     method=''
-    try:
-        bringFLSUp()
-    except Exception as e:
-        logger.error(str(e))
+    
     while True:
         try:
             desiredMethod=m2fsConfig.getIPmethod()
@@ -142,11 +122,6 @@ if __name__=='__main__':
                 else:
                     bringPublicUpFIXED()
                 method=desiredMethod
-        except Exception as e:
-            logger.error(str(e))
-        try:
-            if adapterOffline(fls_adapter):
-                bringFLSUp()
         except Exception as e:
             logger.error(str(e))
         time.sleep(30)

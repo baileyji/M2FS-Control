@@ -19,11 +19,8 @@ logger.addHandler(ch)
 logger.setLevel(logging.INFO)
 
 
-def dbus_string(string):
-	return dbus.String(string, variant_level=1)
-
-def dbus_array(x):
-    return dbus.Array(x, signature=dbus.Signature('s'))
+dbus_string = lambda x: dbus.String(string, variant_level=1)
+dbus_array = lambda x:  dbus.Array(x, signature=dbus.Signature('s'))
 
 ipinfo=m2fsConfig.getIPinfo()
 PUBLIC_ADAPTER_ADDRESS=dbus_string(ipinfo['ip'])

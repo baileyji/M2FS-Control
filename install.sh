@@ -12,11 +12,14 @@ sudo apt install python-scipy python-astropy python-matplotlib nut python-flask 
 sudo pip install --upgrade pip
 sudo pip install ipython pyserial==2.6 construct==2.0.6 flask flask_wtf
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
-cp -v zshrc ~/.zshrc
+
+#Install M2FS-Control
 cd /
 git clone https://github.com/YSAS/M2FS-Control.git
+cd /M2FS-Control
 
-#Set the login shell to bash
+#Set the login shell to zsh
+cp -v ./zshrc ~/.zshrc
 chsh -s /bin/zsh
 
 #Install M2FS system config files

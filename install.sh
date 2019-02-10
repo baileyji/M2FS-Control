@@ -10,7 +10,7 @@ sudo apt full-upgrade
 sudo apt-get auto remove
 sudo apt install python-scipy python-astropy python-matplotlib nut python-flask zsh samba
 sudo pip install --upgrade pip
-sudo pip install ipython pyserial==2.6 construct==2.0.6 flask flask_wtf
+sudo pip install ipython pyserial==2.6 construct==2.0.6 flask_wtf
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 
 #Install M2FS-Control

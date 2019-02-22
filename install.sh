@@ -4,18 +4,23 @@
 passwd
 
 #Update the system and install dependencies
-sudo systemctl set-default multi-user.target
+sudo mkdir -p /var/log/journal
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+sudo systemctl restart systemd-journald
 sudo apt update
 sudo apt full-upgrade
 sudo apt-get auto remove
-sudo apt install python-scipy python-astropy python-matplotlib nut python-flask zsh samba
+sudo apt install python-scipy python-astropy python-matplotlib nut python-flask zsh samba python-pip curl
 sudo pip install --upgrade pip
+sudo apt remove python-serial
 sudo pip install ipython pyserial==2.6 construct==2.0.6 flask_wtf
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 
+
 #Install M2FS-Control
 cd /
-git clone https://github.com/YSAS/M2FS-Control.git
+sudo git clone https://github.com/YSAS/M2FS-Control.git /M2FS-Control --recurse-submodules --branch develop
+sudo chown -R pi /M2FS-Control
 cd /M2FS-Control
 
 #Set the login shell to zsh
@@ -31,20 +36,21 @@ sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/
 sudo mv -v /etc/samba/smb.conf /etc/samba/smb.conf.stock
 sudo cp -v ./etc/samba/smb.conf /etc/samba/
 #cp -v ./vimrc /home/root/.vimrc
-
-#Ensure systemd loads the new units
-systemctl daemon-reload
-
-#Bring ethernet online
-systemctl enable ethernet_hack.service
-systemctl start ethernet_hack.service
-
-#Bring UPS monitoring online
-systemctl restart nut-server.service
-systemctl restart nut-monitor.service
-
 #cp ./etc/ntp.conf /etc/
 
+#Ensure systemd loads the new units
+sudo systemctl daemon-reload
+sudo systemctl enable shutdown_button.service
+sudo systemctl start shutdown_button.service
+
+#Bring ethernet online
+#sudo systemctl enable ethernet_hack.service
+#sudo systemctl start ethernet_hack.service
+
+#Bring UPS monitoring online
+sudo systemctl restart nut-server.service
+sudo systemctl restart nut-monitor.service
+
 #Enable and start the director
-systemctl enable director.service
-systemctl start director.service
+sudo systemctl enable director.service
+sudo systemctl start director.service

@@ -1,0 +1,13 @@
+[Unit]
+Description=Network UPS Tools - power device driver controller
+After=local-fs.target network.target systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+#StopWhenUnneeded=yes
+
+[Service]
+ExecStart=/sbin/upsdrvctl start
+ExecStop=/sbin/upsdrvctl stop
+Type=forking
+Restart=always
+RestartSec=10
+

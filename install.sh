@@ -29,12 +29,16 @@ chsh -s /bin/zsh
 
 #Install M2FS system config files
 sudo cp -v ./etc/ups/* /etc/nut/
-sudo cp -v ./etc/hostname /etc/hostname
+sudo cp -v ./etc/hostname /etc/
+sudo cp -v ./etc/hosts /etc/
+sudo cp -v ./etc/dhcpcd.conf /etc/
 sudo cp -v ./etc/udev/rules.d/m2fs.rules /etc/udev/rules.d/
 sudo cp -v ./etc/systemd/system/* /etc/systemd/system/ 
+sudo cp -v ./etc/systemd/timesyncd.conf /etc/systemd/
 sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/
 sudo mv -v /etc/samba/smb.conf /etc/samba/smb.conf.stock
 sudo cp -v ./etc/samba/smb.conf /etc/samba/
+sudo cp -v ./nut-driver.service /lib/systemd/system/nut-driver.service
 #cp -v ./vimrc /home/root/.vimrc
 #cp ./etc/ntp.conf /etc/
 
@@ -54,3 +58,5 @@ sudo systemctl restart nut-monitor.service
 #Enable and start the director
 sudo systemctl enable director.service
 sudo systemctl start director.service
+
+sudo systemctl reboot now

@@ -29,28 +29,31 @@ CALIBRATION_MAX_TIME = 10  # seconds
 
 class IdeaIO(object):
     def __init__(self, byte):
-        self.byte = byte
+        self.byte = int(byte)
+
+    def __str__(self):
+        return bin(self.byte)
 
     @property
     def home_tripped(self):
-        return self.byte & 0b00000001
+        return not bool(self.byte & 0x01)
 
     @property
     def booted(self):
-        return self.byte & 0b00010000
+        return bool(self.byte & 0x10)
 
     @property
     def calibrated(self):
-        return self.byte & 0b10000000
+        return bool(self.byte & 0x80)
 
     @property
     def errcode(self):
-        return self.byte & 0b01100000
+        return (self.byte & 0x60) >> 5
 
 
 class IdeaFaults(object):
     def __init__(self, byte):
-        self.byte = byte
+        self.byte = int(byte)
 
     def __str__(self):
         return ', '.join([b for i, b in enumerate(ERRORBITS) if self.byte & (1 << i)])
@@ -89,9 +92,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.messageTerminator = '\r'
 
     def _unsolicited_message_handler(self, message_source, message):
-        """
-        Handle any unexpected messages from the drive - > log a warning.
-        """
+        """ Handle any unexpected messages from the drive - > log a warning. """
         logger.warning("Got unexpected, unsolicited message '%s'" % message)
 
     @property
@@ -100,27 +101,27 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         # 'r'-> yes or no "`rYES[cr]`r#[cr]" or "`rNO[cr]`r#[cr]"
         return 'YES' in self._send_command_to_hk('r')
 
-    def _postConnect(self):
-        """
-        Implement the post-connect hook
-
-        With the hk we need to do make sure the encoder is online and sync the calibration state
-        1) Get currently executing program.
-        2) Verify the encoder.
-        """
-        pass
-        # don't use '
-
-        self.sendMessageBlocking('r')
-        response = self.receiveMessageBlocking()
-        self.receiveMessageBlocking()  # discard the garbage from the Idea protocol
-
-        if 'YES' not in response:
-            raise SelectedConnection.ConnectError("{}: HK drive did not start properly.".format(self.port))
-        # state = self.state()
-        # if not state.encoder == ENCODER_CONFIG:
-        #     getLogger(__name__).error('Encoder state "{}", expected "{}".'.format(state['encoder'], ENCODER_CONFIG))
-        #     raise IOError("{}: HK drive did not start properly.".format(self.port))
+    # def _postConnect(self):
+    #     """
+    #     Implement the post-connect hook
+    #
+    #     With the hk we need to do make sure the encoder is online and sync the calibration state
+    #     1) Get currently executing program.
+    #     2) Verify the encoder.
+    #     """
+    #     pass
+    #     # don't use '
+    #
+    #     self.sendMessageBlocking('r')
+    #     response = self.receiveMessageBlocking()
+    #     self.receiveMessageBlocking()  # discard the garbage from the Idea protocol
+    #
+    #     if 'YES' not in response:
+    #         raise SelectedConnection.ConnectError("{}: HK drive did not start properly.".format(self.port))
+    #     # state = self.state()
+    #     # if not state.encoder == ENCODER_CONFIG:
+    #     #     getLogger(__name__).error('Encoder state "{}", expected "{}".'.format(state['encoder'], ENCODER_CONFIG))
+    #     #     raise IOError("{}: HK drive did not start properly.".format(self.port))
 
     def command_has_response(self, cmd):
         return cmd[0] in 'cPlkbrfv:joNK@'
@@ -175,17 +176,18 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def abort(self):
         self._send_command_to_hk('A')
 
-    def errors(self):
-        errors = self._send_command_to_hk('f')  # "`f[value][cr]`f#[cr]" where value represents the errors present.
-        return errors, ERRORBITS
-
     @property
     def io(self):
-        return IdeaIO(int(self._send_command_to_hk(':')))  # 8 bit number O4O3O2O1I4I3I2I1 "`:31\r`:#\r"
+        return IdeaIO(self._send_command_to_hk(':'))  # 8 bit number O4O3O2O1I4I3I2I1 "`:31\r`:#\r"
 
     @property
     def moving(self):
         return 'YES' in self._send_command_to_hk('o')  # "`oYES[cr]`o#[cr]" or "`oNO[cr]`o#[cr]"
+
+    @property
+    def calibrated(self):
+        #TODO this seems to remain true even after a reset command to the Idea, not good...
+        return self.io.calibrated
 
     def move_to(self, position, speed=.75, accel=None, decel=None, relative=False):
         """ Position in inches, speed in in per s, accel & decel in full steps"""
@@ -207,10 +209,10 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                   decel_current, delay_time, stepping]
 
         cmd = 'I' if relative else 'M'
-        self._send_command_to_hk(cmd + ','.join(map(int, params)))
+        self._send_command_to_hk(cmd + ','.join(map(str, map(int, params))))
 
     def position(self):
-        return int(self._send_command_to_hk('l'))  # "`l[value][cr]`l#[cr]" where value represents the motor position.
+        return int(self._send_command_to_hk('l'))*IN_PER_64THSTEP
 
     def calibrate(self):
         self.sendMessageBlocking('mCalibrate_')
@@ -219,11 +221,20 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         if not state.calibrated:
             raise RuntimeError
 
+    # def config_encoder(self):
+    #     DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res
+    #     params = [DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res]
+    #     self._send_command_to_hk(cmd + ','.join(map(int, params)))
+
     def encoder_config(self):
+        #This appears to return nothing if the encoder is not
         enc = self._send_command_to_hk('b')  # "`b[deadband],[stallhunts][cr]`b#[cr]"
+        if not enc:
+            return 0,0
         return map(int, enc.split(','))
 
     def stop(self):
+        "This causes an overextended pulsing shafe to retract fully and pulse, wtf"
         end_speed = 0
         run_current = decel_current = 175  # 180 MAX
         hold_current = 0
@@ -231,7 +242,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         stepping = 64
         decel = 0
         params = [end_speed, decel, run_current, decel_current, hold_current, delay_time, stepping]
-        self._send_command_to_hk('H' + ','.join(map(int, params)))
+        self._send_command_to_hk('H' + ','.join(map(str, map(int, params))))
 
     @property
     def faults(self):

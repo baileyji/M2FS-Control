@@ -115,7 +115,7 @@ class SelectedConnection(object):
         
         Override in subclass
         """
-        return false
+        return False
     
     def _preConnect(self):
         """
@@ -321,19 +321,15 @@ class SelectedConnection(object):
                 raise ReadError(err)
             try:
                 response = self._implementationSpecificBlockingReceive(nBytes, timeout)
-                logger.debug("BlockingReceive got: '%s'" %
-                                  escapeString(response))
-                if response=='':
-                    logger.warning(
-                        'Blocking receive on %s timed out'% self.addr_str())
-                if (error_on_absent_terminator and
-                    self.messageTerminator not in response):
-                    if type(error_on_absent_terminator)==str:
-                        response=error_on_absent_terminator
+                logger.debug("BlockingReceive got: '%s'" % escapeString(response))
+                if response == '':
+                    logger.warning('Blocking receive on %s timed out' % self.addr_str())
+                if error_on_absent_terminator and self.messageTerminator not in response:
+                    if isinstance(error_on_absent_terminator, str):
+                        err = error_on_absent_terminator
                     else:
                         err="Received '%s', '%s' absent. Strict checking on"
-                        err=err % (response,
-                            self.messageTerminator.encode('string_escape'))
+                        err=err % (response, self.messageTerminator.encode('string_escape'))
                     raise ReadError(err)
                 return self._cleanMessage(response)
             except ReadError, e:
@@ -556,15 +552,26 @@ class SelectedSerial(SelectedConnection):
         If a serial exception occurs raise ReadError.
         """
         saved_timeout=self.connection.timeout
-        if type(timeout) in (int,float,long) and timeout>0:
+        if type(timeout) in (int, float, long) and timeout>0:
             self.connection.timeout=timeout
         elif saved_timeout is None:
             self.connection.timeout=BACKUP_TIMEOUT
         try:
-            if nBytes==0:
-                response=self.connection.readline()
+            if nBytes == 0:
+                if self.messageTerminator != '\n':
+                    line = []
+                    while True:
+                        c = self.connection.read(1)
+                        if not c:
+                            break
+                        line += c
+                        if line[-1] == bytes(self.messageTerminator):
+                            break
+                    response = ''.join(line)
+                else:
+                    response = self.connection.readline()
             else:
-                response=self.connection.read(nBytes)
+                response = self.connection.read(nBytes)
         except serial.SerialException, e:
             raise ReadError(str(e))
         finally:

@@ -13,7 +13,7 @@ sudo apt-get auto remove
 sudo apt install python-scipy python-astropy python-matplotlib nut python-flask zsh samba python-pip curl
 sudo pip install --upgrade pip
 sudo apt remove python-serial
-sudo pip install ipython pyserial==2.6 construct==2.0.6 flask_wtf
+sudo pip install ipython pyserial==2.6 construct==2.0.6 flask_wtf pymodbus=1.5.2
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 
 

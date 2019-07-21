@@ -320,7 +320,7 @@ class SelectedConnection(object):
                 logger.error(err)
                 raise ReadError(err)
             try:
-                response=self._implementationSpecificBlockingReceive(nBytes, timeout)
+                response = self._implementationSpecificBlockingReceive(nBytes, timeout)
                 logger.debug("BlockingReceive got: '%s'" %
                                   escapeString(response))
                 if response=='':
@@ -558,7 +558,7 @@ class SelectedSerial(SelectedConnection):
         saved_timeout=self.connection.timeout
         if type(timeout) in (int,float,long) and timeout>0:
             self.connection.timeout=timeout
-        elif saved_timeout==None:
+        elif saved_timeout is None:
             self.connection.timeout=BACKUP_TIMEOUT
         try:
             if nBytes==0:
@@ -568,14 +568,13 @@ class SelectedSerial(SelectedConnection):
         except serial.SerialException, e:
             raise ReadError(str(e))
         finally:
-            if self.connection !=None:
-                self.connection.timeout=saved_timeout
+            if self.connection is not None:
+                self.connection.timeout = saved_timeout
         return response
     
     def _implementationSpecificConnect(self):
         """ Open a serial connection to self.port @ self.baudrate """ 
-        self.connection=serial.Serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout)
+        self.connection=serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
     
     def _implementationSpecificRead(self):
         """

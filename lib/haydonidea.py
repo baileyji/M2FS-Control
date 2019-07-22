@@ -4,6 +4,9 @@ from logging import getLogger
 import lib.SelectedConnection as SelectedConnection
 import time
 
+"reset appears not to work if a program is running"
+
+
 BAUD = 57600
 
 IFU_DEVICE_MAP = {'lsb': '/dev/occulterLR', 'msb': '/dev/occulterMR', 'hsb': '/dev/occulterHR',
@@ -11,7 +14,7 @@ IFU_DEVICE_MAP = {'lsb': '/dev/occulterLR', 'msb': '/dev/occulterMR', 'hsb': '/d
 
 logger = getLogger(__name__)
 HK_TIMEOUT = 1
-ENCODER_CONFIG = 2000,
+ENCODER_CONFIG = (16,0,2000)  #16 64th steps of error allowed (16/64/200*.1" in)
 
 # Bit 8-0
 ERRORBITS = ('Over Speed', 'Bad Checksum', 'Current Limit', 'Loop Overflow', 'Int Queue Full', 'Encoder Error',
@@ -32,7 +35,7 @@ class IdeaIO(object):
         self.byte = int(byte)
 
     def __str__(self):
-        return bin(self.byte)
+        return '0b{:08b}'.format(self.byte)
 
     @property
     def home_tripped(self):
@@ -90,6 +93,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                                                    default_message_received_callback=self._unsolicited_message_handler)
         # Override the default message terminator for consistency.
         self.messageTerminator = '\r'
+        self.commanded_position = None
 
     def _unsolicited_message_handler(self, message_source, message):
         """ Handle any unexpected messages from the drive - > log a warning. """
@@ -178,7 +182,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     @property
     def io(self):
-        return IdeaIO(self._send_command_to_hk(':'))  # 8 bit number O4O3O2O1I4I3I2I1 "`:31\r`:#\r"
+        return IdeaIO(self._send_command_to_hk(':'))  # 8 bit number O4-1 I4-1 "`:31\r`:#\r"
 
     @property
     def moving(self):
@@ -186,7 +190,9 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     @property
     def calibrated(self):
-        #TODO this seems to remain true even after a reset command to the Idea, not good...
+        #TODO this seems to remain true even after a reset command to the Idea if the programs on the idea drive
+        # include an idle loop, getting rid of the idle loop fixed. I think the issue is that the reset command was
+        # silently ignored given that a program was running.
         return self.io.calibrated
 
     def move_to(self, position, speed=.75, accel=None, decel=None, relative=False):
@@ -208,11 +214,22 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         params = [position, speed, start_speed, end_speed, accel, decel, run_current, hold_current, accel_current,
                   decel_current, delay_time, stepping]
 
+        if self.commanded_position is None:
+            self.commanded_position = self.position(steps=True)
+
+        self.commanded_position = position if not relative else position + self.commanded_position
         cmd = 'I' if relative else 'M'
         self._send_command_to_hk(cmd + ','.join(map(str, map(int, params))))
 
-    def position(self):
-        return int(self._send_command_to_hk('l'))*IN_PER_64THSTEP
+    def position_error(self):
+        """ in inches"""
+        if self.commanded_position is None:
+            self.commanded_position = self.position()
+        return (self.position(steps=True)-self.commanded_position)*IN_PER_64THSTEP
+
+    def position(self, steps=False):
+        pos = int(self._send_command_to_hk('l'))
+        return pos if steps else pos*IN_PER_64THSTEP
 
     def calibrate(self):
         self.sendMessageBlocking('mCalibrate_')
@@ -228,13 +245,19 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     def encoder_config(self):
         #This appears to return nothing if the encoder is not
-        enc = self._send_command_to_hk('b')  # "`b[deadband],[stallhunts][cr]`b#[cr]"
+        enc = self._send_command_to_hk('b')  # "`b[deadband],[stallhunts],[lines/rev][cr]`b#[cr]"
         if not enc:
-            return 0,0
-        return map(int, enc.split(','))
+            return 0,0,0
+        return tuple(map(int, enc.split(',')))
 
     def stop(self):
-        "This causes an overextended pulsing shafe to retract fully and pulse, wtf"
+        """
+        Stop the motor.
+
+        This causes an overextended pulsing shaft to retract fully and pulse, wtf
+        This causes a stopped shaft to slowly retract, wtf
+        Seems to assume that the internal Idea drive state has been issued a move command and its stopping TO there
+        """
         end_speed = 0
         run_current = decel_current = 175  # 180 MAX
         hold_current = 0
@@ -244,13 +267,24 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         params = [end_speed, decel, run_current, decel_current, hold_current, delay_time, stepping]
         self._send_command_to_hk('H' + ','.join(map(str, map(int, params))))
 
+    def estop(self):
+        """
+        This also causes a move
+
+        Seems to assume that the internal Idea drive state has been issued a move command and its stopping TO there
+        """
+        decel_current = 175
+        delay_time = 300
+        hold_current = 0
+        params = [decel_current, hold_current, delay_time]
+        self._send_command_to_hk('E' + ','.join(map(str, map(int, params))))
+
     @property
     def faults(self):
         return IdeaFaults(self._send_command_to_hk('f'))
 
     def reset(self):
         self._send_command_to_hk('R')
-        self.close()
 
     def state(self):
         return IdeaState(self.programRunning, self.faults, self.io, self.encoder_config())

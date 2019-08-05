@@ -81,11 +81,11 @@ def twos_complement(val, nbits):
 
 
 def merge_reg(reg, bytewid=1, rev=False):
-    o=0
+    o = 0
     if rev:
-        reg=reg[::-1]
-    for i,r in enumerate(reg):
-       o |= r<<(8*i*bytewid)
+        reg = reg[::-1]
+    for i, r in enumerate(reg):
+        o |= r << (8*i*bytewid)
     return o
 
 
@@ -95,10 +95,14 @@ class OrientalMotor(object):
         self.port = port
         self.modbus = None
 
-    def disconnet(self, stop_and_break=True):
+    def disconnect(self, stop_and_break=True):
         if stop_and_break:
             self.turn_on_break()
         self.modbus.close()
+
+    def close(self):
+        """Shortcut to disconnect(stop_and_break=True)"""
+        self.disconnet(True)
 
     def connect(self):
         self.modbus = ModbusClient(method="rtu", port=self.port, stopbits=1, bytesize=8, parity='E', baudrate=BAUD)
@@ -211,15 +215,28 @@ class OrientalMotor(object):
         self.modbus.write_registers(0x0184, [0, 1], unit=1)
         #0x0188 clear communication error records
 
-    # def status(self):
-    #     outputs = self.get_out() #see bit list excel
-    #     # 0x00AC-D present communcation error
-    #     # 0x00C6-7 command position
-    #     # 0x00CC-D detected position
-    #     # 0x00D6 0x00D7  current/max torque
-    #     from collections import namedtuple
-    #     x=namedtuple('current_ma', 'brake', 'position', 'moving', 'ready', 'inposition', 'alarm', 'fwlim', 'rvlim', 'home')
-    #     return x(current, brake, pos, moving, ready, inpos, alarm, fmlim, rvlim, home)
+    def status(self):
+        outputs = self.get_out() #see bit list excel
+        # 0x00AC-D present communcation error
+        # 0x00C6-7 command position
+        # 0x00CC-D detected position
+        # 0x00D6 0x00D7  current/max torque
+
+        #interface contract:
+        'error_string' (if has_fault)
+        'has_fault'
+        'position'
+        'moving'
+        'temp_string'
+
+
+        from collections import namedtuple
+        motorIsOn true/false
+        breakEngaged
+        moving
+        x=namedtuple('current_ma', 'brake', 'position', 'moving', 'ready', 'inposition',
+                     'alarm', 'fwlim', 'rvlim', 'home', 'error_string', 'has_fault')
+        return x(current, brake, pos, moving, ready, inpos, alarm, fmlim, rvlim, home)
 
 
 if __name__ == '__main__':
@@ -228,3 +245,6 @@ if __name__ == '__main__':
     log.setLevel(logging.DEBUG)
     m = self = OrientalMotor(PORT)
 
+-hw lim @-107
++hw lim @159.5
+-104 to 156

@@ -246,7 +246,50 @@ class m2fsConfig:
             return m2fsConfig.getGalilLastPositions(side)[axis]
         except KeyError:
             raise ValueError
-    
+
+    @staticmethod
+    def getSelectorDefaults():
+        """ Get dict of selector parameter defaults for IFUM """
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        try:
+            with open(os.path.join(m2fsConfig.getConfDir(), 'ifum_selector.conf'), 'r') as f:
+                config.readfp(f)
+            return dict(config.items('Defaults'))
+        except Exception:
+            return {}
+
+    @staticmethod
+    def setSelectorDefaults(defaults):
+        """
+        Write the Selector defaults to the selector config file
+
+        Takes a dictionary of settings. Any settings in the file but not in the
+        dict WILL be erased.
+        """
+        config = ConfigParser.RawConfigParser()
+        config.optionxform = str
+        config.add_section('Defaults')
+        with open(m2fsConfig.getConfDir() + 'ifum_selector.conf', 'w') as configfile:
+            for setting, value in defaults.items():
+                config.set('Defaults', setting, value)
+            config.write(configfile)
+            configfile.close()
+
+    @staticmethod
+    def setSelectorDefault(setting, value):
+        """
+        Write the selector default setting to the selector config file
+
+        Takes a setting name string and a string value.
+        """
+        # Get a dict with all the settings
+        defaults = m2fsConfig.getSelectorDefaults()
+        # Update/Add the value of the setting
+        defaults[setting] = value
+        # Update the defaults file
+        m2fsConfig.setSelectorDefaults(defaults)
+
     @staticmethod
     def getDataloggerLogfileName():
         """

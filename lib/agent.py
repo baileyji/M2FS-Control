@@ -416,6 +416,8 @@ class Agent(object):
         #check all other connections
         locks=[]
         for selectedconn in self.connections.values():
+            if not isinstance(selectedconn, SelectedConnection):
+                continue
             if selectedconn.rlock.acquire(False):
                 releaseLock=True
                 if selectedconn.do_select_read():

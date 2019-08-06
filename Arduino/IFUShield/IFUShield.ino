@@ -297,7 +297,6 @@ bool HVcommand() {
     return true;
   }
 
-  //TODO make this work with the lamp_t enum
   lamp_t lamp;
   if (command_buffer[2]>= '1' && command_buffer[2] <='5') {
     lamp = (lamp_t) command_buffer[2]-'1';

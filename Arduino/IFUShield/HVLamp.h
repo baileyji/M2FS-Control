@@ -26,7 +26,7 @@
 #define ADC_TO_MILLIAMPS 30/1023.0
 
 
-typedef enum {THAR_LAMP, THNE_LAMP, HG_LAMP, NE_LAMP, HE_LAMP, NONE_LAMP, MULTIPLE_LAMP} lamp_t;
+typedef enum {THAR_LAMP=0, THNE_LAMP=1, HG_LAMP=2, NE_LAMP=3, HE_LAMP=4, NONE_LAMP=5, MULTIPLE_LAMP=6} lamp_t;
 
 typedef unsigned int current_t;
 typedef unsigned int voltage_t;

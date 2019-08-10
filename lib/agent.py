@@ -681,14 +681,13 @@ class Agent(object):
         if not blockingID:
             blockingID=threading.current_thread().ident
         self.logger.debug("Unblock %s, id= %i" % (command_or_name,blockingID))
-        self.logger.debug("Befor unblock: "+str(self._blocked))
-        if type(command_or_name) == str:
-            self.command_handlers[command_or_name]
+        self.logger.debug("Before unblock: "+str(self._blocked))
+        if type(command_or_name) == str and command_or_name in self.command_handlers:
             blocked_command_name=command_or_name
         else:
             blocked_command_name=self.getCommandName(command_or_name)
         #Get the list of blocks
-        blocks=self._blocked.get(command_name, [])
+        blocks=self._blocked.get(blocked_command_name, [])
         #Find all the blocks for the current thread (there should only be one)
         blocksToClear=[i for i,x in enumerate(blocks) if x[0]==blockingID]
         #Remove them
@@ -771,7 +770,7 @@ class Agent(object):
         #Tie all the requested blocks to the worker thread
         self.block(command_name, blockingID=worker.ident)
         for blockable in block:
-            self.block(blockable,blockingID=worker.ident)
+            self.block(blockable, blockingID=worker.ident)
 
     def returnFromWorkerThread(self, command_name, finalState=''):
         if finalState:

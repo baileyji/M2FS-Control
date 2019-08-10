@@ -4,10 +4,11 @@ sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
+from haydonidea import IdeaDrive
 
 EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.3'
-SHOE_AGENT_VERSION_STRING='Shoe Agent v1.0'
-SHOE_AGENT_VERSION_STRING_SHORT='v1.0'
+OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
+OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 
 DH_TIME=35
 SHOE_BOOT_TIME=2
@@ -21,15 +22,6 @@ def longTest(s):
         return True
     except ValueError:
         return False
-
-def byte2bitNumberString(byte):
-    """ Convert '10110000' to '5 6 8' """
-    bytestr='{0:08b}'.format(byte)
-    return ' '.join([str(8-i) for i,bit in enumerate(bytestr) if bit=='1'][-1::-1])
-
-class ShoeCommandNotAcknowledgedError(IOError):
-    """ Shoe fails to acknowledge a command, e.g. didn't respond with ':' """
-    pass
 
 class ShoeSerial(SelectedConnection.SelectedSerial):
     """ 
@@ -90,52 +82,32 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         except Exception, e:
             pass
 
-class ShoeAgent(Agent):
+class OcculterAgent(Agent):
     """
-    This control program is responsible for controlling the fiber shoe for one
-    side of the spectrograph. Two instances are run, one for the R side
-    and one for the B side.
+    This control program is responsible for controlling a singler Occulter mask.
+    Three instances are run, one for each of the IFUs.
     
-    Low level device functionality is handled by the Arduino microcontroller 
-    embedded in the shoe itself. The C++ code run on the shoe is found in the
-    file fibershoe.ino and its libraries in ../Arduino/libraries
-    
-    The agent supports two simultaneous connections to allow the datalogger to
-    request the shoe temperature.
+    Low level device functionality is handled by the HaydonKerk IDEA driver. The
+    proprietary code run on the drive is found in the files in ../haydonkerk/*.idea,
+    one per subroutine. (TODO place files!)
     """
     def __init__(self):
-        Agent.__init__(self,'ShoeAgent')
+        Agent.__init__(self, 'OcculterAgent')
+        self.IFU = self.args.IFU
         #Initialize the shoe
         if not self.args.DEVICE:
-            self.args.DEVICE='/dev/shoe'+self.args.SIDE
-#        if self.args.simulator:
-#            self.connections['shoe']=SelectedConnection.SimConnection(
-#                 self.args.DEVICE, timeout=1)
-#        else:
-        self.connections['shoe']=ShoeSerial(self.args.DEVICE,
-                                            115200, timeout=1)
-        #Allow two connections so the datalogger agent can poll for temperature
-        self.max_clients=2
+            self.args.DEVICE = '/dev/occulter'+self.IFU
+        self.connections['occulter'] = IdeaDrive(port=self.args.DEVICE)
+
         self.command_handlers.update({
             #Send the command string directly to the shoe
-            'SLITSRAW':self.RAW_command_handler,
-            #Get/Set the active slit on all 8 tetri. The move is carried out
-            # openloop based on the defined step positions for each slit.
-            'SLITS':self.SLITS_command_handler,
-            #Get/Set the step position corresponding to a slit on a tetris
-            'SLITS_SLITPOS':self.SLITPOS_command_handler,
-            #Get/Set the backlash for a tetris
-            'SLITS_BACKLASH':self.BACKLASH_command_handler,
-            #Get the current step position of a tetris 
-            'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
-            #Turn active holding of the slit position on or off
-            'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
-            #Get the temperature of the shoe
-            'SLITS_TEMP':self.TEMP_command_handler,
-            #Tell the shoe to move a tetris a number of steps
-            'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
-            #Tell shoe to drive a tetris to the hardstop, calibrating it
-            'SLITS_HARDSTOP':self.HARDSTOP_command_handler})
+            'OCCRAW': self.RAW_command_handler,
+            #Get/Set the position of the occulter. The move is carried out closedloop by the controller
+            'OCC': self.OCC_command_handler,
+            #Move by a relative step amount
+            'OCC_STEP': self.STEP_command_handler,
+            #Calibrate the occulter
+            'OCC_CALIBRATE': self.CALIBRATE_command_handler})
     
     def get_cli_help_string(self):
         """
@@ -144,7 +116,7 @@ class ShoeAgent(Agent):
         Subclasses shuould override this to provide a description for the cli
         parser
         """
-        return "This is the shoe agent. It takes shoe commands via \
+        return "This is the occulter agent. It takes occulter commands via \
         a socket connection or via CLI arguments."
     
     def add_additional_cli_arguments(self):
@@ -154,19 +126,15 @@ class ShoeAgent(Agent):
         Arguments should be added as:
         self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
         """
-        self.cli_parser.add_argument('--side', dest='SIDE',
-                                     action='store', required=False, type=str,
-                                     help='R or B',
-                                     default='R')
-        self.cli_parser.add_argument('--device', dest='DEVICE',
-                                     action='store', required=False, type=str,
-                                     help='the device to control')
-        self.cli_parser.add_argument('command',nargs='*',
-                                help='Agent command to execute')
+        self.cli_parser.add_argument('--ifu', dest='IFU', action='store', required=False,
+                                     type=str, help='H, M, L', default='M')
+        self.cli_parser.add_argument('--device', dest='DEVICE', help='the device to control',
+                                     action='store', required=False, type=str)
+        self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')
     
     def get_version_string(self):
         """ Return a string with the version."""
-        return SHOE_AGENT_VERSION_STRING
+        return OCCULTER_AGENT_VERSION_STRING
 
     def _send_command_to_shoe(self, command_string):
         """
@@ -219,58 +187,19 @@ class ShoeAgent(Agent):
                 self.logger.warning(err)
                 raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
     
-    def _do_online_only_command(self, command):
-        """
-        Execute a command that requires the shoe to be online
-        
-        This command wraps command with an attempt to bring the shoe online.
-        If the shoe won't come online an appropriate error response is returned
-        and the command is not attempted.
-        If the command fails the error is returned.
-        If the command succeeds but returns nothing 'OK' is returned.
-        """
-        try:
-            self._send_command_to_shoe('CS')
-        except ShoeCommandNotAcknowledgedError:
-            return 'ERROR: Tighten locking nuts on cradle %s' % self.args.SIDE
-        except IOError:
-            return 'ERROR: Shoe not in cradle %s' % self.args.SIDE
-        try:
-            response=self._send_command_to_shoe(command)
-            if not response:
-                response='OK'
-            return response
-        except IOError, e:
-            response=str(e)
-            if not response.startswith('ERROR: '):
-                return 'ERROR: '+response
-            else:
-                return response
-    
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
         
         Report the Key:Value pairs:
             name:cookie,
-            Cradle<color>:Shoe<color> <Error if not responding properly>
             Drivers:[Powered| Off]
             On: string of tetri numbers that are on e.g. '1 4 6' or None
             Moving: string of tetri numbers that are moving
             Calibrated: string of tetri numbers that are calibrated 
             
-        Status is reported as 4 bytes with the form
-        Byte 1) [DontcareX5][shoeOnline][shieldIsR][shieldIsOn]
-        Byte 2) [tetris7on]...[tetris0on]
-        Byte 3) [tetris7calibrated]...[tetris0calibrated]
-        Byte 4) [tetris7moving]...[tetris0moving]
-        NB we dont actually use the shieldIsR bit since udev is checking based
-        on serial numbers
-        
-        As of the comissioning run, the boards are swapped
-        and tetrisShieldIsR() returns true for the B shoe and false for the R shoe
-        -JB 8/22/13
-        
+
+
         """
         #Name & cookie
         status_list=[(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT,
@@ -304,9 +233,10 @@ class ShoeAgent(Agent):
         arg=command.string.partition(' ')[2]
         if arg:
             try:
-                self.connections['shoe'].sendMessageBlocking(arg)
-                response=self.connections['shoe'].receiveMessageBlocking(nBytes=2048)
+                response=self.connections['occulter'].send_command_to_hk(arg)
                 response=response.replace('\r','\\r').replace('\n','\\n')
+                if not response:
+                    response = 'IDEA DRIVE GAVE NO RESPONSE'
             except IOError, e:
                 response='ERROR: %s' % str(e)
             command.setReply(response)
@@ -317,329 +247,125 @@ class ShoeAgent(Agent):
         """
         Perform a stowed shutdown
         """
-        pass
-#        if 'shoe' not in self.connections: return
-#        
-#        failmsg="Stowed shutdown of {} failed: {}"
-#        #wait here until the show connection is free. Any threads running
-#        #will then stall if they need the shoe, program will be unresponsive
-#        # to socket interface
-#        self.connections['shoe'].rlock.acquire(blocking=True)
-#        
-#        #drive to hardstop and then 180
-#        resp=self._do_online_only_command('ST*')
-#        if resp !='OK': self.logger.error(resp)
-#
-#        status=self._do_online_only_command('TS')
-#        if status.startswith('ERROR:'):
-#            self.logger.error(failmsg.format(self.name, status))
-#            return
-#        
-#        #determine which tetri are uncalibrated
-#        uncalByte=status.split(' ')[2]
-#        if uncalByte!='0':
-#            calibrated=map(lambda x: int(x)-1,
-#                             byte2bitNumberString(int(uncalByte)).split(' '))
-#            uncalibrated=[x for x in range(0,8) if x not in calibrated]
-#        else:
-#            uncalibrated=range(0,8)
-#        
-#        #Move calibrated and calibrate uncalibrated
-#        for i in range(0,8):
-#            if i in uncalibrated:
-#                resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
-#            else:
-#                cmd='SL'+'ABCDEFGH'[i]+'2'
-#                resp=self._do_online_only_command(cmd)
-#            if resp !='OK':
-#                self.logger.error(failmsg.format(self.name, resp))
-#                return
-#        
-#        #wait
-#        time.sleep(MAX_SLIT_MOVE_TIME)
-#
-#        #wait some more
-#        if len(uncalibrated) > 0:
-#            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
-#
-#        #move any that started out uncalibrated
-#        for i in uncalibrated:
-#            cmd='SL'+'ABCDEFGH'[i]+'2'
-#            resp=self._do_online_only_command(cmd)
-#            if resp !='OK':
-#                self.logger.error(failmsg.format(self.name, resp))
-#                return
+        if 'occulter' not in self.connections:
+            return
+        #TODO Robustify
+        stow = m2fsConfig.getOcculterDefaults(self.IFU)['stowpos']
+        self.connections['occulter'].move_to(stow)
 
-
-    def TEMP_command_handler(self, command):
+    def OCC_command_handler(self, command):
         """
-        Get the current shoe temperature
-        
-        Responds with the temp or UNKNOWN
-        """
-        if self.connections['shoe'].rlock.acquire(False):
-            try:
-                response=self._send_command_to_shoe('TE')
-            except IOError, e:
-                response='UNKNOWN'
-            finally:
-                self.connections['shoe'].rlock.release()
-        else:
-            response='ERROR: Busy, try again'
-        command.setReply(response)
-    
-    def SLITS_command_handler(self, command):
-        """
-        Get/Set the active slit on all 8 tetri.
+        Get/Set the occulter position.
         
         Command is of the form
-        SLITS {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} 
+        OCC #
         or 
-        SLITS ?
+        OCC ?
         
-        If setting, the command instructs the shoe to move each tetris to the 
-        requested slit position, openloop, using the defined step position for
-        that slit. It is an error to set the slits when they are uncalibrated 
-        or a move is in progress. If done the error '!ERROR: Can not set slits at
-        this time. will be generated.' TODO integrate with TS command to provide 
-        informative reason for falure. NB The shoe just returns ?
+        If setting, the command instructs the occulter to move to the
+        requested position, closedloop. It is an error to set the slits
+        when they are uncalibrated or a move is in progress. If done the error
+        '!ERROR: Can not set slits at this time. will be generated.'
+
         
-        If getting, respond in the from TETRIS0, ..., TETRIS7
-        where TETRISi is one of UNKNOWN INTERMEDIATE MOVING or {1-7}, 7
-        representing the closed position.
+        If getting, respond in the form # or STATE (#) where STATE is one of
+        UNCALIBRATED, MOVING, FAULT.
         """
         if '?' in command.string:
-            #Command the shoe to report the active slit for all 8 tetri
-            command.setReply(self._do_online_only_command('SG*'))
+            #Fetch state and return status
+            state = self.connections['occulter'].state
+            if state.moving or not state.calibrated or state.errorPresent:
+                s = 'MOVING' if state.moving else 'FAULT' if state.errorPresent else 'UNCALIBRATED'
+                command.setReply('{} ({})'.format(s, state.position))
+            else:
+                command.setReply(str(state.position))
         else:
             #Vet the command
-            command_parts=command.string.replace(',',' ').split(' ')
-            if not (len(command_parts)==9 and
-                len(command_parts[1])==1 and command_parts[1] in '1234567' and
-                len(command_parts[2])==1 and command_parts[2] in '1234567' and
-                len(command_parts[3])==1 and command_parts[3] in '1234567' and
-                len(command_parts[4])==1 and command_parts[4] in '1234567' and
-                len(command_parts[5])==1 and command_parts[5] in '1234567' and
-                len(command_parts[6])==1 and command_parts[6] in '1234567' and
-                len(command_parts[7])==1 and command_parts[7] in '1234567' and
-                len(command_parts[8])==1 and command_parts[8] in '1234567'):
+            command_parts = command.string.split(' ')
+            try:
+                pos = float(command_parts[1])
+            except ValueError:
                 self.bad_command_handler(command)
-            #First check to make sure the command is allowed (all are
-            # calibrated and none are moving
-            #Verify all tetri are calibrated and none are moving
-            # see documentation of TS command in fibershoe.ino or
-            # get_status_list
-            status=self._do_online_only_command('TS')
-            if status.startswith('ERROR:'):
-                command.setReply(status)
+            #First check to make sure the command is allowed (all we calibrated and not
+            # moving
+            state = self.connections['occulter'].state
+            if state.errorPresent:
+                command.setReply('ERROR: Fault Codes Present ({})'.format(state.faultString))
                 return
-            movingByte=''.join(status.split()[3:4])
-            if '0' != movingByte:
-                command.setReply('ERROR: Move in progress (%s).' % movingByte)
+            if state.moving:  #TODO is this ok like for the selector or no ok like galil
+                command.setReply('ERROR: Move in progress.')
                 return
+
             command.setReply('OK')
-            slits=''.join(command_parts[1:9])
-            self.startWorkerThread(command, 'MOVING', self.slit_mover,
-                args=(slits, status),
-                block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS',
-                       'SLITS_HARDSTOP'))
-    
-    def slit_mover(self, slits, status):
+
+            self.startWorkerThread(command, 'MOVING', self.occulter_mover,
+                                   args=(pos, not state.calibrated, 'PREPARING'),
+                                   block=('OCCRAW', 'OCC', 'OCC_STEP', 'OCC_CALIBRATE'))
+
+    def occulter_mover(self, pos, calibrate, status):
         """
-        slits is a 8-tuble or list of number strings '1' - '7'
+        slits is a 8-tuple or list of number strings '1' - '7'
         status is the response to the command TS
         """
         #Command the shoe to reconfigure the tetrii
         #Determine which are uncalibrated
-        uncalByte=status.split(' ')[2]
-        if uncalByte!='0':
-            calibrated=map(lambda x: int(x)-1,
-                             byte2bitNumberString(int(uncalByte)).split(' '))
-            uncalibrated=[x for x in range(0,8) if x not in calibrated]
-        else:
-            uncalibrated=range(0,8)
-        with self.connections['shoe'].rlock:
-            for i in range(0,8):
-                if i in uncalibrated:
-                    resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
-                else:
-                    cmd='SL'+'ABCDEFGH'[i]+slits[i]
-                    resp=self._do_online_only_command(cmd)
-                if resp !='OK':
-                    self.returnFromWorkerThread('SLITS', finalState=resp)
-                    return
-            self.logger.debug('sleeping with lock active')
-            time.sleep(MAX_SLIT_MOVE_TIME)
-            self.logger.debug('finished sleeping with lock active')
-        if len(uncalibrated) > 0:
-            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
-        with self.connections['shoe'].rlock:
-            for i in uncalibrated:
-                cmd='SL'+'ABCDEFGH'[i]+slits[i]
-                resp=self._do_online_only_command(cmd)
-                if resp !='OK':
-                    self.returnFromWorkerThread('SLITS', finalState=resp)
-                    return
-        self.returnFromWorkerThread('SLITS')
-    
-    def SLITPOS_command_handler(self, command):
-        """
-        Retrieve or set the step position of a slit
-        
-        This command has three arguments: the tetris, 1-8; the slit 1-7
-        (7=closed); and the slit position or a question mark.
-        
-        The set position only affects subsequent moves.
-        """
-        #Vet the command
-        command_parts=command.string.split(' ')
-        if (len(command_parts)>3 and 
-            len(command_parts[1])==1 and command_parts[1] in '12345678' and
-            len(command_parts[2])==1 and command_parts[2] in '1234567' and 
-            ('?' in command_parts[3] or  longTest(command_parts[3]))):
-            #Extract the tetris ID
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            #...and the slit
-            slit=command_parts[2]
-            #If getting
-            if '?' in command.string:
-                #Get the step position of the slit from the requested tetris
-                try:
-                    response=self._send_command_to_shoe('SD'+tetrisID+slit)
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            else:
-                """ Set the position """
-                pos=command_parts[3]
-                try:
-                    self._send_command_to_shoe('SS'+tetrisID+slit+pos)
-                    response='OK'
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            command.setReply(response)
-        else:
-            self.bad_command_handler(command)
-
-    def CURRENTPOS_command_handler(self, command):
-        """
-        Respond with the current step position of the tetris
-        
-        This command has one argument: the tetris, 1-8
-        """
-        command_parts=command.string.split(' ')
-        #Vet the command
-        if (len(command_parts)>1 and 
-            len(command_parts[1])==1 and 
-            command_parts[1] in '12345678'):
-            #Extract the tetris ID
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            #Get the step position from the shoe
-            response=self._do_online_only_command('TD'+tetrisID)
-            command.setReply(response)
-        else:
-            self.bad_command_handler(command)
-    
-    def ACTIVEHOLD_command_handler(self, command):
-        """
-        Turn active holding on or off or query the state.
-        
-        ACTIVEHOLD [ON|OFF|?]
-        
-        Active holding leaves the tetris motors energized after a move is
-        completed. Note there is no way for the motors to be backdriven
-        (The output shaft will shear off before this will happen), so this
-        doesn't really do anything other than waste power though it just might
-        possibly help repeatability.
-        """
-        if '?' in command.string:
+        if calibrate:
             try:
-                response=self._send_command_to_shoe('GH')
-            except IOError, e:
-                response=str(e)
-            command.setReply(response)
-        else:
-            if 'ON' in command.string and 'OFF' not in command.string:
-                command.setReply(self._do_online_only_command('AH'))
-            elif 'OFF' in command.string and 'ON' not in command.string:
-                command.setReply(self._do_online_only_command('PH'))
-            else:
-                self.bad_command_handler(command)
+                #TODO do I need to grab the rlock of the occulter,
+                # Probably within these functions maybe internally to the Haydonidea,
+                # look at existing code with self.connections['occulter'].rlock:
+                self.connections['occulter'].calibrate()
+
+            except RuntimeError:  # calibration failed.
+                #TODO need to handle disconnection
+                failcode = self.connections['occulter'].state.faultString
+                self.returnFromWorkerThread('OCC', finalState='ERROR: Calibration failed ({})'.format(failcode))
+
+        with self.connections['shoe'].rlock: #TODO needed?
+            self.connections['occulter'].move_to(pos)
+            success = True #TODO error fail handling for io? 
+            if not success:
+                resp = 'ERROR: some description'
+                self.returnFromWorkerThread('SLITS', finalState=resp)
+                return
+        self.returnFromWorkerThread('OCC')
     
-    def HARDSTOP_command_handler(self, command):
+    def OCC_CALIBRATE_command_handler(self, command):
         """
-        Command a tetris to drive to the hardstop, thus calibrating it
+        Command the haydon drive to perform the calibration routine. This can ccause motion
+        to last for several seconds even though the command will not block.
         
-        This command has one argument: the tetris, 1-8
+        This command has no arguments
         """
-        command_parts=command.string.split(' ')
-        if (len(command_parts)>1 and 
-            len(command_parts[1])==1 and 
-            command_parts[1] in '12345678'):
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            command.setReply(self._do_online_only_command('DH'+tetrisID))
-        else:
-            self.bad_command_handler(command)
+        #TODO error condition checking needed?
+        self.connections['occulter'].calibrate()
+        command.setReply('OK')
     
-    def MOVESTEPS_command_handler(self, command):
+    def OCC_STEP_command_handler(self, command):
         """
-        Command a tetris to move a specified number of steps
+        Command a relative, uncalibrated move a specified number of steps
         
-        This command has two argument: the tetris, 1-8, and the number of steps
-        to move. The full range of travel of a tetris corresponds to about 
-        7000 +/-1000 steps. The hardstop is in the positive direction. The
-        spring is compressed in the negative direction
+        This command has one argument: the number of steps
+        to move. The full range of travel of an occulter corresponds to about
+        ? +/-? steps. Extending is in the positive direction.
         """
-        command_parts=command.string.split(' ')
+        command_parts = command.string.split(' ')
         #Vet the command
-        if (len(command_parts)>2 and 
-            len(command_parts[1])==1 and
-            command_parts[1] in '12345678' and
-            longTest(command_parts[2])):
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            steps=command_parts[2]
-            command.setReply(self._do_online_only_command('PR'+tetrisID+steps))
+        if len(command_parts) > 1 and longTest(command_parts[1]):
+            #TODO add limit protections?
+            state = self.connections['occulter'].state
+            if state.errorPresent:
+                command.setReply('ERROR: Fault codes present ({})'.format(state.faultString))
+                return
+            if state.moving:  #TODO is this ok like for the selector or no ok like galil
+                command.setReply('ERROR: Move in progress.')
+                return
+            self.connections['occulter'].move_to(int(command_parts[1]), relative=True)
+            command.setReply('OK')
         else:
             self.bad_command_handler(command)
 
-    def BACKLASH_command_handler(self, command):
-        """
-        Retrieve or set the backlash amount of a tetris
-        
-        This command has one or two arguments: the tetris ID (1-8) and the
-        backlash amount or a question mark.
-        
-        Setting only affects subsequent moves.
-        """
-        #Vet the command
-        command_parts=command.string.split(' ')
-        
-        validSet=(len(command_parts)>2 and len(command_parts[1])==1 and
-                  command_parts[1] in '12345678' and longTest(command_parts[2]))
-        validGet=(len(command_parts)>1 and command_parts[1]=='?')
-        
-        if validGet or validSet:
-            #Extract the tetris ID
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            #If getting
-            if '?' in command.string:
-                #Get the backlash amount from the tetris
-                try:
-                    response=self._send_command_to_shoe('BG'+tetrisID)
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            else:
-                #Set the backlash amount from the tetris
-                amt=command_parts[2]
-                try:
-                    self._send_command_to_shoe('BL'+tetrisID+amt)
-                    response='OK'
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            command.setReply(response)
-        else:
-            self.bad_command_handler(command)
-        
 
 if __name__=='__main__':
-    agent=ShoeAgent()
+    agent=OcculterAgent()
     agent.main()

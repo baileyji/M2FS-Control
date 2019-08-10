@@ -5,7 +5,7 @@ import lib.SelectedConnection as SelectedConnection
 import time
 
 "reset appears not to work if a program is running"
-
+'cant get the drive current'
 
 BAUD = 57600
 
@@ -67,11 +67,13 @@ class IdeaFaults(object):
 
 
 class IdeaState(object):
-    def __init__(self, executing, faults, io, encoder):
+    def __init__(self, executing, faults, io, encoder, moving, position):
         self.encoder = encoder
         self.program_running = executing
         self.faults = faults
         self.io = io
+        self.moving = moving
+        self.position = position
 
     @property
     def calibrated(self):
@@ -81,6 +83,8 @@ class IdeaState(object):
     def errorPresent(self):
         return self.faults.faultPresent or self.io.errcode
 
+    def faultString(self):
+        return bin(self.faults.byte) + bin(self.io.errcode)
 
 class IdeaDrive(SelectedConnection.SelectedSerial):
     def __init__(self, ifu='Not Specified', port=None):
@@ -103,7 +107,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def programRunning(self):
         # # See if program is running
         # 'r'-> yes or no "`rYES[cr]`r#[cr]" or "`rNO[cr]`r#[cr]"
-        return 'YES' in self._send_command_to_hk('r')
+        return 'YES' in self.send_command_to_hk('r')
 
     # def _postConnect(self):
     #     """
@@ -130,9 +134,9 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def command_has_response(self, cmd):
         return cmd[0] in 'cPlkbrfv:joNK@'
 
-    def _send_command_to_hk(self, command_string):
+    def send_command_to_hk(self, command_string):
         """
-        Send a command string to the idea drive, wait for immediate response
+        Send a command string to the idea drive, wait for immediate response if command has response
 
         Silently ignore an empty command.
 
@@ -178,15 +182,15 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         return commandReply
 
     def abort(self):
-        self._send_command_to_hk('A')
+        self.send_command_to_hk('A')
 
     @property
     def io(self):
-        return IdeaIO(self._send_command_to_hk(':'))  # 8 bit number O4-1 I4-1 "`:31\r`:#\r"
+        return IdeaIO(self.send_command_to_hk(':'))  # 8 bit number O4-1 I4-1 "`:31\r`:#\r"
 
     @property
     def moving(self):
-        return 'YES' in self._send_command_to_hk('o')  # "`oYES[cr]`o#[cr]" or "`oNO[cr]`o#[cr]"
+        return 'YES' in self.send_command_to_hk('o')  # "`oYES[cr]`o#[cr]" or "`oNO[cr]`o#[cr]"
 
     @property
     def calibrated(self):
@@ -219,7 +223,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
         self.commanded_position = position if not relative else position + self.commanded_position
         cmd = 'I' if relative else 'M'
-        self._send_command_to_hk(cmd + ','.join(map(str, map(int, params))))
+        self.send_command_to_hk(cmd + ','.join(map(str, map(int, params))))
 
     def position_error(self):
         """ in inches"""
@@ -228,24 +232,26 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         return (self.position(steps=True)-self.commanded_position)*IN_PER_64THSTEP
 
     def position(self, steps=False):
-        pos = int(self._send_command_to_hk('l'))
+        pos = int(self.send_command_to_hk('l'))
         return pos if steps else pos*IN_PER_64THSTEP
 
-    def calibrate(self):
+    def calibrate(self, nosleep=False):
+        """ TODO flesh out exceptions and make not conditional on nosleep arg"""
         self.sendMessageBlocking('mCalibrate_')
-        time.sleep(CALIBRATION_MAX_TIME)
-        state = self.state()
-        if not state.calibrated:
-            raise RuntimeError
+        if not nosleep:
+            time.sleep(CALIBRATION_MAX_TIME)
+            state = self.state()
+            if not state.calibrated:
+                raise RuntimeError
 
     # def config_encoder(self):
     #     DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res
     #     params = [DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res]
-    #     self._send_command_to_hk(cmd + ','.join(map(int, params)))
+    #     self.send_command_to_hk(cmd + ','.join(map(int, params)))
 
     def encoder_config(self):
         #This appears to return nothing if the encoder is not
-        enc = self._send_command_to_hk('b')  # "`b[deadband],[stallhunts],[lines/rev][cr]`b#[cr]"
+        enc = self.send_command_to_hk('b')  # "`b[deadband],[stallhunts],[lines/rev][cr]`b#[cr]"
         if not enc:
             return 0,0,0
         return tuple(map(int, enc.split(',')))
@@ -265,7 +271,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         stepping = 64
         decel = 0
         params = [end_speed, decel, run_current, decel_current, hold_current, delay_time, stepping]
-        self._send_command_to_hk('H' + ','.join(map(str, map(int, params))))
+        self.send_command_to_hk('H' + ','.join(map(str, map(int, params))))
 
     def estop(self):
         """
@@ -277,17 +283,18 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         delay_time = 300
         hold_current = 0
         params = [decel_current, hold_current, delay_time]
-        self._send_command_to_hk('E' + ','.join(map(str, map(int, params))))
+        self.send_command_to_hk('E' + ','.join(map(str, map(int, params))))
 
     @property
     def faults(self):
-        return IdeaFaults(self._send_command_to_hk('f'))
+        return IdeaFaults(self.send_command_to_hk('f'))
 
     def reset(self):
-        self._send_command_to_hk('R')
+        self.send_command_to_hk('R')
 
     def state(self):
-        return IdeaState(self.programRunning, self.faults, self.io, self.encoder_config())
+        return IdeaState(self.programRunning, self.faults, self.io, self.encoder_config(),
+                         self.moving, self.position())
 
 
 if __name__ == '__main__':

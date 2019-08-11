@@ -119,7 +119,8 @@ class LoggerRecord(object):
     Side R & sideB accels are mutually exclusive
 
     Implements the magic function __str__
-    """    
+    """
+    #TODO update for IFUM
     def __init__(self, timestamp, shackhartmanTemp=None,
                         cradleRTemp=None, cradleBTemp=None,
                         echelleRTemp=None, echelleBTemp=None,

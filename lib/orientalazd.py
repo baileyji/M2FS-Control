@@ -221,7 +221,7 @@ class OrientalMotor(object):
         # 0x00C6-7 command position
         # 0x00CC-D detected position
         # 0x00D6 0x00D7  current/max torque
-
+        #TODO finish
         #interface contract:
         'error_string' (if has_fault)
         'has_fault'

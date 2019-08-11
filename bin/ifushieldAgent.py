@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 import sys, socket, time
 sys.path.append(sys.path[0]+'/../lib/')
-
+import SelectedConnection
 from agent import Agent
 
 IFUSHIELD_AGENT_VERSION_STRING = 'IFUShield Agent v1.0'
@@ -86,7 +86,7 @@ class IFUShieldAgent(Agent):
             # Get/Set state of LEDs
             'LED': self.LED_command_handler, #response:{ OK,ERROR, # # # # # #}
             #Report all the temps
-            'TEMPS': self.TEMPS_command_handler)  #response:{  # # # # # #}
+            'TEMPS': self.TEMPS_command_handler})  #response:{  # # # # # #}
 
     def add_additional_cli_arguments(self):
         """

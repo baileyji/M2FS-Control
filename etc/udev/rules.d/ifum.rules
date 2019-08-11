@@ -1,0 +1,13 @@
+#IFUShield
+ATTRS{serial}=="?", SYMLINK+="ifushield"
+
+#Occulters
+ATTRS{serial}=="?", SYMLINK+="occulterH"
+ATTRS{serial}=="?", SYMLINK+="occulterM"
+ATTRS{serial}=="?", SYMLINK+="occulterL"
+
+#IFU Shoe
+ATTRS{serial}=="?", SYMLINK+="ifushoe"
+
+#IFU Selector
+ATTRS{serial}=="?", SYMLINK+="ifuselector"

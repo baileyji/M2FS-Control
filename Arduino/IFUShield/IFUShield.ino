@@ -69,15 +69,17 @@ bool LEcommand();
 bool HVcommand();
 bool TScommand();
 bool TEcommand();
+bool PVcommand();
 
 
-#define N_COMMANDS 5
+#define N_COMMANDS 6
 const Command commands[]={
     {"LE", LEcommand},
     {"HV", HVcommand},
     {"PC", PCcommand}, //Print Commands
     {"TE", TEcommand}, //Report temps
     {"TS", TScommand},  //Report all status (whats on and off)
+    {"PV", PVcommand},
 };
 
 
@@ -221,7 +223,7 @@ bool LEcommand() {
 
   int level;
   if (command_length>4) {
-    level=atoi(&command_buffer[4]);
+    level=atoi(&command_buffer[3]);
     if (level<0) level=0;
     if (level>4096) level=4096;
   }
@@ -265,35 +267,15 @@ bool HVcommand() {
   HV##\n <- min command 
   */
   if (command_buffer[2]=='?') {
-    lampstatus_t active = hvcontrol.getActiveLamp();
-    switch (active.lamp) {
-        case THAR_LAMP:
-            Serial.print(F("ThAr "));
-            Serial.println(active.current);
-            break;
-        case THNE_LAMP:
-            Serial.print(F("ThNe "));
-            Serial.println(active.current);
-            break;
-        case HG_LAMP:
-            Serial.print(F("Hg "));
-            Serial.println(active.current);
-            break;
-        case NE_LAMP:
-            Serial.print(F("Ne "));
-            Serial.println(active.current);
-            break;
-        case HE_LAMP:
-            Serial.print(F("He "));
-            Serial.println(active.current);
-            break;
-        case NONE_LAMP:
-            Serial.println(F("Off"));
-            break;
-        default:
-            Serial.println(F("ERROR"));
-            break;
+    current_t lamplevels[N_LAMPS];
+    for (int i=0; i<N_LAMPS; i++) {
+      lamplevels[i] = hvcontrol.isLampEnabled(i) ? active.current : 0;
     }
+    char buf[16]; // "0000 0000 0000 0000 0000 0000\n"
+    buf[16]=0;
+    sprintf(buf,"%02d %02d %02d %02d %02d\n", lamplevels[0],lamplevels[1],lamplevels[2],lamplevels[3],lamplevels[4]);
+    Serial.write(buf, 16);
+
     return true;
   }
 
@@ -302,6 +284,11 @@ bool HVcommand() {
     lamp = (lamp_t) command_buffer[2]-'1';
   } else {
     return false;
+  }
+
+  if (lamp==NONE_LAMP)
+    hvcontrol.turnOff();
+    return true;
   }
   
   if (command_length > 4){
@@ -370,5 +357,12 @@ bool PCcommand() {
     Serial.println(F("#HVx# High Voltage - Set HV lamp x to # illumination, all others off"));
     Serial.println(F("#TS   Tell Status - Tell the status"));
     Serial.println(F("#TE   Temperature - Report all temperatures"));
+    return true;
+}
+
+
+//Print the commands
+bool PVcommand() {
+    Serial.println(F("1.0"));
     return true;
 }

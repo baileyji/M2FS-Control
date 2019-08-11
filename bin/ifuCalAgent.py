@@ -3,18 +3,15 @@ import sys, socket, time
 sys.path.append(sys.path[0]+'/../lib/')
 
 from agent import Agent
-import m2fsConfig
 
 IFUCAL_AGENT_VERSION_STRING = 'IFUCal Agent v1.0'
 
 ARDUINO_BOOT_TIME = .1
-EXPECTED_IFUCAL_INO_VERSION = 1
+EXPECTED_IFUCAL_INO_VERSION = '1.0'
 
 COLORS = ('392', '407', 'whi', '740', '770', '875')
 HVLAMPS = ('thar', 'thne', 'hg', 'ne', 'he')
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
-MAXLEVEL = {'392': 4096, '407': 4096, 'whi': 4096, '740': 2048, '770': 2048, '875': 2048,
-            'ThAr':7, 'ThNe':7, 'Hg':7, 'Ne':7, 'He':7}
 
 
 class IFUArduinoSerial(SelectedConnection.SelectedSerial):
@@ -34,10 +31,7 @@ class IFUArduinoSerial(SelectedConnection.SelectedSerial):
     """
 
     def _preConnect(self):
-        """
-        Attempt at workaround for
-        https://bugs.launchpad.net/digitemp/+bug/920959
-        """
+        """ Attempt at workaround for https://bugs.launchpad.net/digitemp/+bug/920959 """
         try:
             from subprocess import call
             s = 'stty crtscts < {device};stty -crtscts < {device}'.format(device=self.port)
@@ -63,20 +57,10 @@ class IFUArduinoSerial(SelectedConnection.SelectedSerial):
                              (response, EXPECTED_IFUCAL_INO_VERSION))
             raise SelectedConnection.ConnectError(error_message)
 
-        #TODO update various lamp statues
-        self.sendMessageBlocking('LE ?')
-        ledstat = self.receiveMessageBlocking(nBytes=30)
-        self.sendMessageBlocking('HV ?')
-        hvstat = self.receiveMessageBlocking()  #?=bytes in current value
-        self.sendMessageBlocking('TE')
-        temps = self.receiveMessageBlocking()
-
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """
         try:
-            self.connection.write('HV50\n')  #5th lamp is no lamp, current value ignored
-            self.connection.write('LE*0\n')
-
+            self.connection.write('OF\n')  #turn everything off
             self.connection.flushOutput()
             self.connection.flushInput()
             self.connection.close()
@@ -90,13 +74,7 @@ class IFUCalAgent(Agent):
     """
     def __init__(self):
         Agent.__init__(self, 'IFUCalAgent')
-        self.max_clients = 1
-        self.connections['ifucal'] = IFUArduinoSerial() #TODO finish
-        self.colors = COLORS
-        self.hvlamps = HVLAMPS
-        self.ledValue = {c: 0  for c in self.colors}
-        self.hvValue = {c: 0 for c in self.hvlamps}
-        self.temps = {t: 999 for t in TEMPS}  #TODO is this needed
+        self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
         self.max_clients = 2
         self.command_handlers.update({
             # Get/Set state of HV lamps
@@ -106,12 +84,23 @@ class IFUCalAgent(Agent):
             'HG': self.HV_command_handler,
             'NE': self.HV_command_handler,
             # Get/Set state of LEDs
-            'MCLED': self.MCLED_command_handler, #response:{ OK,ERROR, # # # # # #}
+            'LED': self.LED_command_handler, #response:{ OK,ERROR, # # # # # #}
             #Report all the temps
             'TEMPS': self.TEMPS_command_handler)  #response:{  # # # # # #}
 
+    def add_additional_cli_arguments(self):
+        """
+        Additional CLI arguments may be added by implementing this function.
+
+        Arguments should be added as:
+        self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
+        """
+        self.cli_parser.add_argument('--device', dest='DEVICE',
+                                     action='store', required=False, type=str,
+                                     help='the device to control', default='/dev/ifushield')
+
     def get_version_string(self):
-        """ Return a string with the version."""
+        """ Return a string with the version. """
         return IFUCAL_AGENT_VERSION_STRING
     
     def get_cli_help_string(self):
@@ -123,18 +112,68 @@ class IFUCalAgent(Agent):
         """
         return "This is the IFUCalLED agent. It controls the IFU-M LED and HV lamp unit and fetches temps in IFU-M."
 
+    def _send_command_to_shield(self, command_string):
+        """
+        Send a command string to the ifushield, wait for immediate response
+
+        Silently ignore an empty command.
+
+        Raise IOError if the command isn't acknowledged
+
+        Procedure is as follows:
+        Send the command string to the shield
+        grab a singe byte from the shoe and if it isn't a : or a ? listen for
+        a \n delimited response followed by a :.
+
+        Return a string of the response to the commands.
+        Note the : ? are not considered responses. ? gets the exception and :
+        gets an empty string. The response is stripped of whitespace.
+        """
+        # No command, return
+        if not command_string:
+            return ''
+        # Send the command(s)
+        self.connections['ifushield'].sendMessageBlocking(command_string)
+        # Get the first byte, this will be it for a simple ACK
+        response = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+        # 3 cases:, :, ?, or stuff followed by \r\n:
+        # case 1, command succeeds but returns nothing, return
+        if response == ':':
+            return ''
+        elif response == '?':  # command failed
+            raise IOError("ERROR: IFUShield did not acknowledge (?) command '%s'".format(command_string))
+        # command is returning something
+        else:
+            # do a blocking receive on \n
+            response = response + self.connections['ifushield'].receiveMessageBlocking()
+            # ...and a single byte read to grab the :
+            confByte = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+            if confByte == ':':
+                return response.strip()
+            else:
+                # Consider it a failure, log it. Add the byte to the response for logging
+                response += confByte
+                err = ("IFUShield did not adhere to protocol. '%s' got '%s'" % (command_string, response))
+                self.logger.warning(err)
+                raise IOError('ERROR: %s' % err)
+
     def TEMPS_command_handler(self, command):
         """
-        Handle getting the temp sensor readings in IFU-M, respond with temps or UNKNOWN
+        Handle getting the temp sensor readings in IFU-M enclosure (except on the selector drive),
+        respond with temps or UNKNOWN
         """
-        try:
-            self.sendMessageBlocking('TE')
-            command.setReply(self.receiveMessageBlocking())
-            self.receiveMessageBlocking(nBytes=1)  # grab ack. :
-        except IOError:
-            command.setReply('UNKNOWN')
+        if self.connections['ifushield'].rlock.acquire(False):
+            try:
+                response=self._send_command_to_shield('TE')
+            except IOError, e:
+                response='UNKNOWN'
+            finally:
+                self.connections['ifushield'].rlock.release()
+        else:
+            response='ERROR: Busy, try again'
+        command.setReply(response)
 
-    def MCLED_command_handler(self, command):
+    def LED_command_handler(self, command):
         """
         Handle geting/setting the LED illumination value 
         
@@ -146,30 +185,31 @@ class IFUCalAgent(Agent):
         convert the command argument to a single byte and send that to the SH 
         led. Respond OK or error as appropriate.
         """
-        #TODO exception handling, disconnects error reporting etc
         if '?' in command.string:
-            self.sendMessageBlocking('LE?')
-            ledstat = self.receiveMessageBlocking() #30 bytes
-            self.receiveMessageBlocking(nBytes=1) #grab ack. :
-            command.setReply(ledstat)
+            try:
+                response = self._send_command_to_shield('LE?')
+            except IOError as e:
+                response = str(e)
+            command.setReply(response)
         else:
             #Set the LED brightness 0-4096
             command_parts = command.string.split(' ')
             try:
-                values = map(int, command_parts[1:])
-                commands = ['LE{}{}'.format(i+1, val) for i, val in enumerate(values)]
-                if len(commands) != 6:
+                commands = ['LE{}{}'.format(i+1, val) for i, val in
+                            enumerate(map(int, command_parts[1:]))]
+                if len(commands) != len(COLORS):
                     raise IndexError
                 for c in commands:
-                    self.sendMessageBlocking(c)
-                    if self.receiveMessageBlocking(nBytes=1) != ':':
-                        self.logger.error('IFU Shield did not acknowledge command')
-                        raise IOError('IFU Shield did not acknowledge command')
-                command.setReply('OK')
+                    self._send_command_to_shield(c)
+                response = 'OK'
             except (ValueError, IndexError):
                 self.bad_command_handler(command)
-            except IOError:
-                command.setReply('ERROR: IFUCal Disconnected')
+                return
+            except IOError as e:
+                response = str(e)
+                if not response.startswith('ERROR: '):
+                    response = 'ERROR: ' + response
+            command.setReply(response)
 
     def HV_command_handler(self, command):
         """
@@ -179,64 +219,61 @@ class IFUCalAgent(Agent):
 
         Respond OK or error as appropriate.
         """
-        # TODO exception handling, disconnects error reporting etc
         if '?' in command.string:
-            self.sendMessageBlocking('HV?')
-            reply = self.receiveMessageBlocking()  # 30 bytes
-            self.receiveMessageBlocking(nBytes=1)  # grab ack. :
-            hvstat = reply.split()
-            if len(hvstat)!=len(self.hvlamps):
-                err = 'Malformed reply to HV? "{}"'.format(reply)
-                command.setReply('ERROR: '+ err)
-                #TODO probably should disconnect and reconnect or trigger some sort of reset process
-            else:
-                val = {l:v for l,v in zip(self.hvlamps,hvstat)}[command.string.split()[0].lower()]
-                command.setReply(val)
+            try:
+                response = self._send_command_to_shield('HV?')
+                hvstat = response.split()
+                if len(hvstat) != len(HVLAMPS):
+                    raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPS)))
+                #This is so lazy of me
+                response = {l: v for l, v in zip(HVLAMPS, hvstat)}[command.string.split()[0].lower()]
+            except IOError as e:
+                response = str(e)
+                if not response.startswith('ERROR: '):
+                    response = 'ERROR: ' + response
+            command.setReply(response)
         else:  #Activate the appropriate HV lamp
             command_parts = command.string.split(' ')
             try:
-                lamp_num = self.hvlamps.index(command_parts[0].lower())
+                lamp_num = HVLAMPS.index(command_parts[0].lower())
                 current=int(command_parts[1])
-                self.sendMessageBlocking('HV{}{}'.format(lamp_num, current))
-                resp = self.receiveMessageBlocking(nBytes=1)  # grab ack. :
-                if resp != ':':
-                    #todo handle error
+                self._send_command_to_shield('HV{}{}'.format(lamp_num, current))
                 command.setReply('OK')
             except (ValueError, IndexError):
                 self.bad_command_handler(command)
-            except IOError:
-                command.setReply('ERROR: IFUCal Disconnected')
+            except IOError as e:
+                response = str(e)
+                if not response.startswith('ERROR: '):
+                    response = 'ERROR: ' + response
+                command.setReply(response)
 
     def get_status_list(self):
         """ 
         Return a list of two element tuples to be formatted into a status reply
         
-        Report the Key:Value pairs name:cookie, color:value
+        Report the Key:Value pairs name:cookie, color:value, led:value, hv:value
         """
-        #TODO vet & test
         try:
-            self.sendMessageBlocking('LE?')
-            reply = self.receiveMessageBlocking()
-            self.receiveMessageBlocking(nBytes=1)  # grab ack. :
+            reply = self._send_command_to_shield('LE?')
             ledstat = reply.split()
-            if len(ledstat)!=len(self.colors):
+            if len(ledstat) != len(COLORS):
                 raise IOError('Malformed reply to LE? "{}"'.format(reply))
-        except Exception, e:
+        except IOError as e:
+            ledstat = ['ERROR']*len(COLORS)
             self.logger.error('Unable to fetch led values: "{}"'.format(e))
 
         try:
-            self.sendMessageBlocking('HV?')
-            reply = self.receiveMessageBlocking()
-            self.receiveMessageBlocking(nBytes=1)  # grab ack. :
+            reply = self._send_command_to_shield('HV?')
             hvstat = reply.split()
-            if len(hvstat)!=len(self.hvlamps):
+            if len(hvstat)!=len(HVLAMPS):
                 raise IOError('Malformed reply to HV? "{}"'.format(reply))
-        except Exception, e:
+        except IOError as e:
+            hvstat = ['ERROR'] * len(HVLAMPS)
             self.logger.error('Unable to fetch HV values: "{}"'.format(e))
 
         return ([(self.get_version_string(), self.cookie)] +
-                [(str(c), str(v)) for c,v in zip(self.colors, ledstat)] +
-                [(str(c), str(v)) for c,v in zip(self.hvlamps, hvstat)])
+                [(c, v) for c,v in zip(COLORS, ledstat)] +
+                [(c, v) for c,v in zip(HVLAMPS, hvstat)])
 
 
 if __name__=='__main__':

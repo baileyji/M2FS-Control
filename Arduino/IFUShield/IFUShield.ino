@@ -4,6 +4,7 @@
 #include "HVLamp.h"
 #include <Adafruit_TLC5947.h>
 
+#define VERSION_STRING "1.0"
 
 #define TEMP_UPDATE_INTERVAL_MS 10000
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
@@ -70,16 +71,18 @@ bool HVcommand();
 bool TScommand();
 bool TEcommand();
 bool PVcommand();
+bool OFcommand();
 
 
-#define N_COMMANDS 6
+#define N_COMMANDS 7
 const Command commands[]={
     {"LE", LEcommand},
     {"HV", HVcommand},
     {"PC", PCcommand}, //Print Commands
     {"TE", TEcommand}, //Report temps
     {"TS", TScommand},  //Report all status (whats on and off)
-    {"PV", PVcommand},
+    {"PV", PVcommand}, 
+    {"OF", OFcommand} //Turn everything off
 };
 
 
@@ -280,7 +283,7 @@ bool HVcommand() {
   }
 
   lamp_t lamp;
-  if (command_buffer[2]>= '1' && command_buffer[2] <='5') {
+  if (command_buffer[2]>= '1' && command_buffer[2] <='6') {
     lamp = (lamp_t) command_buffer[2]-'1';
   } else {
     return false;
@@ -290,6 +293,7 @@ bool HVcommand() {
     hvcontrol.turnOff();
     return true;
   }
+
   
   if (command_length > 4){
     if (!((command_buffer[3] >='0' && command_buffer[3]<='9') || 
@@ -360,9 +364,18 @@ bool PCcommand() {
     return true;
 }
 
+//Turn everything off
+bool OFcommand() {
+  for (int i=0;i<6;i++) {
+    ledlevels[i]=0;
+    leddrive.setPWM(i, 0);
+  }
+  hvcontrol.turnOff();
+  return true;
+}
 
-//Print the commands
+//Print the version
 bool PVcommand() {
-    Serial.println(F("1.0"));
+    Serial.println(F(VERSION_STRING));
     return true;
 }

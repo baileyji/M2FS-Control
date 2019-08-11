@@ -236,7 +236,7 @@ class SelectedConnection(object):
         established a WriteError is raised. The error callback is NOT called. 
         Note this behavior differs from sendMessage.
         
-        If the message is empty nothing is trasmitted. The message will be 
+        If the message is empty nothing is transmitted. The message will be
         terminated by the _terminateMessage function.
         
         If connected, but message cannot be sent or is only sent in part 
@@ -350,7 +350,7 @@ class SelectedConnection(object):
         with self.rlock:
             err="'%s' on %s." % (escapeString(str(error)), self.addr_str())
             logger.error(err)
-            if self.errorCallback !=None:
+            if self.errorCallback is not None:
                 callback=self.errorCallback
                 self.errorCallback=self.defaultErrorCallback
                 callback(self, "ERROR: "+err)

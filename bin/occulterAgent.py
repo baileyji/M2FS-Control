@@ -323,7 +323,7 @@ class OcculterAgent(Agent):
 
         with self.connections['shoe'].rlock: #TODO needed?
             self.connections['occulter'].move_to(pos)
-            success = True #TODO error fail handling for io? 
+            success = True  #TODO error fail handling for io?
             if not success:
                 resp = 'ERROR: some description'
                 self.returnFromWorkerThread('SLITS', finalState=resp)

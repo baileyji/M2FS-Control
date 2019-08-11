@@ -158,8 +158,10 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             # TODO change exception so ecosystem supports
             raise RuntimeError('ERROR: Download of programs not supported')
 
-            # Send the command
+        # Send the command
+        #TODO how is the WriteError caught here
         self.sendMessageBlocking(command_string, connect=False)
+
         commandReply = ''
         protocolError = False
 
@@ -177,7 +179,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
         # warn if something was fishy with the drive
         if protocolError:
-            getLogger(__name__).warning("HK did not adhere to protocol '%s' got '%s'" % (command_string, response))
+            logger.warning("HK did not adhere to protocol '%s' got '%s'" % (command_string, response))
 
         return commandReply
 

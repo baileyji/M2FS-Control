@@ -3,13 +3,13 @@ from pymodbus.pdu import ModbusRequest
 from pymodbus.client.sync import ModbusSerialClient as ModbusClient
 from pymodbus.transaction import ModbusRtuFramer
 import numpy as np
-import logging
-import time
+import logging, time, threading
 
 #TODO (general
 # Modbus commands can be silently ignored and also not trip an alarm, e.g. move_to raises no errors
-
-
+# todo ensure all communication commands only raise subclasses of IOError then remove the broad catches (or add
+#  specific ones if must to selectorAgent
+#move_to needs to be robust
 
 #count= the number of registers to read
 #unit= the slave unit this request is targeting
@@ -94,6 +94,7 @@ class OrientalMotor(object):
         self.baud = baud
         self.port = port
         self.modbus = None
+        self.rlock = threading.RLock()
 
     def disconnect(self, stop_and_break=True):
         if stop_and_break:
@@ -147,7 +148,6 @@ class OrientalMotor(object):
         speed in mm/s, limit is about 44 mm/s
         accel&decel in steps/sec
         """
-
         op_number = 0
         op_type = 3 if relative else 1  # relative to feedback (2 is relative to previous command pos)
         position = int(round(position * MM_TO_PULSE))

@@ -1,7 +1,5 @@
 #!/usr/bin/env python2.7
-import sys, time
-
-# TODO handle errors on move_to throughout
+import sys
 
 sys.path.append(sys.path[0] + '/../lib/')
 from orientalazd import OrientalMotor
@@ -9,7 +7,6 @@ from agent import Agent
 from m2fsConfig import m2fsConfig
 
 SELECTOR_AGENT_VERSION_STRING = 'Selector Agent v1.0'
-SELECTOR_AGENT_VERSION_STRING_SHORT = SELECTOR_AGENT_VERSION_STRING.split()[-1]
 
 SW_RV_LIM = -100
 SW_FW_LIM = 100
@@ -36,11 +33,8 @@ class SelectorAgent(Agent):
 
     def __init__(self):
         Agent.__init__(self, 'SelectorAgent')
-        # Initialize the shoe
-        if not self.args.DEVICE:
-            self.args.DEVICE = '/dev/thkrail'
-        self.connections['orientalazd'] = OrientalMotor(self.args.DEVICE)
-
+        # Initialize the modbus connection to the controller
+        self.connections['ifuselector'] = OrientalMotor(self.args.DEVICE)
         # Allow two connections so the datalogger agent can poll for temperature
         self.max_clients = 2
         self.command_handlers.update({
@@ -72,7 +66,7 @@ class SelectorAgent(Agent):
         """
         self.cli_parser.add_argument('--device', dest='DEVICE',
                                      action='store', required=False, type=str,
-                                     help='the device to control')
+                                     help='the device to control', default='/dev/ifuselector')
         self.cli_parser.add_argument('command', nargs='*',
                                      help='Agent command to execute')
 
@@ -92,42 +86,48 @@ class SelectorAgent(Agent):
             Current: <current amount>
             Moving: True/False
         """
-        #TODO flesh out
         # Name & cookie
-        status_list = [(self.name + ' ' + SELECTOR_AGENT_VERSION_STRING_SHORT,  self.cookie)]
+        status_list = [(SELECTOR_AGENT_VERSION_STRING,  self.cookie)]
         driverState = 'Online'
         try:
-            status = self.connections['orientalazd'].status()
-            #TODO add additional excepts if status can raise something other than IOError indicating disconnect
+            status = self.connections['ifuselector'].status()
             status_list.extend([
                 ('Motor', 'On' if status.motorIsOn else 'Off'),
                 ('Break', 'On' if status.breakEngaged else 'Off'),
                 ('Moving', str(status.moving)),
                 ('Current', status.current)])
         except IOError, e:
-            driverState = 'Disconnected'
+            #TODO distinguish between disconnected and other errors
+            driverState = 'ERROR'
         status_list.insert(2, ('Driver', driverState))
         return status_list
 
     def _stowShutdown(self):
-        """
-        Perform a stowed shutdown
-        """
-        stow = m2fsConfig.getSelectorDefaults()['stowpos']
-        self.connections['orientalazd'].move_to(stow)
+        """ Perform a stowed shutdown """
+        try:
+            self.connections['ifuselector'].move_to(m2fsConfig.getSelectorDefaults()['stow'])
+        except IOError as e:
+            pass
+        except Exception:
+            self.logger.error('Error during stowed shutdown', exc_info=True)
 
     def TEMP_command_handler(self, command):
         """
-        Get the current shoe temperature
+        Get the current driver and motor temperature
 
         Responds with the temp or UNKNOWN
         """
-        try:
-            response = self.connections['orientalazd'].status().temps_string
-        except IOError, e:
-            response = 'UNKNOWN'
-        except Exception, e:
-            self.logger.error('Error getting status from driver', exc_info=True)
+        if self.connections['ifuselector'].rlock.acquire(False):
+            try:
+                response = self.connections['ifuselector'].get_temps()
+            except IOError, e:
+                response = 'UNKNOWN'
+            except Exception:
+                self.logger.error('Error getting temps from driver', exc_info=True)
+            finally:
+                self.connections['ifuselector'].rlock.release()
+        else:
+            response = 'ERROR: Busy, try again'
         command.setReply(response)
 
     def SELECTOR_command_handler(self, command):
@@ -148,33 +148,43 @@ class SelectorAgent(Agent):
         position is not included in the event of an error.
         """
         if '?' in command.string:
-            status = self.connections['orientalazd'].status()
+            try:
+                status = self.connections['ifuselector'].status()
+            except IOError as e:
+                response = str(e)
+                if not response.startswith('ERROR: '):
+                    response = 'ERROR: ' + response
+                command.setReply(response)
+                return
+
             if status.has_fault:
-                command.set_reply('ERROR: ' + status.error_string)
+                response = 'ERROR: ' + status.error_string
             else:
                 if status.moving:
                     state = 'MOVING'
                 else:
-                    known_pos = m2fsConfig.getSelectorDefaults()
                     state = 'INTERMEDIATE'
-                    for name, pos in known_pos:
+                    for name, pos in m2fsConfig.getSelectorDefaults():
                         if abs(pos-state.position) < POSITION_TOLERANCE:
                             state = name
                             break
-                pos_str = '{} ({})'.format(state, status.position)
-                command.setReply(pos_str)
+                response = '{} ({})'.format(state, status.position)
+            command.setReply(response)
         else:
             command_parts = command.string.split(' ')
             known_pos = m2fsConfig.getSelectorDefaults()
-            if not len(command_parts) >= 2 and command_parts[1].lower() not in known_pos:
+            if not len(command_parts) >= 2 or command_parts[1].lower() not in known_pos:
                 self.bad_command_handler(command)
-
-            self.connections['orientalazd'].move_to(known_pos[command_parts[1].lower()])
-            status = self.connections['orientalazd'].status()
-            if status.has_fault:
-                command.setReply('ERROR: ' + status.error_string)
-            else:
-                command.setReply('OK')
+                return
+            try:
+                self.connections['ifuselector'].move_to(known_pos[command_parts[1].lower()])
+                status = self.connections['ifuselector'].status()
+                response = 'ERROR: ' + status.error_string if status.has_fault else 'OK'
+            except IOError as e:
+                response = str(e)
+                if not response.startswith('ERROR: '):
+                    response = 'ERROR: ' + response
+            command.setReply(response)
 
     def SELECTORPOS_command_handler(self, command):
         """
@@ -186,12 +196,12 @@ class SelectorAgent(Agent):
         """
         # Vet the command
         command_parts = command.string.split(' ')
-        if (len(command_parts) > 2 and command_parts[1].lower() in ('hsb','lsb','msb','stow')
-           and ('?' in command_parts[2] or longTest(command_parts[2]))):
+        if len(command_parts) > 2 and ('?' in command_parts[2] or longTest(command_parts[2])):
             # Extract the position name
             name = command_parts[1]
             if '?' in command.string:
-                response = m2fsConfig.getSelectorDefaults()[name.lower()]
+                response = m2fsConfig.getSelectorDefaults().get(name.lower(),
+                                                                'ERROR: Not a valid preset')
             else:
                 position = command_parts[2]
                 if position < SW_RV_LIM:
@@ -199,7 +209,7 @@ class SelectorAgent(Agent):
                 elif position > SW_FW_LIM:
                     response = 'ERROR: Position above software forward limit.'
                 else:
-                    m2fsConfig.setSelectorDefault(name, position)
+                    m2fsConfig.setSelectorDefault(name.lower(), position)
                     response = 'OK'
             command.setReply(response)
         else:
@@ -216,8 +226,15 @@ class SelectorAgent(Agent):
         command_parts = command.string.split(' ')
         # Vet the command
         if len(command_parts) > 1 and longTest(command_parts[1]):
-            self.connections['orientalazd'].move_to(int(command_parts[1]))
-            command.setReply('OK')
+            try:
+                self.connections['ifuselector'].move_to(int(command_parts[1]))
+                status = self.connections['ifuselector'].status()
+                response = 'ERROR: ' + status.error_string if status.has_fault else 'OK'
+            except IOError as e:
+                response = str(e)
+                if not response.startswith('ERROR: '):
+                    response = 'ERROR: ' + response
+            command.setReply(response)
         else:
             self.bad_command_handler(command)
 

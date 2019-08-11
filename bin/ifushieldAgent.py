@@ -4,10 +4,10 @@ sys.path.append(sys.path[0]+'/../lib/')
 
 from agent import Agent
 
-IFUCAL_AGENT_VERSION_STRING = 'IFUCal Agent v1.0'
+IFUSHIELD_AGENT_VERSION_STRING = 'IFUShield Agent v1.0'
 
 ARDUINO_BOOT_TIME = .1
-EXPECTED_IFUCAL_INO_VERSION = '1.0'
+EXPECTED_IFUSHIELD_INO_VERSION = '1.0'
 
 COLORS = ('392', '407', 'whi', '740', '770', '875')
 HVLAMPS = ('thar', 'thne', 'hg', 'ne', 'he')
@@ -52,9 +52,9 @@ class IFUArduinoSerial(SelectedConnection.SelectedSerial):
         self.sendMessageBlocking('PV')
         response = self.receiveMessageBlocking()
         self.receiveMessageBlocking(nBytes=1)  # discard the :
-        if response != EXPECTED_IFUCAL_INO_VERSION:
+        if response != EXPECTED_IFUSHIELD_INO_VERSION:
             error_message = ("Incompatible Firmware, Arduino reported '%s' , expected '%s'." %
-                             (response, EXPECTED_IFUCAL_INO_VERSION))
+                             (response, EXPECTED_IFUSHIELD_INO_VERSION))
             raise SelectedConnection.ConnectError(error_message)
 
     def _implementationSpecificDisconnect(self):
@@ -68,12 +68,12 @@ class IFUArduinoSerial(SelectedConnection.SelectedSerial):
             pass
 
 
-class IFUCalAgent(Agent):
+class IFUShieldAgent(Agent):
     """
     This program is responsible for the c
     """
     def __init__(self):
-        Agent.__init__(self, 'IFUCalAgent')
+        Agent.__init__(self, 'IFUShieldAgent')
         self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
         self.max_clients = 2
         self.command_handlers.update({
@@ -101,7 +101,7 @@ class IFUCalAgent(Agent):
 
     def get_version_string(self):
         """ Return a string with the version. """
-        return IFUCAL_AGENT_VERSION_STRING
+        return IFUSHIELD_AGENT_VERSION_STRING
     
     def get_cli_help_string(self):
         """
@@ -110,7 +110,7 @@ class IFUCalAgent(Agent):
         Subclasses shuould override this to provide a description for the cli
         parser
         """
-        return "This is the IFUCalLED agent. It controls the IFU-M LED and HV lamp unit and fetches temps in IFU-M."
+        return "This is the IFUShieldLED agent. It controls the IFU-M LED and HV lamp unit and fetches temps in IFU-M."
 
     def _send_command_to_shield(self, command_string):
         """
@@ -277,5 +277,5 @@ class IFUCalAgent(Agent):
 
 
 if __name__=='__main__':
-    agent=IFUCalAgent()
+    agent=IFUShieldAgent()
     agent.main()

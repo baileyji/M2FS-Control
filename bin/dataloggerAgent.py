@@ -11,9 +11,9 @@ from SelectedConnection import SelectedSocket
 import logging
 from LoggerRecord import *
 
-LOGGING_LEVEL=logging.DEBUG  #This will not have any effect if it is more agressive than the conf file
+LOGGING_LEVEL=logging.DEBUG  #This will not have any effect if it is more aggressive than the conf file
 
-DATALOGGER_VERSION_STRING='Datalogger Agent v0.1'
+DATALOGGER_VERSION_STRING='Datalogger Agent v0.2'
 POLL_AGENTS_INTERVAL=60.0
 READING_EXPIRE_INTERVAL=120.0
 
@@ -50,16 +50,24 @@ class DataloggerAgent(Agent):
         self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.recordQueue)
         self.dataloggerB.start()
         agent_ports=m2fsConfig.getAgentPorts()
-        self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
-        self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
-        self.shackHartman=SelectedSocket('localhost',
-                                         agent_ports['ShackHartmanAgent'])
+        if m2fsConfig.ifu_mode:
+            self.ifushoe = SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
+            self.ifuselector = SelectedSocket('localhost', agent_ports['SelectorAgent'])
+            self.ifushield = SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
+        else:
+            self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
+            self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
+            self.shackHartman=SelectedSocket('localhost',
+                                             agent_ports['ShackHartmanAgent'])
         self.logfile=open(m2fsConfig.getDataloggerLogfileName(),'a')
         self.currentRecord=LoggerRecord(time.time())
         self.command_handlers.update({
             #Return a list of the temperature values
-            'TEMPS':self.TEMPS_command_handler})
+            'TEMPS': self.TEMPS_command_handler})
 #        self.logger.setLevel(LOGGING_LEVEL)
+
+        # self.updateTimes = {'MSpecR': 0, 'MSpecB': 0, 'ShackHartmanAgent': 0,
+        #                     'IFUShieldAgent': 0, 'SelectorAgent': 0}
         self.bUpdateTime=0
         self.rUpdateTime=0
         self.shUpdateTime=0
@@ -214,33 +222,69 @@ class DataloggerAgent(Agent):
         self.logfile.close()
     
     def queryAgentTemps(self):
-        try:
-            self.shoeR.connect() #in case we lost connection
-            self.shoeR.sendMessageBlocking('SLITS_TEMP')
-            cradleRTemp=float(self.shoeR.receiveMessageBlocking())
-        except IOError:
-            self.logger.debug("Failed to poll shoeR for temp")
-            cradleRTemp=None
-        except ValueError:
-            cradleRTemp=None
-        try:
-            self.shoeB.connect()
-            self.shoeB.sendMessageBlocking('SLITS_TEMP')
-            cradleBTemp=float(self.shoeB.receiveMessageBlocking())
-        except IOError:
-            self.logger.debug("Failed to poll shoeB for temp")
-            cradleBTemp=None
-        except ValueError:
-            cradleBTemp=None
-        try:
-            self.shackHartman.connect()
-            self.shackHartman.sendMessageBlocking('TEMP')
-            shTemp=float(self.shackHartman.receiveMessageBlocking())
-        except IOError:
-            self.logger.debug("Failed to poll S-H for temp")
-            shTemp=None
-        except ValueError:
-            shTemp=None
+        if m2fsConfig.ifu_mode:
+            try:
+                self.ifushoe.connect()  # in case we lost connection
+                self.ifushoe.sendMessageBlocking('SLITS_TEMP')
+                cradleRTemp, cradleBTemp = map(float,self.ifushoe.receiveMessageBlocking().split())
+            except IOError:
+                self.logger.debug("Failed to poll IFU Shoes for temps")
+                cradleRTemp, cradleBTemp = None, None
+            except ValueError:
+                self.logger.debug("Bad response from IFU Shoes for temps")
+                cradleRTemp, cradleBTemp = None, None
+            shTemp = None
+
+            try:
+                self.ifuselector.connect() #in case we lost connection
+                self.ifuselector.sendMessageBlocking('SELECTOR_TEMP')
+                driveTemp, motorTemp = map(float, self.ifuselector.receiveMessageBlocking().split())
+            except IOError:
+                self.logger.debug("Failed to poll selector for temps")
+                driveTemp, motorTemp = None,None
+            except ValueError:
+                self.logger.debug("Bad response from IFU selector for temps")
+                driveTemp, motorTemp = None,None
+
+            try:
+                self.ifuselector.connect() #in case we lost connection
+                self.ifuselector.sendMessageBlocking('SELECTOR_TEMP')
+                ifutemps = map(float, self.ifushield.receiveMessageBlocking().split())
+            except IOError:
+                self.logger.debug("Failed to poll selector for temps")
+                driveTemp, motorTemp = None,None
+            except ValueError:
+                self.logger.debug("Bad response from IFU selector for temps")
+                driveTemp, motorTemp = None,None
+
+        else:
+            try:
+                self.shoeR.connect() #in case we lost connection
+                self.shoeR.sendMessageBlocking('SLITS_TEMP')
+                cradleRTemp=float(self.shoeR.receiveMessageBlocking())
+            except IOError:
+                self.logger.debug("Failed to poll shoeR for temp")
+                cradleRTemp=None
+            except ValueError:
+                cradleRTemp=None
+            try:
+                self.shoeB.connect()
+                self.shoeB.sendMessageBlocking('SLITS_TEMP')
+                cradleBTemp=float(self.shoeB.receiveMessageBlocking())
+            except IOError:
+                self.logger.debug("Failed to poll shoeB for temp")
+                cradleBTemp=None
+            except ValueError:
+                cradleBTemp=None
+            try:
+                self.shackHartman.connect()
+                self.shackHartman.sendMessageBlocking('TEMP')
+                shTemp=float(self.shackHartman.receiveMessageBlocking())
+            except IOError:
+                self.logger.debug("Failed to poll S-H for temp")
+                shTemp=None
+            except ValueError:
+                shTemp=None
         #Create a record and stick it in the queue
         if not (shTemp == None and cradleBTemp==None and cradleRTemp==None):
             self.recordQueue.put(LoggerRecord(time.time(),

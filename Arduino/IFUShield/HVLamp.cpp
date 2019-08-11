@@ -64,7 +64,7 @@ voltage_t HVLamp::getVoltageLimit() {
 }
 
 voltage_t HVLamp::getVoltage() {
-    return (voltage_t) analogRead(PIN_VMON)*ADC_TO_VOLTS;
+    return isEnabled() ? (voltage_t) analogRead(PIN_VMON)*ADC_TO_VOLTS: 0;
 }
 
 bool HVLamp::setVoltage(voltage_t x) {
@@ -79,7 +79,7 @@ voltage_t HVLamp::getCurrentLimit() {
 }
 
 current_t HVLamp::getCurrent() {
-    return (current_t) analogRead(PIN_IMON)*ADC_TO_MILLIAMPS;
+    return isEnabled() ? (current_t) analogRead(PIN_IMON)*ADC_TO_MILLIAMPS: 0;
 }
 
 bool HVLamp::setCurrent(current_t x) {

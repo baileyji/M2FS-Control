@@ -271,6 +271,7 @@ bool HVcommand() {
   */
   if (command_buffer[2]=='?') {
     current_t lamplevels[N_LAMPS];
+    lampstatus_t active = hvcontrol.getActiveLamp();
     for (int i=0; i<N_LAMPS; i++) {
       lamplevels[i] = hvcontrol.isLampEnabled(i) ? active.current : 0;
     }
@@ -289,12 +290,11 @@ bool HVcommand() {
     return false;
   }
 
-  if (lamp==NONE_LAMP)
+  if (lamp==NONE_LAMP) {
     hvcontrol.turnOff();
     return true;
   }
 
-  
   if (command_length > 4){
     if (!((command_buffer[3] >='0' && command_buffer[3]<='9') || 
           ((command_buffer[3] =='+' && command_length> 5) &&

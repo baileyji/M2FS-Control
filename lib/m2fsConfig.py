@@ -1,6 +1,16 @@
 import ConfigParser
 import os
 
+
+def getOcculterConfFile(ifu):
+    ifu = ifu.upper()[0]
+    if ifu == 'H':
+        return 'ifum_occulterH.conf'
+    elif ifu == 'M':
+        return 'ifum_occulterM.conf'
+    else:
+        return 'ifum_occulterL.conf'
+
 class m2fsConfig:
     """" 
     Class to handle reading and writing instrument configuration data 
@@ -180,7 +190,7 @@ class m2fsConfig:
         defaults[setting]=value
         #Update the defaults file
         m2fsConfig.setGalilDefaults(side, defaults)
-    
+
     @staticmethod
     def setGalilLastPosition(side, axis, value):
         """
@@ -402,6 +412,48 @@ class m2fsConfig:
         config.optionxform=str
         config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
         return config.get('IP','method').lower()
+
+    @staticmethod
+    def getOcculterDefaults(ifu):
+        """ Get dict of ifu occulter parameter defaults for H, M, or L"""
+        config=ConfigParser.RawConfigParser()
+        config.optionxform=str
+        try:
+            config.readfp(open(m2fsConfig.getConfDir()+getOcculterConfFile(ifu), 'r'))
+            return dict(config.items('Defaults'))
+        except Exception:
+            return {}
+
+    @staticmethod
+    def setOcculterDefaults(ifu, defaults):
+        """
+        Write the occulter defaults for the ifu to the config file
+
+        Takes a dictionary of settings. Any settings in the file but not in the
+        dict WILL be erased.
+        """
+        config = ConfigParser.RawConfigParser()
+        config.optionxform = str
+        config.add_section('Defaults')
+        with open(m2fsConfig.getConfDir() + getOcculterConfFile(ifu), 'w') as configfile:
+            for setting, value in defaults.items():
+                config.set('Defaults', setting, value)
+            config.write(configfile)
+            configfile.close()
+
+    @staticmethod
+    def setOcculterDefault(ifu, setting, value):
+        """
+        Write the occulter default setting for the ifu to the config file
+
+        Takes a setting name string and a string value.
+        """
+        # Get a dict with all the settings
+        defaults = m2fsConfig.getOcculterDefaults(ifu)
+        # Update/Add the value of the setting
+        defaults[setting] = value
+        # Update the defaults file
+        m2fsConfig.setOcculterDefaults(ifu, defaults)
 
 def getMCalLEDAddress():
     """Return the IP and port for the MCalLED unit"""

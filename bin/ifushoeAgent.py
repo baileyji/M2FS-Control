@@ -101,10 +101,10 @@ class ShoeAgent(Agent):
     request the shoe temperature.
     """
     def __init__(self):
-        Agent.__init__(self,'ShoeAgent')
+        Agent.__init__(self,'IFUShoeAgent')
         #Initialize the shoe
         if not self.args.DEVICE:
-            self.args.DEVICE='/dev/shoe'+self.args.SIDE
+            self.args.DEVICE='/dev/ifushoe'
 #        if self.args.simulator:
 #            self.connections['shoe']=SelectedConnection.SimConnection(
 #                 self.args.DEVICE, timeout=1)
@@ -215,34 +215,6 @@ class ShoeAgent(Agent):
                     (command_string, response))
                 self.logger.warning(err)
                 raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
-    
-    def _do_online_only_command(self, command):
-        """
-        Execute a command that requires the shoe to be online
-        
-        This command wraps command with an attempt to bring the shoe online.
-        If the shoe won't come online an appropriate error response is returned
-        and the command is not attempted.
-        If the command fails the error is returned.
-        If the command succeeds but returns nothing 'OK' is returned.
-        """
-        try:
-            self._send_command_to_shoe('CS')
-        except ShoeCommandNotAcknowledgedError:
-            return 'ERROR: Tighten locking nuts on cradle %s' % self.args.SIDE
-        except IOError:
-            return 'ERROR: Shoe not in cradle %s' % self.args.SIDE
-        try:
-            response=self._send_command_to_shoe(command)
-            if not response:
-                response='OK'
-            return response
-        except IOError, e:
-            response=str(e)
-            if not response.startswith('ERROR: '):
-                return 'ERROR: '+response
-            else:
-                return response
     
     def get_status_list(self):
         """

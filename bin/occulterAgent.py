@@ -40,7 +40,6 @@ class OcculterAgent(Agent):
         if not self.args.DEVICE:
             self.args.DEVICE = '/dev/occulter'+self.IFU
         self.connections['occulter'] = IdeaDrive(port=self.args.DEVICE)
-
         self.command_handlers.update({
             #Send the command string directly to the shoe
             'OCCRAW': self.RAW_command_handler,
@@ -58,8 +57,8 @@ class OcculterAgent(Agent):
         Subclasses shuould override this to provide a description for the cli
         parser
         """
-        return "This is the occulter agent. It takes occulter commands via \
-        a socket connection or via CLI arguments."
+        return ("This is the occulter agent. It takes occulter commands via"
+                "a socket connection or via CLI arguments.")
     
     def add_additional_cli_arguments(self):
         """
@@ -78,57 +77,6 @@ class OcculterAgent(Agent):
         """ Return a string with the version."""
         return OCCULTER_AGENT_VERSION_STRING
 
-    def _send_command_to_shoe(self, command_string):
-        """
-        Send a command string to the shoe, wait for immediate response
-        
-        Silently ignore an empty command.
-        
-        Raise ShoeCommandNotAcknowledgedError if the shoe does not acknowledge
-        any part of the command.
-        
-        Procedure is as follows:
-        Send the command string to the shoe
-        grab a singe byte from the shoe and if it isn't a : or a ? listen for
-        a \n delimeted response followed by a :.
-        
-        Return a string of the response to the commands.
-        Note the : ? are not considered responses. ? gets the exception and :
-        gets an empty string. The response is stripped of whitespace.
-        """
-        #No command, return
-        if not command_string:
-            return ''
-        #Send the command(s)
-        self.connections['shoe'].sendMessageBlocking(command_string)
-        #Get the first byte from the galil, typically this will be it
-        response=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
-        # 3 cases:, :, ?, or stuff followed by \r\n:
-        #case 1, command succeeds but returns nothing, return
-        if response ==':':
-            return ''
-        #command fails
-        elif response =='?':
-            raise ShoeCommandNotAcknowledgedError(
-                "ERROR: Shoe did not acknowledge command '%s' (%s)" %
-                (command_string, response) )
-        #command is returning something
-        else:
-            #do a blocking receive on \n
-            response=response+self.connections['shoe'].receiveMessageBlocking()
-            #...and a single byte read to grab the :
-            confByte=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
-            if confByte==':':
-                return response.strip()
-            else:
-                #Consider it a failure, but log it. Add the byte to the
-                # response for logging
-                response+=confByte
-                err=("Shoe did not adhere to protocol. '%s' got '%s'" %
-                    (command_string, response))
-                self.logger.warning(err)
-                raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
-    
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
@@ -138,32 +86,20 @@ class OcculterAgent(Agent):
             Drivers:[Powered| Off]
             On: string of tetri numbers that are on e.g. '1 4 6' or None
             Moving: string of tetri numbers that are moving
-            Calibrated: string of tetri numbers that are calibrated 
-            
-
-
+            Calibrated: string of tetri numbers that are calibrated
         """
         #Name & cookie
-        status_list=[(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT,
-                      self.cookie)]
-        cradleState='Shoe'+m2fsConfig.getShoeColorInCradle(self.args.SIDE)
+        status_list = [(self.name+' '+OCCULTER_AGENT_VERSION_STRING_SHORT, self.cookie)]
         try:
-            response=self._send_command_to_shoe('TS').split(' ')
-            try:
-                shieldIsOn=int(response[0]) & 0x01 == 1
-                tetriOnStr=byte2bitNumberString(int(response[1]))
-                tetriCalibStr=byte2bitNumberString(int(response[2]))
-                tetriMovingStr=byte2bitNumberString(int(response[3]))
-                status_list.extend([
-                    ('Drivers','On' if shieldIsOn else 'Off'),
-                    ('On',tetriOnStr if tetriOnStr else 'None'),
-                    ('Moving',tetriMovingStr if tetriMovingStr else 'None'),
-                    ('Calibrated',tetriCalibStr if tetriCalibStr else 'None')])
-            except Exception:
-                cradleState+=' not responding properly to status request'
+            state = self.connections['occulter'].state()
+            status_list.extend([('Driver', 'Online'),
+                                ('Calibrated', str(state.calibrated)),
+                                ('Moving', str(state.moving)),
+                                ('Home', str(state.io.home_tripped)),
+                                ('Faults', state.faultString if state.errorPresent else 'None')])
         except IOError, e:
-            cradleState='Disconnected'
-        status_list.insert(2, ('Cradle'+self.args.SIDE, cradleState))
+            self.logger.warning('HK Drive failed state query: ()'.format(e))
+            status_list.append(('Driver', 'Disconnected'))
         return status_list
     
     def RAW_command_handler(self, command):
@@ -172,55 +108,54 @@ class OcculterAgent(Agent):
         
         NB the PC command can generate more than 1024 bytes of data
         """
-        arg=command.string.partition(' ')[2]
-        if arg:
-            try:
-                response=self.connections['occulter'].send_command_to_hk(arg)
-                response=response.replace('\r','\\r').replace('\n','\\n')
-                if not response:
-                    response = 'IDEA DRIVE GAVE NO RESPONSE'
-            except IOError, e:
-                response='ERROR: %s' % str(e)
-            command.setReply(response)
-        else:
+        arg = command.string.partition(' ')[2].strip()
+        if not arg:
             self.bad_command_handler(command)
+        try:
+            response = self.connections['occulter'].send_command_to_hk(arg)
+            response = response.replace('\r', '\\r').replace('\n', '\\n')
+            if not response:
+                response = 'IDEA DRIVE GAVE NO RESPONSE'
+        except IOError, e:
+            response = 'ERROR: %s' % str(e)
+        command.setReply(response)
 
     def _stowShutdown(self):
-        """
-        Perform a stowed shutdown
-        """
-        if 'occulter' not in self.connections:
-            return
-        #TODO Robustify
-        stow = m2fsConfig.getOcculterDefaults(self.IFU)['stowpos']
-        self.connections['occulter'].move_to(stow)
+        """  Perform a stowed shutdown """
+        try:
+            self.connections['occulter'].move_to(m2fsConfig.getOcculterDefaults(self.IFU)['stow'])
+        except IOError as e:
+            self.logger.warning('Caught {} during stowed shutdown'.format(e))
 
     def OCC_command_handler(self, command):
         """
-        Get/Set the occulter position.
-        
-        Command is of the form
-        OCC #
-        or 
-        OCC ?
+        Get/Set the occulter position. Command is of the form OCC #|?
         
         If setting, the command instructs the occulter to move to the
         requested position, closedloop. It is an error to set the slits
         when they are uncalibrated or a move is in progress. If done the error
         '!ERROR: Can not set slits at this time. will be generated.'
 
-        
         If getting, respond in the form # or STATE (#) where STATE is one of
-        UNCALIBRATED, MOVING, FAULT.
+        UNCALIBRATED, MOVING, ERROR.
         """
         if '?' in command.string:
             #Fetch state and return status
-            state = self.connections['occulter'].state
-            if state.moving or not state.calibrated or state.errorPresent:
-                s = 'MOVING' if state.moving else 'FAULT' if state.errorPresent else 'UNCALIBRATED'
-                command.setReply('{} ({})'.format(s, state.position))
+            try:
+                state = self.connections['occulter'].state
+            except IOError as e:
+                command.setReply('ERROR: %s' % str(e))
+            if state.moving:
+                if state.errorPresent:
+                    self.logger.warning('HK reporting error while moving: ' + state.faultString)
+                resp = 'MOVING ({})'
+            elif state.errorPresent:
+                resp = 'ERROR ({}) FC:'+state.faultString
+            elif not state.calibrated:
+                resp = 'UNCALIBRATED ({})'
             else:
-                command.setReply(str(state.position))
+                resp = '{}'
+            command.setReply(resp.format(state.position))
         else:
             #Vet the command
             command_parts = command.string.split(' ')
@@ -228,9 +163,11 @@ class OcculterAgent(Agent):
                 pos = float(command_parts[1])
             except ValueError:
                 self.bad_command_handler(command)
-            #First check to make sure the command is allowed (all we calibrated and not
-            # moving
-            state = self.connections['occulter'].state
+            #First check to make sure the command is allowed (calibrated and not moving)
+            try:
+                state = self.connections['occulter'].state
+            except IOError as e:
+                command.setReply('ERROR: %s' % str(e))
             if state.errorPresent:
                 command.setReply('ERROR: Fault Codes Present ({})'.format(state.faultString))
                 return

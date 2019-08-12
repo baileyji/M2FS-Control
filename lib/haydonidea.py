@@ -144,44 +144,31 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
         Drive does not necessarily acknowledge commands
         """
-        # No command, return
-        if not command_string:
+        command_string = command_string.strip('\r')  # Make sure no unnecessary \r
+        if not command_string:  # No command, return
             return ''
 
-        # Make sure no unnecessary \r
-        command_string = command_string.strip('\r')
-
         if '\r' in command_string:
-            raise RuntimeError('ERROR: Commands to HK may not contain the carriage return character.')
+            raise IOError('ERROR: Commands to HK may not contain the carriage return character.')
+        if command_string.startswith('@'):
+            raise IOError('ERROR: Download of programs not supported')
 
-        if command_string == '@':
-            # TODO change exception so ecosystem supports
-            raise RuntimeError('ERROR: Download of programs not supported')
-
-        # Send the command
-        #TODO how is the WriteError caught here
+        # Send the command, do not catch the WriteError as they must bubble up
         self.sendMessageBlocking(command_string, connect=False)
 
-        commandReply = ''
-        protocolError = False
-
-        if self.command_has_response(command_string):
+        if not self.command_has_response(command_string):
+            return ''
+        else:
             # Response will be nothing or  "`<cmdkey><ascii>\r`<cmdkey>#\r", NB that receiveMessageBlocking strips the
             # terminator so a merged response would look like "`<cmdkey><ascii>`<cmdkey>#"
-
-            # do a blocking receive on \r 2x
+            # Need to do a blocking receive on \r twice
             response = self.receiveMessageBlocking() + self.receiveMessageBlocking()
-
             try:
-                commandReply = response.split('`')[1].strip()[1:]
-            except Exception:
-                protocolError = True
-
-        # warn if something was fishy with the drive
-        if protocolError:
-            logger.warning("HK did not adhere to protocol '%s' got '%s'" % (command_string, response))
-
-        return commandReply
+                return response.split('`')[1].strip()[1:]
+            except Exception as e:
+                msg = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
+                logger.error(msg, exc_info=True)
+                return 'ERROR: '+msg
 
     def abort(self):
         self.send_command_to_hk('A')

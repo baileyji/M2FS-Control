@@ -59,4 +59,8 @@ sudo systemctl restart nut-monitor.service
 sudo systemctl enable director.service
 sudo systemctl start director.service
 
+#Enable and start the director
+sudo systemctl enable targetlist.service
+sudo systemctl start targetlist.service
+
 sudo systemctl reboot now

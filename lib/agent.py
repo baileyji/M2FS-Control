@@ -112,6 +112,8 @@ class Agent(object):
             'VERSION':self.version_request_command_handler}
         if 'SIDE' in self.args:
             self.name=basename+self.args.SIDE
+        elif 'IFU' in self.args:
+            self.name = basename + self.args.IFU
         else:
             self.name=basename
         self.args.LOG_LEVEL=self.args.LOG_LEVEL.upper()

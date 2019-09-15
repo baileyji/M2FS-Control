@@ -1,24 +1,29 @@
 #!/usr/bin/env python2.7
-import sys, time
+import sys
 sys.path.append(sys.path[0]+'/../lib/')
-import SelectedConnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 from haydonidea import IdeaDrive
+import haydonidea
 
-EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.3'
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 
-DH_TIME=35
-SHOE_BOOT_TIME=2
-SHOE_SHUTDOWN_TIME=.25
-MAX_SLIT_MOVE_TIME=25
+#TODO increase the accel/decel amt, starts/stops are jerky
 
 def longTest(s):
     """ Return true if s can be cast as a long, false otherwise """
     try:
         long(s)
+        return True
+    except ValueError:
+        return False
+
+
+def floatTest(s):
+    """ Return true if s can be cast as a long, false otherwise """
+    try:
+        float(s)
         return True
     except ValueError:
         return False
@@ -36,19 +41,19 @@ class OcculterAgent(Agent):
     def __init__(self):
         Agent.__init__(self, 'OcculterAgent')
         self.IFU = self.args.IFU
-        #Initialize the shoe
+        #Initialize the occulter drive
         if not self.args.DEVICE:
             self.args.DEVICE = '/dev/occulter'+self.IFU
         self.connections['occulter'] = IdeaDrive(port=self.args.DEVICE)
         self.command_handlers.update({
-            #Send the command string directly to the shoe
+            #Send the command string directly to the drive
             'OCCRAW': self.RAW_command_handler,
             #Get/Set the position of the occulter. The move is carried out closedloop by the controller
             'OCC': self.OCC_command_handler,
             #Move by a relative step amount
-            'OCC_STEP': self.STEP_command_handler,
+            'OCC_STEP': self.OCC_STEP_command_handler,
             #Calibrate the occulter
-            'OCC_CALIBRATE': self.CALIBRATE_command_handler})
+            'OCC_CALIBRATE': self.OCC_CALIBRATE_command_handler})
     
     def get_cli_help_string(self):
         """
@@ -67,8 +72,8 @@ class OcculterAgent(Agent):
         Arguments should be added as:
         self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
         """
-        self.cli_parser.add_argument('--ifu', dest='IFU', action='store', required=False,
-                                     type=str, help='H, M, L', default='M')
+        self.cli_parser.add_argument('--ifu', dest='IFU', action='store', required=True,
+                                     type=str, help='H, M, L')
         self.cli_parser.add_argument('--device', dest='DEVICE', help='the device to control',
                                      action='store', required=False, type=str)
         self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')
@@ -104,11 +109,11 @@ class OcculterAgent(Agent):
     
     def RAW_command_handler(self, command):
         """ 
-        Send a raw string to the shoe and wait for a response
+        Send a raw string to the drive and wait for a response
         
-        NB the PC command can generate more than 1024 bytes of data
+        NB the PC command can generate more than 1024 bytes of data so limit to 60
         """
-        arg = command.string.partition(' ')[2].strip()
+        arg = command.string.partition(' ')[2].strip()[:60]
         if not arg:
             self.bad_command_handler(command)
         try:
@@ -132,9 +137,7 @@ class OcculterAgent(Agent):
         Get/Set the occulter position. Command is of the form OCC #|?
         
         If setting, the command instructs the occulter to move to the
-        requested position, closedloop. It is an error to set the slits
-        when they are uncalibrated or a move is in progress. If done the error
-        '!ERROR: Can not set slits at this time. will be generated.'
+        requested position, closedloop.
 
         If getting, respond in the form # or STATE (#) where STATE is one of
         UNCALIBRATED, MOVING, ERROR.
@@ -142,7 +145,7 @@ class OcculterAgent(Agent):
         if '?' in command.string:
             #Fetch state and return status
             try:
-                state = self.connections['occulter'].state
+                state = self.connections['occulter'].state()
             except IOError as e:
                 command.setReply('ERROR: %s' % str(e))
             if state.moving:
@@ -165,48 +168,52 @@ class OcculterAgent(Agent):
                 self.bad_command_handler(command)
             #First check to make sure the command is allowed (calibrated and not moving)
             try:
-                state = self.connections['occulter'].state
+                state = self.connections['occulter'].state()
             except IOError as e:
                 command.setReply('ERROR: %s' % str(e))
+                return
             if state.errorPresent:
                 command.setReply('ERROR: Fault Codes Present ({})'.format(state.faultString))
                 return
-            if state.moving:  #TODO is this ok like for the selector or no ok like galil
-                command.setReply('ERROR: Move in progress.')
-                return
-
+            # This is permitted by the drive, allow it, won't get here as command blocks self
+            # if state.moving:
+            #     command.setReply('ERROR: Move in progress.')
+            #     return
             command.setReply('OK')
-
             self.startWorkerThread(command, 'MOVING', self.occulter_mover,
-                                   args=(pos, not state.calibrated, 'PREPARING'),
+                                   args=(pos, not state.calibrated),
                                    block=('OCCRAW', 'OCC', 'OCC_STEP', 'OCC_CALIBRATE'))
 
-    def occulter_mover(self, pos, calibrate, status):
+    def occulter_mover(self, pos, calibrate):
         """
-        slits is a 8-tuple or list of number strings '1' - '7'
-        status is the response to the command TS
+        TODO Unfinished function
         """
-        #Command the shoe to reconfigure the tetrii
-        #Determine which are uncalibrated
         if calibrate:
             try:
-                #TODO do I need to grab the rlock of the occulter,
-                # Probably within these functions maybe internally to the Haydonidea,
-                # look at existing code with self.connections['occulter'].rlock:
                 self.connections['occulter'].calibrate()
-
             except RuntimeError:  # calibration failed.
-                #TODO need to handle disconnection
-                failcode = self.connections['occulter'].state.faultString
+                failcode = self.connections['occulter'].state().faultString
                 self.returnFromWorkerThread('OCC', finalState='ERROR: Calibration failed ({})'.format(failcode))
-
-        with self.connections['shoe'].rlock: #TODO needed?
-            self.connections['occulter'].move_to(pos)
-            success = True  #TODO error fail handling for io?
-            if not success:
-                resp = 'ERROR: some description'
-                self.returnFromWorkerThread('SLITS', finalState=resp)
                 return
+            except IOError as e:
+                response = str(e)
+                response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+                self.returnFromWorkerThread('OCC', finalState=response)
+                return
+
+        try:
+            self.connections['occulter'].move_to(pos)
+            state = self.connections['occulter'].state()
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            self.returnFromWorkerThread('OCC', finalState=response)
+            return
+
+        if state.errorPresent:
+            resp = 'ERROR: Move issue ({})'.format(state.failcode)
+            self.returnFromWorkerThread('OCC', finalState=resp)
+            return
         self.returnFromWorkerThread('OCC')
     
     def OCC_CALIBRATE_command_handler(self, command):
@@ -216,10 +223,17 @@ class OcculterAgent(Agent):
         
         This command has no arguments
         """
-        #TODO error condition checking needed?
-        self.connections['occulter'].calibrate()
-        command.setReply('OK')
-    
+        try:
+            self.connections['occulter'].calibrate()
+            command.setReply('OK')
+        except RuntimeError:
+            failcode = self.connections['occulter'].state().faultString
+            command.setReply('ERROR: Calibration failed ({})'.format(failcode))
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            command.setReply(response)
+
     def OCC_STEP_command_handler(self, command):
         """
         Command a relative, uncalibrated move a specified number of steps
@@ -230,21 +244,30 @@ class OcculterAgent(Agent):
         """
         command_parts = command.string.split(' ')
         #Vet the command
-        if len(command_parts) > 1 and longTest(command_parts[1]):
-            #TODO add limit protections?
-            state = self.connections['occulter'].state
+        if not len(command_parts) > 1 and floatTest(command_parts[1])):
+            self.bad_command_handler(command)
+            return
+        try:
+            state = self.connections['occulter'].state()
             if state.errorPresent:
                 command.setReply('ERROR: Fault codes present ({})'.format(state.faultString))
                 return
-            if state.moving:  #TODO is this ok like for the selector or no ok like galil
-                command.setReply('ERROR: Move in progress.')
+            d = float(command_parts[1])
+            if state.calibrated and not (0 <= state.position+d <= haydonidea.MAX_POSITION):
+                command.setReply('ERROR: Requested move outside of travel.')
                 return
-            self.connections['occulter'].move_to(int(command_parts[1]), relative=True)
+            elif abs(state.position) > haydonidea.MAX_POSITION:
+                command.setReply('ERROR: Requested move more than maximum travel.')
+                return
+            self.connections['occulter'].move_to(float(command_parts[1]), relative=True)
             command.setReply('OK')
-        else:
-            self.bad_command_handler(command)
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            command.setReply(response)
 
 
-if __name__=='__main__':
-    agent=OcculterAgent()
+
+if __name__ == '__main__':
+    agent = OcculterAgent()
     agent.main()

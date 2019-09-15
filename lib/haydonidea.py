@@ -4,8 +4,20 @@ from logging import getLogger
 import lib.SelectedConnection as SelectedConnection
 import time
 
+# Contact HK: this seems to remain true even after a reset command to the Idea if the programs on the idea drive
+# include an idle loop, getting rid of the idle loop fixed. I think the issue is that the reset command was
+# silently ignored given that a program was running.
 "reset appears not to work if a program is running"
 'cant get the drive current'
+"E175,0,50' doesn't stop the effing thing"
+
+
+#2000 count/rev encoder
+#steps are in microsteps
+#0.180mA ABSOLUTE MAX
+#.001"/fullstep
+#200step/rev
+
 
 BAUD = 57600
 
@@ -14,7 +26,9 @@ IFU_DEVICE_MAP = {'lsb': '/dev/occulterLR', 'msb': '/dev/occulterMR', 'hsb': '/d
 
 logger = getLogger(__name__)
 HK_TIMEOUT = 1
-ENCODER_CONFIG = (16,0,2000)  #16 64th steps of error allowed (16/64/200*.1" in)
+ENCODER_CONFIG = (16,0,2000)  #16 64th steps of error allowed (16/64/200*.1" in ~3um)
+
+
 
 # Bit 8-0
 ERRORBITS = ('Over Speed', 'Bad Checksum', 'Current Limit', 'Loop Overflow', 'Int Queue Full', 'Encoder Error',
@@ -25,7 +39,10 @@ IN_PER_64THSTEP = .001 / 64
 MAX_POSITION = 2.6
 MIN_POSITION = -2.6  # Account for a bad 0
 MIN_SPEED = .1  # 1 full step / second
-MAX_SPEED = 1.6
+MAX_SPEED = 1.6  #in/s
+
+# Probably in 64th/s^2, motor allows 39789 rev/s2 7958 in/s2 MAX
+MAX_DECEL = MAX_DECEL = 16777215  # 0 forces default drive value, driver supports 0, 500-16777215 (~1300rev/s^2)
 
 CALIBRATION_MAX_TIME = 10  # seconds
 
@@ -36,6 +53,16 @@ class IdeaIO(object):
 
     def __str__(self):
         return '0b{:08b}'.format(self.byte)
+
+    @property
+    def inputs(self):
+        """NC NC NC Home"""
+        self.byte & 0b00001111
+
+    @property
+    def outputs(self):
+        """Calibrated err err booted"""
+        self.byte & 0b11110000
 
     @property
     def home_tripped(self):
@@ -51,6 +78,7 @@ class IdeaIO(object):
 
     @property
     def errcode(self):
+        """ error codes are 1-3, 3=Sensorfail 1&2 not presently used """
         return (self.byte & 0x60) >> 5
 
 
@@ -183,9 +211,6 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     @property
     def calibrated(self):
-        #TODO this seems to remain true even after a reset command to the Idea if the programs on the idea drive
-        # include an idle loop, getting rid of the idle loop fixed. I think the issue is that the reset command was
-        # silently ignored given that a program was running.
         return self.io.calibrated
 
     def move_to(self, position, speed=.75, accel=None, decel=None, relative=False):
@@ -202,8 +227,8 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         hold_current = 0
         delay_time = 300
         stepping = 64
-        accel = 0 if accel is None else accel  # TODO add minmax
-        decel = 0 if decel is None else decel
+        accel = 0 if accel is None else int(round(max(min(accel, MAX_ACCEL), 0)))
+        decel = 0 if decel is None else int(round(max(min(decel, MAX_DECEL), 0)))
         params = [position, speed, start_speed, end_speed, accel, decel, run_current, hold_current, accel_current,
                   decel_current, delay_time, stepping]
 
@@ -231,7 +256,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             time.sleep(CALIBRATION_MAX_TIME)
             state = self.state()
             if not state.calibrated:
-                raise RuntimeError
+                raise RuntimeError('ERROR: Calibration Failed')
 
     # def config_encoder(self):
     #     DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res
@@ -276,7 +301,12 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     @property
     def faults(self):
-        return IdeaFaults(self.send_command_to_hk('f'))
+        s = self.send_command_to_hk('f')
+        try:
+            int(s)
+        except ValueError:
+            raise IOError(s)
+        return IdeaFaults(s)
 
     def reset(self):
         self.send_command_to_hk('R')

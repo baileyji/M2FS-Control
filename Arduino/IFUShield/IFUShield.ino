@@ -76,13 +76,13 @@ bool OFcommand();
 
 #define N_COMMANDS 7
 const Command commands[]={
-    {"LE", LEcommand},
-    {"HV", HVcommand},
+    {"LE", LEcommand}, //LEd lamp command
+    {"HV", HVcommand}, //HV lamp command
     {"PC", PCcommand}, //Print Commands
-    {"TE", TEcommand}, //Report temps
-    {"TS", TScommand},  //Report all status (whats on and off)
-    {"PV", PVcommand}, 
-    {"OF", OFcommand} //Turn everything off
+    {"TE", TEcommand}, //TEmps Command
+    {"TS", TScommand}, //Tell Status(whats on and off)
+    {"PV", PVcommand}, //Print Version string
+    {"OF", OFcommand}  //OFf (turn all light sources off)
 };
 
 
@@ -268,6 +268,7 @@ bool HVcommand() {
   /*
   HV # ############### \n
   HV##\n <- min command 
+  HV?\n
   */
   if (command_buffer[2]=='?') {
     current_t lamplevels[N_LAMPS];
@@ -275,16 +276,16 @@ bool HVcommand() {
     for (int i=0; i<N_LAMPS; i++) {
       lamplevels[i] = hvcontrol.isLampEnabled(i) ? active.current : 0;
     }
-    char buf[16]; // "0000 0000 0000 0000 0000 0000\n"
+    char buf[16]; // "0000 0000 0000\n"
     buf[16]=0;
-    sprintf(buf,"%02d %02d %02d %02d %02d\n", lamplevels[0],lamplevels[1],lamplevels[2],lamplevels[3],lamplevels[4]);
+    sprintf(buf,"%02d %02d %02d\n", lamplevels[0],lamplevels[1],lamplevels[2]);
     Serial.write(buf, 16);
 
     return true;
   }
 
   lamp_t lamp;
-  if (command_buffer[2]>= '1' && command_buffer[2] <='6') {
+  if (command_buffer[2]>= '1' && command_buffer[2] <='3') {
     lamp = (lamp_t) command_buffer[2]-'1';
   } else {
     return false;
@@ -346,11 +347,9 @@ bool TScommand() {
     Serial.print(hvcontrol.getCurrent());Serial.print(F(" mA ("));Serial.print(hvcontrol.getCurrentLimit());Serial.println(F(" lim)"));
   }
   Serial.println(F("Relays"));
-  Serial.print(F("ThAr: "));Serial.println(hvcontrol.isLampEnabled(THAR_LAMP) ? "On":"Off");
-  Serial.print(F("ThNe: "));Serial.println(hvcontrol.isLampEnabled(THNE_LAMP) ? "On":"Off");
-  Serial.print(F("Hg:   "));Serial.println(hvcontrol.isLampEnabled(HG_LAMP) ? "On":"Off");
-  Serial.print(F("Ne:   "));Serial.println(hvcontrol.isLampEnabled(NE_LAMP) ? "On":"Off");
-  Serial.print(F("He:   "));Serial.println(hvcontrol.isLampEnabled(HE_LAMP) ? "On":"Off");
+  Serial.print(F("ThXe: "));Serial.println(hvcontrol.isLampEnabled(THXE_LAMP) ? "On":"Off");
+  Serial.print(F("BeNeAr: "));Serial.println(hvcontrol.isLampEnabled(BENEAR_LAMP) ? "On":"Off");
+  Serial.print(F("LiHe:   "));Serial.println(hvcontrol.isLampEnabled(LIHE_LAMP) ? "On":"Off");
   return true;
 }
 
@@ -359,7 +358,9 @@ bool PCcommand() {
     Serial.println(F("#PC   Print Commands - Print this list of commands"));
     Serial.println(F("#LEx# Led command - Set LED x to # illumination"));
     Serial.println(F("#HVx# High Voltage - Set HV lamp x to # illumination, all others off"));
+    Serial.println(F("#OF   Off - Turn all light sources off"));
     Serial.println(F("#TS   Tell Status - Tell the status"));
+    Serial.println(F("#PV   Print Version - Print the version string"));
     Serial.println(F("#TE   Temperature - Report all temperatures"));
     return true;
 }

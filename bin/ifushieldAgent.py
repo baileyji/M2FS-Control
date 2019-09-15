@@ -10,9 +10,8 @@ ARDUINO_BOOT_TIME = .1
 EXPECTED_IFUSHIELD_INO_VERSION = '1.0'
 
 COLORS = ('392', '407', 'whi', '740', '770', '875')
-HVLAMPS = ('thar', 'thne', 'hg', 'ne', 'he')
+HVLAMPS = ('thxe', 'benear', 'lihe')
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
-
 
 class IFUArduinoSerial(SelectedConnection.SelectedSerial):
     """
@@ -78,11 +77,9 @@ class IFUShieldAgent(Agent):
         self.max_clients = 2
         self.command_handlers.update({
             # Get/Set state of HV lamps
-            'THAR': self.HV_command_handler,   #response: {OK,ERROR,#}
-            'THNE': self.HV_command_handler,
-            'HE': self.HV_command_handler,
-            'HG': self.HV_command_handler,
-            'NE': self.HV_command_handler,
+            'THXE': self.HV_command_handler,   #response: {OK,ERROR,#}
+            'BENEAR': self.HV_command_handler,
+            'LIHE': self.HV_command_handler,
             # Get/Set state of LEDs
             'LED': self.LED_command_handler, #response:{ OK,ERROR, # # # # # #}
             #Report all the temps
@@ -107,10 +104,10 @@ class IFUShieldAgent(Agent):
         """
         Return a brief help string describing the agent.
         
-        Subclasses shuould override this to provide a description for the cli
+        Subclasses should override this to provide a description for the cli
         parser
         """
-        return "This is the IFUShieldLED agent. It controls the IFU-M LED and HV lamp unit and fetches temps in IFU-M."
+        return "This is the IFUShield agent. It controls the IFU-M LED and HV lamp unit and fetches temps in IFU-M."
 
     def _send_command_to_shield(self, command_string):
         """
@@ -150,8 +147,7 @@ class IFUShieldAgent(Agent):
             confByte = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
             if confByte == ':':
                 return response.strip()
-            else:
-                # Consider it a failure, log it. Add the byte to the response for logging
+            else:  # Consider it a failure, log it. Add the byte to the response for logging
                 response += confByte
                 err = ("IFUShield did not adhere to protocol. '%s' got '%s'" % (command_string, response))
                 self.logger.warning(err)
@@ -236,7 +232,7 @@ class IFUShieldAgent(Agent):
             command_parts = command.string.split(' ')
             try:
                 lamp_num = HVLAMPS.index(command_parts[0].lower())
-                current=int(command_parts[1])
+                current = int(command_parts[1])
                 self._send_command_to_shield('HV{}{}'.format(lamp_num, current))
                 command.setReply('OK')
             except (ValueError, IndexError):

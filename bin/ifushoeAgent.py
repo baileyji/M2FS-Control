@@ -14,6 +14,7 @@ SHOE_BOOT_TIME=2
 SHOE_SHUTDOWN_TIME=.25
 MAX_SLIT_MOVE_TIME=25
 
+
 def longTest(s):
     """ Return true if s can be cast as a long, false otherwise """
     try:
@@ -23,12 +24,13 @@ def longTest(s):
         return False
 
 
-class ShoeCommandNotAcknowledgedError(IOError):
+class IFUShoeCommandNotAcknowledgedError(IOError):
     """ Shoe fails to acknowledge a command, e.g. didn't respond with ':' """
     pass
 
-#TODO All this
+
 class ShoeSerial(SelectedConnection.SelectedSerial):
+    # TODO All this
     """ 
     Tetris Shoe Controller Connection Class
     
@@ -44,18 +46,13 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
     told to power down whenever the serial connection closes.
     """
     def _preConnect(self):
-        """
-        Attempt at workaround for 
-        https://bugs.launchpad.net/digitemp/+bug/920959
-        """
+        """ Attempt at workaround for https://bugs.launchpad.net/digitemp/+bug/920959 """
         try:
             from subprocess import call
-            s='stty crtscts < {device};stty -crtscts < {device}'.format(
-                device=self.port)
-            ret=call(s,shell=True)
+            s = 'stty crtscts < {device};stty -crtscts < {device}'.format(device=self.port)
+            ret = call(s, shell=True)
         except Exception, e:
-            raise SelectedConnection.ConnectError(
-                    'rtscts hack failed. {}:{}:{}'.format(s,ret,str(e)))
+            raise SelectedConnection.ConnectError('rtscts hack failed. {}:{}:{}'.format(s, ret, str(e)))
 
     def _postConnect(self):
         """
@@ -71,12 +68,13 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         response=self.receiveMessageBlocking()
         self.receiveMessageBlocking(nBytes=1) #discard the :
         if response != EXPECTED_FIBERSHOE_INO_VERSION:
-            error_message=("Incompatible Firmware, Shoe reported '%s' , expected '%s'."  %
-                (response,EXPECTED_FIBERSHOE_INO_VERSION))
+            error_message = ("Incompatible Firmware, Shoe reported '%s' , expected '%s'." %
+                             (response, EXPECTED_FIBERSHOE_INO_VERSION))
             raise SelectedConnection.ConnectError(error_message)
     
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """
+        #TODO look up datasheet for Actuonix controller /call about sudden disconnect
         try:
             self.connection.write('DS\n')
             time.sleep(SHOE_SHUTDOWN_TIME) #just in case the shoe resets on close,
@@ -87,7 +85,8 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         except Exception, e:
             pass
 
-class ShoeAgent(Agent):
+class IFUShoeAgent(Agent):
+    #TODO
     """
     This control program is responsible for controlling the fiber shoe for one
     side of the spectrograph. Two instances are run, one for the R side
@@ -101,24 +100,18 @@ class ShoeAgent(Agent):
     request the shoe temperature.
     """
     def __init__(self):
-        Agent.__init__(self,'IFUShoeAgent')
+        Agent.__init__(self, 'IFUShoeAgent')
         #Initialize the shoe
         if not self.args.DEVICE:
-            self.args.DEVICE='/dev/ifushoe'
-#        if self.args.simulator:
-#            self.connections['shoe']=SelectedConnection.SimConnection(
-#                 self.args.DEVICE, timeout=1)
-#        else:
-        self.connections['shoe']=ShoeSerial(self.args.DEVICE,
-                                            115200, timeout=1)
+            self.args.DEVICE = '/dev/ifushoe'
+        self.connections['shoe'] = ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         #Allow two connections so the datalogger agent can poll for temperature
-        self.max_clients=2
+        self.max_clients = 2
         self.command_handlers.update({
             #Send the command string directly to the shoe
             'SLITSRAW':self.RAW_command_handler,
-            #Get/Set the active slit on all 8 tetri. The move is carried out
-            # openloop based on the defined step positions for each slit.
-            'SLITS':self.SLITS_command_handler,
+            #Get/Set the active slit.
+            'SLITS': self.SLITS_command_handler,
             #Get/Set the step position corresponding to a slit on a tetris
             'SLITS_SLITPOS':self.SLITPOS_command_handler,
             #Get/Set the backlash for a tetris
@@ -130,9 +123,7 @@ class ShoeAgent(Agent):
             #Get the temperature of the shoe
             'SLITS_TEMP':self.TEMP_command_handler,
             #Tell the shoe to move a tetris a number of steps
-            'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
-            #Tell shoe to drive a tetris to the hardstop, calibrating it
-            'SLITS_HARDSTOP':self.HARDSTOP_command_handler})
+            'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler})
     
     def get_cli_help_string(self):
         """
@@ -141,8 +132,8 @@ class ShoeAgent(Agent):
         Subclasses shuould override this to provide a description for the cli
         parser
         """
-        return "This is the shoe agent. It takes shoe commands via \
-        a socket connection or via CLI arguments."
+        return ("This is the IFU shoe agent. It takes shoe commands via"
+                "a socket connection or via CLI arguments.")
     
     def add_additional_cli_arguments(self):
         """
@@ -370,8 +361,7 @@ class ShoeAgent(Agent):
         requested slit position, openloop, using the defined step position for
         that slit. It is an error to set the slits when they are uncalibrated 
         or a move is in progress. If done the error '!ERROR: Can not set slits at
-        this time. will be generated.' TODO integrate with TS command to provide 
-        informative reason for falure. NB The shoe just returns ?
+        this time. will be generated.'
         
         If getting, respond in the from TETRIS0, ..., TETRIS7
         where TETRISi is one of UNKNOWN INTERMEDIATE MOVING or {1-7}, 7

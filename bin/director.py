@@ -161,7 +161,18 @@ class Director(Agent):
             #The director passes the command along to the agent.
             #
             #Authoritative command discriptions are in dataloggerAgent.py
-            'TEMPS':self.datalogger_command_handler})
+            'TEMPS':self.datalogger_command_handler,
+            # TODO IFU-M Commands
+            'IFU':self.ifu_command_handler_placeholder,
+            'IFU_MOVE':self.ifu_command_handler_placeholder,
+            'OCC':self.ifu_command_handler_placeholder,
+            'OCC_STEP':self.ifu_command_handler_placeholder,
+            'OCC_CALIBRATE':self.ifu_command_handler_placeholder,
+            'OCCRAW': self.ifu_command_handler_placeholder,
+            'BeNeAr':self.ifu_command_handler_placeholder,
+            'LiHe':self.ifu_command_handler_placeholder,
+            'ThXe':self.ifu_command_handler_placeholder,
+        })
         #Ensure stawed shutdown is disabled by default
         m2fsConfig.disableStowedShutdown()
         self.batteryState=[('Battery','Unknown')]
@@ -242,9 +253,6 @@ class Director(Agent):
         
         In addition the the stowed shutdown flag is set, which will result in
         every agent calling its _stowedShutdown hook as it shuts down.
-        TODO: Test that power stays on for long enough for everything to close 
-        out. TODO make sure the systemd timeouts for exiting agents are long 
-        enough 
         """
         m2fsConfig.enableStowedShutdown()
         command.setReply('OK')
@@ -417,7 +425,6 @@ class Director(Agent):
         Return a list of key:value pairs plus the status responses resulting
         from STATUS requests to each agent. If an agent doesnt respond report 
         it's status it is listed as Offline.
-        TODO make the agent name reported meaningful to the end used.
         """
         status=[(self.get_version_string(),self.cookie)]
         #Get the battery backup state
@@ -447,7 +454,7 @@ class Director(Agent):
             batteryState=[('Battery',upsstate['ups.status']),
                                ('Runtime(s)',upsstate['battery.runtime'])]
         except Exception:
-            batteryState=[('Battery','Faild to query NUT for status')]
+            batteryState=[('Battery','Failed to query NUT for status')]
         #self.logger.info(' '.join(['{}:{}'.format(x,y) for x,y in batteryState]))
         if len(batteryState)==2:
             if int(batteryState[1][1])<MIN_UPS_RUNTIME:

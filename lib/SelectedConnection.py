@@ -1,4 +1,6 @@
 import logging, sys, time, threading
+import serial, termios
+import socket
 
 logger = logging.getLogger(__name__)
 
@@ -485,7 +487,7 @@ class SelectedConnection(object):
         return self.isOpen()
 
 
-import serial, termios
+
 class SelectedSerial(SelectedConnection):
     """ Serial implementation of SelectedConnection """
     def __init__(self, port, baudrate,
@@ -639,7 +641,6 @@ class SelectedSerial(SelectedConnection):
         return ret
 
 
-import socket
 class SelectedSocket(SelectedConnection):
     """ Socket implementation of SelectedConnection """
     def __init__(self, host, port, Live_Socket_To_Use=None,

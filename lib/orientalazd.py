@@ -5,10 +5,10 @@ from pymodbus.transaction import ModbusRtuFramer
 import numpy as np
 import logging, time, threading
 
-#TODO (general
-# Modbus commands can be silently ignored and also not trip an alarm, e.g. move_to raises no errors
-# todo ensure all communication commands only raise subclasses of IOError then remove the broad catches (or add
-#  specific ones if must to selectorAgent
+#TODO (general)
+# -Modbus commands can be silently ignored and also not trip an alarm, e.g. move_to raises no errors
+# -ensure all communication commands only raise subclasses of IOError then remove the broad catches (or add
+#  specific ones if must to selectorAgent)
 #move_to needs to be robust
 
 #count= the number of registers to read

@@ -88,7 +88,6 @@ class FeedbackAgent(Agent):
         self.display.sendMessageBlocking(''.join(self.misplug_messages.values()))
     
     def play_misplug(self, pan):
-        """ TODO: Play misplug sound with pan setting """
         from wave import open as waveOpen
         from ossaudiodev import open as ossOpen
         s = waveOpen(self.misplugAudioFile,'rb')

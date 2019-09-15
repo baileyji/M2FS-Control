@@ -13,7 +13,7 @@ from LoggerRecord import *
 
 LOGGING_LEVEL=logging.DEBUG  #This will not have any effect if it is more aggressive than the conf file
 
-DATALOGGER_VERSION_STRING='Datalogger Agent v0.2'
+DATALOGGER_VERSION_STRING='Datalogger Agent v1.0'
 POLL_AGENTS_INTERVAL=60.0
 READING_EXPIRE_INTERVAL=120.0
 
@@ -64,8 +64,8 @@ class DataloggerAgent(Agent):
         self.command_handlers.update({
             #Return a list of the temperature values
             'TEMPS': self.TEMPS_command_handler})
-#        self.logger.setLevel(LOGGING_LEVEL)
 
+        # TODO update for IFU-M
         # self.updateTimes = {'MSpecR': 0, 'MSpecB': 0, 'ShackHartmanAgent': 0,
         #                     'IFUShieldAgent': 0, 'SelectorAgent': 0}
         self.bUpdateTime=0
@@ -74,7 +74,7 @@ class DataloggerAgent(Agent):
 
     def get_version_string(self):
         return DATALOGGER_VERSION_STRING
-    
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
@@ -83,11 +83,11 @@ class DataloggerAgent(Agent):
         parser
         """
         return "This is the M2FS datalogger"
-    
+
     def TEMPS_command_handler(self, command):
         """ Report the current temperatures """
         command.setReply(self.currentRecord.tempsString())
-    
+
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
@@ -95,13 +95,13 @@ class DataloggerAgent(Agent):
         Report the Key:Value pair name:cookie
         """
         return [(self.get_version_string(),self.cookie)]
-    
+
     def runSetup(self):
         """ execute before main loop """
         self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.queryAgentTemps)
         self.queryAgentsTimer.daemon=True
         self.queryAgentsTimer.start()
-    
+
     def run(self):
         """
         Called once per main loop, after select & any handlers but
@@ -152,7 +152,7 @@ class DataloggerAgent(Agent):
             logDebugInfo(self.logger, records)
             self.updateCurrentReadingsWith(records[-1])
             self.logRecords(records)
-    
+
     def updateCurrentReadingsWith(self, record):
         """
         Update the live state with the data in the record. Ignore old records.
@@ -166,33 +166,34 @@ class DataloggerAgent(Agent):
 
         timeDelta=record.unixtime-self.currentRecord.unixtime
         if True or timeDelta >= 0:
-            
+
             #update the timestamps for the data
+            # TODO update for IFU-M
             if record.haveBData():
                 self.bUpdateTime=record.unixtime
             if record.haveRData():
                 self.rUpdateTime=record.unixtime
             if record.haveSHData():
                 self.shUpdateTime=record.unixtime
-                
+
             #Merge in the new data, replacing the old
             self.logger.debug('Current record was: %s' % self.currentRecord.prettyStr())
-            self.currentRecord.merge(record,force=True)
-    
+            self.currentRecord.merge(record, force=True)
+
             #Adopt the new time
             self.currentRecord.unixtime=record.unixtime
-    
+
             #Clear out any data that is too old
 #            if (self.currentRecord.unixtime - self.rUpdateTime) > READING_EXPIRE_INTERVAL:
 #                self.logger.debug('R values expired, clearing')
 #                for k in self.currentRecord.sideR.keys():
 #                    self.currentRecord.sideR[k]=None
-#            
+#
 #            if (self.currentRecord.unixtime - self.bUpdateTime) > READING_EXPIRE_INTERVAL:
 #                self.logger.debug('B values expired, clearing')
 #                for k in self.currentRecord.sideB.keys():
 #                    self.currentRecord.sideB[k]=None
-#            
+#
 #            if (self.currentRecord.unixtime - self.shUpdateTime) > READING_EXPIRE_INTERVAL:
 #                self.logger.debug('SH value expired, clearing')
 #                self.currentRecord.shackhartmanTemp=None
@@ -200,15 +201,14 @@ class DataloggerAgent(Agent):
             #Don't keep track of accelerations
             self.currentRecord.sideB['accels']=None
             self.currentRecord.sideR['accels']=None
-            
+
             #Log the result
             self.logger.debug('Current record now: %s' % self.currentRecord.prettyStr())
         else:
             #we don't wan't old data
-            self.logger.debug('No update to current record (%s)'%
-                self.currentRecord.timeString())
+            self.logger.debug('No update to current record (%s)' % self.currentRecord.timeString())
             return
-    
+
     def logRecords(self, records):
         """
         Write all the LoggerRecords in records to the log file
@@ -217,10 +217,10 @@ class DataloggerAgent(Agent):
         self.logger.debug('Logging {} records'.format(len(records)))
         for r in records:
             self.logfile.write(str(r)+'\n')
-    
+
     def _exitHook(self):
         self.logfile.close()
-    
+
     def queryAgentTemps(self):
         if m2fsConfig.ifu_mode:
             try:
@@ -286,6 +286,7 @@ class DataloggerAgent(Agent):
             except ValueError:
                 shTemp=None
         #Create a record and stick it in the queue
+        # TODO update for IFU-M
         if not (shTemp == None and cradleBTemp==None and cradleRTemp==None):
             self.recordQueue.put(LoggerRecord(time.time(),
                                              shackhartmanTemp=shTemp,

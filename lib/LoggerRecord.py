@@ -68,10 +68,10 @@ def fromDataloggerData(side, data):
     unixtime=float(unsigned32BitParser(data[-8:-4]))
     unixtime+=float(unsigned32BitParser(data[-4:]) % 1000) /1000
     #Convert the raw accelerometer data to Gs
-    if accels !=None:
+    if accels is not None:
         accels=ACCELS_TO_GEES*numpyarray(accels).reshape([32,3])
     #Extract the sensor values
-    if temps!=None:
+    if temps is not None:
         if side == 'R':
             echelleTemp=temps[ECHELLE_INDEX_R]+ECHELLE_OFFSET_R
             prismTemp=temps[PRISM_INDEX_R]+PRISM_OFFSET_R
@@ -122,11 +122,16 @@ class LoggerRecord(object):
     """
     #TODO update for IFUM
     def __init__(self, timestamp, shackhartmanTemp=None,
-                        cradleRTemp=None, cradleBTemp=None,
-                        echelleRTemp=None, echelleBTemp=None,
-                        prismRTemp=None, prismBTemp=None,
-                        loresRTemp=None, loresBTemp=None,
-                        accelsR=None, accelsB=None):
+                 cradleRTemp=None, cradleBTemp=None,
+                 echelleRTemp=None, echelleBTemp=None,
+                 prismRTemp=None, prismBTemp=None,
+                 loresRTemp=None, loresBTemp=None,
+                 accelsR=None, accelsB=None,
+                 ifuHTemp=None, ifuMTemp=None, ifuLTemp=None,
+                 ifuSelectorDriveTemp=None, ifuSelectorMotorTemp=None
+                 #TODO add all IFU-M Temps
+                 ):
+        # TODO update for IFU-M
         self.unixtime=timestamp
         self.shackhartmanTemp=shackhartmanTemp
         self.sideR={'cradleTemp':cradleRTemp, 'echelleTemp':echelleRTemp,
@@ -142,70 +147,81 @@ class LoggerRecord(object):
     
     def empty(self):
         """ Return true if the record contains no data """
-        if self.shackhartmanTemp!=None:
+        if self.haveIFUMData or self.haveMFibData:
             return False
         for k in self.sideR.keys():
-            if self.sideR[k] != None:
+            if self.sideR[k] is not None:
                 return False
         for k in self.sideB.keys():
-            if self.sideB[k] != None:
+            if self.sideB[k] is not None:
                 return False
         return True
     
     def bOnly(self):
         """ Return true iff the record only contains B side data """
-        if self.haveSHData():
+        if self.haveIFUMData or self.haveMFibData:
             return False
         return self.haveBData() and not self.haveRData()
-    
+
+    def rOnly(self):
+        """ Return true iff the record only contains R side data """
+        if self.haveIFUMData or self.haveMFibData:
+            return False
+        return self.haveRData() and not self.haveBData()
+
     def haveBData(self):
         for k in self.sideB.keys():
-            if self.sideB[k] != None:
+            if self.sideB[k] is not None:
                 return True
 
     def haveRData(self):
         for k in self.sideR.keys():
-            if self.sideR[k] != None:
+            if self.sideR[k] is not None:
                 return True
-    
-    def haveSHData(self):
-        return self.shackhartmanTemp!=None
 
-    def rOnly(self):
-        """ Return true iff the record only contains R side data """
-        if self.haveSHData():
-            return False
-        return self.haveRData() and not self.haveBData()
+    @property
+    def haveMFibData(self):
+        return self.haveSHData()
+
+    @property
+    def haveIFUMData(self):
+        #TODO update for IFU-M
+        return False
+
+    def haveSHData(self):
+        return self.shackhartmanTemp is not None
 
     def prettyStr(self):
+        #TODO update for IFU-M
         timestr=self.timeString()
         temps=self.tempsString()
         accels='No Accels'
-        if self.sideB['accels'] != None or self.sideR['accels'] != None:
+        if self.sideB['accels'] is not None or self.sideR['accels'] is not None:
             accels='Accels '
-        if self.sideB['accels'] != None:
+        if self.sideB['accels'] is not None:
             accels+='B'
-        if self.sideR['accels'] != None:
+        if self.sideR['accels'] is not None:
             accels+='R'
         return ' '.join([timestr, temps, accels])
 
     def accelsString(self):
         """ Return a space delimited string of acceleration values with side """
-        if self.sideB['accels'] != None:
+        if self.sideB['accels'] is not None:
             return 'B\n'+str(self.sideB['accels'])
-        elif self.sideR['accels'] != None:
+        elif self.sideR['accels'] is not None:
             return 'R\n'+str(self.sideR['accels'])
         else:
             return 'No Accels'
     
     def tempsString(self):
         """ Return a space deleimted string of the temps or 'None' """
+        # TODO update for IFU-M
         temps=[self.shackhartmanTemp,
                self.sideR['cradleTemp'], self.sideB['cradleTemp'],
                self.sideR['echelleTemp'], self.sideB['echelleTemp'],
                self.sideR['prismTemp'], self.sideB['prismTemp'],
                self.sideR['loresTemp'], self.sideB['loresTemp']]
-        temps=['{:.4f}'.format(t) if t != None else 'U' for t in temps]
+        temps=['{:.4f}'.format(t) if t is not None else 'U' for t in temps]
         return ' '.join(temps)
     
     def timeString(self):
@@ -221,17 +237,18 @@ class LoggerRecord(object):
         same minute. If they both contain accelerometer data, then they may not
         be merged
         """
+        # TODO update for IFU-M
         if self.shackhartmanTemp and other.shackhartmanTemp:
             return False
         for k in self.sideR.keys():
-            if self.sideR[k] != None and other.sideR[k] != None:
+            if self.sideR[k] is not None and other.sideR[k] is not None:
                 return False
         for k in self.sideB.keys():
-            if self.sideB[k] != None and other.sideB[k] != None:
+            if self.sideB[k] is not None and other.sideB[k] is not None:
                 return False
         #Ensure both don't contain acceleration data
-        if (self.sideR['accels']!=None and other.sideB['accels']!=None or
-            self.sideB['accels']!=None and other.sideR['accels']!=None):
+        if (self.sideR['accels'] is not None and other.sideB['accels'] is not None or
+            self.sideB['accels'] is not None and other.sideR['accels'] is not None):
             return False
 #        if int(other.unixtime)/60 != int(self.unixtime)/60:
 #            return False
@@ -243,17 +260,18 @@ class LoggerRecord(object):
         
         If Force is true (default false) all set values are merged into self
         """
+        # TODO update for IFU-M
         if not force and not self.recordsMergable(other):
             raise Unmergable()
         # acceleration timestamp has priority
-        if (not force and (other.sideR['accels'] != None or
-                          other.sideB['accels'] != None)):
+        if (not force and (other.sideR['accels'] is not None or
+                           other.sideB['accels'] is not None)):
                 self.unixtime=other.unixtime
         for k,v in other.sideB.items():
-            if v != None:
+            if v is not None:
                 self.sideB[k]=v
         for k,v in other.sideR.items():
-            if v != None:
+            if v is not None:
                 self.sideR[k]=v
-        if other.shackhartmanTemp!=None:
+        if other.shackhartmanTemp is not None:
             self.shackhartmanTemp=other.shackhartmanTemp

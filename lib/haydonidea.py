@@ -250,7 +250,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         return pos if steps else pos*IN_PER_64THSTEP
 
     def calibrate(self, nosleep=False):
-        """ TODO flesh out exceptions and make not conditional on nosleep arg"""
+        """ TODO conditional on nosleep arg"""
         self.sendMessageBlocking('mCalibrate_')
         if not nosleep:
             time.sleep(CALIBRATION_MAX_TIME)

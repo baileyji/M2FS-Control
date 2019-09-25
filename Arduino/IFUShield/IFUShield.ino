@@ -1,34 +1,75 @@
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include "HVLamp.h"
+#include "Ultravolt.h"
 #include <Adafruit_TLC5947.h>
+
+#if defined(ARDUINO_ARCH_SAMD)  
+// for Arduino Zero, output on USB Serial console, 
+// remove line below if using programming port to program the Zero!
+   #define Serial SerialUSB
+#endif
 
 #define VERSION_STRING "1.0"
 
+
+#define N_TEMP_SENSORS 4
 #define TEMP_UPDATE_INTERVAL_MS 10000
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
-//TODO NONE of the pins are final!
+#define DAC_ADDR 0x63
 
+#pragma mark Pins
 
 //These are Arduino Pins, e.g. args to digitalWrite
-#define AFLED_LAT_PIN 4 //pin 11
-#define AFLED_CLK_PIN 1 //pin 7
-#define AFLED_DIN_PIN 2 //pin 8
+#define AFLED_LAT_PIN 1
+#define AFLED_CLK_PIN 2
+#define AFLED_DIN_PIN 3
 
-#define SDA_PIN 4 //pin 10
-#define SCL_PIN 0 //pin 6
+#define SDA_PIN 20 
+#define SCL_PIN 21
 
 #define ONEWIRE_PIN 3
-#define N_TEMP_SENSORS 4
 
-Adafruit_TLC5947 leddrive = Adafruit_TLC5947(1, AFLED_CLK_PIN, AFLED_DIN_PIN, AFLED_LAT_PIN);
-HVLamp hvcontrol = HVLamp();
+#define PIN_IMON_BENEAR  1
+#define PIN_VMON_BENEAR  2
+#define PIN_ENABLE_BENEAR 3
+#define PIN_VMODE_BENEAR 5
+#define PIN_IMODE_BENEAR 4
+#define PIN_VSEL_BENEAR 5
+#define PIN_ISEL_BENEAR 4
+
+#define PIN_IMON_LIHE  1
+#define PIN_VMON_LIHE  2
+#define PIN_ENABLE_LIHE 3
+#define PIN_VMODE_LIHE 5
+#define PIN_IMODE_LIHE 4
+#define PIN_VSEL_LIHE 5
+#define PIN_ISEL_LIHE 4
+
+#define PIN_IMON_THXE  1
+#define PIN_VMON_THXE  2
+#define PIN_ENABLE_THXE 3
+#define PIN_VMODE_THXE 5
+#define PIN_IMODE_THXE 4
+#define PIN_VSEL_THXE 5
+#define PIN_ISEL_THXE 4
+
+//HV Lamps
+typedef enum {THXE_LAMP=0, BENEAR_LAMP=1, LIHE_LAMP=2, NONE_LAMP=3, MULTIPLE_LAMP=4} lamp_t;
+Adafruit_MCP4725 dac; 
+Ultravolt benear = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
+                            PIN_IMODE_BENEAR, PIN_ISEL_BENEAR, PIN_VSEL_BENEAR, 800, 10, dac);
+Ultravolt lihe = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
+                            PIN_IMODE_BENEAR, PIN_ISEL_BENEAR, PIN_VSEL_BENEAR, 800, 10, dac);
+Ultravolt thxe = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
+                            PIN_IMODE_BENEAR, PIN_ISEL_BENEAR, PIN_VSEL_BENEAR, 800, 10, dac);
 
 //LED Levels
 uint16_t ledlevels[] = {0, 0, 0, 0, 0, 0};
+Adafruit_TLC5947 leddrive = Adafruit_TLC5947(1, AFLED_CLK_PIN, AFLED_DIN_PIN, AFLED_LAT_PIN);
+
 
 //Temp monitoring
 OneWire oneWire(ONEWIRE_PIN);  // Instantiate a oneWire instance
@@ -43,7 +84,6 @@ unsigned long time_of_last_temp_request=0;
 unsigned long time_since_last_temp_request=0xFFFFFFFF;
 
 
-
 //Command buffer
 char command_buffer[81];
 unsigned char command_buffer_ndx=0;
@@ -51,19 +91,14 @@ unsigned char command_length=0;
 bool have_command_to_parse=false;
 
 
-#if defined(ARDUINO_ARCH_SAMD)  
-// for Arduino Zero, output on USB Serial console, 
-// remove line below if using programming port to program the Zero!
-   #define Serial SerialUSB
-#endif
-
-
 //Commands
+
+#define N_COMMANDS 8
+
 typedef struct {
     String name;
     bool (*callback)();
 } Command;
-
 
 bool PCcommand();
 bool LEcommand();
@@ -72,9 +107,8 @@ bool TScommand();
 bool TEcommand();
 bool PVcommand();
 bool OFcommand();
+bool MIcommand();
 
-
-#define N_COMMANDS 7
 const Command commands[]={
     {"LE", LEcommand}, //LEd lamp command
     {"HV", HVcommand}, //HV lamp command
@@ -82,7 +116,8 @@ const Command commands[]={
     {"TE", TEcommand}, //TEmps Command
     {"TS", TScommand}, //Tell Status(whats on and off)
     {"PV", PVcommand}, //Print Version string
-    {"OF", OFcommand}  //OFf (turn all light sources off)
+    {"OF", OFcommand},  //OFf (turn all light sources off)
+    {"MI", MIcommand}  //Monitor Ignition
 };
 
 
@@ -116,10 +151,13 @@ void serialEvent() {
 void setup() {
 
     //Startup the light controllers 
-    hvcontrol.begin();
+    dac.begin(DAC_ADDR);
+    thxe.begin();
+    benear.begin();
+    lihe.begin();
     leddrive.begin();
     
-    //Set up temp sensor
+    //Set up temp sensors
     tempSensors.begin();
     tempSensors.setResolution(12);
     tempSensors.setWaitForConversion(false);
@@ -270,44 +308,83 @@ bool HVcommand() {
   HV##\n <- min command 
   HV?\n
   */
+  lamp_t lamp;
+  
   if (command_buffer[2]=='?') {
-    current_t lamplevels[N_LAMPS];
-    lampstatus_t active = hvcontrol.getActiveLamp();
-    for (int i=0; i<N_LAMPS; i++) {
-      lamplevels[i] = hvcontrol.isLampEnabled(i) ? active.current : 0;
-    }
-    char buf[16]; // "0000 0000 0000\n"
-    buf[16]=0;
-    sprintf(buf,"%02d %02d %02d\n", lamplevels[0],lamplevels[1],lamplevels[2]);
-    Serial.write(buf, 16);
+//    current_t lamplevels[N_LAMPS];
+//    for (int i=0; i<N_LAMPS; i++) {
+//      lamplevels[i] = hvcontrol.isLampEnabled(i) ? active.current : 0;
+//    }
+//    char buf[16]; // "0000 0000 0000\n"
+//    buf[16]=0;
+    Serial.print(benear.getCurrent());
+    Serial.print(" ");
+    Serial.print(lihe.getCurrent());
+    Serial.print(" ");
+    Serial.println(thxe.getCurrent());
+//    sprintf(buf,"%02d %02d %02d\n", lamplevels[0],lamplevels[1],lamplevels[2]);
+//    Serial.write(buf, 16);
 
     return true;
   }
 
-  lamp_t lamp;
+
   if (command_buffer[2]>= '1' && command_buffer[2] <='3') {
     lamp = (lamp_t) command_buffer[2]-'1';
-  } else {
-    return false;
-  }
+  } else return false;
 
-  if (lamp==NONE_LAMP) {
-    hvcontrol.turnOff();
-    return true;
-  }
+//  if (lamp==NONE_LAMP) {  //inaccessible
+//    thxe.turnOff();
+//    lihe.turnOff();
+//    benear.turnOff();
+//    return true;
+//  }
 
   if (command_length > 4){
-    if (!((command_buffer[3] >='0' && command_buffer[3]<='9') || 
-          ((command_buffer[3] =='+' && command_length> 5) &&
-          command_buffer[4] >='0' && command_buffer[4]<='9' ))) 
-       return false;  
-    unsigned int param = atoi(command_buffer+3);
-    hvcontrol.turnOn(lamp, (current_t) param);
+    long param = strtol(command_buffer+3, NULL, 10);
+    if (param<0 || (param==0 && command_buffer[3] !='0'))
+       return false;
+    switch(lamp) {
+        case BENEAR_LAMP : benear.turnOn((current_t) param);
+                           break;
+        case THXE_LAMP   : thxe.turnOn((current_t) param);
+                           break;
+        case LIHE_LAMP   : lihe.turnOn((current_t) param);
+                           break;
+    }
     return true;
-  } else {
-    return false;
-  }
+  } else return false;
 
+}
+
+
+bool MIcommand() {
+  /* HV##\n */
+  lamp_t lamp;
+  
+  if (command_buffer[2]>= '1' && command_buffer[2] <='3') {
+    lamp = (lamp_t) command_buffer[2]-'1';
+  } else return false;
+
+  if (command_length < 4) 
+    return false;
+  
+  long param = strtol(command_buffer+3, NULL, 10);
+  if (param<0 || (param==0 && command_buffer[3] !='0'))
+     return false;
+     
+  switch(lamp) {
+      case BENEAR_LAMP : benear.setCurrentLimit((current_t) param);
+                         benear.monitorIgnition(2000);
+                         break;
+      case THXE_LAMP   : thxe.setCurrentLimit((current_t) param);
+                         thxe.monitorIgnition(2000);
+                         break;
+      case LIHE_LAMP   : lihe.setCurrentLimit((current_t) param);
+                         lihe.monitorIgnition(2000);
+                         break;
+  }
+  return true;
 }
 
 //Report the last temp reading
@@ -337,19 +414,34 @@ bool TScommand() {
   }
   Serial.println(temps[N_TEMP_SENSORS-1].reading, 3);
 
-  Serial.print(F("HV Lamps:\nHV Supply\n"));
 
-  if (hvcontrol.isEnabled()) {
-    Serial.println(F("Disabled"));
+  Serial.print(F("ThXe Lamp is"));
+  if (!thxe.isEnabled()) {
+    Serial.println(F("disabled"));
   } else {
-    Serial.print(F("Enabled, running in "));Serial.print(hvcontrol.isVoltageMode() ? "voltage":"current");Serial.println(F(" mode"));
-    Serial.print(hvcontrol.getVoltage());Serial.print(F(" V ("));Serial.print(hvcontrol.getVoltageLimit());Serial.print(F(" lim) "));
-    Serial.print(hvcontrol.getCurrent());Serial.print(F(" mA ("));Serial.print(hvcontrol.getCurrentLimit());Serial.println(F(" lim)"));
+    Serial.print(F("enabled, running in "));Serial.print(thxe.isVoltageMode() ? "voltage":"current");Serial.println(F(" mode"));
+    Serial.print(thxe.getVoltage());Serial.print(F(" V ("));Serial.print(thxe.getVoltageLimit());Serial.print(F(" lim)  "));
+    Serial.print(thxe.getCurrent());Serial.print(F(" mA ("));Serial.print(thxe.getCurrentLimit());Serial.println(F(" lim)"));
   }
-  Serial.println(F("Relays"));
-  Serial.print(F("ThXe: "));Serial.println(hvcontrol.isLampEnabled(THXE_LAMP) ? "On":"Off");
-  Serial.print(F("BeNeAr: "));Serial.println(hvcontrol.isLampEnabled(BENEAR_LAMP) ? "On":"Off");
-  Serial.print(F("LiHe:   "));Serial.println(hvcontrol.isLampEnabled(LIHE_LAMP) ? "On":"Off");
+
+  Serial.print(F("BeNeAr Lamp is"));
+  if (!benear.isEnabled()) {
+    Serial.println(F("disabled"));
+  } else {
+    Serial.print(F("enabled, running in "));Serial.print(benear.isVoltageMode() ? "voltage":"current");Serial.println(F(" mode"));
+    Serial.print(benear.getVoltage());Serial.print(F(" V ("));Serial.print(benear.getVoltageLimit());Serial.print(F(" lim)  "));
+    Serial.print(benear.getCurrent());Serial.print(F(" mA ("));Serial.print(benear.getCurrentLimit());Serial.println(F(" lim)"));
+  }
+
+  Serial.print(F("LiHe Lamp is"));
+  if (!lihe.isEnabled()) {
+    Serial.println(F("disabled"));
+  } else {
+    Serial.print(F("enabled, running in "));Serial.print(lihe.isVoltageMode() ? "voltage":"current");Serial.println(F(" mode"));
+    Serial.print(lihe.getVoltage());Serial.print(F(" V ("));Serial.print(lihe.getVoltageLimit());Serial.print(F(" lim)  "));
+    Serial.print(lihe.getCurrent());Serial.print(F(" mA ("));Serial.print(lihe.getCurrentLimit());Serial.println(F(" lim)"));
+  }
+  
   return true;
 }
 
@@ -362,6 +454,7 @@ bool PCcommand() {
     Serial.println(F("#TS   Tell Status - Tell the status"));
     Serial.println(F("#PV   Print Version - Print the version string"));
     Serial.println(F("#TE   Temperature - Report all temperatures"));
+    Serial.println(F("#MIx#   Monitor Ignition - Monitor Ignition of x to #"));
     return true;
 }
 
@@ -371,7 +464,9 @@ bool OFcommand() {
     ledlevels[i]=0;
     leddrive.setPWM(i, 0);
   }
-  hvcontrol.turnOff();
+  lihe.turnOff();
+  thxe.turnOff();
+  benear.turnOff();
   return true;
 }
 

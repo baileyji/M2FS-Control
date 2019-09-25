@@ -11,7 +11,6 @@ import time
 'cant get the drive current'
 "E175,0,50' doesn't stop the effing thing"
 
-
 #2000 count/rev encoder
 #steps are in microsteps
 #0.180mA ABSOLUTE MAX
@@ -26,7 +25,7 @@ IFU_DEVICE_MAP = {'lsb': '/dev/occulterLR', 'msb': '/dev/occulterMR', 'hsb': '/d
 
 logger = getLogger(__name__)
 HK_TIMEOUT = 1
-ENCODER_CONFIG = (16,0,2000)  #16 64th steps of error allowed (16/64/200*.1" in ~3um)
+ENCODER_CONFIG = (16, 0, 2000)  #16 64th steps of error allowed (16/64/200*.1" in ~3um)
 
 
 
@@ -42,8 +41,7 @@ MIN_SPEED = .1  # 1 full step / second
 MAX_SPEED = 1.6  #in/s
 
 # Probably in 64th/s^2, motor allows 39789 rev/s2 7958 in/s2 MAX
-MAX_DECEL = MAX_DECEL = 16777215  # 0 forces default drive value, driver supports 0, 500-16777215 (~1300rev/s^2)
-
+MAX_ACCEL = MAX_DECEL = 16777215  # 0 forces default drive value, driver supports 0, 500-16777215 (~1300rev/s^2)
 CALIBRATION_MAX_TIME = 10  # seconds
 
 
@@ -227,8 +225,8 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         hold_current = 0
         delay_time = 300
         stepping = 64
-        accel = 0 if accel is None else int(round(max(min(accel, MAX_ACCEL), 0)))
-        decel = 0 if decel is None else int(round(max(min(decel, MAX_DECEL), 0)))
+        accel = 960000 if accel is None else int(round(max(min(accel, MAX_ACCEL), 0)))
+        decel = 960000 if decel is None else int(round(max(min(decel, MAX_DECEL), 0)))
         params = [position, speed, start_speed, end_speed, accel, decel, run_current, hold_current, accel_current,
                   decel_current, delay_time, stepping]
 
@@ -264,10 +262,10 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     #     self.send_command_to_hk(cmd + ','.join(map(int, params)))
 
     def encoder_config(self):
-        #This appears to return nothing if the encoder is not
+        #This appears to return nothing if the encoder is not configured
         enc = self.send_command_to_hk('b')  # "`b[deadband],[stallhunts],[lines/rev][cr]`b#[cr]"
         if not enc:
-            return 0,0,0
+            return 0, 0, 0
         return tuple(map(int, enc.split(',')))
 
     def stop(self):
@@ -298,6 +296,10 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         hold_current = 0
         params = [decel_current, hold_current, delay_time]
         self.send_command_to_hk('E' + ','.join(map(str, map(int, params))))
+
+    def abort(self):
+        """ Command drive to abort """
+        self.send_command_to_hk('A')
 
     @property
     def faults(self):

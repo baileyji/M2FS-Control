@@ -136,6 +136,7 @@ class OrientalMotor(object):
             return x
 
     def get_temps(self):
+        """ drivetemp, motor temp (deg C)"""
         #INFO - DRVTMP  0x00F8 0x00f9   (1=0.1C)
         #INFO - MTRTMP  0x00FA 0x00fb
         return (merge_reg(self.modbus.read_holding_registers(0x00F8, 2, unit=1).registers, bytewid=2, rev=True)*.1,
@@ -222,21 +223,99 @@ class OrientalMotor(object):
         # 0x00CC-D detected position
         # 0x00D6 0x00D7  current/max torque
         #TODO finish
-        #interface contract:
+
+        out_bits = self.get_out(pretty=False)
+        self.get_remoteOut(pretty=False)
+
+        self.motor_powered = motor_powered  'STOP-COFF_R'
+
+        self.current_ma = current_ma  raw = merge_reg(self.modbus.read_holding_registers(0x00CC, 2, unit=1).registers, bytewid=2, rev=True)
+        self.brake = brake  'MBC'
+        self.position = self.get_position()
+        self.moving = moving
+        self.ready = ready  'READY'
+        self.inposition = inposition  # 'IN-POS'
+        self.alarm = alarm
+        self.fwlim = fwlim  'FW-LS_R'
+        self.rvlim = rvlim  'RV_LS_R'
+        self.home = home
+        self.error_string = error_string
+        self.has_fault = has_fault
+
+        REMOTE_IO_OUT_BITS = ('MBC', 'STOP-COFF_R', 'RV_LS_R', '-', 'FW-LS_R', 'READY', 'INFO', 'ALM-A', 'SYS-BSY',
+                              'AREA0', 'AREA1', 'AREA2', 'TIM', 'MOVE', 'IN-POS', 'TLC')
+            if pretty:
+                return tuple([v for i, v in enumerate(OUTPUT_BITS) if x & (1 << i) and v])
+
+        get_out
+        get_directout
+        alarm = self.read_alarm()
+        pos = self.get_position()
+        drive, motor = self.get_temps()
+        # self.modbus.read_holding_registers(0x0A00, 26, unit=1).registers
+
+        from collections import namedtuple
+        motorIsOn true/false
+        breakEngaged
+        moving
+        return x(current, brake, pos, moving, ready, inpos, alarm, fmlim, rvlim, home)
+
+
+
+class OrientalState(object):
+    def __init__(self,  *args, **kwargs):
+        """
+        required attributes:
         'error_string' (if has_fault)
         'has_fault'
         'position'
         'moving'
         'temp_string'
 
+        'READY',"SYS-BSY","ETO-MON","IN-POS","FW-SLS","RV-SLS",'MBC'
+        OUTPUT_BITS = ("HOME-END","ABSPEN","ELPRST-MON","-","-","PRST-DIS","PRST-STLD","ORGN-STLD","RND-OVF","FW-SLS","RV-SLS",
+               "ZSG", "RND-ZERO","TIM","-","MAREA","CONST-OFF","ALM-A","ALM-B","SYS-RDY","READY","PLS-RDY","MOVE",
+               "INFO","SYS-BSY","ETO-MON","IN-POS","-","TLC","VA","CRNT","AUTO-CD","MON-OUT","PLS-OUTR","-","-",
+               "USR-OUT0","USR-OUT1","-","-","-","-","-","-","-","-","-","-","AREA0","AREA1","AREA2","AREA3",
+               "AREA4","AREA5","AREA6","AREA7","MPS","MBC","RG","-","EDM","HWTOIN-MON","-","-","M-ACT0","M-ACT1",
+               "M-ACT2","M-ACT3","M-ACT4","M-ACT5","M-ACT6","M-ACT7","D-END0","D-END1","D-END2","D-END3","D-END4",
+               "D-END5","D-END6","D-END7","CRNT-LMTD","SPD-LMTD","-","-","OPE-BSY","PAUSE-BSY","SEQ-BSY",
+               "DELAY-BSY","JUMP0-LAT","JUMP1-LAT","NEXT-LAT","PLS-LOST","DCMD-RDY","DCMD-FULL","-","M-CHG",
+               "INFO-FW-OT","INFO-RV-OT","INFO-CULD0","INFO-CULD1","INFO-TRIP","INFO-ODO","-","-","-","-","-","-",
+               "INFO-DSLMTD","INFO-IOTEST","INFO-CFG","INFO-RBT","INFO-USRIO","INFO-POSERR","INFO-DRVTMP",
+               "INFO-MTRTMP","INFO-OVOLT","INFO-UVOLT","INFO-OLTIME","-","INFO-SPD","INFO-START","INFO-ZHOME",
+               "INFO-PR-REQ","-","INFO-EGR-E","INFO-RND-E","INFO-NET-E")
 
-        from collections import namedtuple
-        motorIsOn true/false
-        breakEngaged
-        moving
-        x=namedtuple('current_ma', 'brake', 'position', 'moving', 'ready', 'inposition',
-                     'alarm', 'fwlim', 'rvlim', 'home', 'error_string', 'has_fault')
-        return x(current, brake, pos, moving, ready, inpos, alarm, fmlim, rvlim, home)
+
+        """
+        self.motor_powered = motor_powered
+        self.position = position
+        self.current_ma = current_ma
+        self.brake = brake
+        self.position = position
+        self.moving = moving
+        self.ready = ready
+        self.inposition = inposition
+        self.alarm = alarm
+        self.fwlim = fwlim
+        self.rvlim = rvlim
+        self.home = home
+        self.error_string = error_string
+        self.has_fault = has_fault
+
+
+    #
+    # @property
+    # def calibrated(self):
+    #     return self.io.calibrated
+    #
+    # @property
+    # def errorPresent(self):
+    #     return self.faults.faultPresent or self.io.errcode
+    #
+    # def faultString(self):
+    #     return bin(self.faults.byte) + bin(self.io.errcode)
+
 
 
 if __name__ == '__main__':

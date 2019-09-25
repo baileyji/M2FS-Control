@@ -9,7 +9,14 @@ import haydonidea
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 
+
+# AL04HIJN MSB
+# AL04HJ3G LSB
+# AL04HIOL HSB
 #TODO increase the accel/decel amt, starts/stops are jerky
+
+#LSB max ~2.37509375
+#MSB max ~ 2.3
 
 def longTest(s):
     """ Return true if s can be cast as a long, false otherwise """
@@ -52,6 +59,7 @@ class OcculterAgent(Agent):
             'OCC': self.OCC_command_handler,
             #Move by a relative step amount
             'OCC_STEP': self.OCC_STEP_command_handler,
+            'OCC_ABORT': self.OCC_ABORT_command_handler,
             #Calibrate the occulter
             'OCC_CALIBRATE': self.OCC_CALIBRATE_command_handler})
     
@@ -224,10 +232,11 @@ class OcculterAgent(Agent):
         This command has no arguments
         """
         try:
+            #TODO this must be made nonblocking and have OCC ? respond MOVING
             self.connections['occulter'].calibrate()
             command.setReply('OK')
         except RuntimeError:
-            failcode = self.connections['occulter'].state().faultString
+            failcode = self.connections['occulter'].state().faultString()
             command.setReply('ERROR: Calibration failed ({})'.format(failcode))
         except IOError as e:
             response = str(e)
@@ -244,7 +253,7 @@ class OcculterAgent(Agent):
         """
         command_parts = command.string.split(' ')
         #Vet the command
-        if not len(command_parts) > 1 and floatTest(command_parts[1])):
+        if not (len(command_parts) > 1 and floatTest(command_parts[1])):
             self.bad_command_handler(command)
             return
         try:
@@ -266,6 +275,23 @@ class OcculterAgent(Agent):
             response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
             command.setReply(response)
 
+    def OCC_ABORT_command_handler(self, command):
+        """
+        Command a relative, uncalibrated move a specified number of steps
+
+        This command has one argument: the number of steps
+        to move. The full range of travel of an occulter corresponds to about
+        ? +/-? steps. Extending is in the positive direction.
+        """
+        command_parts = command.string.split(' ')
+        # Vet the command
+        try:
+            self.connections['occulter'].abort()
+            command.setReply('OK')
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            command.setReply(response)
 
 
 if __name__ == '__main__':

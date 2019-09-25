@@ -243,7 +243,6 @@ class SlitController(Agent):
         states of the two shoes differ. If the command arrives while one
         shoe is disconnected or one of the shoe agents crashes then the state 
         needs to be sent/resent to the shoe later. How do we resolve this?
-        TODO
         
         This instance of the issue is of minor importance as the default state
         will be preferred however the general problem with state could surface

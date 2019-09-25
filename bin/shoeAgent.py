@@ -401,7 +401,7 @@ class ShoeAgent(Agent):
         requested slit position, openloop, using the defined step position for
         that slit. It is an error to set the slits when they are uncalibrated 
         or a move is in progress. If done the error '!ERROR: Can not set slits at
-        this time. will be generated.' TODO integrate with TS command to provide 
+        this time. will be generated.' Undone: integrate with TS command to provide
         informative reason for falure. NB The shoe just returns ?
         
         If getting, respond in the from TETRIS0, ..., TETRIS7

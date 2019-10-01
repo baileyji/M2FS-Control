@@ -3,6 +3,8 @@ import logging
 from logging import getLogger
 import lib.SelectedConnection as SelectedConnection
 import time
+import threading
+from collections import namedtuple
 
 # Contact HK: this seems to remain true even after a reset command to the Idea if the programs on the idea drive
 # include an idle loop, getting rid of the idle loop fixed. I think the issue is that the reset command was
@@ -42,8 +44,18 @@ MAX_SPEED = 1.6  #in/s
 
 # Probably in 64th/s^2, motor allows 39789 rev/s2 7958 in/s2 MAX
 MAX_ACCEL = MAX_DECEL = 16777215  # 0 forces default drive value, driver supports 0, 500-16777215 (~1300rev/s^2)
+DEFAULT_ACCEL = 960000
+DEFAULT_DECEL = 960000
 CALIBRATION_MAX_TIME = 10  # seconds
 
+MoveInfo = namedtuple('start_time', 'duration')
+
+def movetime(distance, speed, accel, decel):
+    speed = abs(speed)
+    accel = abs(accel)
+    decel = abs(decel)
+    distance = abs(distance)
+    return speed/accel/2 + speed/decel/2 + distance/speed
 
 class IdeaIO(object):
     def __init__(self, byte):
@@ -109,6 +121,7 @@ class IdeaState(object):
     def errorPresent(self):
         return self.faults.faultPresent or self.io.errcode
 
+    @property
     def faultString(self):
         return bin(self.faults.byte) + bin(self.io.errcode)
 
@@ -125,37 +138,37 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.messageTerminator = '\r'
         self.commanded_position = None
 
+        self.move_info = None
+        self._antistall_thread = threading.Thread(target=self._antistall_main, name='Stall Prevention',
+                                                  args=args, kwargs=kwargs)
+        self._antistall_thread.daemon = True
+        self._antistall_thread.start()
+
     def _unsolicited_message_handler(self, message_source, message):
         """ Handle any unexpected messages from the drive - > log a warning. """
         logger.warning("Got unexpected, unsolicited message '%s'" % message)
+
+    def _antistall_main(self):
+        while True:
+            time.sleep(.2)
+            with self.rlock:  # ensure atomicity
+                if not self.connection.isOpen() or self.move_info is None:
+                    continue
+                try:  # TODO How doe auto reconnection attempts and disconnnects need to be handled here
+                    if self.moving and (time.time()-self.move_info.start_time) > self.move_info.duration:
+                        getLogger(__name__).critical('Detected potential hammerstall, '
+                                                     'aborting move and restarting drive.')
+                        self.abort()
+                        self.reset()
+                        self.move_info = None
+                except IOError:
+                    pass
 
     @property
     def programRunning(self):
         # # See if program is running
         # 'r'-> yes or no "`rYES[cr]`r#[cr]" or "`rNO[cr]`r#[cr]"
         return 'YES' in self.send_command_to_hk('r')
-
-    # def _postConnect(self):
-    #     """
-    #     Implement the post-connect hook
-    #
-    #     With the hk we need to do make sure the encoder is online and sync the calibration state
-    #     1) Get currently executing program.
-    #     2) Verify the encoder.
-    #     """
-    #     pass
-    #     # don't use '
-    #
-    #     self.sendMessageBlocking('r')
-    #     response = self.receiveMessageBlocking()
-    #     self.receiveMessageBlocking()  # discard the garbage from the Idea protocol
-    #
-    #     if 'YES' not in response:
-    #         raise SelectedConnection.ConnectError("{}: HK drive did not start properly.".format(self.port))
-    #     # state = self.state()
-    #     # if not state.encoder == ENCODER_CONFIG:
-    #     #     getLogger(__name__).error('Encoder state "{}", expected "{}".'.format(state['encoder'], ENCODER_CONFIG))
-    #     #     raise IOError("{}: HK drive did not start properly.".format(self.port))
 
     def command_has_response(self, cmd):
         return cmd[0] in 'cPlkbrfv:joNK@'
@@ -211,50 +224,63 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def calibrated(self):
         return self.io.calibrated
 
-    def move_to(self, position, speed=.75, accel=None, decel=None, relative=False):
+    def move_to(self, position, speed=.75, accel=None, decel=None, relative=False, steps=True):
         """ Position in inches, speed in in per s, accel & decel in full steps"""
 
         if not self.calibrated:
             self.calibrate()
 
-        speed = int(round(max(min(speed, MAX_SPEED), MIN_SPEED) / IN_PER_64THSTEP))
-        position = int(round(max(min(position, MAX_POSITION), MIN_POSITION) / IN_PER_64THSTEP))
+        speed = max(min(speed, MAX_SPEED), MIN_SPEED)
+        position = max(min(position, MAX_POSITION), MIN_POSITION)
+
+        if not steps:
+            speed = int(round(speed / IN_PER_64THSTEP))
+            position = int(round(position / IN_PER_64THSTEP))
 
         start_speed = end_speed = 0
         run_current = accel_current = decel_current = 175  # 180 MAX
         hold_current = 0
         delay_time = 300
         stepping = 64
-        accel = 960000 if accel is None else int(round(max(min(accel, MAX_ACCEL), 0)))
-        decel = 960000 if decel is None else int(round(max(min(decel, MAX_DECEL), 0)))
+        accel = DEFAULT_ACCEL if accel is None else int(round(max(min(accel, MAX_ACCEL), 0)))
+        decel = DEFAULT_DECEL if decel is None else int(round(max(min(decel, MAX_DECEL), 0)))
         params = [position, speed, start_speed, end_speed, accel, decel, run_current, hold_current, accel_current,
                   decel_current, delay_time, stepping]
 
         if self.commanded_position is None:
             self.commanded_position = self.position(steps=True)
+            distance = abs(position-self.commanded_position) if not relative else position
+        else:
+            distance = abs(position - self.position(steps=True)) if not relative else position
 
-        self.commanded_position = position if not relative else position + self.commanded_position
         cmd = 'I' if relative else 'M'
-        self.send_command_to_hk(cmd + ','.join(map(str, map(int, params))))
+        with self.rlock:
+            self.send_command_to_hk(cmd + ','.join(map(str, map(int, params))))
+            self.commanded_position = position if not relative else position + self.commanded_position
+            self.move_info = MoveInfo(start_time=time.time(), duration=movetime(distance, speed, accel, decel))
 
-    def position_error(self):
-        """ in inches"""
+    def position_error(self, steps=True):
         if self.commanded_position is None:
             self.commanded_position = self.position()
-        return (self.position(steps=True)-self.commanded_position)*IN_PER_64THSTEP
+        err = self.position()-self.commanded_position
+        return err if steps else err*IN_PER_64THSTEP
 
-    def position(self, steps=False):
+    def position(self, steps=True):
         pos = int(self.send_command_to_hk('l'))
         return pos if steps else pos*IN_PER_64THSTEP
 
     def calibrate(self, nosleep=False):
-        """ TODO conditional on nosleep arg"""
-        self.sendMessageBlocking('mCalibrate_')
+        with self.rlock:
+            self.sendMessageBlocking('mCalibrate_')
+            self.move_info = MoveInfo(start_time=time.time(), duration=CALIBRATION_MAX_TIME)
         if not nosleep:
-            time.sleep(CALIBRATION_MAX_TIME)
+            timeout = CALIBRATION_MAX_TIME
+            while not self.calibrated and timeout > 0:
+                time.sleep(.2)
+                timeout -= .2
             state = self.state()
             if not state.calibrated:
-                raise RuntimeError('ERROR: Calibration Failed')
+                raise RuntimeError('ERROR: Calibration Failed ({})'.format(self.state().faultString))
 
     # def config_encoder(self):
     #     DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res
@@ -270,7 +296,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     def stop(self):
         """
-        Stop the motor.
+        Stop the motor. Should probably use abort instead
 
         This causes an overextended pulsing shaft to retract fully and pulse, wtf
         This causes a stopped shaft to slowly retract, wtf
@@ -287,7 +313,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     def estop(self):
         """
-        This also causes a move
+        This also causes a move, should use abort instead
 
         Seems to assume that the internal Idea drive state has been issued a move command and its stopping TO there
         """
@@ -314,8 +340,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.send_command_to_hk('R')
 
     def state(self):
-        return IdeaState(self.programRunning, self.faults, self.io, self.encoder_config(),
-                         self.moving, self.position())
+        return IdeaState(self.programRunning, self.faults, self.io, self.encoder_config(), self.moving, self.position())
 
 
 if __name__ == '__main__':

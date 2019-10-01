@@ -5,6 +5,7 @@ from agent import Agent
 from m2fsConfig import m2fsConfig
 from haydonidea import IdeaDrive
 import haydonidea
+import threading
 
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
@@ -13,8 +14,8 @@ OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 # AL04HIJN MSB
 # AL04HJ3G LSB
 # AL04HIOL HSB
-#TODO increase the accel/decel amt, starts/stops are jerky
 
+#TODO add soft limits of 2.3" for stepping and other commands, decide re inclusion here vs haydon
 #LSB max ~2.37509375
 #MSB max ~ 2.3
 
@@ -60,6 +61,7 @@ class OcculterAgent(Agent):
             #Move by a relative step amount
             'OCC_STEP': self.OCC_STEP_command_handler,
             'OCC_ABORT': self.OCC_ABORT_command_handler,
+            'OCC_STOP': self.OCC_ABORT_command_handler,
             #Calibrate the occulter
             'OCC_CALIBRATE': self.OCC_CALIBRATE_command_handler})
     
@@ -190,58 +192,50 @@ class OcculterAgent(Agent):
             command.setReply('OK')
             self.startWorkerThread(command, 'MOVING', self.occulter_mover,
                                    args=(pos, not state.calibrated),
-                                   block=('OCCRAW', 'OCC', 'OCC_STEP', 'OCC_CALIBRATE'))
+                                   block=('OCC', 'OCC_STEP', 'OCC_CALIBRATE'))
 
     def occulter_mover(self, pos, calibrate):
         """
         TODO Unfinished function
         """
+        #TODO sort this out, might be the cause of the bug, might should be moved into agent
+        command_name = threading.currentThread().getName()
         if calibrate:
             try:
                 self.connections['occulter'].calibrate()
             except RuntimeError:  # calibration failed.
-                failcode = self.connections['occulter'].state().faultString
-                self.returnFromWorkerThread('OCC', finalState='ERROR: Calibration failed ({})'.format(failcode))
+                response = 'ERROR: Calibration failed ({})'.format(self.connections['occulter'].state().faultString)
+                self.returnFromWorkerThread(command_name, finalState=response)
                 return
             except IOError as e:
                 response = str(e)
                 response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
-                self.returnFromWorkerThread('OCC', finalState=response)
+                self.returnFromWorkerThread(command_name, finalState=response)
                 return
 
-        try:
-            self.connections['occulter'].move_to(pos)
-            state = self.connections['occulter'].state()
-        except IOError as e:
-            response = str(e)
-            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
-            self.returnFromWorkerThread('OCC', finalState=response)
-            return
+        if pos is not None:
+            try:
+                self.connections['occulter'].move_to(pos)
+                state = self.connections['occulter'].state()
+            except IOError as e:
+                response = str(e)
+                response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+                self.returnFromWorkerThread(command_name, finalState=response)
+                return
 
-        if state.errorPresent:
-            resp = 'ERROR: Move issue ({})'.format(state.failcode)
-            self.returnFromWorkerThread('OCC', finalState=resp)
-            return
-        self.returnFromWorkerThread('OCC')
-    
+        resp = 'ERROR: Move issue ({})'.format(state.failcode) if state.errorPresent else ''
+        self.returnFromWorkerThread(command_name, finalState=resp)
+
     def OCC_CALIBRATE_command_handler(self, command):
         """
-        Command the haydon drive to perform the calibration routine. This can ccause motion
+        Command the haydon drive to perform the calibration routine. This can cause motion
         to last for several seconds even though the command will not block.
         
         This command has no arguments
         """
-        try:
-            #TODO this must be made nonblocking and have OCC ? respond MOVING
-            self.connections['occulter'].calibrate()
-            command.setReply('OK')
-        except RuntimeError:
-            failcode = self.connections['occulter'].state().faultString()
-            command.setReply('ERROR: Calibration failed ({})'.format(failcode))
-        except IOError as e:
-            response = str(e)
-            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
-            command.setReply(response)
+        command.setReply('OK')
+        self.startWorkerThread(command, 'MOVING', self.occulter_mover, args=(None, True),
+                               block=('OCC', 'OCC_STEP', 'OCC_CALIBRATE'))
 
     def OCC_STEP_command_handler(self, command):
         """

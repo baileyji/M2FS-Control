@@ -14,6 +14,8 @@ MIN_UPS_RUNTIME=360
 NUT_LOGIN="monitor"
 NUT_PASSWORD="1"
 
+# TODOsave resources by making sure systemd selectively starts based on UDEV creation or some such
+
 class Director(Agent):
     """
     This is the primary control program for the M2FS instrument. It does
@@ -268,7 +270,6 @@ class Director(Agent):
         waiting for all agents to shutdown,
         instruct the UPS to kill the load, disabling power to the instrument.
         The instrument power button must be pressed to start it back
-        TODO: TEST AND VERIFY FUNCTIONALITY
         """
         m2fsConfig.disableStowedShutdown()
         command.setReply('OK')
@@ -297,18 +298,12 @@ class Director(Agent):
         Report the state of the cradles
         
         """
-        rstate='CRADLE_R='
         rcolor=m2fsConfig.getShoeColorInCradle('R')
-        if rcolor:
-            rstate+='SHOE_'+rcolor
-        else:
-            rstate+='NONE'
-        bstate='CRADLE_B='
         bcolor=m2fsConfig.getShoeColorInCradle('B')
-        if bcolor:
-            bstate+='SHOE_'+bcolor
-        else:
-            bstate+='NONE'
+        rstate='CRADLE_R='
+        rstate+='SHOE_'+rcolor if rcolor else 'NONE'
+        bstate='CRADLE_B='
+        bstate+='SHOE_' + bcolor if bcolor else 'NONE'
         command.setReply('%s %s' % (rstate, bstate))
     
     def shackhartman_command_handler(self, command):

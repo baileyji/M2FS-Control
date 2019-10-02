@@ -50,6 +50,11 @@ class m2fsConfig:
             return '../conf/'
 
     @staticmethod
+    def ifuMode():
+        #TODO finalize
+        return os.path.exists('/dev/ifumode')
+
+    @staticmethod
     def disableStowedShutdown():
         """ Disable Stowed Shutdown """
         if os.path.exists('/var/run/M2FS_do_stowed_shutdown'):

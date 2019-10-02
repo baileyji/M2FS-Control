@@ -33,32 +33,7 @@ class Director(Agent):
         processing them when self.main() is called
         """
         Agent.__init__(self,'Director')
-        #Fetch the agent ports
-        agent_ports=m2fsConfig.getAgentPorts()
-        #Galil Agents
-        self.connections['GalilAgentR']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['GalilAgentR'])
-        self.connections['GalilAgentB']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['GalilAgentB'])
-        #Slit Subsytem Controller
-        self.connections['SlitController']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['SlitController'])
-        #Datalogger Agent
-        self.connections['DataloggerAgent']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['DataloggerAgent'])
-        #Shack-Hartman Agent
-        self.connections['ShackHartmanAgent']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['ShackHartmanAgent'])
-        #MCal Agent
-        self.connections['MCalAgent']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['MCalAgent'])
-        #Plugging Controller
-        self.connections['PlugController']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['PlugController'])
-        #Guider Agent
-        self.connections['GuiderAgent']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['GuiderAgent'])
-        self.command_handlers.update({
+        GENERAL_COMMANDS = {
             #Director Commands
             #
             #These commands operate on the entire instrument or require
@@ -70,9 +45,6 @@ class Director(Agent):
             'SHUTDOWN':self.shutdown_command_handler,
             #Shut the instrument down, moving all axes to stowed positions
             'STOWEDSHUTDOWN': self.stowedshutdown_command_handler,
-            #Enable/Disable plugging mode.
-            #Involves GalilAgents, PlugController, & SlitController.
-            'PLUGMODE': self.plugmode_command_handler,
             #Report the state of the cradles
             'CRADLESTATE': self.cradlestate_command_handler,
             #Galil Agent (R & B) Commands
@@ -80,7 +52,7 @@ class Director(Agent):
             #The director determines if the command is for the R or B galilAgent
             #and then passes it along to the agent.
             #
-            #Authoritative command discriptions are in galilAgent.py
+            #Authoritative command descriptions are in galilAgent.py
             'GALILRESET':self.galil_command_handler,
             'GALILRAW':self.galil_command_handler,
             'GES':self.galil_command_handler,
@@ -114,31 +86,41 @@ class Director(Agent):
             'FILTER_DEFTOL':self.galil_command_handler,
             'FLSIM_DEFINS':self.galil_command_handler,
             'FLSIM_DEFREM':self.galil_command_handler,
+            # MCAL Agent Commands
+            #
+            # The director passes the command along to the agent.
+            #
+            # Authoritative command descriptions are in mcalAgent.py
+            'MCLED': self.mcal_command_handler,
+            # Datalogger Agent Commands
+            #
+            # The director passes the command along to the agent.
+            #
+            # Authoritative command descriptions are in dataloggerAgent.py
+            'TEMPS': self.datalogger_command_handler}
+        M2FS_COMMANDS = {
+            # Enable/Disable plugging mode.
+            # Involves GalilAgents, PlugController, & SlitController.
+            'PLUGMODE': self.plugmode_command_handler,
             #Shack-Hartman Agent Commands
             #
             #The director passes the command along to the agent.
             #
-            #Authoritative command discriptions are in shackhartmanAgent.py
+            #Authoritative command descriptions are in shackhartmanAgent.py
             'SHLED':self.shackhartman_command_handler,
             'SHLENS':self.shackhartman_command_handler,
-            #MCAL Agent Commands
-            #
-            #The director passes the command along to the agent.
-            #
-            #Authoritative command discriptions are in mcalAgent.py
-            'MCLED':self.mcal_command_handler,
             #Guider Agent Commands
             #
             #The director passes the command along to the agent.
             #
-            #Authoritative command discriptions are in guiderAgent.py
+            #Authoritative command descriptions are in guiderAgent.py
             'GFOCUS':self.guider_command_handler,
             'GFILTER':self.guider_command_handler,
             #Slit Commands
             #
             #The director passes the command along to the agent.
             #
-            #Command discriptions are in slitController.py
+            #Command descriptions are in slitController.py
             'SLITSRAW':self.SLITS_comand_handler,
             'SLITS':self.SLITS_comand_handler,
             'SLITS_CLOSEDLOOP':self.SLITS_comand_handler,
@@ -151,17 +133,12 @@ class Director(Agent):
             #
             #The director passes the command along to the agent.
             #
-            #Command discriptions are in plugController.py
+            #Command descriptions are in plugController.py
             'PLATELIST': self.PLUGGING_command_handler,
             'PLATE': self.PLUGGING_command_handler,
             'PLATESETUP': self.PLUGGING_command_handler,
-            'PLUGPOS': self.PLUGGING_command_handler,
-            #Datalogger Agent Commands
-            #
-            #The director passes the command along to the agent.
-            #
-            #Authoritative command discriptions are in dataloggerAgent.py
-            'TEMPS':self.datalogger_command_handler,
+            'PLUGPOS': self.PLUGGING_command_handler}
+        IFUM_COMMANDS = {
             # TODO IFU-M Commands
             'IFU':self.ifu_command_handler_placeholder,
             'IFU_MOVE':self.ifu_command_handler_placeholder,
@@ -171,15 +148,72 @@ class Director(Agent):
             'OCCRAW': self.ifu_command_handler_placeholder,
             'BeNeAr':self.ifu_command_handler_placeholder,
             'LiHe':self.ifu_command_handler_placeholder,
-            'ThXe':self.ifu_command_handler_placeholder,
-        })
-        #Ensure stawed shutdown is disabled by default
+            'ThXe':self.ifu_command_handler_placeholder}
+        self.command_handlers.update(GENERAL_COMMANDS)
+        self.command_handlers.update(M2FS_COMMANDS)
+        self.command_handlers.update(IFUM_COMMANDS)
+
+        #Fetch the agent ports
+        agent_ports=m2fsConfig.getAgentPorts()
+        #Galil Agents
+        self.connections['GalilAgentR']=SelectedConnection.SelectedSocket('localhost',
+            agent_ports['GalilAgentR'])
+        self.connections['GalilAgentB']=SelectedConnection.SelectedSocket('localhost',
+            agent_ports['GalilAgentB'])
+        #Datalogger Agent
+        self.connections['DataloggerAgent']=SelectedConnection.SelectedSocket('localhost',
+            agent_ports['DataloggerAgent'])
+        #MCal Agent
+        self.connections['MCalAgent']=SelectedConnection.SelectedSocket('localhost',
+            agent_ports['MCalAgent'])
+
+        if m2fsConfig.ifuMode():
+            for k in M2FS_COMMANDS:
+                self.command_handlers[k] = self.NOT_M2FS_command_handler
+            #IFU Selector
+            self.connections['SelectorAgent']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['SelectorAgent'])
+            #Occulter Controllers
+            self.connections['OcculterAgentH']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['OcculterAgentH'])
+            self.connections['OcculterAgentS']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['OcculterAgentS'])
+            self.connections['OcculterAgentL']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['OcculterAgentL'])
+            #IFU Shield (LEDs, Lamps, & Temps)
+            self.connections['IFUShieldAgent']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['IFUShieldAgent'])
+            # Slit Subsytem Controller
+            self.connections['SlitController'] = SelectedConnection.SelectedSocket('localhost',
+                agent_ports['IFUShoeAgent'])
+        else:
+            for k in IFUM_COMMANDS:
+                self.command_handlers[k] = self.NOT_IFUM_command_handler
+            #Plugging Controller
+            self.connections['PlugController']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['PlugController'])
+            #Guider Agent
+            self.connections['GuiderAgent']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['GuiderAgent'])
+            #Shack-Hartman Agent
+            self.connections['ShackHartmanAgent']=SelectedConnection.SelectedSocket('localhost',
+                agent_ports['ShackHartmanAgent'])
+            # Slit Subsytem Controller  TODO ensure the appropriate slit controller starts
+            self.connections['SlitController'] = SelectedConnection.SelectedSocket('localhost',
+                agent_ports['SlitController'])
+        #Ensure stowed shutdown is disabled by default
         m2fsConfig.disableStowedShutdown()
-        self.batteryState=[('Battery','Unknown')]
+        self.batteryState=[('Battery', 'Unknown')]
         updateBatteryStateTimer=Timer(.1, self.updateBatteryState)
         updateBatteryStateTimer.daemon=True
         updateBatteryStateTimer.start()
-    
+
+    def NOT_IFUM_command_handler(self, command):
+        command.setReply('ERROR: Command only supported in IFU-M mode.')
+
+    def NOT_M2FS_command_handler(self, command):
+        command.setReply('ERROR: Command only supported in M2FS mode.')
+
     def listenOn(self):
         """
         Return an address tuple on which the server shall listen.

@@ -136,21 +136,25 @@ class Director(Agent):
             #The director passes the command along to the agent.
             #
             #Command descriptions are in plugController.py
-            'PLATELIST': self.PLUGGING_command_handler,
-            'PLATE': self.PLUGGING_command_handler,
-            'PLATESETUP': self.PLUGGING_command_handler,
-            'PLUGPOS': self.PLUGGING_command_handler}
+            'PLATELIST':self.PLUGGING_command_handler,
+            'PLATE':self.PLUGGING_command_handler,
+            'PLATESETUP':self.PLUGGING_command_handler,
+            'PLUGPOS':self.PLUGGING_command_handler}
         IFUM_COMMANDS = {
-            # TODO IFU-M Commands
-            'IFU':self.ifu_command_handler_placeholder,
-            'IFU_MOVE':self.ifu_command_handler_placeholder,
-            'OCC':self.ifu_command_handler_placeholder,
-            'OCC_STEP':self.ifu_command_handler_placeholder,
-            'OCC_CALIBRATE':self.ifu_command_handler_placeholder,
-            'OCCRAW': self.ifu_command_handler_placeholder,
-            'BeNeAr':self.ifu_command_handler_placeholder,
-            'LiHe':self.ifu_command_handler_placeholder,
-            'ThXe':self.ifu_command_handler_placeholder}
+            'IFU':self.IFU_command_handler,
+            'IFU_MOVE':self.IFU_command_handler,
+
+            'OCC':self.OCCULTER_command_handler,
+            'OCC_STEP':self.OCCULTER_command_handler,
+            'OCC_CALIBRATE':self.OCCULTER_command_handler,
+            'OCCRAW':self.OCCULTER_command_handler,
+
+            'SLITRAW': self.SLITS_comand_handler,
+            'SLIT': self.SLITS_comand_handler,
+
+            'BeNeAr':self.IFUSHIELD_command_handler,
+            'LiHe':self.IFUSHIELD_command_handler,
+            'ThXe':self.IFUSHIELD_command_handler}
         self.command_handlers.update(GENERAL_COMMANDS)
         self.command_handlers.update(M2FS_COMMANDS)
         self.command_handlers.update(IFUM_COMMANDS)
@@ -200,9 +204,10 @@ class Director(Agent):
             #Shack-Hartman Agent
             self.connections['ShackHartmanAgent']=SelectedConnection.SelectedSocket('localhost',
                 agent_ports['ShackHartmanAgent'])
-            # Slit Subsytem Controller  TODO ensure the appropriate slit controller starts
+            # Slit Subsytem Controller
             self.connections['SlitController'] = SelectedConnection.SelectedSocket('localhost',
                 agent_ports['SlitController'])
+
         #Ensure stowed shutdown is disabled by default
         m2fsConfig.disableStowedShutdown()
         self.batteryState=[('Battery', 'Unknown')]
@@ -320,11 +325,17 @@ class Director(Agent):
         """
         Handle commands for the MCal system
         
-        Pass the command string along to the MCal agent. The response and error
+        In M2FS mode pass the command string along to the MCal agent. The response and error
         callbacks are the command's setReply function.
+
+        In IFUM mode the command is passed on to the IFUShieldAgent instead.
         """
-        self.connections['MCalAgent'].sendMessage(command.string,
-            responseCallback=command.setReply, errorCallback=command.setReply)
+        if m2fsConfig.ifuMode():
+            self.connections['IFUShieldAgent'].sendMessage(command.string,
+                responseCallback=command.setReply, errorCallback=command.setReply)
+        else:
+            self.connections['MCalAgent'].sendMessage(command.string,
+                responseCallback=command.setReply, errorCallback=command.setReply)
 
     def SLITS_comand_handler(self, command):
         """
@@ -347,7 +358,47 @@ class Director(Agent):
             command.setReply('ERROR: Could not establish a connection with the slit controller.')
         except SelectedConnection.WriteError, err:
             command.setReply('ERROR: Could not send to slit controller.')
-    
+
+    def IFU_command_handler(self, command):
+        """
+        Handle commands for the IFU selector system
+
+        Pass the command string along to the selector controller agent. The response and error
+        callbacks are the command's setReply function.
+        """
+        self.connections['SelectorAgent'].sendMessage(command.string,
+            responseCallback=command.setReply, errorCallback=command.setReply)
+
+    def OCCULTER_command_handler(self, command):
+        """
+        Handle commands for the OCCulters selector system
+
+        Pass the command string along to the appropriate occulter agent. The response and error
+        callbacks are the command's setReply function.
+
+        Determine the appropriate agent by checking the second word in
+        the command string if it is 'H' 'S' or 'L'. The command is considered bad if it is
+        not one of those three.
+        """
+        command_name,_,args=command.string.partition(' ')
+        HSL,_,args=args.partition(' ')
+        HSL=HSL.upper()
+        occulter_command=command_name+' '+args
+        if HSL not in ('H', 'S', 'L'):
+            self.bad_command_handler(command)
+        self.connections['OcculterAgent'+HSL].sendMessage(occulter_command,
+            responseCallback=command.setReply, errorCallback=command.setReply)
+
+    def IFUSHIELD_command_handler(self, command):
+        """
+        Handle commands for the IFUShield (lamp controller)
+
+        Pass the command string along to the IFUShield agent. The response and error
+        callbacks are the command's setReply function.
+        """
+        self.connections['IFUShieldAgent'].sendMessage(command.string,
+            responseCallback=command.setReply, errorCallback=command.setReply)
+
     def datalogger_command_handler(self, command):
         """
         Handle commands for the datalogging system

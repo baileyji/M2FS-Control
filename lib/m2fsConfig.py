@@ -1,6 +1,17 @@
 import ConfigParser
 import os
 
+N_IFU_TEMPS = 5
+
+def ifuProbeTempsToDict(ifuProbeTempsList):
+    ret={'ifuHTemp':None,'ifuSTemp':None,'ifuLTemp':None}  #TODO finish once all are known
+    if ifuProbeTempsList is not None:
+        if len(ifuProbeTempsList) != N_IFU_TEMPS:
+            raise ValueError('Incorrect number of probe temperatures')
+        ret['ifuHTemp']=ifuProbeTempsList[0]
+        ret['ifuSTemp']=ifuProbeTempsList[1]
+        ret['ifuLTemp']=ifuProbeTempsList[2]
+    return ret
 
 def getOcculterConfFile(ifu):
     ifu = ifu.upper()[0]
@@ -10,6 +21,7 @@ def getOcculterConfFile(ifu):
         return 'ifum_occulterM.conf'
     else:
         return 'ifum_occulterL.conf'
+
 
 class m2fsConfig:
     """" 

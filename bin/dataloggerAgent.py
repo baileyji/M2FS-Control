@@ -6,6 +6,7 @@ from threading import Timer
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
 from datalogger import DataloggerListener
+from m2fsConfig import N_IFU_TEMPS
 from m2fsConfig import m2fsConfig
 from SelectedConnection import SelectedSocket
 import logging
@@ -34,6 +35,7 @@ def logDebugInfo(logger, records):
         logger.debug("R records: %i  B records: %i" % (rCount, bCount))
         logger.debug("Earliest: %s Latest: %s" %
                      (records[0].timeString(), records[-1].timeString()))
+
 
 class DataloggerAgent(Agent):
     """
@@ -65,6 +67,7 @@ class DataloggerAgent(Agent):
             #Return a list of the temperature values
             'TEMPS': self.TEMPS_command_handler})
 
+        self.queryAgentsTimer=None
         # TODO update for IFU-M
         # self.updateTimes = {'MSpecR': 0, 'MSpecB': 0, 'ShackHartmanAgent': 0,
         #                     'IFUShieldAgent': 0, 'SelectorAgent': 0}
@@ -221,77 +224,92 @@ class DataloggerAgent(Agent):
     def _exitHook(self):
         self.logfile.close()
 
-    def queryAgentTemps(self):
-        if m2fsConfig.ifu_mode:
-            try:
-                self.ifushoe.connect()  # in case we lost connection
-                self.ifushoe.sendMessageBlocking('SLITS_TEMP')
-                cradleRTemp, cradleBTemp = map(float,self.ifushoe.receiveMessageBlocking().split())
-            except IOError:
-                self.logger.debug("Failed to poll IFU Shoes for temps")
-                cradleRTemp, cradleBTemp = None, None
-            except ValueError:
-                self.logger.debug("Bad response from IFU Shoes for temps")
-                cradleRTemp, cradleBTemp = None, None
+    def _gatherIFUTemps(self):
+        try:
+            cradleRTemp, cradleBTemp = None, None
+            self.ifushoe.connect()  # in case we lost connection
+            self.ifushoe.sendMessageBlocking('SLITS_TEMP')
+            resp = self.ifushoe.receiveMessageBlocking()
+            cradleRTemp, cradleBTemp = map(float, resp.split())
+        except IOError:
+            self.logger.debug("Failed to poll IFU Shoes for temps")
+        except ValueError:
+            self.logger.debug("Bad response '{}'from IFU Shoes for temps".format(resp))
+
+        try:
+            driveTemp, motorTemp = None, None
+            self.ifuselector.connect()  # in case we lost connection
+            self.ifuselector.sendMessageBlocking('SELECTOR_TEMP')
+            resp = self.ifuselector.receiveMessageBlocking()
+            driveTemp, motorTemp = map(float, resp.split())
+        except IOError:
+            self.logger.debug("Failed to poll selector for temps")
+        except ValueError:
+            self.logger.debug("Bad response '{}' from IFU selector for temps".format(resp))
+
+        try:
+            probeTemps = [None] * N_IFU_TEMPS
+            self.ifushield.connect()  # in case we lost connection
+            self.ifushield.sendMessageBlocking('TEMPS')
+            resp=self.ifushield.receiveMessageBlocking()
+            probeTemps = map(float, resp.split())
+            if len(probeTemps)!=N_IFU_TEMPS:
+                raise ValueError
+        except IOError:
+            self.logger.debug("Failed to poll IFUShield for temps")
+        except ValueError:
+            self.logger.debug("Bad response '{}' from IFU Shield for temps".format(resp))
+
+        return cradleRTemp, cradleBTemp, driveTemp, motorTemp, probeTemps
+
+    def _gatherM2FSTemps(self):
+        try:
+            cradleRTemp = None
+            self.shoeR.connect()  # in case we lost connection
+            self.shoeR.sendMessageBlocking('SLITS_TEMP')
+            cradleRTemp = float(self.shoeR.receiveMessageBlocking())
+        except IOError:
+            self.logger.debug("Failed to poll shoeR for temp")
+        except ValueError:
+            pass
+        try:
+            cradleBTemp = None
+            self.shoeB.connect()
+            self.shoeB.sendMessageBlocking('SLITS_TEMP')
+            cradleBTemp = float(self.shoeB.receiveMessageBlocking())
+        except IOError:
+            self.logger.debug("Failed to poll shoeB for temp")
+        except ValueError:
+            pass
+        try:
             shTemp = None
+            self.shackHartman.connect()
+            self.shackHartman.sendMessageBlocking('TEMP')
+            shTemp = float(self.shackHartman.receiveMessageBlocking())
+        except IOError:
+            self.logger.debug("Failed to poll S-H for temp")
+        except ValueError:
+            pass
 
-            try:
-                self.ifuselector.connect() #in case we lost connection
-                self.ifuselector.sendMessageBlocking('SELECTOR_TEMP')
-                driveTemp, motorTemp = map(float, self.ifuselector.receiveMessageBlocking().split())
-            except IOError:
-                self.logger.debug("Failed to poll selector for temps")
-                driveTemp, motorTemp = None,None
-            except ValueError:
-                self.logger.debug("Bad response from IFU selector for temps")
-                driveTemp, motorTemp = None,None
+        return cradleRTemp, cradleBTemp, shTemp
 
-            try:
-                self.ifuselector.connect() #in case we lost connection
-                self.ifuselector.sendMessageBlocking('SELECTOR_TEMP')
-                ifutemps = map(float, self.ifushield.receiveMessageBlocking().split())
-            except IOError:
-                self.logger.debug("Failed to poll selector for temps")
-                driveTemp, motorTemp = None,None
-            except ValueError:
-                self.logger.debug("Bad response from IFU selector for temps")
-                driveTemp, motorTemp = None,None
-
+    def queryAgentTemps(self):
+        #Gather Temps
+        if m2fsConfig.ifuMode():
+            shTemp = None
+            cradleRTemp, cradleBTemp, driveTemp, motorTemp, probeTemps = self._gatherIFUTemps()
         else:
-            try:
-                self.shoeR.connect() #in case we lost connection
-                self.shoeR.sendMessageBlocking('SLITS_TEMP')
-                cradleRTemp=float(self.shoeR.receiveMessageBlocking())
-            except IOError:
-                self.logger.debug("Failed to poll shoeR for temp")
-                cradleRTemp=None
-            except ValueError:
-                cradleRTemp=None
-            try:
-                self.shoeB.connect()
-                self.shoeB.sendMessageBlocking('SLITS_TEMP')
-                cradleBTemp=float(self.shoeB.receiveMessageBlocking())
-            except IOError:
-                self.logger.debug("Failed to poll shoeB for temp")
-                cradleBTemp=None
-            except ValueError:
-                cradleBTemp=None
-            try:
-                self.shackHartman.connect()
-                self.shackHartman.sendMessageBlocking('TEMP')
-                shTemp=float(self.shackHartman.receiveMessageBlocking())
-            except IOError:
-                self.logger.debug("Failed to poll S-H for temp")
-                shTemp=None
-            except ValueError:
-                shTemp=None
+            driveTemp, motorTemp = None, None
+            probeTemps = [None] * N_IFU_TEMPS
+            cradleRTemp, cradleBTemp, shTemp = self._gatherM2FSTemps()
+
         #Create a record and stick it in the queue
-        # TODO update for IFU-M
-        if not (shTemp == None and cradleBTemp==None and cradleRTemp==None):
-            self.recordQueue.put(LoggerRecord(time.time(),
-                                             shackhartmanTemp=shTemp,
-                                             cradleRTemp=cradleRTemp,
-                                             cradleBTemp=cradleBTemp))
+        temps=[shTemp, cradleRTemp, cradleBTemp, driveTemp, motorTemp]
+        temps.extend(probeTemps)
+        if not all(v is None for v in temps):
+            record=LoggerRecord(time.time(), shackhartmanTemp=shTemp, cradleRTemp=cradleRTemp, cradleBTemp=cradleBTemp,
+                         ifuSelectorDriveTemp=driveTemp, ifuSelectorMotorTemp=motorTemp, ifuProbeTemps=probeTemps)
+            self.recordQueue.put(record)
         #Do it again in in a few
         self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.queryAgentTemps)
         self.queryAgentsTimer.daemon=True

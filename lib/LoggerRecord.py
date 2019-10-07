@@ -1,6 +1,7 @@
 import time
 from construct import UBInt32, StrictRepeater, LFloat32, SLInt16, ULInt32
 from numpy import array as numpyarray
+import m2fsConfig
 
 #Temp sensor quantity and order
 N_TEMP_SENSORS=3
@@ -120,20 +121,18 @@ class LoggerRecord(object):
 
     Implements the magic function __str__
     """
-    #TODO update for IFUM
     def __init__(self, timestamp, shackhartmanTemp=None,
                  cradleRTemp=None, cradleBTemp=None,
                  echelleRTemp=None, echelleBTemp=None,
                  prismRTemp=None, prismBTemp=None,
                  loresRTemp=None, loresBTemp=None,
                  accelsR=None, accelsB=None,
-                 ifuHTemp=None, ifuMTemp=None, ifuLTemp=None,
-                 ifuSelectorDriveTemp=None, ifuSelectorMotorTemp=None
-                 #TODO add all IFU-M Temps
-                 ):
-        # TODO update for IFU-M
+                 ifuProbeTemps=None, ifuSelectorDriveTemp=None, ifuSelectorMotorTemp=None):
         self.unixtime=timestamp
         self.shackhartmanTemp=shackhartmanTemp
+        self.ifu=m2fsConfig.ifuProbeTempsToDict(ifuProbeTemps)
+        self.ifu['driveTemp']=ifuSelectorDriveTemp
+        self.ifu['motorTemp']=ifuSelectorMotorTemp
         self.sideR={'cradleTemp':cradleRTemp, 'echelleTemp':echelleRTemp,
             'prismTemp':prismRTemp, 'loresTemp':loresRTemp, 'accels':accelsR}
         self.sideB={'cradleTemp':cradleBTemp, 'echelleTemp':echelleBTemp,
@@ -147,7 +146,7 @@ class LoggerRecord(object):
     
     def empty(self):
         """ Return true if the record contains no data """
-        if self.haveIFUMData or self.haveMFibData:
+        if self.haveIFUMData() or self.haveMFibData():
             return False
         for k in self.sideR.keys():
             if self.sideR[k] is not None:
@@ -159,13 +158,13 @@ class LoggerRecord(object):
     
     def bOnly(self):
         """ Return true iff the record only contains B side data """
-        if self.haveIFUMData or self.haveMFibData:
+        if self.haveIFUMData() or self.haveMFibData():
             return False
         return self.haveBData() and not self.haveRData()
 
     def rOnly(self):
         """ Return true iff the record only contains R side data """
-        if self.haveIFUMData or self.haveMFibData:
+        if self.haveIFUMData() or self.haveMFibData():
             return False
         return self.haveRData() and not self.haveBData()
 
@@ -179,20 +178,16 @@ class LoggerRecord(object):
             if self.sideR[k] is not None:
                 return True
 
-    @property
     def haveMFibData(self):
         return self.haveSHData()
 
-    @property
     def haveIFUMData(self):
-        #TODO update for IFU-M
-        return False
+        return any(v is not None for v in self.ifu.values())
 
     def haveSHData(self):
         return self.shackhartmanTemp is not None
 
     def prettyStr(self):
-        #TODO update for IFU-M
         timestr=self.timeString()
         temps=self.tempsString()
         accels='No Accels'
@@ -214,13 +209,20 @@ class LoggerRecord(object):
             return 'No Accels'
     
     def tempsString(self):
-        """ Return a space deleimted string of the temps or 'None' """
-        # TODO update for IFU-M
-        temps=[self.shackhartmanTemp,
-               self.sideR['cradleTemp'], self.sideB['cradleTemp'],
-               self.sideR['echelleTemp'], self.sideB['echelleTemp'],
-               self.sideR['prismTemp'], self.sideB['prismTemp'],
-               self.sideR['loresTemp'], self.sideB['loresTemp']]
+        """ Return a space delimited string of the temps or 'None' """
+        if m2fsConfig.m2fsConfig.ifuMode():
+            temps = [self.ifu['ifuHTemp'], self.ifu['ifuSTemp'], self.ifu['ifuLTemp'],
+                     self.ifu['motorTemp'], self.ifu['driveTemp'],
+                     self.sideR['cradleTemp'], self.sideB['cradleTemp'],
+                     self.sideR['echelleTemp'], self.sideB['echelleTemp'],
+                     self.sideR['prismTemp'], self.sideB['prismTemp'],
+                     self.sideR['loresTemp'], self.sideB['loresTemp']]
+        else:
+            temps=[self.shackhartmanTemp,
+                   self.sideR['cradleTemp'], self.sideB['cradleTemp'],
+                   self.sideR['echelleTemp'], self.sideB['echelleTemp'],
+                   self.sideR['prismTemp'], self.sideB['prismTemp'],
+                   self.sideR['loresTemp'], self.sideB['loresTemp']]
         temps=['{:.4f}'.format(t) if t is not None else 'U' for t in temps]
         return ' '.join(temps)
     
@@ -237,9 +239,11 @@ class LoggerRecord(object):
         same minute. If they both contain accelerometer data, then they may not
         be merged
         """
-        # TODO update for IFU-M
         if self.shackhartmanTemp and other.shackhartmanTemp:
             return False
+        for k in self.ifu.keys():
+            if self.ifu[k] is not None and other.ifu[k] is not None:
+                return False
         for k in self.sideR.keys():
             if self.sideR[k] is not None and other.sideR[k] is not None:
                 return False
@@ -260,7 +264,6 @@ class LoggerRecord(object):
         
         If Force is true (default false) all set values are merged into self
         """
-        # TODO update for IFU-M
         if not force and not self.recordsMergable(other):
             raise Unmergable()
         # acceleration timestamp has priority
@@ -273,5 +276,8 @@ class LoggerRecord(object):
         for k,v in other.sideR.items():
             if v is not None:
                 self.sideR[k]=v
+        for k,v in other.ifu.items():
+            if v is not None:
+                self.ifu[k]=v
         if other.shackhartmanTemp is not None:
             self.shackhartmanTemp=other.shackhartmanTemp

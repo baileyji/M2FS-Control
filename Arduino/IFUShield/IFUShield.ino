@@ -1,3 +1,4 @@
+#include "pins.h"
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -20,51 +21,15 @@
 
 #define DAC_ADDR 0x63
 
-#pragma mark Pins
-
-//These are Arduino Pins, e.g. args to digitalWrite
-#define AFLED_LAT_PIN 1
-#define AFLED_CLK_PIN 2
-#define AFLED_DIN_PIN 3
-
-#define SDA_PIN 20 
-#define SCL_PIN 21
-
-#define ONEWIRE_PIN 3
-
-#define PIN_IMON_BENEAR  1
-#define PIN_VMON_BENEAR  2
-#define PIN_ENABLE_BENEAR 3
-#define PIN_VMODE_BENEAR 5
-#define PIN_IMODE_BENEAR 4
-#define PIN_VSEL_BENEAR 5
-#define PIN_ISEL_BENEAR 4
-
-#define PIN_IMON_LIHE  1
-#define PIN_VMON_LIHE  2
-#define PIN_ENABLE_LIHE 3
-#define PIN_VMODE_LIHE 5
-#define PIN_IMODE_LIHE 4
-#define PIN_VSEL_LIHE 5
-#define PIN_ISEL_LIHE 4
-
-#define PIN_IMON_THXE  1
-#define PIN_VMON_THXE  2
-#define PIN_ENABLE_THXE 3
-#define PIN_VMODE_THXE 5
-#define PIN_IMODE_THXE 4
-#define PIN_VSEL_THXE 5
-#define PIN_ISEL_THXE 4
-
 //HV Lamps
 typedef enum {THXE_LAMP=0, BENEAR_LAMP=1, LIHE_LAMP=2, NONE_LAMP=3, MULTIPLE_LAMP=4} lamp_t;
 Adafruit_MCP4725 dac; 
 Ultravolt benear = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
-                            PIN_IMODE_BENEAR, PIN_ISEL_BENEAR, PIN_VSEL_BENEAR, 800, 10, dac);
+                            PIN_IMODE_BENEAR, PIN_IA0_BENEAR, PIN_VA0_BENEAR, 800, 10, dac);
 Ultravolt lihe = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
-                            PIN_IMODE_BENEAR, PIN_ISEL_BENEAR, PIN_VSEL_BENEAR, 800, 10, dac);
+                            PIN_IMODE_BENEAR, PIN_IA0_BENEAR, PIN_VA0_BENEAR, 800, 10, dac);
 Ultravolt thxe = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
-                            PIN_IMODE_BENEAR, PIN_ISEL_BENEAR, PIN_VSEL_BENEAR, 800, 10, dac);
+                            PIN_IMODE_BENEAR, PIN_IA0_BENEAR, PIN_VA0_BENEAR, 800, 10, dac);
 
 //LED Levels
 uint16_t ledlevels[] = {0, 0, 0, 0, 0, 0};
@@ -297,7 +262,7 @@ bool LEcommand() {
                return true; //Don't bother setting
                break;
   }
-  for (int i=0;i<6;i++) leddrive.setPWM(i, ledlevels[i]);
+  for (int i=0;i<6;i++) leddrive.setPWM(i+6, ledlevels[i]);  // ch 6-11
   return true;
 }
 
@@ -462,7 +427,7 @@ bool PCcommand() {
 bool OFcommand() {
   for (int i=0;i<6;i++) {
     ledlevels[i]=0;
-    leddrive.setPWM(i, 0);
+    leddrive.setPWM(i+6, 0);
   }
   lihe.turnOff();
   thxe.turnOff();

@@ -19,6 +19,8 @@
 #define ADC_TO_VOLTS (1000/1023.0)
 #define ADC_TO_MILLIAMPS (30/1023.0)
 
+#define SEL_PIN_DELAY_MS 5
+
 typedef unsigned int current_t;
 typedef unsigned int voltage_t;
 

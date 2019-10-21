@@ -63,8 +63,9 @@ voltage_t Ultravolt::getVoltage() {
 bool Ultravolt::setVoltageLimit(voltage_t limit) {
     _vlimit = limit > MAX_VOUT_V ? MAX_VOUT_V : limit;
     digitalWrite(_vsel_pin, HIGH);
-    delay(1);
+    delay(SEL_PIN_DELAY_MS);
     _dac.setVoltage(_vlimit*VOLTS_TO_ADC, false); //don't persist the voltage to eeprom
+    delay(SEL_PIN_DELAY_MS);
     digitalWrite(_vsel_pin, LOW);
 }
 
@@ -79,21 +80,26 @@ current_t Ultravolt::getCurrent() {
 bool Ultravolt::setCurrentLimit(current_t limit) {
     _ilimit = limit > MAX_IOUT_MA ? MAX_IOUT_MA : limit;
     digitalWrite(_isel_pin, HIGH);
-    delay(1);
+    delay(SEL_PIN_DELAY_MS);
     _dac.setVoltage(_ilimit*MILLIAMPS_TO_ADC, false); //don't persist to eeprom
+    delay(SEL_PIN_DELAY_MS);
     digitalWrite(_isel_pin, LOW);
 }
 
 
 void Ultravolt::turnOff() {
     digitalWrite(_enable_pin, LOW);
+    
     digitalWrite(_isel_pin, HIGH);
-    delay(1);
+    delay(SEL_PIN_DELAY_MS);
     _dac.setVoltage(0, false); //don't persist to eeprom
+    delay(SEL_PIN_DELAY_MS);
     digitalWrite(_isel_pin, LOW);
+    
     digitalWrite(_vsel_pin, HIGH);
-    delay(1);
+    delay(SEL_PIN_DELAY_MS);
     _dac.setVoltage(0, false); //don't persist to eeprom
+    delay(SEL_PIN_DELAY_MS);
     digitalWrite(_vsel_pin, LOW);
 }
 
@@ -112,6 +118,10 @@ void Ultravolt::turnOn() {
 }
 
 void Ultravolt::turnOn(current_t current) {
+    if (current==0) { 
+      turnOff();
+      return;
+    }
     setCurrentLimit(current);
     setVoltageLimit(_vlimit);
     digitalWrite(_enable_pin, HIGH);

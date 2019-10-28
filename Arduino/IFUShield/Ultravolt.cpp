@@ -10,7 +10,9 @@ Ultravolt::Ultravolt(int imon_pin, int vmon_pin, int enable_pin, int vmode_pin, 
                      , _vmon_pin(vmon_pin)
                      , _vmode_pin(vmode_pin)
                      , _imode_pin(imode_pin)
-                     ,  _dac(dac)
+                     , _vsel_pin(vsel_pin)
+                     , _isel_pin(isel_pin)
+                     , _dac(dac)
  {
     _ilimit=ilimit > MAX_IOUT_MA ? MAX_IOUT_MA : ilimit;
     _vlimit=vlimit > MAX_VOUT_V ? MAX_VOUT_V : vlimit;
@@ -30,7 +32,9 @@ void Ultravolt::begin() {
     digitalWrite(_imon_pin, LOW);
     pinMode(_vmon_pin, INPUT); //analog
     digitalWrite(_vmon_pin, LOW);
-    
+
+
+    //Pulled low (max 100mA sink) when in vmod or i mode
     pinMode(_vmode_pin, INPUT);
     digitalWrite(_vmode_pin, HIGH);
     pinMode(_imode_pin, INPUT);
@@ -63,9 +67,9 @@ voltage_t Ultravolt::getVoltage() {
 bool Ultravolt::setVoltageLimit(voltage_t limit) {
     _vlimit = limit > MAX_VOUT_V ? MAX_VOUT_V : limit;
     digitalWrite(_vsel_pin, HIGH);
-    delay(SEL_PIN_DELAY_MS);
-    _dac.setVoltage(_vlimit*VOLTS_TO_ADC, false); //don't persist the voltage to eeprom
-    delay(SEL_PIN_DELAY_MS);
+    delayMicroseconds(SEL_PIN_DELAY_US);
+    _dac.setVoltage(round(_vlimit*VOLTS_TO_ADC), false); //don't persist the voltage to eeprom
+    delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_vsel_pin, LOW);
 }
 
@@ -80,9 +84,9 @@ current_t Ultravolt::getCurrent() {
 bool Ultravolt::setCurrentLimit(current_t limit) {
     _ilimit = limit > MAX_IOUT_MA ? MAX_IOUT_MA : limit;
     digitalWrite(_isel_pin, HIGH);
-    delay(SEL_PIN_DELAY_MS);
-    _dac.setVoltage(_ilimit*MILLIAMPS_TO_ADC, false); //don't persist to eeprom
-    delay(SEL_PIN_DELAY_MS);
+    delayMicroseconds(SEL_PIN_DELAY_US);
+    _dac.setVoltage(round(_ilimit*MILLIAMPS_TO_ADC), false); //don't persist to eeprom
+    delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_isel_pin, LOW);
 }
 
@@ -91,15 +95,15 @@ void Ultravolt::turnOff() {
     digitalWrite(_enable_pin, LOW);
     
     digitalWrite(_isel_pin, HIGH);
-    delay(SEL_PIN_DELAY_MS);
+    delayMicroseconds(SEL_PIN_DELAY_US);
     _dac.setVoltage(0, false); //don't persist to eeprom
-    delay(SEL_PIN_DELAY_MS);
+    delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_isel_pin, LOW);
     
     digitalWrite(_vsel_pin, HIGH);
-    delay(SEL_PIN_DELAY_MS);
+    delayMicroseconds(SEL_PIN_DELAY_US);
     _dac.setVoltage(0, false); //don't persist to eeprom
-    delay(SEL_PIN_DELAY_MS);
+    delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_vsel_pin, LOW);
 }
 
@@ -129,6 +133,7 @@ void Ultravolt::turnOn(current_t current) {
 
 void Ultravolt::monitorIgnition(uint32_t duration_ms) {
     unsigned long t;
+    uint32_t duration_us=duration_ms*1000;
     current_t i;
     voltage_t v;
     bool im, vm;
@@ -137,7 +142,7 @@ void Ultravolt::monitorIgnition(uint32_t duration_ms) {
     delay(250);
     turnOn();
     
-    while (duration_ms>0) {
+    while (duration_us>0) {
         t=micros();
         i=getCurrent();
         im=isCurrentMode();
@@ -145,16 +150,15 @@ void Ultravolt::monitorIgnition(uint32_t duration_ms) {
         vm=isVoltageMode();
 
         Serial.print(t);
-        Serial.print(",");
+        Serial.print(", ");
         Serial.print(i);
-        Serial.print(",");
+        Serial.print(", ");
         Serial.print(v);
-        Serial.print(",");
+        Serial.print(", ");
         Serial.print(im);
-        Serial.print(",");
+        Serial.print(", ");
         Serial.println(vm);
 
-        while (micros()-t < 1000);
-        duration_ms--;
+        duration_us-=micros()-t;
     }
 }

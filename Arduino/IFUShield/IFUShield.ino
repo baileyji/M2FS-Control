@@ -369,13 +369,13 @@ bool MIcommand() {
      
   switch(lamp) {
       case BENEAR_LAMP : benear.setCurrentLimit((current_t) param);
-                         benear.monitorIgnition(2000);
+                         benear.monitorIgnition(1000);
                          break;
       case THXE_LAMP   : thxe.setCurrentLimit((current_t) param);
-                         thxe.monitorIgnition(2000);
+                         thxe.monitorIgnition(1000);
                          break;
       case LIHE_LAMP   : lihe.setCurrentLimit((current_t) param);
-                         lihe.monitorIgnition(2000);
+                         lihe.monitorIgnition(1000);
                          break;
   }
   return true;

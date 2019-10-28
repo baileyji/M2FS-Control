@@ -487,7 +487,6 @@ class SelectedConnection(object):
         return self.isOpen()
 
 
-
 class SelectedSerial(SelectedConnection):
     """ Serial implementation of SelectedConnection """
     def __init__(self, port, baudrate,

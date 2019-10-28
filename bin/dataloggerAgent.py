@@ -68,12 +68,10 @@ class DataloggerAgent(Agent):
             'TEMPS': self.TEMPS_command_handler})
 
         self.queryAgentsTimer=None
-        # TODO update for IFU-M
-        # self.updateTimes = {'MSpecR': 0, 'MSpecB': 0, 'ShackHartmanAgent': 0,
-        #                     'IFUShieldAgent': 0, 'SelectorAgent': 0}
         self.bUpdateTime=0
         self.rUpdateTime=0
         self.shUpdateTime=0
+        self.ifuUpdateTime=0
 
     def get_version_string(self):
         return DATALOGGER_VERSION_STRING
@@ -166,18 +164,25 @@ class DataloggerAgent(Agent):
         READING_EXPIRE_INTERVAL current if it is within a minute of the
         current record timestaonlythe readings, extract it and add
         """
-
         timeDelta=record.unixtime-self.currentRecord.unixtime
-        if True or timeDelta >= 0:
+
+        if False or timeDelta < 0:
+            #we don't wan't old data
+            self.logger.debug('Current record newer than update (%s) ' % self.currentRecord.timeString())
+            return
+        else:
+            if timeDelta < 0:
+                self.logger.debug('Updating record with "older" data ({}) delta'.format(timeDelta))
 
             #update the timestamps for the data
-            # TODO update for IFU-M
             if record.haveBData():
                 self.bUpdateTime=record.unixtime
             if record.haveRData():
                 self.rUpdateTime=record.unixtime
             if record.haveSHData():
                 self.shUpdateTime=record.unixtime
+            if record.haveIFUMData():
+                self.ifuUpdateTime=record.unixtime
 
             #Merge in the new data, replacing the old
             self.logger.debug('Current record was: %s' % self.currentRecord.prettyStr())
@@ -187,19 +192,24 @@ class DataloggerAgent(Agent):
             self.currentRecord.unixtime=record.unixtime
 
             #Clear out any data that is too old
-#            if (self.currentRecord.unixtime - self.rUpdateTime) > READING_EXPIRE_INTERVAL:
-#                self.logger.debug('R values expired, clearing')
-#                for k in self.currentRecord.sideR.keys():
-#                    self.currentRecord.sideR[k]=None
-#
-#            if (self.currentRecord.unixtime - self.bUpdateTime) > READING_EXPIRE_INTERVAL:
-#                self.logger.debug('B values expired, clearing')
-#                for k in self.currentRecord.sideB.keys():
-#                    self.currentRecord.sideB[k]=None
-#
-#            if (self.currentRecord.unixtime - self.shUpdateTime) > READING_EXPIRE_INTERVAL:
-#                self.logger.debug('SH value expired, clearing')
-#                self.currentRecord.shackhartmanTemp=None
+            if (self.currentRecord.unixtime - self.rUpdateTime) > READING_EXPIRE_INTERVAL:
+                self.logger.debug('R values expired, clearing')
+                for k in self.currentRecord.sideR:
+                    self.currentRecord.sideR[k]=None
+
+            if (self.currentRecord.unixtime - self.bUpdateTime) > READING_EXPIRE_INTERVAL:
+                self.logger.debug('B values expired, clearing')
+                for k in self.currentRecord.sideB:
+                    self.currentRecord.sideB[k]=None
+
+            if (self.currentRecord.unixtime - self.shUpdateTime) > READING_EXPIRE_INTERVAL:
+                self.logger.debug('SH value expired, clearing')
+                self.currentRecord.shackhartmanTemp=None
+
+            if (self.currentRecord.unixtime - self.ifuUpdateTime) > READING_EXPIRE_INTERVAL:
+                self.logger.debug('IFU value expired, clearing')
+                for k in self.currentRecord.ifu:
+                    self.currentRecord.ifu[k]=None
 
             #Don't keep track of accelerations
             self.currentRecord.sideB['accels']=None
@@ -207,10 +217,6 @@ class DataloggerAgent(Agent):
 
             #Log the result
             self.logger.debug('Current record now: %s' % self.currentRecord.prettyStr())
-        else:
-            #we don't wan't old data
-            self.logger.debug('No update to current record (%s)' % self.currentRecord.timeString())
-            return
 
     def logRecords(self, records):
         """

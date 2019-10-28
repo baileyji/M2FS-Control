@@ -19,11 +19,13 @@ from collections import namedtuple
 #.001"/fullstep
 #200step/rev
 
+#a 1" relative test move
+#I64000,48000,0,0,960000,960000,175,0,175,175,300,64
 
 BAUD = 57600
 
 IFU_DEVICE_MAP = {'lsb': '/dev/occulterLR', 'msb': '/dev/occulterMR', 'hsb': '/dev/occulterHR',
-                  'mac': '/dev/tty.usbserial-AL04HIOL'}
+                  'mac1': '/dev/tty.usbserial-AL04HIOL', 'mac2': '/dev/tty.usbserial-AL04HJ3G'}
 
 logger = getLogger(__name__)
 HK_TIMEOUT = 1
@@ -48,7 +50,7 @@ DEFAULT_ACCEL = 960000
 DEFAULT_DECEL = 960000
 CALIBRATION_MAX_TIME = 10  # seconds
 
-MoveInfo = namedtuple('start_time', 'duration')
+MoveInfo = namedtuple('MoveInfo', ('start_time', 'duration'))
 
 def movetime(distance, speed, accel, decel):
     speed = abs(speed)
@@ -126,7 +128,7 @@ class IdeaState(object):
         return bin(self.faults.byte) + bin(self.io.errcode)
 
 class IdeaDrive(SelectedConnection.SelectedSerial):
-    def __init__(self, ifu='Not Specified', port=None):
+    def __init__(self, ifu='Not Specified', port=None, preventstall=True):
 
         self.errorFlags = {}
         logger.name = 'Occulter' + ifu
@@ -139,10 +141,10 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.commanded_position = None
 
         self.move_info = None
-        self._antistall_thread = threading.Thread(target=self._antistall_main, name='Stall Prevention',
-                                                  args=args, kwargs=kwargs)
-        self._antistall_thread.daemon = True
-        self._antistall_thread.start()
+        if preventstall:
+            self._antistall_thread = threading.Thread(target=self._antistall_main, name='Stall Prevention')#, args=args, kwargs=kwargs)
+            self._antistall_thread.daemon = True
+            self._antistall_thread.start()
 
     def _unsolicited_message_handler(self, message_source, message):
         """ Handle any unexpected messages from the drive - > log a warning. """
@@ -152,9 +154,9 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         while True:
             time.sleep(.2)
             with self.rlock:  # ensure atomicity
-                if not self.connection.isOpen() or self.move_info is None:
+                if not self.isOpen() or self.move_info is None:
                     continue
-                try:  # TODO How doe auto reconnection attempts and disconnnects need to be handled here
+                try:  # TODO How do auto reconnection attempts and disconnects need to be handled here
                     if self.moving and (time.time()-self.move_info.start_time) > self.move_info.duration:
                         getLogger(__name__).critical('Detected potential hammerstall, '
                                                      'aborting move and restarting drive.')
@@ -193,7 +195,8 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             raise IOError('ERROR: Download of programs not supported')
 
         # Send the command, do not catch the WriteError as they must bubble up
-        self.sendMessageBlocking(command_string, connect=False)
+        getLogger(__name__).debug('Sending {} to HK'.format(command_string))
+        self.sendMessageBlocking(command_string, connect=True)  #TODO think about if we should or shouldn't connect and
 
         if not self.command_has_response(command_string):
             return ''
@@ -227,7 +230,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def move_to(self, position, speed=.75, accel=None, decel=None, relative=False, steps=True):
         """ Position in inches, speed in in per s, accel & decel in full steps"""
 
-        if not self.calibrated:
+        if not self.calibrated and not relative:
             self.calibrate()
 
         speed = max(min(speed, MAX_SPEED), MIN_SPEED)

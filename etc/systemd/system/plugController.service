@@ -1,5 +1,6 @@
 [Unit]
 Description=M2FS Plug Controller
+ConditionPathExists=!/dev/ifum
 
 [Install]
 WantedBy=director.service

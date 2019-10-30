@@ -1,9 +1,10 @@
 [Unit]
 Description=M2FS Guider
+Wants=guider.device
+After=guider.device
 
 [Install]
 WantedBy=director.service
-#Also=
 
 [Service]
 Type=simple

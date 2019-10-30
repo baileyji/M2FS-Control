@@ -83,7 +83,7 @@ class OcculterAgent(Agent):
         self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
         """
         self.cli_parser.add_argument('--ifu', dest='IFU', action='store', required=True,
-                                     type=str, help='H, M, L')
+                                     type=str, help='H, S, L')
         self.cli_parser.add_argument('--device', dest='DEVICE', help='the device to control',
                                      action='store', required=False, type=str)
         self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')

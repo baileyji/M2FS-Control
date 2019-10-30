@@ -2,13 +2,14 @@
 Description=M2FS Slit Controller
 Wants=shoeR.service
 Wants=shoeB.service
-#Wants=projector.service
+After=shoeB.service
+After=shoeR.service
 
 [Install]
 WantedBy=director.service
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=/M2FS-Control/bin/slitController.py
 WorkingDirectory=/M2FS-Control/
 RestartSec=100ms

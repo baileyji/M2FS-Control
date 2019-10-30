@@ -17,11 +17,12 @@ def getOcculterConfFile(ifu):
     ifu = ifu.upper()[0]
     if ifu == 'H':
         return 'ifum_occulterH.conf'
-    elif ifu == 'M':
-        return 'ifum_occulterM.conf'
-    else:
+    elif ifu == 'S':
+        return 'ifum_occulterS.conf'
+    elif ifu == 'L':
         return 'ifum_occulterL.conf'
-
+    else:
+        raise ValueError('"{}" is not an occulter specifier (H, S, L)'.format(ifu))
 
 class m2fsConfig:
     """" 

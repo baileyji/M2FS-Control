@@ -40,12 +40,12 @@ KERNELS=="1-1.3.1", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="shoeBincrad
 KERNELS=="1-1.3.2", ATTRS{serial}=="64935343433351713280", SYMLINK+="shoeRincradleB"
 
 #The cradles are by port
-KERNELS=="1-1.3.1", SYMLINK+="shoeR"
-KERNELS=="1-1.3.2", SYMLINK+="shoeB"
+KERNELS=="1-1.3.1", SYMLINK+="shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="shoeR.service", ENV{SYSTEMD_WANTS}+="slitController.service" # or maybe ENV{SYSTEMD_WANTS}="shoeR.service"
+KERNELS=="1-1.3.2", SYMLINK+="shoeB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="shoeB.service", ENV{SYSTEMD_WANTS}+="slitController.service"
 
 #Shack-Hartman system rules 
 ATTRS{product}=="Pololu Simple High-Power Motor Controller 24v12", SYMLINK+="shLenslet"
-ATTRS{serial}=="FTEZU88I", SYMLINK+="shLED"
+ATTRS{serial}=="FTEZU88I", SYMLINK+="shLED", TAG+="systemd", ENV{SYSTEMD_WANTS}+="shackhartman.service"
 
 #Guider rule
-ATTRS{product}=="Pololu Micro Maestro 6-Servo Controller",PROGRAM="/M2FS-Control/bin/guider_udev_namer.py", SYMLINK+="guider"
+ATTRS{product}=="Pololu Micro Maestro 6-Servo Controller", PROGRAM="/M2FS-Control/bin/guider_udev_namer.py", SYMLINK+="guider", TAG+="systemd", ENV{SYSTEMD_WANTS}+="guider.service"

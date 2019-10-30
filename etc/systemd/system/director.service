@@ -1,16 +1,21 @@
-#TODO edit these services so they run appropriately for M2FS vs IFUM
 [Unit]
 Description=M2FS Director
 Wants=galilR.service
 Wants=galilB.service
 Wants=datalogger.service
+Wants=mcalled.service
+
 Wants=slitController.service
 Wants=guider.service
-#Wants=projector.service
-#Wants=pluggingFeedback.service
 Wants=shackhartman.service
-Wants=plugController.service
-Wants=mcalled.service
+
+Wants=selector.service
+Wants=occulterH.service
+Wants=occulterS.service
+Wants=occulterL.service
+Wants=ifushoe.service
+Wants=ifushield.service
+
 After=network.target
 
 [Install]

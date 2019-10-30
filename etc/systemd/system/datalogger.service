@@ -3,7 +3,6 @@ Description=M2FS Datalogger
 
 [Install]
 WantedBy=multi-user.target
-#Also=
 
 [Service]
 Type=simple

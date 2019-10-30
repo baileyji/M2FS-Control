@@ -1,13 +1,14 @@
 [Unit]
-Description=IFUM MSB Occulter
+Description=IFU-M MSB Occulter
+Wants=occulterS.device
+After=occulterS.device
 
 [Install]
 WantedBy=director.service
-#Also=
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/bin/occulterAgent.py --IFU M
+ExecStart=/M2FS-Control/bin/occulterAgent.py --IFU S
 WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always

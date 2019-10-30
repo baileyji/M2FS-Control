@@ -1,5 +1,7 @@
 [Unit]
-Description=IFUM Selector
+Description=IFU-M Selector
+Wants=selector.device
+After=selector.device
 
 [Install]
 WantedBy=director.service

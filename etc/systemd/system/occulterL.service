@@ -1,9 +1,10 @@
 [Unit]
-Description=IFUM LSB Occulter
+Description=IFU-M LSB Occulter
+Wants=occulterL.device
+After=occulterL.device
 
 [Install]
 WantedBy=director.service
-#Also=
 
 [Service]
 Type=simple

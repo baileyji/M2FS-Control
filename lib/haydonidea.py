@@ -13,6 +13,8 @@ from collections import namedtuple
 'cant get the drive current'
 "E175,0,50' doesn't stop the effing thing"
 
+#~16kHz max toggle rate
+
 #2000 count/rev encoder
 #steps are in microsteps
 #0.180mA ABSOLUTE MAX
@@ -227,11 +229,20 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def calibrated(self):
         return self.io.calibrated
 
-    def move_to(self, position, speed=.75, accel=None, decel=None, relative=False, steps=True):
-        """ Position in inches, speed in in per s, accel & decel in full steps"""
+    def move_to(self, position, speed=None, accel=None, decel=None, relative=False, steps=True):
+        """
+        Move to a position.
 
+        Position and speed are in units of steps or inches as per steps=True|False
+        accel & decel are always in full steps (64x a position step).
+
+        Calibration will be performed if uncalibrated and relative is not True
+        """
         if not self.calibrated and not relative:
             self.calibrate()
+
+        if speed is None:
+            speed = .75  # in/s
 
         speed = max(min(speed, MAX_SPEED), MIN_SPEED)
         position = max(min(position, MAX_POSITION), MIN_POSITION)

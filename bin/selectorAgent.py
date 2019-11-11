@@ -5,20 +5,49 @@ sys.path.append(sys.path[0] + '/../lib/')
 from orientalazd import OrientalMotor
 from agent import Agent
 from m2fsConfig import m2fsConfig
+import time, threading
+from lib.utils import longTest
+import logging
+
+""" Testing procedure
+Disconnected USB/motor at startup -> ?
+Disconnect USB during move
+Disconnect USB while running
+program runs w/o device
+bad command
+recovery from fault: resume operation on retry
+detect if drive lost programming
+stowed shutdown
+
+SELECTOR_TEMP ?: Get temps
+SELECTOR ?|<str>: get position, move to preset
+SELECTOR_SELECTORPOS: get/set preset
+SELECTOR_MOVE #: move to abs position
+SELECTOR_ALARM: get/clear alarm
+SELECTOR_STOP: stop
+STATUS: get status (switches, temps, alarms, torque, break, pos err)
+
+all commands respond with error if alarm is present
+
+Notes:
+moves do not block each other.
+movement command check for sanity and starts move
+start move and respond with ok or error as appropriate
+The break is automatically enabled unless autobreak is set to false
+
+
+TODO 
+1) calibrate the stage and document procedure here! 
+2) disable alarm on limit
+3) error on commands forbidden by alarm
+4) do we apply the break at exit?
+"""
+
 
 SELECTOR_AGENT_VERSION_STRING = 'Selector Agent v1.0'
 
-SW_RV_LIM = -100
-SW_FW_LIM = 100
-POSITION_TOLERANCE = 1  # in mm
 
-def longTest(s):
-    """ Return true if s can be cast as a long, false otherwise """
-    try:
-        long(s)
-        return True
-    except ValueError:
-        return False
+POSITION_TOLERANCE = 1  # in mm
 
 
 class SelectorAgent(Agent):
@@ -45,14 +74,34 @@ class SelectorAgent(Agent):
             # Move to a particular absolute position
             'SELECTOR_MOVE': self.MOVE_command_handler,
             # Get the driver and motor temps
-            'SELECTOR_TEMP': self.TEMP_command_handler})
+            'TEMP': self.TEMP_command_handler,
+            'SELECTOR_STOP': self.STOP_command_handler,
+            #Get or clear the current alarm
+            'SELECTOR_ALARM': self.ALARM_command_handler})
+        self.autobreak = True
+        self._autobreak_thread = threading.Thread(target=self._autobreak_main, name='Break when not moving')
+        self._autobreak_thread.daemon = True
+        self._autobreak_thread.start()
+        logging.getLogger('pymodbus').setLevel('INFO')
+
+    def _autobreak_main(self):
+        while True:
+            time.sleep(.5)
+            if not self.autobreak:
+                continue
+            else:
+                with self.connections['ifuselector'].rlock:
+                    try:
+                        if not self.connections['ifuselector'].moving:
+                            self.connections['ifuselector'].turn_on_break()
+                    except IOError:
+                        pass
 
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
 
-        Subclasses shuould override this to provide a description for the cli
-        parser
+        Subclasses should override this to provide a description for the cli parser
         """
         return ("This is the selector agent. It takes IFU selector commands via a socket connection or CLI "
                 "arguments.")
@@ -67,8 +116,7 @@ class SelectorAgent(Agent):
         self.cli_parser.add_argument('--device', dest='DEVICE',
                                      action='store', required=False, type=str,
                                      help='the device to control', default='/dev/ifuselector')
-        self.cli_parser.add_argument('command', nargs='*',
-                                     help='Agent command to execute')
+        self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')
 
     def get_version_string(self):
         """ Return a string with the version."""
@@ -80,26 +128,27 @@ class SelectorAgent(Agent):
 
         Report the Key:Value pairs:
             name:cookie
-            Driver: [online|Error|Offline]
+            Driver: Online|Error
             Motor:[On|Off]
             Break: [On|Off]
-            Current: <current amount>
-            Moving: True/False
+            Current: [<current amount>]
+            Moving: [True/False]
+            PError: ['microns (steps)']
         """
         # Name & cookie
         status_list = [(SELECTOR_AGENT_VERSION_STRING,  self.cookie)]
-        driverState = 'Online'
         try:
             status = self.connections['ifuselector'].status()
-            status_list.extend([
-                ('Motor', 'On' if status.motorIsOn else 'Off'),
-                ('Break', 'On' if status.breakEngaged else 'Off'),
-                ('Moving', str(status.moving)),
-                ('Current', status.current)])
-        except IOError, e:
+            status_list.extend([('Driver', 'Online'),
+                                ('Motor', 'On' if status.motor_powered else 'Off'),
+                                ('Break', 'On' if status.brake_on else 'Off'),
+                                ('Moving', str(status.moving)),
+                                ('Torque', str(status.torque)),
+                                ('PError', status.position_error_str),
+                                ('Alarm', 'None' if not status.has_fault else str(status.alarm.code))])
+        except IOError as e:
             #TODO distinguish between disconnected and other errors
-            driverState = 'ERROR'
-        status_list.insert(2, ('Driver', driverState))
+            status_list.append(('Driver', 'ERROR'))
         return status_list
 
     def _stowShutdown(self):
@@ -119,16 +168,38 @@ class SelectorAgent(Agent):
         """
         if self.connections['ifuselector'].rlock.acquire(False):
             try:
-                response = self.connections['ifuselector'].get_temps()
-            except IOError, e:
-                response = 'UNKNOWN'
-            except Exception:
+                response = '{:.2f} {:.2f}'.format(*self.connections['ifuselector'].get_temps())
+            except (IOError, Exception) as e:
                 self.logger.error('Error getting temps from driver', exc_info=True)
+                response = 'UNKNOWN'
             finally:
                 self.connections['ifuselector'].rlock.release()
         else:
             response = 'ERROR: Busy, try again'
         command.setReply(response)
+
+    def ALARM_command_handler(self, command):
+        """ Get the current alarm string, clear it if argument is clear """
+        if '?' in command.string:
+            command.setReply(str(self.connections['ifuselector'].read_alarm(0)))
+        elif 'clear' in command.string.lower():
+            try:
+                self.connections['ifuselector'].reset_alarm()
+                command.setReply('OK')
+            except IOError as e:
+                response = str(e)
+                response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+                command.setReply(response)
+
+    def STOP_command_handler(self, command):
+        """ Command an immediate stop to any ongoing move """
+        try:
+            self.connections['ifuselector'].stop()
+            command.setReply('OK')
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            command.setReply(response)
 
     def SELECTOR_command_handler(self, command):
         """
@@ -164,8 +235,9 @@ class SelectorAgent(Agent):
                     state = 'MOVING'
                 else:
                     state = 'INTERMEDIATE'
-                    for name, pos in m2fsConfig.getSelectorDefaults():
-                        if abs(pos-state.position) < POSITION_TOLERANCE:
+                    for name, pos in m2fsConfig.getSelectorDefaults().items():
+                        pos = float(pos)
+                        if abs(pos-status.position) < POSITION_TOLERANCE:
                             state = name
                             break
                 response = '{} ({})'.format(state, status.position)
@@ -177,7 +249,7 @@ class SelectorAgent(Agent):
                 self.bad_command_handler(command)
                 return
             try:
-                self.connections['ifuselector'].move_to(known_pos[command_parts[1].lower()])
+                self.connections['ifuselector'].move_to(int(known_pos[command_parts[1].lower()]))
                 status = self.connections['ifuselector'].status()
                 response = 'ERROR: ' + status.error_string if status.has_fault else 'OK'
             except IOError as e:
@@ -200,13 +272,13 @@ class SelectorAgent(Agent):
             # Extract the position name
             name = command_parts[1]
             if '?' in command.string:
-                response = m2fsConfig.getSelectorDefaults().get(name.lower(),
-                                                                'ERROR: Not a valid preset')
+                response = m2fsConfig.getSelectorDefaults().get(name.lower(), 'ERROR: Not a valid preset')
             else:
-                position = command_parts[2]
-                if position < SW_RV_LIM:
+                position = int(command_parts[2])
+                limits = self.connections['ifuselector'].limits
+                if position < limits[0]:
                     response = 'ERROR: Position below software reverse limit.'
-                elif position > SW_FW_LIM:
+                elif position > limits[1]:
                     response = 'ERROR: Position above software forward limit.'
                 else:
                     m2fsConfig.setSelectorDefault(name.lower(), position)

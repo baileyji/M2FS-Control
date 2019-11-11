@@ -6,35 +6,52 @@ from m2fsConfig import m2fsConfig
 from haydonidea import IdeaDrive
 import haydonidea
 import threading
+from lib.utils import longTest, floatTest
 
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
+
+""" Testing procedure
+Disconnected USB/motor at startup -> ?
+Disconnect USB during move
+Disconnect USB while running
+program runs w/o device
+bad command
+recovery from fault: resume operation on retry
+autodetect stall (report of stall repair with error)
+verify stowed shutdown
+verify moves are in steps
+
+OCC ?|# move to position, get postion calibrating as needed
+    zero motor: use 'OCCRAW Z0' and OCC ?  
+OCC_STEP relative move
+OCC_STOP/OCC_ABORT stop movement
+OCC_CALIBRATE calibrate
+OCC_STALLPREVENT on|off
+OCC_LIMITS ?|# # set software limits
+STATUS: get_status_list (home, faults, moving, calibrated, pos_error)
+
+TODO: all commands respond with error if alarm is present. code doesn't present check for faults
+TODO: all commands DETECT failures. drive makes serial response hard. probably need to trap on protocol and treat as IO error
+
+Notes:
+RESET: clear alarm/recover command
+OCC: calibrates on move if needed
+only a calibrating move blocks. rest can override a previous move
+movement commands check for sanity and starts move
+
+
+
+Verify code is integrated into repo at haydonkerk/*.idea,
+"""
 
 
 # AL04HIJN MSB
 # AL04HJ3G LSB
 # AL04HIOL HSB
 
-#TODO add soft limits of 2.3" for stepping and other commands, decide re inclusion here vs haydon
 #LSB max ~2.37509375
 #MSB max ~ 2.3
-
-def longTest(s):
-    """ Return true if s can be cast as a long, false otherwise """
-    try:
-        long(s)
-        return True
-    except ValueError:
-        return False
-
-
-def floatTest(s):
-    """ Return true if s can be cast as a long, false otherwise """
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
 
 
 class OcculterAgent(Agent):
@@ -44,7 +61,7 @@ class OcculterAgent(Agent):
     
     Low level device functionality is handled by the HaydonKerk IDEA driver. The
     proprietary code run on the drive is found in the files in ../haydonkerk/*.idea,
-    one per subroutine. (TODO place files!)
+    one per subroutine.
     """
     def __init__(self):
         Agent.__init__(self, 'OcculterAgent')
@@ -59,11 +76,15 @@ class OcculterAgent(Agent):
             #Get/Set the position of the occulter. The move is carried out closedloop by the controller
             'OCC': self.OCC_command_handler,
             #Move by a relative step amount
-            'OCC_STEP': self.OCC_STEP_command_handler,
-            'OCC_ABORT': self.OCC_ABORT_command_handler,
-            'OCC_STOP': self.OCC_ABORT_command_handler,
+            'OCC_STEP': self.STEP_command_handler,
+            'OCC_ABORT': self.ABORT_command_handler,
+            'OCC_STOP': self.ABORT_command_handler,
+            'OCC_RESET': self.RESET_command_handler,
+            # Get/Set the soft limits
+            'OCC_LIMIT': self.LIMIT_command_handler,
             #Calibrate the occulter
-            'OCC_CALIBRATE': self.OCC_CALIBRATE_command_handler})
+            'OCC_CALIBRATE': self.CALIBRATE_command_handler,
+            'OCC_STALLPREVENT': self.STALLPREVENT_command_handler})
     
     def get_cli_help_string(self):
         """
@@ -98,10 +119,12 @@ class OcculterAgent(Agent):
         
         Report the Key:Value pairs:
             name:cookie,
-            Drivers:[Powered| Off]
-            On: string of tetri numbers that are on e.g. '1 4 6' or None
-            Moving: string of tetri numbers that are moving
-            Calibrated: string of tetri numbers that are calibrated
+            Driver: Online| Disconnected]
+            Home: True|False
+            Moving: True|False
+            Calibrated: True|False
+            Faults: None |<faultstring> (see IdeaState.faultString)
+            PError: position error string 'microns (64thsteps)'
         """
         #Name & cookie
         status_list = [(self.name+' '+OCCULTER_AGENT_VERSION_STRING_SHORT, self.cookie)]
@@ -111,6 +134,7 @@ class OcculterAgent(Agent):
                                 ('Calibrated', str(state.calibrated)),
                                 ('Moving', str(state.moving)),
                                 ('Home', str(state.io.home_tripped)),
+                                ('PError', state.position_error_str),
                                 ('Faults', state.faultString if state.errorPresent else 'None')])
         except IOError, e:
             self.logger.warning('HK Drive failed state query: ()'.format(e))
@@ -138,7 +162,7 @@ class OcculterAgent(Agent):
     def _stowShutdown(self):
         """  Perform a stowed shutdown """
         try:
-            self.connections['occulter'].move_to(m2fsConfig.getOcculterDefaults(self.IFU)['stow'])
+            self.connections['occulter'].move_to(int(m2fsConfig.getOcculterDefaults(self.IFU)['stow']))
         except IOError as e:
             self.logger.warning('Caught {} during stowed shutdown'.format(e))
 
@@ -162,8 +186,11 @@ class OcculterAgent(Agent):
                 if state.errorPresent:
                     self.logger.warning('HK reporting error while moving: ' + state.faultString)
                 resp = 'MOVING ({})'
+            elif self.connections['occulter'].prevented_hammerstall:
+                resp = 'ERROR: Move aborted by hammerstall prevention. FC:' + state.faultString
+                self.connections['occulter'].prevented_hammerstall = False
             elif state.errorPresent:
-                resp = 'ERROR ({}) FC:'+state.faultString
+                resp = 'ERROR: ({}) FC:'+state.faultString
             elif not state.calibrated:
                 resp = 'UNCALIBRATED ({})'
             else:
@@ -173,9 +200,10 @@ class OcculterAgent(Agent):
             #Vet the command
             command_parts = command.string.split(' ')
             try:
-                pos = float(command_parts[1])
+                pos = int(command_parts[1])
             except ValueError:
                 self.bad_command_handler(command)
+                return
             #First check to make sure the command is allowed (calibrated and not moving)
             try:
                 state = self.connections['occulter'].state()
@@ -185,6 +213,9 @@ class OcculterAgent(Agent):
             if state.errorPresent:
                 command.setReply('ERROR: Fault Codes Present ({})'.format(state.faultString))
                 return
+            if not self.positionIsSane(pos):
+                command.setReply('ERROR: Position outside of realistic range')
+                return
             # This is permitted by the drive, allow it, won't get here as command blocks self
             # if state.moving:
             #     command.setReply('ERROR: Move in progress.')
@@ -192,41 +223,108 @@ class OcculterAgent(Agent):
             command.setReply('OK')
             self.startWorkerThread(command, 'MOVING', self.occulter_mover,
                                    args=(pos, not state.calibrated),
-                                   block=('OCC', 'OCC_STEP', 'OCC_CALIBRATE'))
+                                   block=('OCC_STEP', 'OCC_CALIBRATE'))
 
     def occulter_mover(self, pos, calibrate):
         """
-        TODO Unfinished function
+        Worker thread function to handle an absolute move
+
+        pos - an absolute position or None
+        calibrate - True or False
+
+        Function performs calibration per calibrate then starts a move to pos if pos is not None
+        Returns from the worker thread then there is an error, the move has successfully started,
+        or when calibration is complete if  no move is required. Final state will be OK, MOVING, or ERROR
         """
-        #TODO sort this out, might be the cause of the bug, might should be moved into agent
         command_name = threading.currentThread().getName()
         if calibrate:
             try:
                 self.connections['occulter'].calibrate()
-            except RuntimeError:  # calibration failed.
-                response = 'ERROR: Calibration failed ({})'.format(self.connections['occulter'].state().faultString)
-                self.returnFromWorkerThread(command_name, finalState=response)
-                return
-            except IOError as e:
-                response = str(e)
-                response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
-                self.returnFromWorkerThread(command_name, finalState=response)
-                return
-
-        if pos is not None:
-            try:
-                self.connections['occulter'].move_to(pos)
                 state = self.connections['occulter'].state()
+            except RuntimeError:  # calibration failed.
+                response = 'ERROR: Calibration failed ({})'.format(state.faultString)
+                self.returnFromWorkerThread(command_name, finalState=response)
+                return
             except IOError as e:
                 response = str(e)
                 response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
                 self.returnFromWorkerThread(command_name, finalState=response)
                 return
 
-        resp = 'ERROR: Move issue ({})'.format(state.failcode) if state.errorPresent else ''
-        self.returnFromWorkerThread(command_name, finalState=resp)
+        if pos is None:
+            self.returnFromWorkerThread(command_name)
+            return
 
-    def OCC_CALIBRATE_command_handler(self, command):
+        try:
+            self.connections['occulter'].move_to(pos, steps=True)
+            state = self.connections['occulter'].state()
+            if state.errorPresent:
+                raise IOError('ERROR: Move issue ({})'.format(state.failcode))
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            self.returnFromWorkerThread(command_name, finalState=response)
+            return
+
+        self.returnFromWorkerThread(command_name)
+
+    def positionIsSane(self, pos, relative_to=None, calibrated=True):
+        """
+        Report if the position is sane, that is:
+
+        1) magnitude less than haydonidea.MAX_TRAVEL,
+        2) within FW and RV soft limits
+        3) within haydonidea.HARD_LIMITS.
+
+        relativeTo may be used to check a relative move
+        calibrated must be set to the calibration state of the drive to avoid an overly conservative relative check
+        """
+        try:
+            rv_lim, fw_lim = map(int, m2fsConfig.getOcculterDefaults(self.IFU)['limits'].split(','))
+        except Exception:
+            self.logger.critical('Could not retrieve software limits, using hardcoded defaults', exc_info=True)
+            rv_lim, fw_lim = 0,147200
+        if abs(pos) > haydonidea.MAX_TRAVEL:
+            return False
+        if not calibrated and relative_to is not None:
+            return True
+        if relative_to is not None:
+            pos += relative_to
+        return (rv_lim <= pos <= fw_lim) and (haydonidea.HARD_LIMITS[0] <= pos <= haydonidea.HARD_LIMITS[1])
+
+    def STALLPREVENT_command_handler(self, command):
+        if '?' in command.string:
+            command.setReply(str(self.connections['occulter'].prevent_stall))
+        elif 'on' in command.string.lower():
+            self.connections['occulter'].prevent_stall = True
+            command.setReply('OK')
+        elif 'off' in command.string.lower():
+            self.connections['occulter'].prevent_stall = False
+            command.setReply('OK')
+        else:
+            self.bad_command_handler(command)
+
+    def LIMIT_command_handler(self, command):
+        """
+        Retrieve or set the soft limits for the occulter
+
+        This command has one or two arguments: the lower and upper limit in steps or a question mark.
+
+        It only affects subsequent moves
+        """
+        if '?' in command.string:
+            response = m2fsConfig.getOcculterDefaults(self.IFU)['limits']
+            command.setReply(response)
+            return
+        command_parts = command.string.split(' ')
+        if len(command_parts) == 3 and longTest(command_parts[1]) and longTest(command_parts[2]):
+            rv_lim, fw_lim = map(int, command_parts[1:3])
+            m2fsConfig.setOcculterDefault(self.IFU, 'limits', '{}, {}'.format(rv_lim, fw_lim))
+            command.setReply('OK')
+        else:
+            self.bad_command_handler(command)
+
+    def CALIBRATE_command_handler(self, command):
         """
         Command the haydon drive to perform the calibration routine. This can cause motion
         to last for several seconds even though the command will not block.
@@ -237,7 +335,7 @@ class OcculterAgent(Agent):
         self.startWorkerThread(command, 'MOVING', self.occulter_mover, args=(None, True),
                                block=('OCC', 'OCC_STEP', 'OCC_CALIBRATE'))
 
-    def OCC_STEP_command_handler(self, command):
+    def STEP_command_handler(self, command):
         """
         Command a relative, uncalibrated move a specified number of steps
         
@@ -247,7 +345,7 @@ class OcculterAgent(Agent):
         """
         command_parts = command.string.split(' ')
         #Vet the command
-        if not (len(command_parts) > 1 and floatTest(command_parts[1])):
+        if not (len(command_parts) > 1 and longTest(command_parts[1])):
             self.bad_command_handler(command)
             return
         try:
@@ -255,30 +353,19 @@ class OcculterAgent(Agent):
             if state.errorPresent:
                 command.setReply('ERROR: Fault codes present ({})'.format(state.faultString))
                 return
-            d = float(command_parts[1])
-            if state.calibrated and not (0 <= state.position+d <= haydonidea.MAX_POSITION):
+            d = int(command_parts[1])
+            if not self.positionIsSane(d, relative_to=state.position, calibrated=state.calibrated):
                 command.setReply('ERROR: Requested move outside of travel.')
                 return
-            elif abs(state.position) > haydonidea.MAX_POSITION:
-                command.setReply('ERROR: Requested move more than maximum travel.')
-                return
-            self.connections['occulter'].move_to(float(command_parts[1]), relative=True)
+            self.connections['occulter'].move_to(d, relative=True)
             command.setReply('OK')
         except IOError as e:
             response = str(e)
             response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
             command.setReply(response)
 
-    def OCC_ABORT_command_handler(self, command):
-        """
-        Command a relative, uncalibrated move a specified number of steps
-
-        This command has one argument: the number of steps
-        to move. The full range of travel of an occulter corresponds to about
-        ? +/-? steps. Extending is in the positive direction.
-        """
-        command_parts = command.string.split(' ')
-        # Vet the command
+    def ABORT_command_handler(self, command):
+        """ Command an immediate abort of any ongoing moves """
         try:
             self.connections['occulter'].abort()
             command.setReply('OK')
@@ -287,6 +374,15 @@ class OcculterAgent(Agent):
             response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
             command.setReply(response)
 
+    def RESET_command_handler(self, command):
+        """ Command the drive to reset """
+        try:
+            self.connections['occulter'].reset()
+            command.setReply('OK')
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            command.setReply(response)
 
 if __name__ == '__main__':
     agent = OcculterAgent()

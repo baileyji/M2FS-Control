@@ -13,6 +13,10 @@ from collections import namedtuple
 'cant get the drive current'
 "E175,0,50' doesn't stop the effing thing"
 
+# Without power the drive opens a serial connection but just stops responding. No IO error
+# is raised.
+
+
 #~16kHz max toggle rate
 
 #2000 count/rev encoder
@@ -27,7 +31,8 @@ from collections import namedtuple
 BAUD = 57600
 
 IFU_DEVICE_MAP = {'lsb': '/dev/occulterLR', 'msb': '/dev/occulterMR', 'hsb': '/dev/occulterHR',
-                  'mac1': '/dev/tty.usbserial-AL04HIOL', 'mac2': '/dev/tty.usbserial-AL04HJ3G'}
+                  'mac1': '/dev/tty.usbserial-AL04HIOL', 'mac2': '/dev/tty.usbserial-AL04HJ3G',
+                  'mac': '/dev/tty.usbserial-AL04HIOL'}
 
 logger = getLogger(__name__)
 HK_TIMEOUT = 1
@@ -41,7 +46,10 @@ ERRORBITS = ('Over Speed', 'Bad Checksum', 'Current Limit', 'Loop Overflow', 'In
 
 # speed must be in units of 1/64 steps  (0.001/64 inches/64thstep)
 IN_PER_64THSTEP = .001 / 64
-MAX_POSITION = 2.6
+MAX_TRAVEL = int(2.6/IN_PER_64THSTEP)
+HARD_LIMITS = (0, int(2.6/IN_PER_64THSTEP))
+
+MAX_POSITION = 2.6 #TODO note units throughout
 MIN_POSITION = -2.6  # Account for a bad 0
 MIN_SPEED = .1  # 1 full step / second
 MAX_SPEED = 1.6  #in/s
@@ -55,10 +63,10 @@ CALIBRATION_MAX_TIME = 10  # seconds
 MoveInfo = namedtuple('MoveInfo', ('start_time', 'duration'))
 
 def movetime(distance, speed, accel, decel):
-    speed = abs(speed)
-    accel = abs(accel)
-    decel = abs(decel)
-    distance = abs(distance)
+    speed = float(abs(speed))
+    accel = float(abs(accel))
+    decel = float(abs(decel))
+    distance = float(abs(distance))
     return speed/accel/2 + speed/decel/2 + distance/speed
 
 class IdeaIO(object):
@@ -109,13 +117,15 @@ class IdeaFaults(object):
 
 
 class IdeaState(object):
-    def __init__(self, executing, faults, io, encoder, moving, position):
+    def __init__(self, executing, faults, io, encoder, moving, position, position_error):
+
         self.encoder = encoder
         self.program_running = executing
         self.faults = faults
         self.io = io
         self.moving = moving
         self.position = position
+        self.position_error = position_error
 
     @property
     def calibrated(self):
@@ -126,8 +136,19 @@ class IdeaState(object):
         return self.faults.faultPresent or self.io.errcode
 
     @property
+    def position_error_str(self):
+        """Positve position_error indicates overshoot"""
+        return '{:.1f}um ({})'.format(self.position_error*IN_PER_64THSTEP*1000, self.position_error)
+
+    @property
     def faultString(self):
-        return bin(self.faults.byte) + bin(self.io.errcode)
+        """
+        Returns a string of the form 0bXXXXXXXX0bXX. The first 8 bits correspond to the
+        drive error codes 'Over Speed', 'Bad Checksum', 'Current Limit', 'Loop Overflow', 'Int Queue Full', 'Encoder Error',
+             'Temperature', 'Stack Overflow', 'Stack Underflow'; i.e. 0b1... would indicate 'Over Speed'.
+        The last 2 bits indicate a custom error code 1-3 (see IdeaIO.errcode) 3 indicates a sensor fail.
+        """
+        return '0b{:08b}0b{:02b}'.format(self.faults.byte, self.io.errcode)
 
 class IdeaDrive(SelectedConnection.SelectedSerial):
     def __init__(self, ifu='Not Specified', port=None, preventstall=True):
@@ -143,10 +164,11 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.commanded_position = None
 
         self.move_info = None
-        if preventstall:
-            self._antistall_thread = threading.Thread(target=self._antistall_main, name='Stall Prevention')#, args=args, kwargs=kwargs)
-            self._antistall_thread.daemon = True
-            self._antistall_thread.start()
+        self.prevent_stall = preventstall
+        self.prevented_hammerstall = False
+        self._antistall_thread = threading.Thread(target=self._antistall_main, name='Stall Prevention')#, args=args, kwargs=kwargs)
+        self._antistall_thread.daemon = True
+        self._antistall_thread.start()
 
     def _unsolicited_message_handler(self, message_source, message):
         """ Handle any unexpected messages from the drive - > log a warning. """
@@ -155,18 +177,36 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def _antistall_main(self):
         while True:
             time.sleep(.2)
+            if not self.prevent_stall:
+                continue
             with self.rlock:  # ensure atomicity
-                if not self.isOpen() or self.move_info is None:
+                if not self.isOpen() or self.move_info is None: #TODO verify that ANY movement command including raw sets move_info
                     continue
-                try:  # TODO How do auto reconnection attempts and disconnects need to be handled here
-                    if self.moving and (time.time()-self.move_info.start_time) > self.move_info.duration:
-                        getLogger(__name__).critical('Detected potential hammerstall, '
-                                                     'aborting move and restarting drive.')
+                try:
+                    elapsed = time.time()-self.move_info.start_time
+                    if (elapsed-.5) > max(self.move_info.duration, 1) and self.moving:
+                        # The .5 and max(x, 1) are to allow for a bit of slop and a minimum execution time
+                        msg = ('Detected potential hammerstall ({:.1f} s elapsed, {:.1f} s expected) '
+                               'aborting move and restarting drive.')
+                        getLogger(__name__).critical(msg.format(elapsed, self.move_info.duration))
                         self.abort()
                         self.reset()
                         self.move_info = None
+                        self.prevented_hammerstall = True
                 except IOError:
                     pass
+#After turning off power
+# OcculterNot Specified:DEBUG: Sending o to HK
+# lib.SelectedConnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/tty.usbserial-AL04HIOL@57600 @ 1573348235.01
+# lib.SelectedConnection:DEBUG: BlockingReceive got: ''
+# lib.SelectedConnection:WARNING: Blocking receive on /dev/tty.usbserial-AL04HIOL@57600 timed out
+# lib.SelectedConnection:DEBUG: BlockingReceive got: ''
+# lib.SelectedConnection:WARNING: Blocking receive on /dev/tty.usbserial-AL04HIOL@57600 timed out
+# OcculterNot Specified:ERROR: HK did not adhere to protocol 'o' got ''
+# Traceback (most recent call last):
+#   File "/Users/one/Dropbox/M2FS-Dropbox/M2FS-Control/lib/haydonidea.py", line 230, in send_command_to_hk
+#     return response.split('`')[1].strip()[1:]
+# IndexError: list index out of range
 
     @property
     def programRunning(self):
@@ -210,9 +250,12 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             try:
                 return response.split('`')[1].strip()[1:]
             except Exception as e:
-                msg = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
-                logger.error(msg, exc_info=True)
-                return 'ERROR: '+msg
+                if command_string == 'b':
+                    return ''  #Encoder command can return something OR nothing, UGH!
+                else:
+                    msg = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
+                    logger.error(msg, exc_info=True)
+                    return 'ERROR: '+msg
 
     def abort(self):
         self.send_command_to_hk('A')
@@ -234,6 +277,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         Move to a position.
 
         Position and speed are in units of steps or inches as per steps=True|False
+        speed is in units of in/s
         accel & decel are always in full steps (64x a position step).
 
         Calibration will be performed if uncalibrated and relative is not True
@@ -245,11 +289,12 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             speed = .75  # in/s
 
         speed = max(min(speed, MAX_SPEED), MIN_SPEED)
-        position = max(min(position, MAX_POSITION), MIN_POSITION)
+        speed = int(round(speed / IN_PER_64THSTEP))
 
         if not steps:
-            speed = int(round(speed / IN_PER_64THSTEP))
             position = int(round(position / IN_PER_64THSTEP))
+
+        position = max(min(position, MAX_TRAVEL), -MAX_TRAVEL)
 
         start_speed = end_speed = 0
         run_current = accel_current = decel_current = 175  # 180 MAX
@@ -275,7 +320,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     def position_error(self, steps=True):
         if self.commanded_position is None:
-            self.commanded_position = self.position()
+            self.commanded_position = self.position(steps=True)
         err = self.position()-self.commanded_position
         return err if steps else err*IN_PER_64THSTEP
 
@@ -286,6 +331,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def calibrate(self, nosleep=False):
         with self.rlock:
             self.sendMessageBlocking('mCalibrate_')
+            self.commanded_position = 0
             self.move_info = MoveInfo(start_time=time.time(), duration=CALIBRATION_MAX_TIME)
         if not nosleep:
             timeout = CALIBRATION_MAX_TIME
@@ -354,7 +400,10 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.send_command_to_hk('R')
 
     def state(self):
-        return IdeaState(self.programRunning, self.faults, self.io, self.encoder_config(), self.moving, self.position())
+        pos = self.position()
+        io = self.io
+        perr = pos - self.commanded_position if self.commanded_position is not None and io.calibrated else 0
+        return IdeaState(self.programRunning, self.faults, io, self.encoder_config(), self.moving, pos, perr)
 
 
 if __name__ == '__main__':

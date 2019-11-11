@@ -23,16 +23,16 @@ class Agent(object):
     
     The base class provides the basic functionality for the program. 
     It configures logging.
-    It handles incomming socket connections
-    It does the basic grunt work of listening for incomming commands and calling
+    It handles incoming socket connections
+    It does the basic grunt work of listening for incoming commands and calling
     the appropriate handler.
     It sends the command responses to the source of the command after the
         command has completed.
     It runs the main event loop which uses select to read and write on all agent
-    conections, whether inbound or outbound.
+    connections, whether inbound or outbound.
     
     Agents have connections (SelectedConnections) to other entities. The 
-    connections are mantained in the connections dictionary. Subclasses
+    connections are maintained in the connections dictionary. Subclasses
     should create SelectedConnections in __init__ and add them to 
     connections. Keys are strings and may not begin with 'INCOMING', which is
     reserved for inbound connections.

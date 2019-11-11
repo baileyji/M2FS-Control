@@ -52,7 +52,7 @@ class DataloggerAgent(Agent):
         self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.recordQueue)
         self.dataloggerB.start()
         agent_ports=m2fsConfig.getAgentPorts()
-        if m2fsConfig.ifu_mode:
+        if m2fsConfig.ifuMode():
             self.ifushoe = SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
             self.ifuselector = SelectedSocket('localhost', agent_ports['SelectorAgent'])
             self.ifushield = SelectedSocket('localhost', agent_ports['IFUShieldAgent'])

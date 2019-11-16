@@ -4,24 +4,30 @@ sys.path.append(sys.path[0]+'/../lib/')
 import SelectedConnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
+from lib.utils import longTest
 
 EXPECTED_FIBERSHOE_INO_VERSION='IFUshoe v1.0'
 SHOE_AGENT_VERSION_STRING='IFU Shoe Agent v1.0'
 SHOE_AGENT_VERSION_STRING_SHORT='v1.0'
 
-DH_TIME=35
-SHOE_BOOT_TIME=2
+SHOE_BOOT_TIME=.5
 SHOE_SHUTDOWN_TIME=.25
 MAX_SLIT_MOVE_TIME=25
 
 
-def longTest(s):
-    """ Return true if s can be cast as a long, false otherwise """
-    try:
-        long(s)
-        return True
-    except ValueError:
-        return False
+# class FirmataShoe(object):
+#     def __init__(self, port):
+#         from PyMata.pymata import PyMata
+#
+#         from pyfirmata import Arduino, util
+#         board = Arduino("/dev/tty.usbmodem14101", baudrate=115200, name='IFUShoe')
+#         it = util.Iterator(board)
+#         it.start()
+#         board.analog[0].enable_reporting()
+#         board.analog[0].read()
+#         self.board = PyMata("/dev/tty.usbmodem14101",baud_rate=115200, bluetooth=False)
+#
+#         self.
 
 
 class IFUShoeCommandNotAcknowledgedError(IOError):

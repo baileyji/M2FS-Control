@@ -1,48 +1,74 @@
 #include <SdFat.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <EEPROMEx.h>
+#include <EEPROM.h>
+#include <EwmaT.h>
 #include "fibershoe_pins.h"
 #include "shoe.h"
+
+
+// DS time is about 8 ms and boot time is about 12 ms
+
+//#define DEBUG_ANALOG
+#define DEBUG_EEPROM
+//#define DEBUG_RUN_TIME
+//#define DEBUG_COMMAND
 
 #define POWERDOWN_DELAY_US  1000
 //#define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
 #define VERSION_STRING "IFUShoe v1.0"
-#define VERSION_INT32 0x00000001
-#define N_COMMANDS 32
-
-//#define DEBUG
-//#define DEBUG_EEPROM
-//#define DEBUG_RUN_TIME
+#define VERSION 0x01
+#define N_COMMANDS 15
 
 #define TEMP_UPDATE_INTERVAL_MS 20000
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
-//EEPROM Addresses (Mega has 4KB so valid adresses are 0x0000 - 0x0FFF
-#define EEPROM_LAST_SAVED_POSITION_CRC16_ADDR       0x0000
-#define EEPROM_LAST_SAVED_POSITION_ADDR             0x0002 //32 bytes, ends at 0x0022
+//EEPROM Addresses (Uno has 1024 so valid adresses are 0x0000 - 0x03FF
+#define EEPROM_VERSION_ADDR 0x000  //3 bytes (version int repeated thrice)
+#define EEPROM_BOOT_COUNT_ADDR  0x003  // 1 byte
+#define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x0006 //2 bytes
+#define EEPROM_SLIT_POSITIONS_ADDR                  0x0008 //32 bytes, ends at 0x28
 
-#define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x0080
-#define EEPROM_SLIT_POSITIONS_ADDR                  0x0082 //224 bytes, ends at 0x0162
-#define N_SLIT_POSITIONS                            7
-
-#define EEPROM_BACKLASH_CRC16_ADDR                  0x0200
-#define EEPROM_BACKLASH_ADDR                        0x0202 // 32 bytes, ends at 0x0222
-
-#define EEPROM_BOOT_COUNT_ADDR  0x0600  // One byte
-
-#define EEPROM_VERSION_ADDR 0x0610  //12 bytes (version int repeated thrice)
 
 #pragma mark Globals
 
+typedef struct eeprom_shoe_data_t {
+  shoecfg_t shoeR;
+  shoecfg_t shoeB;
+  shoepos_t posR;
+  shoepos_t posB;
+} eeprom_shoe_data_t;
+
+typedef struct eeprom_version_t {
+  uint8_t v[3];
+} eeprom_version_t; 
+
+
+uint32_t boottime;
+uint8_t bootcount;
 ArduinoOutStream cout(Serial);
+
+#ifdef DEBUG_ANALOG
+EwmaT<uint64_t> filt0(20,100), filt1(15,100), filt2(1,10), filt3(1,1);  //1/100 = .01 ~average 100 .1 average 10 1 average none
+#endif
+
+//Stress testing
+unsigned long stresscycles=0;
+uint8_t stress_slit=0;
+
+//Power state management
+bool locking_screw_disengaged=false; //Boot assuming locking nut is disengaged
+bool shoeOnline=true; //Always boot in offline mode
 
 //The Shoes
 #define SHOE_R 0
 #define SHOE_B 1
-ShoeDrive shoeR = ShoeDrive(PIN_PIPE_SERVO_R, PIN_PIPE_POT_R, PIN_HEIGHT_SERVO_R, PIN_HEIGHT_POT_R, PIN_HEIGHT_SENSE_R);
-ShoeDrive shoeB = ShoeDrive(PIN_PIPE_SERVO_B, PIN_PIPE_POT_B, PIN_HEIGHT_SERVO_B, PIN_HEIGHT_POT_B, PIN_HEIGHT_SENSE_B);
+
+
+Servo psr,psb,hsr,hsb;
+ShoeDrive shoeR = ShoeDrive(PIN_PIPE_SERVO_R, PIN_PIPE_POT_R, PIN_HEIGHT_SERVO_R, PIN_HEIGHT_POT_R, PIN_HEIGHT_SENSE_R, &psr,&hsr);
+ShoeDrive shoeB = ShoeDrive(PIN_PIPE_SERVO_B, PIN_PIPE_POT_B, PIN_HEIGHT_SERVO_B, PIN_HEIGHT_POT_B, PIN_HEIGHT_SENSE_B, &psb,&hsb);
 ShoeDrive shoes[] ={shoeR, shoeB};
 
 //Command buffer
@@ -74,15 +100,6 @@ void print1WireAddress(DeviceAddress deviceAddress) {
   }
 }
 
-//Stress testing
-unsigned long stresscycles=0;
-long stressBottomP=0;
-long stressTopP=0;
-
-//Power state management
-bool locking_screw_disengaged=false; //Boot assuming locking nut is disengaged
-//bool shoeOnline=false; //Always boot in offline mode
-
 
 #pragma mark Commands
 
@@ -93,19 +110,31 @@ typedef struct {
     const bool allowOffline;
 } Command;
 
+
+bool CScommand();
+bool CYcommand();
+bool PCcommand();
+bool PVcommand();
+bool SDcommand();
+bool SGcommand();
+bool SLcommand();
+bool SScommand();
+bool STcommand();
+bool TDcommand();
+bool TEcommand();
+bool TScommand();
+bool ZBcommand();
+bool MVcommand();
+bool DScommand();
+
 const Command commands[N_COMMANDS]={
     //Connect Shoe restore slit positions and eanble all commands
     {"CS", CScommand, true},
+    {"DS", DScommand, true},
     
     //Cycle tetris A N times from stressBottomP to stressTopP
     {"CY", CYcommand, false},
 
-    //Disconnect Shoe, power off tetris shield save current position data
-    //  and disable motion & shield power commands
-    {"DS", DScommand, true},
-
-    //Position absolute move, 
-    {"PA", PAcommand, true},
     //Print Commands
     {"PC", PCcommand, true},
     //Print version String
@@ -126,7 +155,10 @@ const Command commands[N_COMMANDS]={
     {"TE", TEcommand, true},
     //Tell Status (e.g. moving vreg, etc)
     {"TS", TScommand, true},
+    //Zero the boot count
     {"ZB",ZBcommand, true},
+    //Directly move an axis on a given shoe 
+    {"MV", MVcommand, true}
 };
 
 #pragma mark Serial Event Handler
@@ -154,57 +186,51 @@ void serialEvent() {
 }
 
 #pragma mark Setup & Loop
-
-uint32_t boottime;
 void setup() {
-    
-    boottime=millis();
 
-//    //Set up R vs. B side detection
+    boottime=millis();
+    
+    // Start serial connection
+    Serial.begin(115200);
+    
+    //Analog setup
+    analogReference(EXTERNAL);
+
+    //Set up R vs. B side detection
 //    pinMode(R_SIDE_POLL_PIN,INPUT);
 //    digitalWrite(R_SIDE_POLL_PIN, LOW);
-//    pinMode(R_SIDE_POLL_DRIVER_PIN,OUTPUT);
-//    digitalWrite(R_SIDE_POLL_DRIVER_PIN, HIGH);
 
-//    //Set up temp sensor
+    //Set up temp sensor
     tempSensors.begin();
     tempSensors.setResolution(12);
     tempSensors.setWaitForConversion(false);
-    cout<<pstr("Searching for temp sensors: ");Serial.write('\r');
+    cout<<F("Searching for temp sensors: ")<<endl;
     for (int i=0;i<N_TEMP_SENSORS;i++) {
       uint8_t addr;
       bool sensorFound;
       temps[i].present = tempSensors.getAddress(temps[i].address, i);
       if (temps[i].present) {
-        cout<<pstr("Found one at: ");
+        cout<<F("Found one at: ");
         print1WireAddress(temps[i].address);
-        Serial.write("\r");
+        cout<<endl;
       }        
     }
-    cout<<pstr(" done searching.");Serial.write('\r');
+    cout<<F(" done searching.")<<endl;
     tempSensors.requestTemperatures();
     time_of_last_temp_request=millis();
     tempRetrieved=false;
 
-
     //Shoe Driver Startup
+    shoeR.init();
+    shoeB.init();
 
     //Restore the nominal slit positions & backlash amounts from EEPROM
-//    loadSlitPositionsFromEEPROM();
-//    loadBacklashFromEEPROM();
+    loadSlitPositionsFromEEPROM();
 
-    // Start serial connection
-    Serial.begin(115200);
-    
+    //Boot info
     boottime=millis()-boottime;
-    uint8_t bootcount;
     bootcount=bootCount(true);
-    
-    Serial.print("#Booted for ");
-    Serial.print((uint16_t) bootcount);
-    Serial.print(" time in ");
-    Serial.print(boottime);
-    Serial.println(" ms.");
+    cout<<F("# Total boots: ")<<(uint16_t) bootcount<<F(" Boot took ")<<boottime<<F(" ms.\n");
 }
 
 
@@ -228,7 +254,7 @@ void loop() {
 
     //If the command received flag is set
     if (have_command_to_parse) {
-        #ifdef DEBUG
+        #ifdef DEBUG_COMMAND
             printCommandBufNfo();
         #endif
 
@@ -241,13 +267,13 @@ void loop() {
             //Ensure stresscycles=0 if command is not CY
             if (commands[ndx].name == "CY") stresscycles=0;
             
-            #ifdef DEBUG
+            #ifdef DEBUG_COMMAND
                 cout<<"Shoe is "<<(shoeOnline ? "ON":"OFF")<<endl;
                 cout<<"Command is ";Serial.println(commands[ndx].name);
             #endif
             
             //Execute the command or respond shoe is offline
-            if (!shoeOnline && !commands[ndx].allowOffline) cout<<"Powered Down"<<endl<<":";
+            if (!shoeOnline && !commands[ndx].allowOffline) cout<<F("Powered Down\n:");
             else {
                 bool commandGood;
                 commandGood=commands[ndx].callback();
@@ -260,12 +286,20 @@ void loop() {
         command_buffer_ndx=0;
     }
   
-    if (shoeOnline) shoeOnlineMain();
-    }
+    if (shoeOnline) shoeOnlineMain(); 
 
 }
 
 #pragma mark Helper Functions
+
+#ifdef DEBUG_COMMAND
+void printCommandBufNfo(){
+  cout<<F("Command Buffer Info\n");
+  cout<<"Buf ndx: "<<(unsigned int)command_buffer_ndx<<" Cmd len: "<<(unsigned int)command_length<<endl;
+  cout<<"Contents: ";Serial.write((const uint8_t*)command_buffer,command_buffer_ndx);
+  cout<<"Shoe:"<<(unsigned int)getShoeForCommand()<<endl;
+}
+#endif
 
 
 //Search through command names for a name that matches the first two
@@ -320,7 +354,7 @@ the shoe into offline mode by calling DScommand.
 //            //Enter offline mode
 //            DScommand();
 //            locking_screw_disengaged=true;
-//            #ifdef DEBUG
+//            #ifdef DEBUG_COMMAND
 //                cout<<"Locking screw disengaged.\n";
 //            #endif
 //        }
@@ -333,7 +367,7 @@ the shoe into offline mode by calling DScommand.
 //            //If the locking screw is engaged power up and accept commands
 //            if (i==0) {
 //                locking_screw_disengaged=false;
-//                #ifdef DEBUG
+//                #ifdef DEBUG_COMMAND
 //                    cout<<"Locking screw reingaged.\n";
 //                #endif
 //            }
@@ -345,27 +379,39 @@ the shoe into offline mode by calling DScommand.
 //Tasks to execute every main loop iteration when the shoe is online 
 void shoeOnlineMain() {
     //Stress testing code
-    if (stresscycles>0 && !shoe[0].moving()) {
+    if (stresscycles>0 && !shoes[0].moving()) {
         stresscycles--;
-        for (char i=0;i<;i++) shoe[i].moveToSlit(next_stress_slit);
-        next_stress_slit++;
-        if (next_stress_slit==N_SLIT_POS) next_stress_slit=0;
+        for (uint8_t i=0;i<2;i++) shoes[i].moveToSlit(stress_slit);
+        stress_slit++;
+        if (stress_slit==N_SLIT_POS) stress_slit=0;
     }
 
+
+    #ifdef DEBUG_ANALOG
+        uint16_t x[4];
+        x[0]=analogRead(PIN_PIPE_POT_R);
+        x[1]=analogRead(PIN_HEIGHT_POT_R);
+        x[2]=analogRead(PIN_PIPE_POT_B);
+        x[3]=analogRead(PIN_HEIGHT_POT_B);
+        cout<<"R: p="<<x[0]<<", "<<(uint32_t)filt0.filter(x[0])<<", "<<(uint32_t)filt1.filter(x[0])<<", ";
+        cout<<(uint32_t)filt2.filter(x[0])<<", "<<(uint32_t)filt3.filter(x[0])<<endl;
+//        cout<<"B: p="<<(uint32_t)filt2.filter(x[2])<<"("<<x[2]<<") h="<<(uint32_t)filt3.filter(x[3])<<"("<<x[3]<<")\n";
+    #endif
+    
     //Call run on each shoe
     #ifdef DEBUG_RUN_TIME
         uint32_t t=micros();
     #endif
     
-    for (char i=0;i<;i++) shoe[i].run();
+    for (uint8_t i=0;i<2;i++) shoes[i].run();
 
     #ifdef DEBUG_RUN_TIME
         uint32_t t1=micros();
         if((t1-t)>80) cout<<"Run took "<<t1-t<<" us.\n";
-    #endif
+    #endif    
     
     //More stress testing code
-    if (stresscycles>0 && !shoe[0].moving()) {
+    if (stresscycles>0 && !shoes[0].moving()) {
         cout<<"Cycle "<<(stresscycles+1)/2<<" finished.\n";
         delay(100);
     }
@@ -377,20 +423,7 @@ void shoeOnlineMain() {
 //    }
 }
 
-
-
-#ifdef DEBUG
-void printCommandBufNfo(){
-  cout<<"Command Buffer Info";Serial.write('\n');
-  cout<<"Buf ndx: "<<(unsigned int)command_buffer_ndx<<" Cmd len: "<<(unsigned int)command_length;Serial.write('\n');
-  cout<<"Contents:";Serial.write((const uint8_t*)command_buffer,command_buffer_ndx);
-  cout<<"Axis:"<<(unsigned int)getAxisForCommand();
-  Serial.write('\n');
-}
-#endif
-
-
-unsigned char getShoeForCommand() {
+uint8_t getShoeForCommand() {
   char shoe=command_buffer[2];
   if (shoe=='r' || shoe=='R') return SHOE_R;
   else if (shoe=='b' || shoe=='B') return SHOE_B;
@@ -400,13 +433,16 @@ unsigned char getShoeForCommand() {
 
 #pragma mark Command Handlers
 
+//Zero the boot count
 bool ZBcommand(){
     EEPROM.write(EEPROM_BOOT_COUNT_ADDR, 0);
     return true;
 }
 
+//Connect the shoe to bring it online
 bool CScommand() {
     //Come online if the locking nut is engaged
+    //TODO
 //    if (locking_screw_disengaged)
 //        return false;
 //    else {
@@ -420,24 +456,33 @@ bool CScommand() {
 }
 
 
+bool DScommand() {
+    //Powerdown and store positions (if online)
+    if (shoeOnline) {
+//        disableTetrisVreg();
+        saveSlitPositionsToEEPROM();
+        shoeOnline=false;
+    }
+    return true;
+}
+
 //Report the current slit for specified shoe: 1-7,UNKNOWN,INTERMEDIATE,MOVING
 bool SGcommand() {
   char shoe = getShoeForCommand();
-  if ( shoe != R_SHOE &&  shoe != B_SHOE ) return false;
+  if ( shoe==0xFF ) return false;
   
-  if(shoes[shoe].moving()) cout<<"MOVING";
+  if(shoes[shoe].moving()) cout<<F("MOVING");
   else {
-    char slit=shoes[i].getCurrentSlit();
+    char slit=shoes[shoe].getCurrentSlit();
     if (slit>=0) cout<<slit+1;
     else {
-      shoepos_t pos = shoes[i].currentPositon();
-      cout<<"INTERMEDIATE ("<<pos.pipe<<", "<<pos.height<<")";
+      shoepos_t pos = shoes[shoe].getCurrentPosition();
+      cout<<F("INTERMEDIATE (")<<pos.pipe<<", "<<pos.height<<")";
     }
   }
   cout<<endl;
   return true;
 }
-
 
 //Report the nominial position of the specified slit
 bool SDcommand() {
@@ -445,7 +490,7 @@ bool SDcommand() {
   if ( shoe==0xFF ) return false;
 
   unsigned char slit=convertCharToSlit(command_buffer[3]);
-  if ( slit>N_SLIT_POS ) return false;
+  if ( slit>N_SLIT_POS-1 ) return false;
 
   shoes[shoe].tellSlitPosition(slit);
   cout<<endl;
@@ -453,36 +498,42 @@ bool SDcommand() {
 }
 
 //Report the status bytes
-//TODO
 bool TScommand() {
 
-  for (int i=0;i<2;i++) shoes[i].tellSlitPosition();
+  cout<<endl;
+  for (int i=0;i<2;i++) {
+    if (i==SHOE_R) cout<<"R";
+    else cout<<"B";
+    cout<<": "; shoes[i].tellCurrentPosition(); cout<<": Slit "; shoes[i].tellCurrentSlit();
+    cout<<" pm="<<shoes[i].pipeMoving()<<" hm="<<shoes[i].heightMoving();
+    cout<<endl;
+  }
+
   
-  uint16_t statusBytes[4]={0,0,0,0};
+//TODO
+//  uint16_t statusBytes[4]={0,0,0,0};
 //  for (int i=0;i<2;i++) statusBytes[0]|=(shoes[i].moving()<<i);
-  cout<<statusBytes[3]<<" "<<statusBytes[2]<<" "<<statusBytes[1]<<" "<<statusBytes[0]<<endl;
+//  cout<<statusBytes[3]<<" "<<statusBytes[2]<<" "<<statusBytes[1]<<" "<<statusBytes[0]<<endl;
   return true;
 }
-
-
 
 // Get currrent position/moving/unknown
 bool TDcommand(){
   
-  uint8_t shoe = getShoeForCommand();
+  uint16_t shoe = getShoeForCommand();
   if ( shoe==0xFF ) return false;
   
-  if (shoes[shoe].moving()) cout<<"MOVING";
-  else shoe[shoe].tellCurrentPosition();
+  if (shoes[shoe].moving()) cout<<F("MOVING");
+  else shoes[shoe].tellCurrentPosition();
   cout<<endl;
   return true;
 }
 
 //Stop motion of a SHOE
 bool STcommand(){
-  unsigned char shoe = getShoeForCommand();
+  uint16_t shoe = getShoeForCommand();
   if ( shoe==0xFF ) return false;
-  shoe[shoe].stop();
+  shoes[shoe].stop();
   return true;
 }
 
@@ -495,9 +546,9 @@ bool SLcommand() {
   uint8_t slit=convertCharToSlit(command_buffer[3]);
   if ( slit>N_SLIT_POS-1 ) return false;
     
-  if (shoes[i].moving()) return false;
+  if (shoes[shoe].moving()) return false;
 
-  shoes[i].moveToSlit(slit);
+  shoes[shoe].moveToSlit(slit);
 
   return true;
 }
@@ -544,24 +595,26 @@ bool TEcommand() {
 
 //Print the commands
 bool PCcommand() {
-    cout<<pstr("#PC   Print Commands - Print the list of commands");Serial.write('\r');
-    cout<<pstr("#TS   Tell Status - Tell the status bytes");Serial.write('\r');
-    cout<<pstr("#CS   Connect Shoe - Restore slit positions & enable all commands");Serial.write('\r');
-    cout<<pstr("#PV   Print Version - Print the version string");Serial.write('\r');
-    cout<<pstr("#TE   Temperature - Report the shoe temperatures");Serial.write('\r');
-  
-    cout<<pstr("#TDx  Tell Position - Tell position of shoe x in UNITS");Serial.write('\r');
-    cout<<pstr("#SGx  Slit Get - Get the current slit for shoe x");Serial.write('\r');
-    cout<<pstr("#STx  Stop - Stop motion of shoe x");Serial.write('\r');
 
-    cout<<pstr("#PAx# Position Absolute - Command shoe x to move to position #");Serial.write('\r');
-    cout<<pstr("#SLx# Slit - Command shoe x to go to the position of slit #");Serial.write('\r');
-    cout<<pstr("#SDx# Slit Defined at - Get step position for slit # for shoe x");Serial.write('\r');
+    cout<<F("#PC   Print Commands - Print the list of commands")<<endl;
+    cout<<F("#TS   Tell Status - Tell the status bytes")<<endl;
+    cout<<F("#CS   Connect Shoe - Restore slit positions & enable all commands")<<endl;
+    cout<<F("#PV   Print Version - Print the version string")<<endl;
+    cout<<F("#TE   Temperature - Report the shoe temperatures")<<endl;
   
-    cout<<pstr("#CYx# Cycle - Cycle shoe x through all the slits # times");Serial.write('\r');
+    cout<<F("#TDx  Tell Position - Tell position of shoe x in UNITS")<<endl;
+    cout<<F("#SGx  Slit Get - Get the current slit for shoe x")<<endl;
+    cout<<F("#STx  Stop - Stop motion of shoe x")<<endl;
+
+    cout<<F("#SLx# Slit - Command shoe x to go to the position of slit #")<<endl;
+    cout<<F("#SDx# Slit Defined at - Get step position for slit # for shoe x")<<endl;
+  
+    cout<<F("#CYx# Cycle - Cycle shoe x through all the slits # times")<<endl;
     
-    cout<<pstr("#SSx#[#] Slit Set - Set the position of slit # for shoe x to the current position. "\
-               "If given the second number is used to define the position.");Serial.write('\r');
+    cout<<F("#SSx#[#] Slit Set - Set the position of slit # for shoe x to the current position. "\
+               "If given the second number is used to define the position.")<<endl;
+
+    cout<<F("#MVxy# Move - !DANGER! Command the position of shoe x (R|B) axis y (H|P) to # (0-180).")<<endl;
 
     return true;
 }
@@ -573,26 +626,29 @@ bool CYcommand() {
   
   if (command_offset >= command_length) return false;
     
-  stresscycles=2*atol(command_buffer+command_offset);
+  stresscycles=atol(command_buffer+command_offset);
   
   command_offset+=strcspn(command_buffer+command_offset, searchstr)+1;
   if (command_offset >= command_length) return false;
   
-  stressBottomP=atol(command_buffer+command_offset);
-  
-  command_offset+=strcspn(command_buffer+command_offset, searchstr)+1;
-  if (command_offset >= command_length) return false;
-  
-  stressTopP=atol(command_buffer+command_offset);
+  return true;
+}
 
-  #ifdef DEBUG
-    cout<<stresscycles/2<<" "<<stressTopP<<"  "<<stressBottomP;Serial.write('\n');  
-  #endif
 
-  if (stressTopP>=stressBottomP || stressTopP<-8000 || stressBottomP>1000) {
-    stressBottomP=stressTopP=0;
-    return false;
-  }
+bool MVcommand() {
+
+  if (command_length<5) return false;
+  
+  uint8_t shoe = getShoeForCommand();
+  if ( shoe==0xFF ) return false;
+
+  uint16_t pos=max(atol(command_buffer+4),0);
+
+  if (command_buffer[3]=='H') shoes[shoe].moveHeight(pos);
+  else if (command_buffer[3]=='P') shoes[shoe].movePipe(pos);
+  else return false;
+
+  cout<<"Moving "<<(uint16_t) shoe<<" axis "<<command_buffer[3]<<" to "<<pos<<endl;
 
   return true;
 }
@@ -602,40 +658,33 @@ bool CYcommand() {
 //Return true if data in eeprom is consistent with current software
 // version
 bool versionMatch() {
+  bool updateVersion=false;
 
-  uint32_t versions[3];
-  EEPROM.readBlock<uint32_t>(EEPROM_VERSION_ADDR, versions, 3);
-  if (versions[0]!=versions[1] || versions[1] != versions[2] ||
-      versions[0]!=versions[2]) {
+  eeprom_version_t ver_info;
+  
+  EEPROM.get(EEPROM_VERSION_ADDR, ver_info);
+  if (ver_info.v[0]!=ver_info.v[1] || ver_info.v[1] != ver_info.v[2]) {
     //version corrupt or didn't exist
-    versions[0]=VERSION_INT32;
-    versions[1]=VERSION_INT32;
-    versions[2]=VERSION_INT32;
-    EEPROM.updateBlock<uint32_t>(EEPROM_VERSION_ADDR, versions, 3);
-    return false;
-  }
-  else if (versions[0]!=VERSION_INT32) {
+    updateVersion=true;
+  } else if (ver_info.v[0]!=VERSION) {
     //Version changed do what ever needs doing
-    
-    //Update the version
-    versions[0]=VERSION_INT32;
-    versions[1]=VERSION_INT32;
-    versions[2]=VERSION_INT32;
-    EEPROM.updateBlock<uint32_t>(EEPROM_VERSION_ADDR, versions, 3);
-    
-    return false;
+    updateVersion=true;
   }
   
-  return true;
+  if (updateVersion) {
+    ver_info.v[0]=VERSION;
+    ver_info.v[1]=VERSION;
+    ver_info.v[2]=VERSION;
+    EEPROM.put(EEPROM_VERSION_ADDR, ver_info);
+    return false;
+  } else return true;
   
 }
 
 //Load the nominal slits positions for all the slits from EEPROM
 bool loadSlitPositionsFromEEPROM() {
     uint16_t crc, saved_crc;
-    uint16_t data[2*(N_SLIT_POS+N_HEIGH_POS)];
-    uint16_t dataR[]=&data[0];
-    uint16_t dataB[]=&data[N_SLIT_POS+N_HEIGH_POS];
+    eeprom_shoe_data_t data;
     
     bool ret=false;
     
@@ -643,19 +692,29 @@ bool loadSlitPositionsFromEEPROM() {
         uint32_t t=millis();
     #endif
     //Fetch the stored slit positions & CRC16
-    EEPROM.readBlock<uint16_t>(EEPROM_SLIT_POSITIONS_ADDR, data, 2*(N_SLIT_POS+N_HEIGH_POS));
-    saved_crc=EEPROM.readInt(EEPROM_SLIT_POSITIONS_CRC16_ADDR);
-    crc=OneWire::crc16((uint8_t*) data, 2*(N_SLIT_POS+N_HEIGH_POS)*2);
+    EEPROM.get(EEPROM_SLIT_POSITIONS_ADDR, data);
+    EEPROM.get(EEPROM_SLIT_POSITIONS_CRC16_ADDR, saved_crc);
+    crc=OneWire::crc16((uint8_t*) &data, sizeof(eeprom_shoe_data_t));  //second to is from the cast
 
     //If the CRC matches, restore the positions
     if (crc == saved_crc) {
-        shoeR.restoreEEPROMInfo(dataR);
-        shoeB.restoreEEPROMInfo(dataB);
+        shoeR.restoreEEPROMInfo(data.shoeR);
+        shoeB.restoreEEPROMInfo(data.shoeB);
+        shoeR.movePipe(data.posR.pipe);
+        shoeR.moveHeight(data.posR.height);
+        shoeB.movePipe(data.posB.pipe);
+        shoeB.moveHeight(data.posB.height);
         ret=true;
     }
 
     #ifdef DEBUG_EEPROM
-        cout<<"loadSlitPositionsFromEEPROM took "<<millis()-t<<" ms.\n";
+        cout<<"Restoring shoe config from EEPROM took "<<millis()-t<<" ms.\n";
+        cout<<"ShoeR:\n  "<<data.shoeR.height_pos[0]<<" "<<data.shoeR.height_pos[1]<<"\n  ";
+        for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.shoeR.pipe_pos[i]<<" ";
+        cout<<endl<<data.posR.pipe<<", "<<data.posR.height<<endl;
+        cout<<"ShoeB:\n  "<<data.shoeB.height_pos[0]<<" "<<data.shoeB.height_pos[1]<<"\n  ";
+        for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.shoeB.pipe_pos[i]<<" ";
+        cout<<endl<<data.posB.pipe<<", "<<data.posB.height<<endl;
     #endif
 
     return ret;
@@ -664,72 +723,24 @@ bool loadSlitPositionsFromEEPROM() {
 //Store the nominal slits positions for all the slits to EEPROM
 void saveSlitPositionsToEEPROM() {
     uint16_t crc;
-    uint16_t data[2*(N_SLIT_POS+N_HEIGH_POS)];
-    uint16_t dataR[]=&data[0];
-    uint16_t dataB[]=&data[N_SLIT_POS+N_HEIGH_POS];
+    eeprom_shoe_data_t data;
     
     #ifdef DEBUG_EEPROM
         uint32_t t=millis();
     #endif
     
     //Fetch the defined slit positions
-    shoesR.getEEPROMInfo(dataR);
-    shoesB.getEEPROMInfo(dataB);
+    shoeR.getEEPROMInfo(data.shoeR);
+    shoeB.getEEPROMInfo(data.shoeB);
+
+    data.posR = shoeR.getCommandedPosition();
+    data.posB = shoeB.getCommandedPosition();
     
     //Store them with their CRC16
-    EEPROM.updateBlock<uint16_t>(EEPROM_SLIT_POSITIONS_ADDR, data, 2*(N_SLIT_POS+N_HEIGH_POS));
-    crc=OneWire::crc16((uint8_t*) dat, 2*(N_SLIT_POS+N_HEIGH_POS)*2);  //second to is from the cast
-    EEPROM.writeInt(EEPROM_SLIT_POSITIONS_CRC16_ADDR, crc);
+    EEPROM.put(EEPROM_SLIT_POSITIONS_ADDR, data);
+    crc=OneWire::crc16((uint8_t*) &data, sizeof(eeprom_shoe_data_t));  //second to is from the cast
+    EEPROM.put(EEPROM_SLIT_POSITIONS_CRC16_ADDR, crc);
     #ifdef DEBUG_EEPROM
         cout<<"saveSlitPositionsToEEPROM took "<<millis()-t<<" ms.\n";
     #endif
-}
-
-
-
-//Load the nominal slits positions for all the slits from EEPROM
-bool loadBacklashFromEEPROM() {
-    uint16_t crc, saved_crc;
-    uint16_t backlash[N_TETRI];
-    bool ret=false;
-#ifdef DEBUG_EEPROM
-    uint32_t t=millis();
-#endif
-    //Fetch the stored slit positions & CRC16
-    EEPROM.readBlock<uint16_t>(EEPROM_BACKLASH_ADDR, backlash, N_TETRI);
-    saved_crc=EEPROM.readInt(EEPROM_BACKLASH_CRC16_ADDR);
-    crc=OneWire::crc16((uint8_t*) backlash, N_TETRI*2);
-    //If the CRC matches, restore the positions
-    if (crc == saved_crc) {
-        for (uint8_t i=0; i<N_TETRI; i++) {
-            tetris[i].setBacklash(backlash[i]);
-        }
-        ret=true;
-    }
-#ifdef DEBUG_EEPROM
-    uint32_t t1=millis();
-    cout<<"loadBacklashFromEEPROM took "<<t1-t<<" ms.\n";
-#endif
-    return ret;
-}
-
-//Store the backlash amount for for all the tetri to EEPROM
-void saveBacklashToEEPROM() {
-    uint16_t crc;
-    uint16_t backlash[N_TETRI];
-#ifdef DEBUG_EEPROM
-    uint32_t t=millis();
-#endif
-    //Fetch the defined slit positions
-    for (uint8_t i=0; i<N_TETRI; i++) {
-        backlash[i]=tetris[i].getBacklash();
-    }
-    //Store them with their CRC16
-    EEPROM.updateBlock<uint16_t>(EEPROM_BACKLASH_ADDR, backlash, N_TETRI);
-    crc=OneWire::crc16((uint8_t*) backlash, N_TETRI*2);
-    EEPROM.writeInt(EEPROM_BACKLASH_CRC16_ADDR, crc);
-#ifdef DEBUG_EEPROM
-    uint32_t t1=millis();
-    cout<<"saveBacklashToEEPROM took "<<t1-t<<" ms.\n";
-#endif
 }

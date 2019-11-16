@@ -25,6 +25,7 @@ SELECTOR_SELECTORPOS: get/set preset
 SELECTOR_MOVE #: move to abs position
 SELECTOR_ALARM: get/clear alarm
 SELECTOR_STOP: stop
+SELECTOR_AUTOBREAK: ?|ON|OFF
 STATUS: get status (switches, temps, alarms, torque, break, pos err)
 
 all commands respond with error if alarm is present
@@ -37,12 +38,49 @@ The break is automatically enabled unless autobreak is set to false
 
 
 TODO 
-1) calibrate the stage and document procedure here! 
-2) disable alarm on limit
-3) error on commands forbidden by alarm
+1) add a homing routine
+3) ALARM names
 4) do we apply the break at exit?
-"""
 
+See photos in docs and schematic for external switch settings. 
+
+
+MXE02 SOFTWARE (WINDOWS 10)
+p32: Configure for mm 6.0mm lead, 10: reduction, mm, m/s^2
+min step angle: 0.000600 (no electronic gearing)
+(NB wrap setting is not used.)
+
+Set software limits to initial values (p44). Position HW limits in 
+about the right spot. Use teaching jog to fine tune position and 
+set software limits.
+
+Base settings:
+Software over travel: deceleration stop
+Pos/neg soft limits ~+-130mm
+Stop current: 100%
+
+Motor and mechanism (not default values, see screenshots in doc for all):
+mech type: linear
+mech lead: 6mm
+gear ratio: 10
+initial coord gen & wrap: manual
+wrap: disable
+Home seeking: 1 sensor
+home operating speed: 15mm/s
+
+
+operation data:
+0 STOW Absolute positioning 0
+1 HR Absolute -100
+2 STD Absolute -10
+3 LSB Absolute 100
+5 PROGRAM_CHECK Absolute 13.3698
+
+Homing procedure: 
+1) Move to negative soft or hard limit (or negative of home switch really)
+2) set and clear HOME bit
+3) wait for moving to end / ready to assert
+"""
 
 SELECTOR_AGENT_VERSION_STRING = 'Selector Agent v1.0'
 
@@ -59,7 +97,6 @@ class SelectorAgent(Agent):
     The agent supports two simultaneous connections to allow the datalogger to
     request operating temperatures temperature.
     """
-
     def __init__(self):
         Agent.__init__(self, 'SelectorAgent')
         # Initialize the modbus connection to the controller
@@ -75,10 +112,14 @@ class SelectorAgent(Agent):
             'SELECTOR_MOVE': self.MOVE_command_handler,
             # Get the driver and motor temps
             'TEMP': self.TEMP_command_handler,
+            # Stop movement
             'SELECTOR_STOP': self.STOP_command_handler,
-            #Get or clear the current alarm
-            'SELECTOR_ALARM': self.ALARM_command_handler})
-        self.autobreak = True
+            #Get or clear (with arg "CLEAR") the current alarm, some alarms can not be cleared
+            'SELECTOR_ALARM': self.ALARM_command_handler,
+            #Turn on or off the automatic breaking of the stage
+            'SELECTOR_AUTOBREAK': self.AUTOBREAK_command_handler,
+            'SELECTOR_CALIBRATE': self.CALIBRATE_command_handler})
+        self.autobreak = True  #Wheter to automatically apply the break when not moving
         self._autobreak_thread = threading.Thread(target=self._autobreak_main, name='Break when not moving')
         self._autobreak_thread.daemon = True
         self._autobreak_thread.start()
@@ -289,7 +330,7 @@ class SelectorAgent(Agent):
 
     def MOVE_command_handler(self, command):
         """
-        Command a move to a specified absolute positon
+        Command a move to a specified absolute position
 
         This command has one argument: the position
 
@@ -310,6 +351,41 @@ class SelectorAgent(Agent):
         else:
             self.bad_command_handler(command)
 
+    def AUTOBREAK_command_handler(self, command):
+        """
+        Enable/Disable Autobreaking, default is on off generates heat
+
+        This command has one argument: ?|ON|OFF
+
+        Respond with OK or ERROR: some text
+        """
+        command_parts = command.string.split(' ')
+        # Vet the command
+        if '?' in command.string:
+            command.setReply('ON' if self.autobreak else 'OFF')
+        elif len(command_parts) == 2 and command_parts[1].upper() in ('ON', 'OFF'):
+            self.autobreak = command_parts[1].upper() == 'ON'
+            command.setReply('OK')
+        else:
+            self.bad_command_handler(command)
+
+    def CALIBRATE_command_handler(self, command):
+        self.connections['ifuselector'].set_remote_in('RV-POS')
+        while self.connections['ifuselector'].moving:
+            time.sleep(.1)
+        self.connections['ifuselector'].set_remote_in('RV-POS', False)
+        self.connections['ifuselector'].set_remote_in('HOME')
+        self.connections['ifuselector'].set_remote_in('HOME', False)
+
+        command.setReply(True)
+
+
+        self.set_remote_in('RV-POS')
+        while self.moving:
+            time.sleep(.1)
+        self.set_remote_in('RV-POS', False)
+        self.set_remote_in('HOME')
+        self.set_remote_in('HOME', False)
 
 if __name__ == '__main__':
     agent = SelectorAgent()

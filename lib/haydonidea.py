@@ -6,6 +6,16 @@ import time
 import threading
 from collections import namedtuple
 
+
+"""SOME VERY EARLY NOTES
+P28H41-12-A01
+0.18 MAX
+.001"/step
+200step/rev
+250,000 rad/sec2 39789 rev/s2 7958 in/s2 MAX
+"""
+
+
 # Contact HK: this seems to remain true even after a reset command to the Idea if the programs on the idea drive
 # include an idle loop, getting rid of the idle loop fixed. I think the issue is that the reset command was
 # silently ignored given that a program was running.
@@ -241,21 +251,28 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.sendMessageBlocking(command_string, connect=True)  #TODO think about if we should or shouldn't connect and
 
         if not self.command_has_response(command_string):
-            return ''
+            return ''  #NB this is also the response we would expect from a powered down HK, gross
         else:
             # Response will be nothing or  "`<cmdkey><ascii>\r`<cmdkey>#\r", NB that receiveMessageBlocking strips the
             # terminator so a merged response would look like "`<cmdkey><ascii>`<cmdkey>#"
             # Need to do a blocking receive on \r twice
             response = self.receiveMessageBlocking() + self.receiveMessageBlocking()
+            if not response:
+                if command_string == 'b':  # Encoder command can return something OR nothing, UGH!
+                    logger.info('HK encoder query did not get response, this sometimes happens')
+                    return ''
+                else:
+                    e = 'HK did not respond to "{}", is it powered?'.format(command_string)
+                    self.handle_error(e)
+                    raise SelectedConnection.ReadError(e)
             try:
                 return response.split('`')[1].strip()[1:]
-            except Exception as e:
-                if command_string == 'b':
-                    return ''  #Encoder command can return something OR nothing, UGH!
-                else:
-                    msg = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
-                    logger.error(msg, exc_info=True)
-                    return 'ERROR: '+msg
+            except Exception:
+                e = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
+                #logger.error(msg, exc_info=True)
+                self.handle_error(e)
+                raise SelectedConnection.ReadError(e)
+                # raise IOError('ERROR: '+msg)  #Give up, something is wrong!
 
     def abort(self):
         self.send_command_to_hk('A')
@@ -330,6 +347,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     def calibrate(self, nosleep=False):
         with self.rlock:
+            self.send_command_to_hk('mCalibrate_')
             self.sendMessageBlocking('mCalibrate_')
             self.commanded_position = 0
             self.move_info = MoveInfo(start_time=time.time(), duration=CALIBRATION_MAX_TIME)

@@ -19,6 +19,29 @@ from collections import namedtuple
 # address= the starting address to read from
 
 
+""" SOME VERY EARLY NOTES:
+SKR3306D-0470-P0-0BA0 
+
+D block (2 short 470 travel
+6mm lead
+
+Max speed 500mm/s  83.333 rev  #should that be 50mm/s?
+
+gear 10:1
+
+1000 pulse/rev
+max pulse rate 83333 Hz
+
+pulserate*.006 = speed in mm/s
+
+
+-287261
+-28297
+330925
+
+See this: https://minimalmodbus.readthedocs.io/en/master/usage.html#general-on-modbus-protocol
+"""
+
 
 CLIENTID = 1
 PORT = '/dev/tty.usbserial-FT2KYRWY'  # '/dev/thkrail'
@@ -57,6 +80,12 @@ DIRECT_IO_OUT_BITS = ('HOME-END', 'IN-POS', 'PLS-RDY', 'READY', 'MOVE', 'ALM-B',
 REMOTE_IO_OUT_BITS = ('MBC', 'STOP-COFF_R', 'RV_LS_R', '-', 'FW-LS_R', 'READY', 'INFO', 'ALM-A', 'SYS-BSY',
                       'AREA0', 'AREA1', 'AREA2', 'TIM', 'MOVE', 'IN-POS', 'TLC')
 
+REMOTE_IO_IN_BITS = ('STOP-COFF', '-', 'M2', 'START', 'HOME', 'STOP', 'FREE', 'ALM-RST',
+                     'D-SEL0', 'D-SEL1', 'D-SEL2', 'SSTART', 'FW-JOG-P', 'RV-JOG-P', 'FW-POS', 'RV-POS')
+
+
+
+#ALM-B is just the opposite polarity of ALM-A
 OUTPUT_BITS = ("HOME-END", "ABSPEN", "ELPRST-MON", "-", "-", "PRST-DIS", "PRST-STLD", "ORGN-STLD", "RND-OVF", "FW-SLS",
                "RV-SLS", "ZSG", "RND-ZERO", "TIM", "-", "MAREA", "CONST-OFF", "ALM-A", "ALM-B", "SYS-RDY", "READY",
                "PLS-RDY", "MOVE", "INFO", "SYS-BSY", "ETO-MON", "IN-POS", "-", "TLC", "VA", "CRNT", "AUTO-CD",
@@ -187,7 +216,7 @@ class OrientalMotor(object):
         """Returns the limits software or LW, whichever is smaller"""
         fv_lim = self.read_regs(0x0388, 2, reverse=False).int
         rw_lim = self.read_regs(0x038A, 2, reverse=False).int
-        return (rw_lim, fv_lim)
+        return rw_lim, fv_lim
 
     @property
     def moving(self):
@@ -276,6 +305,7 @@ class OrientalMotor(object):
             self.move_to(0, 0)  #this works, go figure
 
     def turn_on_break(self):
+        #p284
         # 0x0171 bit0 STOP-COFF
         with self.rlock:
             val = self.read_regs(0x007D, 1)
@@ -292,17 +322,35 @@ class OrientalMotor(object):
             val.reverse()
             self.write_regs(0x007D, val.uint)
 
+    def set_remote_in(self, bit_name, value=True):
+        #p284
+        if bit_name == '-':  #These are unused bits
+            return
+        with self.rlock:
+            val = self.read_regs(0x007D, 1)
+            val[REMOTE_IO_IN_BITS.index(bit_name.upper())] = bool(value)
+            val.reverse()
+            self.write_regs(0x007D, val.uint)
+
+    @property
+    def alarm(self):
+        """True if there is an alarm"""
+        return self.get_remoteOut(pretty=False)[REMOTE_IO_OUT_BITS.index('ALM-A')]
+
     def read_alarm(self, number=0):
         """
         0x0080-1 present alarm code
         01AA-01AB alarm record details, write 0 to 10 to pick
         then read 0A00-0A18
 
+        p 452 for meanings
         """
         # code = client.read_holding_registers(0x0080, 2, unit=1).registers
         self.write_regs(0x01AA, [0, number])
         regs_iter = iter(self.read_regs(0x0A00, 26, raw=True))
-        vals = [merge((r, next(regs_iter))) for r in regs_iter]
+        vals = [merge((r, next(regs_iter)), le=0) for r in regs_iter]
+        #code, subcode, drive t, motor t, invert volt*10, dio in, rio out, op info 1, op info 2, feedbackpos, time from boot, time from move, main power time
+        #le=(0, 0, 0, 0,0, 0, 0, ? (-1=[0, 65535]),? (13 = [0, 13]), twos=1 & le=0 (I think), 0, 0, [0, 2315] = 1day 14h 35 min)
         return OrientalAlarm(vals)
 
     def reset_alarm(self):
@@ -348,6 +396,8 @@ class OrientalAlarm(object):
         if len(alarm_record) != 13:
             raise ValueError('Alarm records must have 13 entries')
         self.record = tuple(alarm_record)
+        #code, subcode, drive t, motor t, invert volt*10, dio in, rio out, op info 1, op info 2, feedbackpos, time from boot, time from move, main power time
+        #le=(0, 0, 0, 0,0, 0, 0, ? (-1=[0, 65535]),? (13 = [0, 13]), twos=1 & le=0 (I think), 0, 0, [0, 2315] = 1day 14h 35 min)
 
     def __str__(self):
         return str(self.record)

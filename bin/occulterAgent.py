@@ -31,9 +31,6 @@ OCC_STALLPREVENT on|off
 OCC_LIMITS ?|# # set software limits
 STATUS: get_status_list (home, faults, moving, calibrated, pos_error)
 
-TODO: all commands respond with error if alarm is present. code doesn't present check for faults
-TODO: all commands DETECT failures. drive makes serial response hard. probably need to trap on protocol and treat as IO error
-
 Notes:
 RESET: clear alarm/recover command
 OCC: calibrates on move if needed
@@ -58,7 +55,10 @@ class OcculterAgent(Agent):
     """
     This control program is responsible for controlling a singler Occulter mask.
     Three instances are run, one for each of the IFUs.
-    
+
+    Stall prevention has the side effect of resetting the drive if a position correction kicks in when
+    a move isn't in progress (e.g. if you grab the actuator and pull)
+
     Low level device functionality is handled by the HaydonKerk IDEA driver. The
     proprietary code run on the drive is found in the files in ../haydonkerk/*.idea,
     one per subroutine.
@@ -81,7 +81,7 @@ class OcculterAgent(Agent):
             'OCC_STOP': self.ABORT_command_handler,
             'OCC_RESET': self.RESET_command_handler,
             # Get/Set the soft limits
-            'OCC_LIMIT': self.LIMIT_command_handler,
+            'OCC_LIMITS': self.LIMIT_command_handler,
             #Calibrate the occulter
             'OCC_CALIBRATE': self.CALIBRATE_command_handler,
             'OCC_STALLPREVENT': self.STALLPREVENT_command_handler})
@@ -294,7 +294,7 @@ class OcculterAgent(Agent):
 
     def STALLPREVENT_command_handler(self, command):
         if '?' in command.string:
-            command.setReply(str(self.connections['occulter'].prevent_stall))
+            command.setReply('ON' if self.connections['occulter'].prevent_stall else 'OFF')
         elif 'on' in command.string.lower():
             self.connections['occulter'].prevent_stall = True
             command.setReply('OK')

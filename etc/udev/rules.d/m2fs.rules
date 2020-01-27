@@ -44,7 +44,7 @@ KERNELS=="1-1.3.1", SYMLINK+="shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="shoeR
 KERNELS=="1-1.3.2", SYMLINK+="shoeB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="shoeB.service", ENV{SYSTEMD_WANTS}+="slitController.service"
 
 #Shack-Hartman system rules 
-ATTRS{product}=="Pololu Simple High-Power Motor Controller 24v12", SYMLINK+="shLenslet"
+ATTRS{product}=="Pololu Simple High-Power Motor Controller 24v12", SYMLINK+="shLenslet", TAG+="systemd", ENV{SYSTEMD_WANTS}+="shackhartman.service"
 ATTRS{serial}=="FTEZU88I", SYMLINK+="shLED", TAG+="systemd", ENV{SYSTEMD_WANTS}+="shackhartman.service"
 
 #Guider rule

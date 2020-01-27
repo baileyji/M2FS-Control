@@ -1,13 +1,16 @@
 #IFUShield
 ATTRS{serial}=="?", SYMLINK+="ifushield", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifushield.service"
+ATTRS{serial}=="?", SYMLINK+="ifushield", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifushield.service"
+
 
 #Occulters
 ATTRS{serial}=="?", SYMLINK+="occulterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="occulterL.service"
-ATTRS{serial}=="?", SYMLINK+="occulterM", TAG+="systemd", ENV{SYSTEMD_WANTS}+="occulterS.service"
+ATTRS{serial}=="?", SYMLINK+="occulterS", TAG+="systemd", ENV{SYSTEMD_WANTS}+="occulterS.service"
 ATTRS{serial}=="?", SYMLINK+="occulterL", TAG+="systemd", ENV{SYSTEMD_WANTS}+="occulterH.service"
 
 #IFU Shoe
-ATTRS{serial}=="?", SYMLINK+="ifushoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifushoe.service"
+ATTRS{serial}=="?", SYMLINK+="ifushoe", SYMLINK+="shoeB", SYMLINK+="shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifushoe.service"
+ATTRS{serial}=="?", SYMLINK+="ifushoe", SYMLINK+="shoeB", SYMLINK+="shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifushoe.service"
 
 #IFU Selector
 ATTRS{serial}=="?", SYMLINK+="ifuselector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifuselector.service"

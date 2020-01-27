@@ -204,7 +204,8 @@ class SelectedConnection(object):
                 try:
                     self.connect()
                 except ConnectError, err:
-                    err="Unable to send '%s'" % escapeString(message)
+                    err="Unable to send '%s' to '%s' but couldn't connect." % (message, self.addr_str())
+                    err=escapeString(err)
                     #Query state because calling resets to default (possibly None)
                     doRaise=self.errorCallback is None
                     self.handle_error(error=err)

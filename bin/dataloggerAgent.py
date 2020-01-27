@@ -52,15 +52,14 @@ class DataloggerAgent(Agent):
         self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.recordQueue)
         self.dataloggerB.start()
         agent_ports=m2fsConfig.getAgentPorts()
-        if m2fsConfig.ifuMode():
-            self.ifushoe = SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
+        if m2fsConfig.ifum_devices_present(): #TODO make this support user forgetfullness
+            self.ifushoes = SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
             self.ifuselector = SelectedSocket('localhost', agent_ports['SelectorAgent'])
             self.ifushield = SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
         else:
             self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
             self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
-            self.shackHartman=SelectedSocket('localhost',
-                                             agent_ports['ShackHartmanAgent'])
+            self.shackHartman=SelectedSocket('localhost', agent_ports['ShackHartmanAgent'])
         self.logfile=open(m2fsConfig.getDataloggerLogfileName(),'a')
         self.currentRecord=LoggerRecord(time.time())
         self.command_handlers.update({
@@ -233,9 +232,9 @@ class DataloggerAgent(Agent):
     def _gatherIFUTemps(self):
         try:
             cradleRTemp, cradleBTemp = None, None
-            self.ifushoe.connect()  # in case we lost connection
-            self.ifushoe.sendMessageBlocking('SLITS_TEMP')
-            resp = self.ifushoe.receiveMessageBlocking()
+            self.ifushoes.connect()  # in case we lost connection
+            self.ifushoes.sendMessageBlocking('SLITS_TEMP')
+            resp = self.ifushoes.receiveMessageBlocking()
             cradleRTemp, cradleBTemp = map(float, resp.split())
         except IOError:
             self.logger.debug("Failed to poll IFU Shoes for temps")
@@ -301,7 +300,7 @@ class DataloggerAgent(Agent):
 
     def queryAgentTemps(self):
         #Gather Temps
-        if m2fsConfig.ifuMode():
+        if m2fsConfig.ifum_devices_present():
             shTemp = None
             cradleRTemp, cradleBTemp, driveTemp, motorTemp, probeTemps = self._gatherIFUTemps()
         else:

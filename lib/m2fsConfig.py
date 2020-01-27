@@ -63,9 +63,23 @@ class m2fsConfig:
             return '../conf/'
 
     @staticmethod
-    def ifuMode():
-        #TODO finalize
-        return os.path.exists('/dev/ifumode')
+    def m2fs_devices_present():
+        return (os.path.exists("/dev/shoeA172") or
+                os.path.exists("/dev/shoeF0A2") or
+                os.path.exists("/dev/shoeF171") or
+                os.path.exists("/dev/shoe3280") or
+                os.path.exists("/dev/shLED") or
+                os.path.exists("/dev/shLenslet") or
+                os.path.exists("/dev/guider"))
+
+    @staticmethod
+    def ifum_devices_present():
+        return (os.path.exists("/dev/occulterS") or
+                os.path.exists("/dev/occulterL") or
+                os.path.exists("/dev/occulterH") or
+                os.path.exists("/dev/ifushield") or
+                os.path.exists("/dev/ifushoe") or
+                os.path.exists("/dev/ifuselector"))
 
     @staticmethod
     def disableStowedShutdown():

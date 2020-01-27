@@ -49,6 +49,8 @@ class Director(Agent):
             'STOWEDSHUTDOWN': self.stowedshutdown_command_handler,
             #Report the state of the cradles
             'CRADLESTATE': self.cradlestate_command_handler,
+            #Command switch between M2FS and IFUM
+            'MODE': self.instrumentmode_command_handler,
             #Galil Agent (R & B) Commands
             #
             #The director determines if the command is for the R or B galilAgent
@@ -100,7 +102,7 @@ class Director(Agent):
             #
             # Authoritative command descriptions are in dataloggerAgent.py
             'TEMPS': self.datalogger_command_handler}
-        M2FS_COMMANDS = {
+        self.M2FS_COMMANDS = {
             # Enable/Disable plugging mode.
             # Involves GalilAgents, PlugController, & SlitController.
             'PLUGMODE': self.plugmode_command_handler,
@@ -140,7 +142,7 @@ class Director(Agent):
             'PLATE':self.PLUGGING_command_handler,
             'PLATESETUP':self.PLUGGING_command_handler,
             'PLUGPOS':self.PLUGGING_command_handler}
-        IFUM_COMMANDS = {
+        self.IFUM_COMMANDS = {
             'IFU':self.IFU_command_handler,
             'IFU_MOVE':self.IFU_command_handler,
 
@@ -156,70 +158,127 @@ class Director(Agent):
             'LiHe':self.IFUSHIELD_command_handler,
             'ThXe':self.IFUSHIELD_command_handler}
         self.command_handlers.update(GENERAL_COMMANDS)
-        self.command_handlers.update(M2FS_COMMANDS)
-        self.command_handlers.update(IFUM_COMMANDS)
+        self.command_handlers.update(self.M2FS_COMMANDS)
+        self.command_handlers.update(self.IFUM_COMMANDS)
 
         #Fetch the agent ports
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
-        self.connections['GalilAgentR']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['GalilAgentR'])
-        self.connections['GalilAgentB']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['GalilAgentB'])
+        self.connections['GalilAgentR']=SelectedConnection.SelectedSocket('localhost', agent_ports['GalilAgentR'])
+        self.connections['GalilAgentB']=SelectedConnection.SelectedSocket('localhost', agent_ports['GalilAgentB'])
         #Datalogger Agent
         self.connections['DataloggerAgent']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['DataloggerAgent'])
+                                                                              agent_ports['DataloggerAgent'])
         #MCal Agent
-        self.connections['MCalAgent']=SelectedConnection.SelectedSocket('localhost',
-            agent_ports['MCalAgent'])
+        self.connections['MCalAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['MCalAgent'])
 
-        if m2fsConfig.ifuMode():
-            for k in M2FS_COMMANDS:
-                self.command_handlers[k] = self.NOT_M2FS_command_handler
-            #IFU Selector
-            self.connections['SelectorAgent']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['SelectorAgent'])
-            #Occulter Controllers
-            self.connections['OcculterAgentH']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['OcculterAgentH'])
-            self.connections['OcculterAgentS']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['OcculterAgentS'])
-            self.connections['OcculterAgentL']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['OcculterAgentL'])
-            #IFU Shield (LEDs, Lamps, & Temps)
-            self.connections['IFUShieldAgent']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['IFUShieldAgent'])
-            # Slit Subsytem Controller
-            self.connections['SlitController'] = SelectedConnection.SelectedSocket('localhost',
-                agent_ports['IFUShoeAgent'])
+        #TODO How do we deal with this if nothing is installed? Restart director on insert of device?
+
+        #Agents are started by their devices (but not stopped by removing their devices, TODO perhaps they should be)
+        # We default to M2FS mode, If MFib isn't hooked up then won't be able to connect to the MFib agents, but will
+        # retry auto-magically as connections exist. If IFU-M is later connected (e.g. IFU-M installed, forgot to
+        # connect USB before boot) MFib agents would never get started and IFU-M agents would be running.
+        # MODE will trigger _enterIFUMode() or _enterM2FSMode(), failing would fail if the other is connected.
+        # If MODE is issued before anything is connected it will switch.
+        if m2fsConfig.ifum_devices_present():
+            self._enterIFUMode()
         else:
-            for k in IFUM_COMMANDS:
-                self.command_handlers[k] = self.NOT_IFUM_command_handler
-            #Plugging Controller
-            self.connections['PlugController']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['PlugController'])
-            #Guider Agent
-            self.connections['GuiderAgent']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['GuiderAgent'])
-            #Shack-Hartman Agent
-            self.connections['ShackHartmanAgent']=SelectedConnection.SelectedSocket('localhost',
-                agent_ports['ShackHartmanAgent'])
-            # Slit Subsytem Controller
-            self.connections['SlitController'] = SelectedConnection.SelectedSocket('localhost',
-                agent_ports['SlitController'])
+            self._enterM2FSMode()
 
         #Ensure stowed shutdown is disabled by default
         m2fsConfig.disableStowedShutdown()
-        self.batteryState=[('Battery', 'Unknown')]
-        updateBatteryStateTimer=Timer(.1, self.updateBatteryState)
-        updateBatteryStateTimer.daemon=True
+        self.batteryState = [('Battery', 'Unknown')]
+        updateBatteryStateTimer = Timer(2.5, self.updateBatteryState)
+        updateBatteryStateTimer.daemon = True
         updateBatteryStateTimer.start()
+
+    def _enterM2FSMode(self):
+        """
+        This will leave any IFUM only commands in flight with no way to query them. If they are blocking their
+        blocks would remain forever.
+        """
+        agent_ports = m2fsConfig.getAgentPorts()
+        for k in self.IFUM_COMMANDS:
+            self.command_handlers[k] = self.NOT_IFUM_command_handler
+        self.command_handlers.update(self.M2FS_COMMANDS)
+        # Plugging Controller
+        self.connections['PlugController'] = SelectedConnection.SelectedSocket('localhost',
+                                                                               agent_ports['PlugController'])
+        # Guider Agent
+        self.connections['GuiderAgent'] = SelectedConnection.SelectedSocket('localhost',
+                                                                            agent_ports['GuiderAgent'])
+        # Shack-Hartman Agent
+        self.connections['ShackHartmanAgent'] = SelectedConnection.SelectedSocket('localhost',
+                                                                                  agent_ports['ShackHartmanAgent'])
+        # Slit Subsytem Controller
+        self.connections['SlitController'] = SelectedConnection.SelectedSocket('localhost',
+                                                                               agent_ports['SlitController'])
+        for c in ('SelectorAgent','OcculterAgentS','OcculterAgentH','OcculterAgentL','IFUShieldAgent','IFUShoeAgent'):
+            try:
+                self.connections.pop(c).close()
+            except KeyError:
+                pass
+            except IOError:
+                self.logger.info("Failed to close connection to {} when switching to IFU Mode".format(c), exc_info=True)
+        self.active_mode = 'm2fs'
+
+    def _enterIFUMode(self):
+        """
+        This will leave any M2FS only commands in flight with no way to query them. If they are blocking their
+        blocks would remain forever.
+        """
+        agent_ports = m2fsConfig.getAgentPorts()
+        for k in self.M2FS_COMMANDS:
+            self.command_handlers[k] = self.NOT_M2FS_command_handler
+        self.command_handlers.update(self.IFUM_COMMANDS)
+        #IFU Selector
+        self.connections['SelectorAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['SelectorAgent'])
+        #Occulter Controllers
+        self.connections['OcculterAgentH']=SelectedConnection.SelectedSocket('localhost', agent_ports['OcculterAgentH'])
+        self.connections['OcculterAgentS']=SelectedConnection.SelectedSocket('localhost', agent_ports['OcculterAgentS'])
+        self.connections['OcculterAgentL']=SelectedConnection.SelectedSocket('localhost', agent_ports['OcculterAgentL'])
+        #IFU Shield (LEDs, Lamps, & Temps)
+        self.connections['IFUShieldAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
+        # Slit Subsystem Controller
+        self.connections['IFUShoeAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
+        for c in ('PlugController','GuiderAgent','ShackHartmanAgent','SlitController'):
+            try:
+                self.connections.pop(c).close()
+            except KeyError:
+                pass
+            except IOError:
+                self.logger.info("Failed to close connection to {} when switching to IFU Mode".format(c), exc_info=True)
+        self.active_mode = 'ifum'
 
     def NOT_IFUM_command_handler(self, command):
         command.setReply('ERROR: Command only supported in IFU-M mode.')
 
     def NOT_M2FS_command_handler(self, command):
         command.setReply('ERROR: Command only supported in M2FS mode.')
+
+    def instrumentmode_command_handler(self, command):
+        if '?' in command.string:
+            command.setReply('IFU-M' if self.active_mode=='ifum' else 'M2FS')
+            return
+        cmd=command.string.lower()
+        if ('ifum' in cmd and 'm2fs' in cmd) or ('ifum' not in cmd and 'm2fs' not in cmd):
+            command.setReply('ERROR: Options are IFUM or M2FS')
+            return
+        if len(self.commands) != 1:
+            command.setReply('ERROR: Mode setting not allowed due to pending commands.')
+            return
+        if 'ifum' in cmd:
+            if m2fsConfig.m2fs_devices_present():
+                command.setReply('ERROR: MFib is connected.')
+            else:
+                self._enterIFUMode()
+                command.setReply('OK')
+        else:
+            if m2fsConfig.ifum_devices_present():
+                command.setReply('ERROR: IFU-M is connected.')
+            else:
+                self._enterM2FSMode()
+                command.setReply('OK')
 
     def listenOn(self):
         """
@@ -330,12 +389,12 @@ class Director(Agent):
 
         In IFUM mode the command is passed on to the IFUShieldAgent instead.
         """
-        if m2fsConfig.ifuMode():
-            self.connections['IFUShieldAgent'].sendMessage(command.string,
-                responseCallback=command.setReply, errorCallback=command.setReply)
+        if self.active_mode=='ifum':
+            self.connections['IFUShieldAgent'].sendMessage(command.string, responseCallback=command.setReply,
+                                                           errorCallback=command.setReply)
         else:
-            self.connections['MCalAgent'].sendMessage(command.string,
-                responseCallback=command.setReply, errorCallback=command.setReply)
+            self.connections['MCalAgent'].sendMessage(command.string, responseCallback=command.setReply,
+                                                      errorCallback=command.setReply)
 
     def SLITS_comand_handler(self, command):
         """
@@ -350,14 +409,12 @@ class Director(Agent):
         additional function, but does not provide direct control over the error
         messages.
         """
-        try:
-            self.connections['SlitController'].connect()
-            self.connections['SlitController'].sendMessage(command.string, 
-                responseCallback=command.setReply)
-        except SelectedConnection.ConnectError, err:
-            command.setReply('ERROR: Could not establish a connection with the slit controller.')
-        except SelectedConnection.WriteError, err:
-            command.setReply('ERROR: Could not send to slit controller.')
+        if self.active_mode=='ifum':
+            self.connections['IFUShoeAgent'].sendMessage(command.string, responseCallback=command.setReply,
+                                                         errorCallback=command.setReply)
+        else:
+            self.connections['SlitController'].sendMessage(command.string, errorCallback=command.setReply,
+                                                           responseCallback=command.setReply)
 
     def IFU_command_handler(self, command):
         """
@@ -414,8 +471,7 @@ class Director(Agent):
         """
         try:
             self.connections['DataloggerAgent'].connect()
-            self.connections['DataloggerAgent'].sendMessage(command.string, 
-                responseCallback=command.setReply)
+            self.connections['DataloggerAgent'].sendMessage(command.string, responseCallback=command.setReply)
         except SelectedConnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
         except SelectedConnection.WriteError, err:
@@ -462,16 +518,15 @@ class Director(Agent):
         Considering the FLS system isn't yet operational, this command is 
         just a dummy to excersise the FLS Pickoffs
         
-        TODO When this really matters I need to take into accout that the 
-        FLSIM OUT and FLSIM IN commands might result in an ERROR, which I would
-        need to trap a and handle. The most likely cause, which is also expected
-        behavior would be to have the instrument be entering plugmode right as
-        the gratings and disperser are being reconfigured, perhaps causing the
-        galils to temporarily not have a free thread to execute FLSIM.
-        The gracefull way to handle this is to queue the motions and only fail 
-        to enter PLUGMODE if they don't complete after some timeout.
-        Again given the current arch, this isn't straightforward to implement, 
-        at least to me.
+        TODO When this really matters I need to take into account that the
+         FLSIM OUT and FLSIM IN commands might result in an ERROR, which I would
+         need to trap a and handle. The most likely cause, which is also expected
+         behavior would be to have the instrument be entering plugmode right as
+         the gratings and disperser are being reconfigured, perhaps causing the
+         galils to temporarily not have a free thread to execute FLSIM.
+         The graceful way to handle this is to queue the motions and only fail
+         to enter PLUGMODE if they don't complete after some timeout.
+         Again given the current arch, this isn't straightforward to implement.
         """
         if '?' in command.string:
             #Check to see if we've made it into plug mode sucess

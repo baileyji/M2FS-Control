@@ -151,7 +151,7 @@ class SelectedConnection(object):
         will be terminated by the _terminateMessage function.
         
         The responseCallback will be called upon receipt of the first
-        subsequent message with self and the messaage as arguments.
+        subsequent message with self and the message as arguments.
         
         The sentCallback will be called when the message is transmitted in full
         with self as the only argument.
@@ -164,7 +164,7 @@ class SelectedConnection(object):
         If no error callback is passed a WriteError is raised regardless of the 
         presence of a defaultErrorHandler, which is not called. The thinking 
         here is that code may be anticipating calls to the defaulterrorhandler 
-        comming from the previous send attempt.
+        coming from the previous send attempt.
         
         If the connection is not open and connect is true, an attempt will be
         made to establish a connection by the standard procedure. This is the
@@ -251,7 +251,7 @@ class SelectedConnection(object):
                 try:
                     self.connect()
                 except ConnectError, err:
-                    err=("Attempted to send '%s' to '%s' but coudn't connect." %
+                    err=("Attempted to send '%s' to '%s' but couldn't connect." %
                         (message, self.addr_str()))
                     err=escapeString(err)
                     logger.error(err)

@@ -60,32 +60,40 @@ voltage_t Ultravolt::getVoltageLimit() {
     return _vlimit;
 }
 
-voltage_t Ultravolt::getVoltage() {
-    return isEnabled() ? (voltage_t) analogRead(_vmon_pin)*ADC_TO_VOLTS: 0;
+voltagef_t Ultravolt::getVoltage() {
+    unsigned int ana=analogRead(_vmon_pin);
+    //Serial.print("Read VANA of ");Serial.println(ana);
+    return isEnabled() ? (voltagef_t) ((float)ana)*ADC_TO_VOLTS: 0.0;
 }
 
 bool Ultravolt::setVoltageLimit(voltage_t limit) {
     _vlimit = limit > MAX_VOUT_V ? MAX_VOUT_V : limit;
     digitalWrite(_vsel_pin, HIGH);
     delayMicroseconds(SEL_PIN_DELAY_US);
-    _dac.setVoltage(round(_vlimit*VOLTS_TO_ADC), false); //don't persist the voltage to eeprom
+    uint16_t out = round(((float)_vlimit)*VOLTS_TO_ADC);
+    //Serial.print("Set VDAC to ");Serial.println(out);
+    _dac.setVoltage(out, false); //don't persist the voltage to eeprom
     delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_vsel_pin, LOW);
 }
 
-voltage_t Ultravolt::getCurrentLimit() {
+current_t Ultravolt::getCurrentLimit() {
     return _ilimit;
 }
 
-current_t Ultravolt::getCurrent() {
-    return isEnabled() ? (current_t) analogRead(_imon_pin)*ADC_TO_MILLIAMPS: 0;
+currentf_t Ultravolt::getCurrent() {
+    unsigned int ana=analogRead(_imon_pin);
+    //Serial.print("Read IANA of ");Serial.println(ana);
+    return isEnabled() ? (currentf_t) ((float)ana)*ADC_TO_MILLIAMPS: 0.0;
 }
 
 bool Ultravolt::setCurrentLimit(current_t limit) {
     _ilimit = limit > MAX_IOUT_MA ? MAX_IOUT_MA : limit;
     digitalWrite(_isel_pin, HIGH);
     delayMicroseconds(SEL_PIN_DELAY_US);
-    _dac.setVoltage(round(_ilimit*MILLIAMPS_TO_ADC), false); //don't persist to eeprom
+    uint16_t out = round(((float)_ilimit)*MILLIAMPS_TO_ADC);
+    //Serial.print("Set IDAC to ");Serial.println(out);
+    _dac.setVoltage(out, false); //don't persist to eeprom
     delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_isel_pin, LOW);
 }
@@ -132,10 +140,11 @@ void Ultravolt::turnOn(current_t current) {
 }
 
 void Ultravolt::monitorIgnition(uint32_t duration_ms) {
+  //~1ms granularity as implemented
     unsigned long t;
-    uint32_t duration_us=duration_ms*1000;
-    current_t i;
-    voltage_t v;
+    uint32_t duration_us=duration_ms*1000, delta=0;
+    currentf_t i;
+    voltagef_t v;
     bool im, vm;
 
     turnOff();
@@ -159,6 +168,7 @@ void Ultravolt::monitorIgnition(uint32_t duration_ms) {
         Serial.print(", ");
         Serial.println(vm);
 
-        duration_us-=micros()-t;
+        delta=micros()-t;
+        duration_us = delta> duration_us ? 0: duration_us-delta;
     }
 }

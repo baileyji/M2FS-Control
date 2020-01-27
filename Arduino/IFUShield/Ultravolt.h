@@ -12,7 +12,7 @@
 #define MAX_VOUT_V 1000  //Ultravolt can go to 1000
 #define MAX_IOUT_MA 10  //ultravolt can go to 30
 
-#define VOLTS_TO_ADC (0x0FFF/1000.0)
+#define VOLTS_TO_ADC (0x0FFF/1000.0)  // 0-4095
 #define MILLIAMPS_TO_ADC (0x0FFF/30.0)
 
 //TODO Verify these aren't affected by setpoints
@@ -22,7 +22,9 @@
 #define SEL_PIN_DELAY_US 25    //~10 I2C clocks
 
 typedef unsigned int current_t;
+typedef float currentf_t;
 typedef unsigned int voltage_t;
+typedef float voltagef_t;
 
 class Ultravolt {
   
@@ -35,11 +37,11 @@ class Ultravolt {
     bool isCurrentMode();
     bool isVoltageMode();
     
-    voltage_t getVoltage();
+    voltagef_t getVoltage();
     voltage_t getVoltageLimit();
     bool setVoltageLimit(voltage_t limit);
     
-    current_t getCurrent();
+    currentf_t getCurrent();
     current_t getCurrentLimit();
     bool setCurrentLimit(current_t limit);
     
@@ -50,7 +52,7 @@ class Ultravolt {
     void turnOn(current_t current);
     bool isOn();
 
-    void monitorIgnition(uint32_t duration);
+    void monitorIgnition(uint32_t duration_ms);
   
   private:
     Adafruit_MCP4725 &_dac;

@@ -15,6 +15,10 @@
 //28B3A61D0B00008B
 
 
+#define IGNITION_TIME_MS 80  //Takes about 37 ms to stabilize on a resistor
+#define VMAX 800
+#define IMAX 10
+
 #define N_TEMP_SENSORS 4
 #define TEMP_UPDATE_INTERVAL_MS 10000
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
@@ -26,11 +30,11 @@
 typedef enum {THXE_LAMP=0, BENEAR_LAMP=1, LIHE_LAMP=2, ALL_LAMPS=3} lamp_t;
 Adafruit_MCP4725 dac; 
 Ultravolt benear = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
-                            PIN_IMODE_BENEAR, PIN_IA0_BENEAR, PIN_VA0_BENEAR, 800, 10, dac);
+                            PIN_IMODE_BENEAR, PIN_IA0_BENEAR, PIN_VA0_BENEAR, VMAX, IMAX, dac);
 Ultravolt lihe = Ultravolt(PIN_IMON_LIHE, PIN_VMON_LIHE, PIN_ENABLE_LIHE, PIN_VMODE_LIHE,
-                            PIN_IMODE_LIHE, PIN_IA0_LIHE, PIN_VA0_LIHE, 800, 10, dac);
+                            PIN_IMODE_LIHE, PIN_IA0_LIHE, PIN_VA0_LIHE, VMAX, IMAX, dac);
 Ultravolt thxe = Ultravolt(PIN_IMON_THXE, PIN_VMON_THXE, PIN_ENABLE_THXE, PIN_VMODE_THXE,
-                            PIN_IMODE_THXE, PIN_IA0_THXE, PIN_VA0_THXE, 800, 10, dac);
+                            PIN_IMODE_THXE, PIN_IA0_THXE, PIN_VA0_THXE, VMAX, IMAX, dac);
 
 //LED Levels
 uint16_t ledlevels[] = {0, 0, 0, 0, 0, 0};  //770, 740, IR, white, 405, 390
@@ -369,13 +373,13 @@ bool MIcommand() {
      
   switch(lamp) {
       case BENEAR_LAMP : benear.setCurrentLimit((current_t) param);
-                         benear.monitorIgnition(1000);
+                         benear.monitorIgnition(IGNITION_TIME_MS);
                          break;
       case THXE_LAMP   : thxe.setCurrentLimit((current_t) param);
-                         thxe.monitorIgnition(1000);
+                         thxe.monitorIgnition(IGNITION_TIME_MS);
                          break;
       case LIHE_LAMP   : lihe.setCurrentLimit((current_t) param);
-                         lihe.monitorIgnition(1000);
+                         lihe.monitorIgnition(IGNITION_TIME_MS);
                          break;
   }
   return true;

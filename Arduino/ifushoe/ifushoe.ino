@@ -10,8 +10,8 @@
 // DS time is about 8 ms and boot time is about 12 ms
 
 //#define DEBUG_ANALOG
-#define DEBUG_EEPROM
-//#define DEBUG_RUN_TIME
+//#define DEBUG_EEPROM
+//#define DEBUG_RUN_TIME  2.4ms
 //#define DEBUG_COMMAND
 
 #define POWERDOWN_DELAY_US  1000
@@ -185,23 +185,8 @@ void serialEvent() {
   }
 }
 
-#pragma mark Setup & Loop
-void setup() {
-
-    boottime=millis();
-    
-    // Start serial connection
-    Serial.begin(115200);
-    
-    //Analog setup
-    analogReference(EXTERNAL);
-
-    //Set up R vs. B side detection
-//    pinMode(R_SIDE_POLL_PIN,INPUT);
-//    digitalWrite(R_SIDE_POLL_PIN, LOW);
-
-    //Set up temp sensor
-    tempSensors.begin();
+void initTempSensors() {
+    tempSensors.begin(); //TO
     tempSensors.setResolution(12);
     tempSensors.setWaitForConversion(false);
     cout<<F("Searching for temp sensors: ")<<endl;
@@ -219,6 +204,25 @@ void setup() {
     tempSensors.requestTemperatures();
     time_of_last_temp_request=millis();
     tempRetrieved=false;
+}
+
+#pragma mark Setup & Loop
+void setup() {
+
+    boottime=millis();
+    
+    // Start serial connection
+    Serial.begin(115200);
+    
+    //Analog setup
+    analogReference(EXTERNAL);
+
+    //Set up R vs. B side detection
+//    pinMode(R_SIDE_POLL_PIN,INPUT);
+//    digitalWrite(R_SIDE_POLL_PIN, LOW);
+
+    //Set up temp sensor
+    initTempSensors();
 
     //Shoe Driver Startup
     shoeR.init();
@@ -249,7 +253,9 @@ uint8_t bootCount(bool set) {
 void loop() {
 
 //    monitorLockingNutState();
-    
+
+    //In general the controller will probably boot before the shoes are connected
+    for (int i=0;i<N_TEMP_SENSORS;i++) if (!temps[i].present) initTempSensors();
     monitorTemperature();
 
     //If the command received flag is set

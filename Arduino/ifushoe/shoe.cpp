@@ -1,6 +1,6 @@
 #import "shoe.h"
 
-
+#define ADU_PER_STEP 5.03333333// 1.0929  0=11 180=964
 ShoeDrive::ShoeDrive(uint8_t pipe_servo_pin, uint8_t pipe_pot_pin, uint8_t height_servo_pin, uint8_t height_pot_pin, uint8_t height_sensor_pin, Servo *p, Servo *h)
                      : _pipe_pin(pipe_servo_pin)
                      , _pipe_pot_pin(pipe_pot_pin)
@@ -153,8 +153,8 @@ void ShoeDrive::run(){
   // Monitor position
   shoepos_t pos;
   uint32_t t =millis();
-  pos.pipe=_pipe_filter.filter(analogRead(_pipe_pot_pin));
-  pos.height=_height_filter.filter(analogRead(_height_pot_pin));
+  pos.pipe=round(_pipe_filter.filter(1023-analogRead(_pipe_pot_pin))/ADU_PER_STEP);
+  pos.height=round(_height_filter.filter(1023-analogRead(_height_pot_pin))/ADU_PER_STEP);
   
   if (pos.pipe!=_feedback_pos.pipe) {
     _feedback_pos.pipe = pos.pipe;

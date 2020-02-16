@@ -48,19 +48,15 @@ sudo udevadm trigger
 
 #Ensure systemd loads the new units
 sudo systemctl daemon-reload
-sudo systemctl enable shutdown_button.service
-sudo systemctl start shutdown_button.service
-
-#Bring ethernet online
-#sudo systemctl enable ethernet_hack.service
-#sudo systemctl start ethernet_hack.service
+sudo systemctl enable m2fs_shutdown_button.service
+sudo systemctl start m2fs_shutdown_button.service
 
 #Bring UPS monitoring online
 sudo systemctl restart nut-server.service
 sudo systemctl restart nut-monitor.service
 
 #Enable and start the director
-sudo systemctl enable director.service
-sudo systemctl start director.service
+sudo systemctl enable m2fs_director.service
+sudo systemctl start m2fs_director.service
 
 sudo systemctl reboot now

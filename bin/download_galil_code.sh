@@ -7,9 +7,9 @@
 #
 #  Created by Jeb Bailey on 1/22/13.
 #  Copyright
-systemctl stop galilR.service
-systemctl stop galilB.service
+systemctl stop m2fs_galilR.service
+systemctl stop m2fs_galilB.service
 ./galilDownloader.py -f ./galilRdownload.dmc -d /dev/galilR
 ./galilDownloader.py -f ./galilBdownload.dmc -d /dev/galilB
-systemctl start galilR.service
-systemctl start galilB.service
+systemctl start m2fs_galilR.service
+systemctl start m2fs_galilB.service

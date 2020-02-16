@@ -4,7 +4,7 @@ Description=M2FS Guider
 After=guider.device
 
 [Install]
-#WantedBy=director.service
+#WantedBy=m2fs_director.service
 WantedBy=guider.device
 
 [Service]

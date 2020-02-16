@@ -13,4 +13,4 @@ ATTRS{serial}=="?", SYMLINK+="ifushoe", SYMLINK+="shoeB", SYMLINK+="shoeR", TAG+
 ATTRS{serial}=="?", SYMLINK+="ifushoe", SYMLINK+="shoeB", SYMLINK+="shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifushoe.service"
 
 #IFU Selector
-ATTRS{serial}=="?", SYMLINK+="ifuselector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifuselector.service"
+ATTRS{serial}=="55731323136351604270", SYMLINK+="ifuselector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifuselector.service"

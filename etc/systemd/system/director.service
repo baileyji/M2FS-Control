@@ -1,21 +1,21 @@
 [Unit]
 Description=M2FS Director
-Wants=galilR.service
-Wants=galilB.service
-Wants=datalogger.service
-Wants=mcalled.service
-
-Wants=slitController.service
-Wants=guider.service
-Wants=shackhartman.service
-
-Wants=selector.service
-Wants=occulterH.service
-Wants=occulterS.service
-Wants=occulterL.service
-Wants=ifushoe.service
-Wants=ifushield.service
-
+#Wants=galilR.service
+#Wants=galilB.service
+#Wants=datalogger.service
+#Wants=mcalled.service
+#
+#Wants=slitController.service
+#Wants=guider.service
+#Wants=shackhartman.service
+#
+#Wants=selector.service
+#Wants=occulterH.service
+#Wants=occulterS.service
+#Wants=occulterL.service
+#Wants=ifushoe.service
+#Wants=ifushield.service
+#
 After=network.target
 
 [Install]

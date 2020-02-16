@@ -1,10 +1,11 @@
 [Unit]
 Description=IFU-M Shoe Controller
-Wants=ifushoe.device
 After=ifushoe.device
 
 [Install]
 WantedBy=director.service
+WantedBy=ifushoe.device
+
 
 [Service]
 Type=simple

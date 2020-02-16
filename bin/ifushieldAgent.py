@@ -10,6 +10,8 @@ ARDUINO_BOOT_TIME = .1
 EXPECTED_IFUSHIELD_INO_VERSION = '1.0'
 
 COLORS = ('392', '407', 'whi', '740', '770', '875')
+
+COLORS = ('770', '740', '875', 'whi', '407', '392')
 HVLAMPS = ('thxe', 'benear', 'lihe')
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
 
@@ -272,6 +274,6 @@ class IFUShieldAgent(Agent):
                 [(c, v) for c,v in zip(HVLAMPS, hvstat)])
 
 
-if __name__=='__main__':
-    agent=IFUShieldAgent()
+if __name__ == '__main__':
+    agent = IFUShieldAgent()
     agent.main()

@@ -2,8 +2,9 @@
 Description=M2FS Director
 #Wants=galilR.service
 #Wants=galilB.service
-#Wants=datalogger.service
-#Wants=mcalled.service
+#Wants=m2fs_datalogger.service
+Wants=m2fs_mcalled.service
+#Wants=m2fs_targetlist.service
 #
 #Wants=slitController.service
 #Wants=guider.service

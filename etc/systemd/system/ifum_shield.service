@@ -1,10 +1,10 @@
 [Unit]
 Description=IFU-M Arduino Shield
-After=ifushield.device
+#After=ifushield.device
 
 [Install]
-WantedBy=director.service
-WantedBy=ifushield.device
+#WantedBy=director.service
+#WantedBy=ifushield.device
 
 [Service]
 Type=simple

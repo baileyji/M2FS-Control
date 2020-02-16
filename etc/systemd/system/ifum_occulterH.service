@@ -1,10 +1,10 @@
 [Unit]
 Description=IFU-M HSB Occulter
-Wants=occulterH.device
-After=occulterH.device
+#Wants=occulterH.device
+#After=occulterH.device
 
 [Install]
-WantedBy=director.service
+#WantedBy=director.service
 
 [Service]
 Type=simple

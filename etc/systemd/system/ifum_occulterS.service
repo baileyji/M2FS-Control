@@ -1,5 +1,5 @@
 [Unit]
-Description=IFU-M MSB Occulter
+Description=IFU-M STD Occulter
 Wants=occulterS.device
 After=occulterS.device
 

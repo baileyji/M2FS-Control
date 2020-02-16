@@ -2,7 +2,7 @@
 Description=M2FS Target Webpage
 
 [Install]
-WantedBy=director.service
+WantedBy=multi-user.target
 
 [Service]
 Type=simple

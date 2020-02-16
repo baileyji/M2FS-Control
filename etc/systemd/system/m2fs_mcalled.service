@@ -1,8 +1,10 @@
 [Unit]
 Description=M2FS MCalLED
+After=network.target
 
 [Install]
 WantedBy=multi-user.target
+WantedBy=m2fs_director.target
 
 [Service]
 Type=simple

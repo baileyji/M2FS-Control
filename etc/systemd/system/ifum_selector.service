@@ -1,9 +1,9 @@
 [Unit]
 Description=IFU-M Selector
-After=ifuselector.device
+#After=ifuselector.device
 
 [Install]
-WantedBy=ifuselector.device
+#WantedBy=ifuselector.device
 
 [Service]
 Type=simple

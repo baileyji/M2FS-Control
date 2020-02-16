@@ -32,8 +32,7 @@ sudo cp -v ./etc/ups/* /etc/nut/
 sudo cp -v ./etc/hostname /etc/
 sudo cp -v ./etc/hosts /etc/
 sudo cp -v ./etc/dhcpcd.conf /etc/
-sudo cp -v ./etc/udev/rules.d/m2fs.rules /etc/udev/rules.d/
-sudo cp -v ./etc/udev/rules.d/ifum.rules /etc/udev/rules.d/
+sudo cp -v ./etc/udev/rules.d/* /etc/udev/rules.d/
 sudo cp -v ./etc/systemd/system/* /etc/systemd/system/ 
 sudo cp -v ./etc/systemd/timesyncd.conf /etc/systemd/
 sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/

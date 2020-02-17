@@ -96,7 +96,7 @@ class IFUShieldAgent(Agent):
         """
         self.cli_parser.add_argument('--device', dest='DEVICE',
                                      action='store', required=False, type=str,
-                                     help='the device to control', default='/dev/ifushield')
+                                     help='the device to control', default='/dev/ifum_shield')
 
     def get_version_string(self):
         """ Return a string with the version. """

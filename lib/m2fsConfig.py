@@ -74,12 +74,12 @@ class m2fsConfig:
 
     @staticmethod
     def ifum_devices_present():
-        return (os.path.exists("/dev/occulterS") or
-                os.path.exists("/dev/occulterL") or
-                os.path.exists("/dev/occulterH") or
-                os.path.exists("/dev/ifushield") or
-                os.path.exists("/dev/ifushoe") or
-                os.path.exists("/dev/ifuselector"))
+        return (os.path.exists("/dev/ifum_occulterS") or
+                os.path.exists("/dev/ifum_occulterL") or
+                os.path.exists("/dev/ifum_occulterH") or
+                os.path.exists("/dev/ifum_shield") or
+                os.path.exists("/dev/ifum_shoe") or
+                os.path.exists("/dev/ifum_selector"))
 
     @staticmethod
     def disableStowedShutdown():

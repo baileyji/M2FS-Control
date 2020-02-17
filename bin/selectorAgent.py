@@ -1,13 +1,19 @@
 #!/usr/bin/env python2.7
 import sys
-
 sys.path.append(sys.path[0] + '/../lib/')
 from orientalazd import OrientalMotor
 from agent import Agent
 from m2fsConfig import m2fsConfig
 import time, threading
-from lib.utils import longTest
+from utils import longTest
 import logging
+
+#TODO getting 'No handlers could be found for logger "orientalazd"'
+
+#TODO deal with incessent stream of these messages to logging: with a connect that doesn't work at startup
+# Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: pymodbus.client.sync:ERROR: could not open port /dev/ifuselector: [Errno 2] No such file or directory: '/dev/ifuselector'
+# Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: pymodbus.client.sync:ERROR: could not open port /dev/ifuselector: [Errno 2] No such file or directory: '/dev/ifuselector'
+# Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: orientalazd:ERROR: Modbus Error: [Connection] Failed to connect[ModbusSerialClient(rtu baud[230400])]
 
 """ Testing procedure
 Disconnected USB/motor at startup -> ?
@@ -156,7 +162,7 @@ class SelectorAgent(Agent):
         """
         self.cli_parser.add_argument('--device', dest='DEVICE',
                                      action='store', required=False, type=str,
-                                     help='the device to control', default='/dev/ifuselector')
+                                     help='the device to control', default='/dev/ifum_selector')
         self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')
 
     def get_version_string(self):

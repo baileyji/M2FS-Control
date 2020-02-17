@@ -1,6 +1,0 @@
-#flscam, none, or MT9P031
-camera=flscam
-optargs="smsc95xx.macaddr='00:11:22:33:44:55;eth0'"
-dvimode="1280x1024MR-16@60"
-#optargs="consoleblank=0 psplash=false"
-console="ttyO2,115200n8 console=tty0"

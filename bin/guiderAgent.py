@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 import sys
 sys.path.append(sys.path[0]+'/../lib/')
-import SelectedConnection
+import selectedconnection
 from agent import Agent
 import time
 import logging
@@ -47,7 +47,7 @@ MAESTRO_NOT_RESPONDING_STRING='Guider not responding'
 FOC_POS_LIMIT_MSG='Positive limit reached'
 
 
-class GuiderSerial(SelectedConnection.SelectedSerial):
+class GuiderSerial(selectedconnection.SelectedSerial):
     """
     The guider connection class
     

@@ -3,8 +3,8 @@ import socket
 import Queue
 import logging, logging.handlers
 from command import Command
-from SelectedConnection import SelectedSocket, WriteError
-import SelectedConnection
+from selectedconnection import SelectedSocket, WriteError
+import selectedconnection
 from m2fsConfig import m2fsConfig
 import threading
 
@@ -418,7 +418,7 @@ class Agent(object):
         #check all other connections
         locks=[]
         for selectedconn in self.connections.values():
-            if not isinstance(selectedconn, SelectedConnection.SelectedConnection):
+            if not isinstance(selectedconn, selectedconnection.SelectedConnection):
                 continue
             if selectedconn.rlock.acquire(False):
                 releaseLock=True

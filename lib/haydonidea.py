@@ -1,7 +1,7 @@
 import serial
 import logging
 from logging import getLogger
-import lib.SelectedConnection as SelectedConnection
+import selectedconnection as SelectedConnection
 import time
 import threading
 from collections import namedtuple

@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 import sys
 sys.path.append(sys.path[0]+'/../lib/')
-import SelectedConnection
+import selectedconnection
 from agent import Agent
 
 SHACKHARTMAN_AGENT_VERSION_STRING='Shack-Hartman Agent v0.2'
@@ -9,7 +9,7 @@ SHACKHARTMAN_AGENT_VERSION_STRING='Shack-Hartman Agent v0.2'
 # The byte returned by getErrorStatus() if there are no errors
 NO_POLOLU_ERRORS='0x00'
 
-class LEDserial(SelectedConnection.SelectedSerial):
+class LEDserial(selectedconnection.SelectedSerial):
     """
     The Shack-Hartman LED controller connection class
     
@@ -86,7 +86,7 @@ class ShackHartmanAgent(Agent):
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
         self.connections['shled']=LEDserial('/dev/shLED', 115200)
-        self.connections['shlenslet']=SelectedConnection.SelectedSerial('/dev/shLenslet', 115200)
+        self.connections['shlenslet']=selectedconnection.SelectedSerial('/dev/shLenslet', 115200)
         self.shledValue=0
         self.command_handlers.update({
             #Get/Set the SH calibration LED brightness

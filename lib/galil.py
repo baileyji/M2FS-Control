@@ -1,6 +1,6 @@
 import serial, logging
-import SelectedConnection
-from SelectedConnection import logger
+import selectedconnection
+from selectedconnection import logger
 from m2fsConfig import m2fsConfig
 
 EXPECTED_M2FS_DMC_VERSION='0.2000'
@@ -28,7 +28,7 @@ def stringIsNumber(string):
     except ValueError:
         return False
 
-class GalilSerial(SelectedConnection.SelectedSerial):
+class GalilSerial(selectedconnection.SelectedSerial):
     """ 
     Galil DMC-4183 Controller Class
     
@@ -148,8 +148,8 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         logger.name='GalilCon'+side
         #Perform superclass initialization, note we implement the _postConnect
         # hook for the galil, see below
-        SelectedConnection.SelectedSerial.__init__(self, device, 115200,
-            timeout=GALIL_TIMEOUT, default_message_received_callback=
+        selectedconnection.SelectedSerial.__init__(self, device, 115200,
+                                                   timeout=GALIL_TIMEOUT, default_message_received_callback=
                 self._unsolicited_galil_message_handler)
         #Override the default message terminator for consistency. Doesn't matter
         #since we also override the _terminateMessage function
@@ -268,12 +268,12 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 self._update_executing_threads_and_commands()
             except GalilCommandNotAcknowledgedError:
                 error_message="Galil not programed"
-                raise SelectedConnection.ConnectError(error_message)
+                raise selectedconnection.ConnectError(error_message)
         #Get the software version
         response=self._send_command_to_galil('MG m2fsver')
         if response != EXPECTED_M2FS_DMC_VERSION:
             error_message=("Incompatible Firmware, Galil reported '%s', expected '%s'." % (response,expected_version))
-            raise SelectedConnection.ConnectError(error_message)
+            raise selectedconnection.ConnectError(error_message)
     
     def _initialize_galil(self):
         """

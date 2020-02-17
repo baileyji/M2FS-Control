@@ -8,14 +8,14 @@ import atexit
 import serial
 import sys
 import select
-import SelectedConnection
+import selectedconnection
 from m2fsConfig import m2fsConfig
 
 import termios
-class GalilSerial(SelectedConnection.SelectedSerial):
+class GalilSerial(selectedconnection.SelectedSerial):
     """ Crystalfontz CFA-634 Display Controller """
     def __init__(self, *args, **kwargs):
-        SelectedConnection.SelectedSerial.__init__(self,*args,**kwargs)
+        selectedconnection.SelectedSerial.__init__(self, *args, **kwargs)
                 
     def connect(self):
         if self.connection is not None:
@@ -30,7 +30,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
             self.logger.error(error_message)
             #self.connection.close()
             self.connection=None
-            raise SelectedConnection.ConnectError(error_message)
+            raise selectedconnection.ConnectError(error_message)
                 
     def initialize_galil(self):
         #Check to see if we are connecting to the Galil for the first time after boot
@@ -135,7 +135,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
         if not self.isOpen():
             message="BlockingSend fail: '%s' to %s" % (message,self)
             self.logger.error(message)
-            raise SelectedConnection.WriteError(message)
+            raise selectedconnection.WriteError(message)
         if not message:
             return
         if message[-1]==';':
@@ -149,7 +149,7 @@ class GalilSerial(SelectedConnection.SelectedSerial):
                 message.replace('\r','\\r').replace('\n','\\n'))
         except serial.SerialException, e:
             self.handle_error(e)
-            raise SelectedConnection.WriteError(str(e))
+            raise selectedconnection.WriteError(str(e))
     
     def update_executing_threads_and_commands(self):
         """Retrieve and update the list of thread statuses from the galil"""

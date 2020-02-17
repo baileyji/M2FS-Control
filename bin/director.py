@@ -3,7 +3,7 @@ import sys, socket, os, time
 from threading import Timer
 sys.path.append(sys.path[0]+'/../lib/')
 from agent import Agent
-import SelectedConnection
+import selectedconnection
 from m2fsConfig import m2fsConfig
 import PyNUT
 
@@ -164,13 +164,13 @@ class Director(Agent):
         #Fetch the agent ports
         agent_ports=m2fsConfig.getAgentPorts()
         #Galil Agents
-        self.connections['GalilAgentR']=SelectedConnection.SelectedSocket('localhost', agent_ports['GalilAgentR'])
-        self.connections['GalilAgentB']=SelectedConnection.SelectedSocket('localhost', agent_ports['GalilAgentB'])
+        self.connections['GalilAgentR']=selectedconnection.SelectedSocket('localhost', agent_ports['GalilAgentR'])
+        self.connections['GalilAgentB']=selectedconnection.SelectedSocket('localhost', agent_ports['GalilAgentB'])
         #Datalogger Agent
-        self.connections['DataloggerAgent']=SelectedConnection.SelectedSocket('localhost',
+        self.connections['DataloggerAgent']=selectedconnection.SelectedSocket('localhost',
                                                                               agent_ports['DataloggerAgent'])
         #MCal Agent
-        self.connections['MCalAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['MCalAgent'])
+        self.connections['MCalAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['MCalAgent'])
 
         #TODO How do we deal with this if nothing is installed? Restart director on insert of device?
 
@@ -202,16 +202,16 @@ class Director(Agent):
             self.command_handlers[k] = self.NOT_IFUM_command_handler
         self.command_handlers.update(self.M2FS_COMMANDS)
         # Plugging Controller
-        self.connections['PlugController'] = SelectedConnection.SelectedSocket('localhost',
+        self.connections['PlugController'] = selectedconnection.SelectedSocket('localhost',
                                                                                agent_ports['PlugController'])
         # Guider Agent
-        self.connections['GuiderAgent'] = SelectedConnection.SelectedSocket('localhost',
+        self.connections['GuiderAgent'] = selectedconnection.SelectedSocket('localhost',
                                                                             agent_ports['GuiderAgent'])
         # Shack-Hartman Agent
-        self.connections['ShackHartmanAgent'] = SelectedConnection.SelectedSocket('localhost',
+        self.connections['ShackHartmanAgent'] = selectedconnection.SelectedSocket('localhost',
                                                                                   agent_ports['ShackHartmanAgent'])
         # Slit Subsytem Controller
-        self.connections['SlitController'] = SelectedConnection.SelectedSocket('localhost',
+        self.connections['SlitController'] = selectedconnection.SelectedSocket('localhost',
                                                                                agent_ports['SlitController'])
         for c in ('SelectorAgent','OcculterAgentS','OcculterAgentH','OcculterAgentL','IFUShieldAgent','IFUShoeAgent'):
             try:
@@ -232,15 +232,15 @@ class Director(Agent):
             self.command_handlers[k] = self.NOT_M2FS_command_handler
         self.command_handlers.update(self.IFUM_COMMANDS)
         #IFU Selector
-        self.connections['SelectorAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['SelectorAgent'])
+        self.connections['SelectorAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['SelectorAgent'])
         #Occulter Controllers
-        self.connections['OcculterAgentH']=SelectedConnection.SelectedSocket('localhost', agent_ports['OcculterAgentH'])
-        self.connections['OcculterAgentS']=SelectedConnection.SelectedSocket('localhost', agent_ports['OcculterAgentS'])
-        self.connections['OcculterAgentL']=SelectedConnection.SelectedSocket('localhost', agent_ports['OcculterAgentL'])
+        self.connections['OcculterAgentH']=selectedconnection.SelectedSocket('localhost', agent_ports['OcculterAgentH'])
+        self.connections['OcculterAgentS']=selectedconnection.SelectedSocket('localhost', agent_ports['OcculterAgentS'])
+        self.connections['OcculterAgentL']=selectedconnection.SelectedSocket('localhost', agent_ports['OcculterAgentL'])
         #IFU Shield (LEDs, Lamps, & Temps)
-        self.connections['IFUShieldAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
+        self.connections['IFUShieldAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
         # Slit Subsystem Controller
-        self.connections['IFUShoeAgent']=SelectedConnection.SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
+        self.connections['IFUShoeAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
         for c in ('PlugController','GuiderAgent','ShackHartmanAgent','SlitController'):
             try:
                 self.connections.pop(c).close()
@@ -472,9 +472,9 @@ class Director(Agent):
         try:
             self.connections['DataloggerAgent'].connect()
             self.connections['DataloggerAgent'].sendMessage(command.string, responseCallback=command.setReply)
-        except SelectedConnection.ConnectError, err:
+        except selectedconnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
-        except SelectedConnection.WriteError, err:
+        except selectedconnection.WriteError, err:
             command.setReply('ERROR: Could not send to datalogger agent.')
     
     def PLUGGING_command_handler(self, command):
@@ -494,9 +494,9 @@ class Director(Agent):
             self.connections['PlugController'].connect()
             self.connections['PlugController'].sendMessage(command.string, 
                 responseCallback=command.setReply)
-        except SelectedConnection.ConnectError, err:
+        except selectedconnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the plug controller.')
-        except SelectedConnection.WriteError, err:
+        except selectedconnection.WriteError, err:
             command.setReply('ERROR: Could not send to plug controller.')
     
     def plugmode_command_handler(self, command):
@@ -643,9 +643,9 @@ class Director(Agent):
             self.connections['GuiderAgent'].connect()
             self.connections['GuiderAgent'].sendMessage(command.string,
                 responseCallback=command.setReply)
-        except SelectedConnection.ConnectError, err:
+        except selectedconnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the guider agent.')
-        except SelectedConnection.WriteError, err:
+        except selectedconnection.WriteError, err:
             command.setReply('ERROR: Could not send to guider agent.')
     
 

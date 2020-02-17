@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 import sys, time
 sys.path.append(sys.path[0]+'/../lib/')
-import SelectedConnection
+import selectedconnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 from lib.utils import longTest
@@ -36,7 +36,7 @@ class IFUShoeCommandNotAcknowledgedError(IOError):
     pass
 
 
-class ShoeSerial(SelectedConnection.SelectedSerial):
+class ShoeSerial(selectedconnection.SelectedSerial):
     # TODO All this
     """ 
     Tetris Shoe Controller Connection Class
@@ -59,7 +59,7 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
             s = 'stty crtscts < {device};stty -crtscts < {device}'.format(device=self.port)
             ret = call(s, shell=True)
         except Exception, e:
-            raise SelectedConnection.ConnectError('rtscts hack failed. {}:{}:{}'.format(s, ret, str(e)))
+            raise selectedconnection.ConnectError('rtscts hack failed. {}:{}:{}'.format(s, ret, str(e)))
 
     def _postConnect(self):
         """
@@ -77,7 +77,7 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         if response != EXPECTED_FIBERSHOE_INO_VERSION:
             error_message = ("Incompatible Firmware, Shoe reported '%s' , expected '%s'." %
                              (response, EXPECTED_FIBERSHOE_INO_VERSION))
-            raise SelectedConnection.ConnectError(error_message)
+            raise selectedconnection.ConnectError(error_message)
     
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """
@@ -110,7 +110,7 @@ class IFUShoeAgent(Agent):
         Agent.__init__(self, 'IFUShoeAgent')
         #Initialize the shoe
         if not self.args.DEVICE:
-            self.args.DEVICE = '/dev/ifushoe'
+            self.args.DEVICE = '/dev/ifum_shoe'
         self.connections['shoe'] = ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients = 2

@@ -2,7 +2,7 @@
 import serial
 import sys
 sys.path.append('../lib/')
-import SelectedConnection
+import selectedconnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 

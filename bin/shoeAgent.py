@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 import sys, time
 sys.path.append(sys.path[0]+'/../lib/')
-import SelectedConnection
+import selectedconnection
 from agent import Agent
 from m2fsConfig import m2fsConfig
 
@@ -31,7 +31,7 @@ class ShoeCommandNotAcknowledgedError(IOError):
     """ Shoe fails to acknowledge a command, e.g. didn't respond with ':' """
     pass
 
-class ShoeSerial(SelectedConnection.SelectedSerial):
+class ShoeSerial(selectedconnection.SelectedSerial):
     """ 
     Tetris Shoe Controller Connection Class
     
@@ -57,7 +57,7 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
                 device=self.port)
             ret=call(s,shell=True)
         except Exception, e:
-            raise SelectedConnection.ConnectError(
+            raise selectedconnection.ConnectError(
                     'rtscts hack failed. {}:{}:{}'.format(s,ret,str(e)))
 
     def _postConnect(self):
@@ -76,7 +76,7 @@ class ShoeSerial(SelectedConnection.SelectedSerial):
         if response != EXPECTED_FIBERSHOE_INO_VERSION:
             error_message=("Incompatible Firmware, Shoe reported '%s' , expected '%s'."  %
                 (response,EXPECTED_FIBERSHOE_INO_VERSION))
-            raise SelectedConnection.ConnectError(error_message)
+            raise selectedconnection.ConnectError(error_message)
     
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """

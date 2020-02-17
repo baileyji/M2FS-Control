@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 import sys, socket, time
 sys.path.append(sys.path[0]+'/../lib/')
-import SelectedConnection
+import selectedconnection
 from agent import Agent
 
 IFUSHIELD_AGENT_VERSION_STRING = 'IFUShield Agent v1.0'
@@ -15,7 +15,7 @@ COLORS = ('770', '740', '875', 'whi', '407', '392')
 HVLAMPS = ('thxe', 'benear', 'lihe')
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
 
-class IFUArduinoSerial(SelectedConnection.SelectedSerial):
+class IFUArduinoSerial(selectedconnection.SelectedSerial):
     """
     Tetris Shoe Controller Connection Class
 
@@ -38,7 +38,7 @@ class IFUArduinoSerial(SelectedConnection.SelectedSerial):
             s = 'stty crtscts < {device};stty -crtscts < {device}'.format(device=self.port)
             ret = call(s, shell=True)
         except Exception, e:
-            raise SelectedConnection.ConnectError('rtscts hack failed. {}:{}:{}'.format(s, ret, str(e)))
+            raise selectedconnection.ConnectError('rtscts hack failed. {}:{}:{}'.format(s, ret, str(e)))
 
     def _postConnect(self):
         """
@@ -56,7 +56,7 @@ class IFUArduinoSerial(SelectedConnection.SelectedSerial):
         if response != EXPECTED_IFUSHIELD_INO_VERSION:
             error_message = ("Incompatible Firmware, Arduino reported '%s' , expected '%s'." %
                              (response, EXPECTED_IFUSHIELD_INO_VERSION))
-            raise SelectedConnection.ConnectError(error_message)
+            raise selectedconnection.ConnectError(error_message)
 
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """

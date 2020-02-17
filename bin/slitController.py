@@ -3,7 +3,7 @@ import sys, time
 sys.path.append(sys.path[0]+'/../lib/')
 import logging
 import logging.handlers
-import SelectedConnection
+import selectedconnection
 from agent import Agent
 from command import Command
 from m2fsConfig import m2fsConfig
@@ -31,9 +31,9 @@ class SlitController(Agent):
         Agent.__init__(self,'SlitController')
         #Connect to the shoes
         agent_ports=m2fsConfig.getAgentPorts()
-        self.connections['ShoeAgentR']=SelectedConnection.SelectedSocket(
+        self.connections['ShoeAgentR']=selectedconnection.SelectedSocket(
             'localhost', agent_ports['ShoeAgentR'])
-        self.connections['ShoeAgentB']=SelectedConnection.SelectedSocket(
+        self.connections['ShoeAgentB']=selectedconnection.SelectedSocket(
             'localhost', agent_ports['ShoeAgentB'])
         #No closed loop
         self.closed_loop=False

@@ -8,7 +8,7 @@ from agent import Agent
 from datalogger import DataloggerListener
 from m2fsConfig import N_IFU_TEMPS
 from m2fsConfig import m2fsConfig
-from SelectedConnection import SelectedSocket
+from selectedconnection import SelectedSocket
 import logging
 from LoggerRecord import *
 
@@ -86,7 +86,7 @@ class DataloggerAgent(Agent):
 
     def TEMPS_command_handler(self, command):
         """ Report the current temperatures """
-        command.setReply(self.currentRecord.tempsString())
+            command.setReply(self.currentRecord.tempsString())
 
     def get_status_list(self):
         """

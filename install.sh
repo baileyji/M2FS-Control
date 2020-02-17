@@ -19,11 +19,14 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/mas
 
 #Install M2FS-Control
 cd /
-sudo git clone https://github.com/baileyji/M2FS-Control.git /M2FS-Control --recurse-submodules --branch develop
+sudo git clone https://github.com/baileyji/M2FS-Control.git /M2FS-Control --recurse-submodules --branch ifum
 sudo chown -R pi /M2FS-Control
-cd /M2FS-Control
+sudo pip install -e /M2FS-Control/jbastro
+sudo pip install -e /M2FS-Control/hole_mapper
+sudo pip install -e /M2FS-Control
 
 #Set the login shell to zsh
+cd /M2FS-Control
 cp -v ./zshrc ~/.zshrc
 chsh -s /bin/zsh
 
@@ -38,7 +41,6 @@ sudo cp -v ./etc/systemd/timesyncd.conf /etc/systemd/
 sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/
 sudo mv -v /etc/samba/smb.conf /etc/samba/smb.conf.stock
 sudo cp -v ./etc/samba/smb.conf /etc/samba/
-sudo cp -v ./nut-driver.service /lib/systemd/system/nut-driver.service
 #cp -v ./vimrc /home/root/.vimrc
 #cp ./etc/ntp.conf /etc/
 

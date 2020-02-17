@@ -1,10 +1,7 @@
 [Unit]
 Description=IFU-M STD Occulter
-Wants=occulterS.device
-After=occulterS.device
 
 [Install]
-WantedBy=director.service
 
 [Service]
 Type=simple

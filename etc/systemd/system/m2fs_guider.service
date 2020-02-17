@@ -1,7 +1,6 @@
 [Unit]
 Description=M2FS Guider
-
-After=guider.device
+#After=guider.device
 
 [Install]
 #WantedBy=m2fs_director.service

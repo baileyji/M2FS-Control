@@ -1,12 +1,9 @@
 [Unit]
 Description=M2FS Slit Controller
-Wants=shoeR.service
-Wants=shoeB.service
-After=shoeB.service
-After=shoeR.service
+
 
 [Install]
-WantedBy=director.service
+#WantedBy=director.service
 
 [Service]
 Type=exec

@@ -14,6 +14,7 @@ SHOE_BOOT_TIME=.5
 SHOE_SHUTDOWN_TIME=.25
 MAX_SLIT_MOVE_TIME=25
 
+#todo write files with shoe inserted color based on presence of temp sensors?
 
 # class FirmataShoe(object):
 #     def __init__(self, port):

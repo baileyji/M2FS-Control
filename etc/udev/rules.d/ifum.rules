@@ -1,14 +1,14 @@
 #IFUShield
-ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifushield", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shield.service"
+ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifum_shield", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shield.service"
 
 #Occulters
-ATTRS{serial}=="AL04HJ3G", SYMLINK+="ifuocculterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterL.service"
-ATTRS{serial}=="AL04HIJN", SYMLINK+="ifuocculterS", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterS.service"
-ATTRS{serial}=="AL04HIOL", SYMLINK+="ifuocculterL", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterH.service"
+ATTRS{serial}=="AL04HJ3G", SYMLINK+="ifum_occulterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterL.service"
+ATTRS{serial}=="AL04HIJN", SYMLINK+="ifum_occulterS", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterS.service"
+ATTRS{serial}=="AL04HIOL", SYMLINK+="ifum_occulterL", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterH.service"
 
 #IFU Shoe
-ATTRS{serial}=="55731323136351604270", SYMLINK+="ifushoe", SYMLINK+="shoeB", SYMLINK+="shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
+ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
 
 #IFU Selector
-ATTRS{serial}=="FT2KYRWY", SYMLINK+="ifuselector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_selector.service"
-ATTRS{vendor}=="ORIENTAL_MOTOR_CO._LTD.", SYMLINK+="ifuOMAZDKD"
+ATTRS{serial}=="FT2KYRWY", SYMLINK+="ifum_selector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_selector.service"
+ATTRS{vendor}=="ORIENTAL_MOTOR_CO._LTD.", SYMLINK+="ifum_AZDKD"

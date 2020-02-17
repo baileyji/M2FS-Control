@@ -1,5 +1,5 @@
-import logging, sys, time, threading
-import serial, termios
+import logging, time, threading
+import serial
 import socket
 
 logger = logging.getLogger(__name__)

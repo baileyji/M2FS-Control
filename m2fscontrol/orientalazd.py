@@ -3,10 +3,9 @@ from pymodbus.pdu import ModbusRequest
 from pymodbus.client.sync import ModbusSerialClient as ModbusClient
 from pymodbus.transaction import ModbusRtuFramer
 from pymodbus.exceptions import ModbusIOException, ConnectionException, ModbusException #last is the parent
-import numpy as np
 from bitstring import Bits, BitArray
 import logging, time, threading, select
-from collections import namedtuple
+
 
 # TODO (general)
 # -Modbus commands can be silently ignored and also not trip an alarm, e.g. move_to raises no errors

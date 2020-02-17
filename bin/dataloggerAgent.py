@@ -1,16 +1,14 @@
 #!/usr/bin/env python2.7
-import sys, time, threading, Queue
+import Queue
 from itertools import groupby
 from operator import attrgetter
 from threading import Timer
-sys.path.append(sys.path[0]+'/../lib/')
-from agent import Agent
-from datalogger import DataloggerListener
-from m2fsConfig import N_IFU_TEMPS
-from m2fsConfig import m2fsConfig
-from selectedconnection import SelectedSocket
+from m2fscontrol.agent import Agent
+from m2fscontrol.datalogger import DataloggerListener
+from m2fscontrol.m2fsConfig import m2fsConfig, N_IFU_TEMPS
+from m2fscontrol.selectedconnection import SelectedSocket
 import logging
-from LoggerRecord import *
+from m2fscontrol.loggerrecord import *
 
 LOGGING_LEVEL=logging.DEBUG  #This will not have any effect if it is more aggressive than the conf file
 

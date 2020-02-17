@@ -1,4 +1,4 @@
-import serial, logging
+import serial
 import selectedconnection
 from selectedconnection import logger
 from m2fsConfig import m2fsConfig

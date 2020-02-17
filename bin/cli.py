@@ -1,5 +1,5 @@
 import socket
-from m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import m2fsConfig
 
 def conn(thing, timeout=None):
     if isinstance(thing, str):

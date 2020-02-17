@@ -1,20 +1,12 @@
 #!/usr/bin/env python2.7
-import sys, time, threading, os, re
-sys.path.append(sys.path[0]+'/../lib/')
-sys.path.append(sys.path[0]+'/../')
-sys.path.append(sys.path[0]+'/../jbastro/')
-import logging
 import logging.handlers
-from agent import Agent
-import pcplate as plate
-from m2fsConfig import m2fsConfig
-from fnmatch import fnmatch
-from glob import glob
-import shutil
+from m2fscontrol.agent import Agent
+from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.hole_mapper import pathconf
 
-from hole_mapper import pathconf
-pathconf.ROOT=m2fsConfig.getPlateDir()
-from hole_mapper import fibermap, platedata
+pathconf.ROOT = m2fsConfig.getPlateDir()
+
+from m2fscontrol.hole_mapper import fibermap, platedata
 
 platedata.get_platenames_for_known_fibermaps()
 

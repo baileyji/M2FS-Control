@@ -1,7 +1,6 @@
 #!/usr/bin/env python2.7
-import sys, dbus, time, logging
-sys.path.append(sys.path[0]+'/../lib/')
-from m2fsConfig import m2fsConfig
+import dbus, time, logging
+from m2fscontrol.m2fsConfig import m2fsConfig
 
 public_adapter = "/net/connman/service/ethernet_b88d1255cd7e_cable"
 

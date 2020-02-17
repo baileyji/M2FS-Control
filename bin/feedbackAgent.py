@@ -1,10 +1,8 @@
 #!/usr/bin/env python2.7
 import serial
-import sys
-sys.path.append('../lib/')
-import selectedconnection
-from agent import Agent
-from m2fsConfig import m2fsConfig
+
+from m2fscontrol.agent import Agent
+from m2fscontrol.m2fsConfig import m2fsConfig
 
 FEEDBACK_AGENT_VERSION_STRING='Feedback Agent Version 0.1'
 

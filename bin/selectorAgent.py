@@ -1,11 +1,9 @@
 #!/usr/bin/env python2.7
-import sys
-sys.path.append(sys.path[0] + '/../lib/')
-from orientalazd import OrientalMotor
-from agent import Agent
-from m2fsConfig import m2fsConfig
+from m2fscontrol.orientalazd import OrientalMotor
+from m2fscontrol.agent import Agent
+from m2fscontrol.m2fsConfig import m2fsConfig
 import time, threading
-from utils import longTest
+from m2fscontrol.utils import longTest
 import logging
 
 #TODO getting 'No handlers could be found for logger "orientalazd"'

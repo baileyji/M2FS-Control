@@ -4,13 +4,10 @@ from flask_wtf.csrf import CsrfProtect
 from flask_wtf import Form
 from wtforms import SelectMultipleField, SubmitField, BooleanField, RadioField
 from wtforms import DecimalField, validators
-import sys, time, threading, os, re
-sys.path.append(sys.path[0]+'/../lib/')
-sys.path.append(sys.path[0]+'/../')
-sys.path.append(sys.path[0]+'/../jbastro/')
-from m2fsConfig import m2fsConfig
-from glob import glob
-from hole_mapper.platedata import get_metadata, get_all_plate_names
+import sys
+
+from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.hole_mapper.platedata import get_metadata, get_all_plate_names
 from jbastro.astrolibsimple import sexconvert
 
 from flask import send_file

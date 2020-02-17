@@ -1,8 +1,6 @@
 #!/usr/bin/env python2.7
-import sys
-sys.path.append(sys.path[0]+'/../lib/')
-from agent import Agent
-from galil import GalilSerial
+from m2fscontrol.agent import Agent
+from m2fscontrol.galil import GalilSerial
 
 GALIL_AGENT_VERSION_STRING='Galil Agent v0.2'
 GALIL_AGENT_VERSION_STRING_SHORT='v0.2'

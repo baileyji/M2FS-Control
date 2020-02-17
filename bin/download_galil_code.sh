@@ -6,7 +6,7 @@
 #  during programming.
 #
 #  Created by Jeb Bailey on 1/22/13.
-#  Copyright
+# Public Domain
 systemctl stop m2fs_galilR.service
 systemctl stop m2fs_galilB.service
 ./galilDownloader.py -f ./galilRdownload.dmc -d /dev/galilR

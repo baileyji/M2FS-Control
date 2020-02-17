@@ -1,11 +1,10 @@
 #!/usr/bin/env python2.7
-import sys, socket, os, time
+import os, time
 from threading import Timer
-sys.path.append(sys.path[0]+'/../lib/')
-from agent import Agent
-import selectedconnection
-from m2fsConfig import m2fsConfig
-import PyNUT
+from m2fscontrol.agent import Agent
+import m2fscontrol.selectedconnection as selectedconnection
+from m2fscontrol.m2fsConfig import m2fsConfig
+import m2fscontrol.PyNUT as PyNUT
 
 DIRECTOR_VERSION_STRING='Director v0.7'
 LINUX_SHUTDOWN_COMMAND='shutdown now'

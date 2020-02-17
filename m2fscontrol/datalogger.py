@@ -2,10 +2,9 @@ import time, select
 from serial import Serial, SerialException
 from construct import UBInt32
 import threading
-import Queue
 import logging
 import logging.handlers
-import LoggerRecord
+import loggerrecord
 from m2fsConfig import m2fsConfig
 
 LOGGING_LEVEL=m2fsConfig.getAgentLogLevel('DataloggerAgent')
@@ -163,7 +162,7 @@ class DataloggerListener(threading.Thread):
                         logdata=self.datalogger.readLogData()
                         self.datalogger.write('#')
                         try:
-                            record=LoggerRecord.fromDataloggerData(self.side, logdata)
+                            record=loggerrecord.fromDataloggerData(self.side, logdata)
                             self.logger.debug(record.prettyStr())
                             self.queue.put(record)
                         except ValueError, e:

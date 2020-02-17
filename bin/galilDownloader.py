@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import serial,io, time, os
+import serial, os
 from optparse import OptionParser
 
 

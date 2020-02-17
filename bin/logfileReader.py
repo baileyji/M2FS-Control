@@ -7,12 +7,10 @@
 #next byte if file end != header size: record length
 #next length bytes: record
 #rinse lather repeat
-import sys
-sys.path.append(sys.path[0]+'/../lib/')
 from construct import ULInt32
 import numpy as np
 
-from LoggerRecord import tempsParser, accelsParser, COMPOSITE_RECORD_LENGTH, ACCEL_RECORD_LENGTH, TEMP_RECORD_LENGTH, ACCELS_TO_GEES,N_TEMP_SENSORS
+from loggerrecord import tempsParser, accelsParser, COMPOSITE_RECORD_LENGTH, ACCEL_RECORD_LENGTH, TEMP_RECORD_LENGTH, ACCELS_TO_GEES,N_TEMP_SENSORS
 
 ulint32=ULInt32('f').parse
 

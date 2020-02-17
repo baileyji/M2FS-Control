@@ -1,12 +1,10 @@
 #!/usr/bin/env python2.7
-import sys
-sys.path.append(sys.path[0]+'/../lib/')
-from agent import Agent
-from m2fsConfig import m2fsConfig
-from haydonidea import IdeaDrive
-import haydonidea
+from m2fscontrol.agent import Agent
+from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.haydonidea import IdeaDrive
+import m2fscontrol.haydonidea as haydonidea
 import threading
-from lib.utils import longTest, floatTest
+from m2fscontrol.utils import longTest
 
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
@@ -24,7 +22,10 @@ OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 # Feb 17 00:46:48 claym2fs systemd[1]: ifum_occulterS.service: Main process exited, code=exited, status=1/FAILURE
 # Feb 17 00:46:48 claym2fs systemd[1]: ifum_occulterS.service: Failed with result 'exit-code'.
 # Feb 17 00:46:48 claym2fs systemd[1]: ifum_
-
+# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]: Traceback (most recent call last):
+# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]:   File "/M2FS-Control/bin/occulterAgent.py", line 9, in <module>
+# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]:     from lib.utils import longTest, floatTest
+# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]: ImportError: No module named lib.utils
 
 """ Testing procedure
 Disconnected USB/motor at startup -> ?

@@ -1,6 +1,5 @@
 import time, argparse, signal, atexit, sys, select
 import socket
-import Queue
 import logging, logging.handlers
 from command import Command
 from selectedconnection import SelectedSocket, WriteError
@@ -95,7 +94,7 @@ class Agent(object):
         Define the agent name, appending SIDE if an argument
         Initialize logging.
         Start listening for connections on user supplied port. If no port 
-        supplied, get port for agent from m2fsconfig based on agent name.
+        supplied, get port for agent from m2fscontrolm2fsConfig based on agent name.
         Register atexit function for cleanup.
         Register exit handler for SIGSTOP, SIGTERM, & SIGINT
         """

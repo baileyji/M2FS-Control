@@ -1,8 +1,7 @@
 #!/usr/bin/env python2.7
-import sys, socket, time
-sys.path.append(sys.path[0]+'/../lib/')
-import selectedconnection
-from agent import Agent
+import time
+import m2fscontrol.selectedconnection as selectedconnection
+from m2fscontrol.agent import Agent
 
 IFUSHIELD_AGENT_VERSION_STRING = 'IFUShield Agent v1.0'
 

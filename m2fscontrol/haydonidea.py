@@ -1,4 +1,3 @@
-import serial
 import logging
 from logging import getLogger
 import selectedconnection as SelectedConnection

@@ -1,9 +1,8 @@
 #!/usr/bin/env python2.7
-import sys, time
-sys.path.append(sys.path[0]+'/../lib/')
-import selectedconnection
-from agent import Agent
-from m2fsConfig import m2fsConfig
+import time
+import m2fscontrol.selectedconnection as selectedconnection
+from m2fscontrol.agent import Agent
+from m2fscontrol.m2fsConfig import m2fsConfig
 
 EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.3'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v1.0'

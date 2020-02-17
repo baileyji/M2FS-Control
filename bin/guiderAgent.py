@@ -1,7 +1,5 @@
 #!/usr/bin/env python2.7
-import sys
-sys.path.append(sys.path[0]+'/../lib/')
-import selectedconnection
+import m2fscontrol.selectedconnection as selectedconnection
 from agent import Agent
 import time
 import logging

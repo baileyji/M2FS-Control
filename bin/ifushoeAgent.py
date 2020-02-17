@@ -1,10 +1,9 @@
 #!/usr/bin/env python2.7
-import sys, time
-sys.path.append(sys.path[0]+'/../lib/')
-import selectedconnection
-from agent import Agent
-from m2fsConfig import m2fsConfig
-from lib.utils import longTest
+import time
+import m2fscontrol.selectedconnection as selectedconnection
+from m2fscontrol.agent import Agent
+from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.utils import longTest
 
 EXPECTED_FIBERSHOE_INO_VERSION='IFUshoe v1.0'
 SHOE_AGENT_VERSION_STRING='IFU Shoe Agent v1.0'

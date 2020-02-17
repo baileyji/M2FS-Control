@@ -1,9 +1,8 @@
 #!/usr/bin/env python2.7
-import sys, socket, time
-sys.path.append(sys.path[0]+'/../lib/')
+import socket, time
 
-from agent import Agent
-import m2fsConfig
+from m2fscontrol.agent import Agent
+import m2fscontrol.m2fsConfig as m2fsConfig
 
 MCAL_AGENT_VERSION_STRING='MCal Agent v0.1'
 

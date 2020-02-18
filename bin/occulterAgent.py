@@ -84,7 +84,7 @@ class OcculterAgent(Agent):
         self.IFU = self.args.IFU
         #Initialize the occulter drive
         if not self.args.DEVICE:
-            self.args.DEVICE = '/dev/occulter'+self.IFU
+            self.args.DEVICE = '/dev/ifum_occulter'+self.IFU
         self.connections['occulter'] = IdeaDrive(port=self.args.DEVICE)
         self.command_handlers.update({
             #Send the command string directly to the drive

@@ -5,7 +5,7 @@ Description=IFU-M STD Occulter
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/bin/occulterAgent.py --IFU S
+ExecStart=/M2FS-Control/bin/occulterAgent.py --ifu S
 WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always

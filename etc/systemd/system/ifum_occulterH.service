@@ -8,7 +8,7 @@ Description=IFU-M HSB Occulter
 
 [Service]
 Type=simple
-ExecStart=/M2FS-Control/bin/occulterAgent.py --IFU H
+ExecStart=/M2FS-Control/bin/occulterAgent.py --ifu H
 WorkingDirectory=/M2FS-Control/
 RestartSec=100ms
 Restart=always

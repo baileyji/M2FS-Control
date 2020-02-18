@@ -2,7 +2,7 @@
 import socket, time
 
 from m2fscontrol.agent import Agent
-import m2fscontrol.m2fsConfig as m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 
 MCAL_AGENT_VERSION_STRING='MCal Agent v0.1'
 
@@ -21,7 +21,7 @@ def send_rcv_mcalled(x, timeout=1.4, log=None):
             if log is not None:
                 log.info('Trying to connect to MCalLED')
             _sokMCalLED = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            _sokMCalLED.connect(m2fsConfig.getMCalLEDAddress())
+            _sokMCalLED.connect(M2FSConfig.getMCalLEDAddress())
             _sokMCalLED.settimeout(timeout)
         if log is not None:
             log.info('"{}"'.format(x[:29]+'\n'))

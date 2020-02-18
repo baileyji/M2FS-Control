@@ -443,10 +443,3 @@ class M2FSConfig(object):
         defaults[setting] = value
         # Update the defaults file
         M2FSConfig.setOcculterDefaults(ifu, defaults)
-
-def getMCalLEDAddress():
-    """Return the IP and port for the MCalLED unit"""
-    # config = ConfigParser.RawConfigParser()
-    # config.optionxform = str
-    # config.readfp(open(M2FSConfig.getConfDir() + 'm2fs_mcalled.conf', 'r'))
-    return '192.168.0.177', 8888

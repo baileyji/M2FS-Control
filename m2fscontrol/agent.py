@@ -4,7 +4,7 @@ import logging, logging.handlers
 from command import Command
 from selectedconnection import SelectedSocket, WriteError
 import selectedconnection
-from m2fsConfig import m2fsConfig
+from m2fsConfig import M2FSConfig
 import threading
 
 SERVER_RETRY_TIME=10
@@ -123,13 +123,13 @@ class Agent(object):
         elif self.args.LOG_LEVEL == 'INFO':
             self.args.LOG_LEVEL=logging.INFO
         else:
-            self.args.LOG_LEVEL=m2fsConfig.getAgentLogLevel(self.name)
+            self.args.LOG_LEVEL=M2FSConfig.getAgentLogLevel(self.name)
         self.initialize_logger(self.args.LOG_LEVEL)
         if self.args.PORT:
             self.PORT=self.args.PORT
             self.initialize_socket_server(tries=5)
         else:
-            port=m2fsConfig.getPort(self.name)
+            port=M2FSConfig.getPort(self.name)
             if port:
                 self.PORT=port
                 self.initialize_socket_server(tries=5)
@@ -338,7 +338,7 @@ class Agent(object):
         wait 1 second to ensure all messages make it into the system log
         """
         self._exitHook()
-        if m2fsConfig.doStowedShutdown():
+        if M2FSConfig.doStowedShutdown():
             self._stowShutdown()
         self.logger.info("----%s exiting: %s-----" % (self.name, str(arg)))
         if self.server_socket!=None:

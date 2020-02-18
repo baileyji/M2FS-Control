@@ -5,7 +5,7 @@ from operator import attrgetter
 from threading import Timer
 from m2fscontrol.agent import Agent
 from m2fscontrol.datalogger import DataloggerListener
-from m2fscontrol.m2fsConfig import m2fsConfig, N_IFU_TEMPS
+from m2fscontrol.m2fsConfig import M2FSConfig, N_IFU_TEMPS
 from m2fscontrol.selectedconnection import SelectedSocket
 import logging
 from m2fscontrol.loggerrecord import *
@@ -49,8 +49,8 @@ class DataloggerAgent(Agent):
         self.dataloggerR.start()
         self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.recordQueue)
         self.dataloggerB.start()
-        agent_ports=m2fsConfig.getAgentPorts()
-        if m2fsConfig.ifum_devices_present(): #TODO make this support user forgetfullness
+        agent_ports=M2FSConfig.getAgentPorts()
+        if M2FSConfig.ifum_devices_present(): #TODO make this support user forgetfullness
             self.ifushoes = SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
             self.ifuselector = SelectedSocket('localhost', agent_ports['SelectorAgent'])
             self.ifushield = SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
@@ -58,7 +58,7 @@ class DataloggerAgent(Agent):
             self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
             self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
             self.shackHartman=SelectedSocket('localhost', agent_ports['ShackHartmanAgent'])
-        self.logfile=open(m2fsConfig.getDataloggerLogfileName(),'a')
+        self.logfile=open(M2FSConfig.getDataloggerLogfileName(), 'a')
         self.currentRecord=LoggerRecord(time.time())
         self.command_handlers.update({
             #Return a list of the temperature values
@@ -298,7 +298,7 @@ class DataloggerAgent(Agent):
 
     def queryAgentTemps(self):
         #Gather Temps
-        if m2fsConfig.ifum_devices_present():
+        if M2FSConfig.ifum_devices_present():
             shTemp = None
             cradleRTemp, cradleBTemp, driveTemp, motorTemp, probeTemps = self._gatherIFUTemps()
         else:

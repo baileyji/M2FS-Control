@@ -1,10 +1,10 @@
 #!/usr/bin/env python2.7
 import logging.handlers
 from m2fscontrol.agent import Agent
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 from m2fscontrol.hole_mapper import pathconf
 
-pathconf.ROOT = m2fsConfig.getPlateDir()
+pathconf.ROOT = M2FSConfig.getPlateDir()
 
 from m2fscontrol.hole_mapper import fibermap, platedata
 
@@ -223,7 +223,7 @@ def fiberID_by_tetris_groove_side(tetris, groove, side):
     """
     if side not in ('R','B'):
         raise ValueError('Side must be R or B')
-    fiberColor=m2fsConfig.getShoeColorInCradle(side)
+    fiberColor=M2FSConfig.getShoeColorInCradle(side)
     if not fiberColor:
         fiberColor='UNKNOWN'
     return '{0}{1:01}-{2:02}'.format(fiberColor,tetris, groove)

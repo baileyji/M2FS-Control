@@ -2,7 +2,7 @@
 import serial
 
 from m2fscontrol.agent import Agent
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 
 FEEDBACK_AGENT_VERSION_STRING='Feedback Agent Version 0.1'
 
@@ -10,7 +10,7 @@ class FeedbackAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'PluggingAgent')
         #Initialize the shoe
-        self.misplugAudioFile=m2fsConfig.getMisplugAudioFilename()
+        self.misplugAudioFile=M2FSConfig.getMisplugAudioFilename()
         self.status='OK'
         self.misplug_messages={}
         self.command_handlers.update(

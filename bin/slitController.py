@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 import m2fscontrol.selectedconnection as selectedconnection
 from m2fscontrol.agent import Agent
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 
 SLIT_CONTROLLER_VERSION_STRING='Slit Controller v0.1'
 
@@ -25,7 +25,7 @@ class SlitController(Agent):
     def __init__(self):
         Agent.__init__(self,'SlitController')
         #Connect to the shoes
-        agent_ports=m2fsConfig.getAgentPorts()
+        agent_ports=M2FSConfig.getAgentPorts()
         self.connections['ShoeAgentR']=selectedconnection.SelectedSocket(
             'localhost', agent_ports['ShoeAgentR'])
         self.connections['ShoeAgentB']=selectedconnection.SelectedSocket(

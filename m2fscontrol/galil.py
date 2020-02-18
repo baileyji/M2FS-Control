@@ -1,7 +1,7 @@
 import serial
 import selectedconnection
 from selectedconnection import logger
-from m2fsConfig import m2fsConfig
+from m2fsConfig import M2FSConfig
 
 EXPECTED_M2FS_DMC_VERSION='0.2000'
 #Timeout to use if we must force open a connection to the galil to do a reset
@@ -85,7 +85,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
                 The command wasn't blocked and there was a free thread, in which
                 case respond with try again later
             if a parameter is changed, update it on the galil and in the conf
-            file (via m2fsConfig
+            file (via M2FSConfig
     """
     def __init__(self, device, side, **kwargs):
         """
@@ -286,7 +286,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
         Procedure is as follows:
         Check to see if we are connecting for the first time since boot. If not
         return otherwise continue.
-        Get the parameter values for the galil (R | B) from m2fsConfig
+        Get the parameter values for the galil (R | B) from M2FSConfig
         Verify all of the settings are there, if not, the backing file got 
         corrupted and needs to be rebuilt, so do so, querying the galil for the 
         needed values and return after marking the galil as initialized.
@@ -301,7 +301,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
         if bootup1=='0.0000':
             return
         logger.info("Programming galil defaults.")
-        config=m2fsConfig.getGalilDefaults(self.SIDE)
+        config=M2FSConfig.getGalilDefaults(self.SIDE)
         #make sure all the settings are there
         try:
             if config=={}:
@@ -628,15 +628,15 @@ class GalilSerial(selectedconnection.SelectedSerial):
         """
         if reply=='UNCALIBRATED':
             try:
-                lastknown=m2fsConfig.getGalilLastPosition(self.SIDE, axis)
+                lastknown=M2FSConfig.getGalilLastPosition(self.SIDE, axis)
                 return lastknown+' LASTKNOWN'
             except ValueError:
                 return reply
         elif replyGoodFunc(reply):
-            m2fsConfig.setGalilLastPosition(self.SIDE, axis, reply)
+            M2FSConfig.setGalilLastPosition(self.SIDE, axis, reply)
             return reply
         else:
-            m2fsConfig.setGalilLastPosition(self.SIDE, axis, None)
+            M2FSConfig.setGalilLastPosition(self.SIDE, axis, None)
             return reply
     
     def check_abort_switch(self):
@@ -694,7 +694,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
         commands.        
         """
         try:
-            m2fsConfig.clearGalilLastPositions(self.SIDE)
+            M2FSConfig.clearGalilLastPositions(self.SIDE)
             self._send_command_to_galil('HX3;XQ#SHTDWN,3')
             return 'OK'
         except IOError, e:
@@ -735,7 +735,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
         ensure the setting is a real setting
         ensure the setting isn't blocked by an executing thread
             return error message if so
-        Set the new value on the galil and with m2fsConfig
+        Set the new value on the galil and with M2FSConfig
         CAUTION: No provision is made to ensure the value is suitable
         return 'OK'
         """
@@ -752,7 +752,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
                 self.settingNameCommandClasses[settingName]):
                 return "ERROR: Command is blocked. Try again later."
             self._send_command_to_galil('%s=%s' % (variableName, value))
-            m2fsConfig.setGalilDefault(self.SIDE, settingName, value)
+            M2FSConfig.setGalilDefault(self.SIDE, settingName, value)
             return 'OK'
         except IOError, e:
             return str(e)
@@ -885,7 +885,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         return self._do_motion_command(command_class, command_string)
         
     def set_hrel(self, position):
@@ -900,7 +900,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
         return self._do_motion_command(command_class, command_string)
     
     def set_hraz(self, position):
@@ -915,7 +915,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
         return self._do_motion_command(command_class, command_string)
     
     def set_foc(self, position):
@@ -942,15 +942,15 @@ class GalilSerial(selectedconnection.SelectedSerial):
                 return self._getErrorMessage(command_class)
             except ValueError:
                 pass
-            m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
-            m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
+            M2FSConfig.setGalilLastPosition(self.SIDE, 'GES', None)
+            M2FSConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         else:
             command_class='GES'
             try:
                 return self._getErrorMessage(command_class)
             except ValueError:
                 pass
-            m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
+            M2FSConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         command_string="XQ#%s,<threadID>" % position
         return self._do_motion_command(command_class, command_string)
     
@@ -1049,7 +1049,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'LREL', None)
         return self._do_motion_command(command_class, command_string)
         
     def calibrate_hrel(self, *args):
@@ -1060,7 +1060,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'HREL', None)
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_hraz(self, *args):
@@ -1071,7 +1071,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'HRAZ', None)
         return self._do_motion_command(command_class, command_string)
     
     def calibrate_ges(self, *args):
@@ -1082,7 +1082,7 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)
     
     def nudge_ges(self, amount):
@@ -1097,5 +1097,5 @@ class GalilSerial(selectedconnection.SelectedSerial):
             return self._getErrorMessage(command_class)
         except ValueError:
             pass
-        m2fsConfig.setGalilLastPosition(self.SIDE, 'GES', None)
+        M2FSConfig.setGalilLastPosition(self.SIDE, 'GES', None)
         return self._do_motion_command(command_class, command_string)

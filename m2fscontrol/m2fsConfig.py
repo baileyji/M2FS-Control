@@ -1,16 +1,18 @@
 import ConfigParser
 import os
+import time
+from pkg_resources import resource_filename
 
 N_IFU_TEMPS = 5
 
 def ifuProbeTempsToDict(ifuProbeTempsList):
-    ret={'ifuHTemp':None,'ifuSTemp':None,'ifuLTemp':None}  #TODO finish once all are known
+    ret={'ifuHTemp': None, 'ifuSTemp': None, 'ifuLTemp': None}  #TODO finish once all are known
     if ifuProbeTempsList is not None:
         if len(ifuProbeTempsList) != N_IFU_TEMPS:
             raise ValueError('Incorrect number of probe temperatures')
-        ret['ifuHTemp']=ifuProbeTempsList[0]
-        ret['ifuSTemp']=ifuProbeTempsList[1]
-        ret['ifuLTemp']=ifuProbeTempsList[2]
+        ret['ifuHTemp'] = ifuProbeTempsList[0]
+        ret['ifuSTemp'] = ifuProbeTempsList[1]
+        ret['ifuLTemp'] = ifuProbeTempsList[2]
     return ret
 
 def getOcculterConfFile(ifu):
@@ -24,7 +26,7 @@ def getOcculterConfFile(ifu):
     else:
         raise ValueError('"{}" is not an occulter specifier (H, S, L)'.format(ifu))
 
-class m2fsConfig:
+class M2FSConfig(object):
     """" 
     Class to handle reading and writing instrument configuration data 
     
@@ -55,22 +57,19 @@ class m2fsConfig:
         """
         Get the config directory.
         
-        Works if working directory is ./M2FS-Control or ./M2FS-Control/bin 
+        Works if conf is in the same directory that contains the m2fscontrol package
         """
-        if os.path.isdir('./conf'):
-            return './conf/'
-        else:
-            return '../conf/'
+        return resource_filename('m2fscontrol', '../conf/')
 
     @staticmethod
     def m2fs_devices_present():
-        return (os.path.exists("/dev/shoeA172") or
-                os.path.exists("/dev/shoeF0A2") or
-                os.path.exists("/dev/shoeF171") or
-                os.path.exists("/dev/shoe3280") or
-                os.path.exists("/dev/shLED") or
-                os.path.exists("/dev/shLenslet") or
-                os.path.exists("/dev/guider"))
+        return (os.path.exists("/dev/m2fs_shoeA172") or
+                os.path.exists("/dev/m2fs_shoeF0A2") or
+                os.path.exists("/dev/m2fs_shoeF171") or
+                os.path.exists("/dev/m2fs_shoe3280") or
+                os.path.exists("/dev/m2fs_shLED") or
+                os.path.exists("/dev/m2fs_shLenslet") or
+                os.path.exists("/dev/m2fs_guider"))
 
     @staticmethod
     def ifum_devices_present():
@@ -98,67 +97,57 @@ class m2fsConfig:
         Return true if agents should perform a stowed shutdown
         """
         return os.path.exists('/var/run/M2FS_do_stowed_shutdown')
-    
-    @staticmethod    
+
+    @staticmethod
+    def load_conf(conf_name):
+        config = ConfigParser.RawConfigParser()
+        config.optionxform = str
+        with open(M2FSConfig.getConfDir() + conf_name, 'r') as fb:
+            config.readfp(fb)
+        return config
+
+    @staticmethod
     def getPlateDir():
         """ Get the platefile directory from m2fs_paths.conf """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        config = M2FSConfig.load_conf('m2fs_paths.conf')
         return config.get('Directories','plateFileDir')
     
     @staticmethod
     def getPlateRejectDir():
         """ Get the directory for bad platefiles from m2fs_paths.conf """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
-        return config.get('Directories','plateRejectDir')
+        config = M2FSConfig.load_conf('m2fs_paths.conf')
+        return config.get('Directories', 'plateRejectDir')
     
     @staticmethod
     def getMisplugAudioFilename():
         """ Get the misplug sound effect file """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        config = M2FSConfig.load_conf('m2fs_paths.conf')
         return config.get('Directories','misplugSound')
     
     @staticmethod    
     def getPlateUploadDir():
         """ Get the directory where users upload new plates """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        config = M2FSConfig.load_conf('m2fs_paths.conf')
         return config.get('Directories','uploadDir')
     
     @staticmethod
     def getPort(string):
         """ Retrieve the port for Agent named string from m2fs_socket.conf """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_socket.conf','r'))
-        port=config.getint('Ports',string)
-        return port
+        config = M2FSConfig.load_conf('m2fs_socket.conf')
+        return config.getint('Ports',string)
         
     @staticmethod
     def getAgentPorts():
         """ Retrieve a dict of all agent ports as name:port pairs """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_socket.conf','r'))
+        config = M2FSConfig.load_conf('m2fs_socket.conf')
         return {x[0]:int(x[1]) for x in config.items('Ports')}
     
     @staticmethod
     def getGalilDefaults(side):
         """ Get dict of galil parameter defaults for galil R or B per side """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        if side=='B':
-            file='m2fs_galilB.conf'
-        else:
-            file='m2fs_galilR.conf'
+        file = 'm2fs_galilB.conf' if side == 'B' else 'm2fs_galilR.conf'
         try:
-            config.readfp(open(m2fsConfig.getConfDir()+file,'r'))
+            config = M2FSConfig.load_conf(file)
             return dict(config.items('Defaults'))
         except Exception:
             return {}
@@ -166,7 +155,7 @@ class m2fsConfig:
     @staticmethod
     def getAgentForPort(port):
         """ Return the agent on port or an empty string """
-        portAgentMapping={v:k for k, v in m2fsConfig.getAgentPorts().items()}
+        portAgentMapping={v:k for k, v in M2FSConfig.getAgentPorts().items()}
         return portAgentMapping.get(port, '')
     
     @staticmethod
@@ -181,7 +170,7 @@ class m2fsConfig:
         try:
             addr,port=addr_str.partition(':')[::2]
             if addr=='localhost':
-                agentName=m2fsConfig.getAgentForPort(int(port))
+                agentName=M2FSConfig.getAgentForPort(int(port))
                 if agentName:
                     return agentName
         except Exception:
@@ -203,7 +192,7 @@ class m2fsConfig:
             file='m2fs_galilB.conf'
         else:
             file='m2fs_galilR.conf'
-        with open(m2fsConfig.getConfDir()+file,'w') as configfile:
+        with open(M2FSConfig.getConfDir() + file, 'w') as configfile:
             for setting, value in defaults.items():
                 config.set('Defaults', setting, value)
             config.write(configfile)
@@ -217,11 +206,11 @@ class m2fsConfig:
         Takes a setting name string and a string value.
         """
         #Get a dict with all the settings
-        defaults=m2fsConfig.getGalilDefaults(side)
+        defaults=M2FSConfig.getGalilDefaults(side)
         #Update/Add the value of the setting
         defaults[setting]=value
         #Update the defaults file
-        m2fsConfig.setGalilDefaults(side, defaults)
+        M2FSConfig.setGalilDefaults(side, defaults)
 
     @staticmethod
     def setGalilLastPosition(side, axis, value):
@@ -232,7 +221,7 @@ class m2fsConfig:
         it is removed from the set of recorded positions.
         """
         #Get a dict with all the values
-        positions=m2fsConfig.getGalilLastPositions(side)
+        positions=M2FSConfig.getGalilLastPositions(side)
         #Update/Add/remove the value of the setting
         if value:
             positions[axis]=value
@@ -246,7 +235,7 @@ class m2fsConfig:
             file='m2fs_galilBLastKnown.conf'
         else:
             file='m2fs_galilRLastKnown.conf'
-        with open(m2fsConfig.getConfDir()+file,'w') as configfile:
+        with open(M2FSConfig.getConfDir() + file, 'w') as configfile:
             for setting, value in positions.items():
                 config.set('LastKnown', setting, value)
             config.write(configfile)
@@ -258,21 +247,16 @@ class m2fsConfig:
         config=ConfigParser.RawConfigParser()
         config.optionxform=str
         config.add_section('LastKnown')
-        with open(m2fsConfig.getConfDir()+file,'w') as configfile:
+        with open(M2FSConfig.getConfDir() + file, 'w') as configfile:
             config.write(configfile)
             configfile.close()
     
     @staticmethod
     def getGalilLastPositions(side):
         """ Get dict of last known galil positions for the R or B side """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        if side=='B':
-            file='m2fs_galilBLastKnown.conf'
-        else:
-            file='m2fs_galilRLastKnown.conf'
+        file = 'm2fs_galilBLastKnown.conf' if side == 'B' else 'm2fs_galilRLastKnown.conf'
         try:
-            config.readfp(open(m2fsConfig.getConfDir()+file,'r'))
+            config = M2FSConfig.load_conf(file)
             return dict(config.items('LastKnown'))
         except Exception:
             return {}
@@ -285,18 +269,15 @@ class m2fsConfig:
         Raise ValueError if no recorded positon for axis
         """
         try:
-            return m2fsConfig.getGalilLastPositions(side)[axis]
+            return M2FSConfig.getGalilLastPositions(side)[axis]
         except KeyError:
             raise ValueError
 
     @staticmethod
     def getSelectorDefaults():
         """ Get dict of selector parameter defaults for IFUM """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
         try:
-            with open(os.path.join(m2fsConfig.getConfDir(), 'ifum_selector.conf'), 'r') as f:
-                config.readfp(f)
+            config = M2FSConfig.load_conf('ifum_selector.conf')
             return dict(config.items('Defaults'))
         except Exception:
             return {}
@@ -312,7 +293,7 @@ class m2fsConfig:
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
         config.add_section('Defaults')
-        with open(m2fsConfig.getConfDir() + 'ifum_selector.conf', 'w') as configfile:
+        with open(M2FSConfig.getConfDir() + 'ifum_selector.conf', 'w') as configfile:
             for setting, value in defaults.items():
                 config.set('Defaults', setting, value)
             config.write(configfile)
@@ -326,11 +307,11 @@ class m2fsConfig:
         Takes a setting name string and a string value.
         """
         # Get a dict with all the settings
-        defaults = m2fsConfig.getSelectorDefaults()
+        defaults = M2FSConfig.getSelectorDefaults()
         # Update/Add the value of the setting
         defaults[setting] = value
         # Update the defaults file
-        m2fsConfig.setSelectorDefaults(defaults)
+        M2FSConfig.setSelectorDefaults(defaults)
 
     @staticmethod
     def getDataloggerLogfileName():
@@ -339,10 +320,7 @@ class m2fsConfig:
         
         Files returned should have r/w permissions for the process.
         """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
-        import time
+        config = M2FSConfig.load_conf('m2fs_paths.conf')
         monthyear=time.strftime("%b%Y", time.localtime(time.time()))
         dir=config.get('Directories','dataloggerDir')
         return dir+'datalogger_'+monthyear+'.log'
@@ -354,9 +332,7 @@ class m2fsConfig:
             
         string ends in a path seperator.
         """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_paths.conf','r'))
+        config = M2FSConfig.load_conf('m2fs_paths.conf')
         dir=config.get('Directories','dataloggerDir')
         return dir
     
@@ -368,26 +344,19 @@ class m2fsConfig:
         if color not in ['R', 'B']:
             raise ValueError
         #Path only exists when something is in the cradle
-        if not os.path.exists('/dev/shoe'+color):
+        if not os.path.exists('/dev/m2fs_shoe'+color):
             return ''
         #Determine if what is in the cradle is matching
         if color == 'R':
-            if os.path.exists('/dev/shoeBincradleR'):
-                return 'B'
-            else:
-                return 'R'
+            return 'B' if os.path.exists('/dev/shoeBincradleR') else 'R'
         if color == 'B':
-            if os.path.exists('/dev/shoeRincradleB'):
-                return 'R'
-            else:
-                return 'B'
+            return 'R' if os.path.exists('/dev/shoeRincradleB') else 'B'
 
     @staticmethod
     def getAgentLogLevel(name):
         """ Get the configured logging level for agent """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_logging.conf','r'))
+        config = M2FSConfig.load_conf('m2fs_logging.conf')
+
         def str2loglevel(lls):
             import logging
             s=lls.lower()
@@ -406,10 +375,7 @@ class m2fsConfig:
     @staticmethod
     def getIPinfo():
         """ Get the configured logging level for agent """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
-        ts=config.get('IP','timeserver').lower().split(',')
+        config = M2FSConfig.load_conf('m2fs_ip.conf')
         ts=[ip.strip() for ip in config.get('IP','timeserver').lower().split(',')]
         ns=[ip.strip() for ip in config.get('IP','nameserver').lower().split(',')]
         ret = {'ip':config.get('IP','ip').lower(),
@@ -423,35 +389,26 @@ class m2fsConfig:
     @staticmethod
     def getAXISip():
         """ Get the configured logging level for agent """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
+        config = M2FSConfig.load_conf('m2fs_ip.conf')
         return config.get('AXISIP','ip').lower()
 
     @staticmethod
     def getMCalLEDAddress():
         """ Get the configured logging level for agent """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
-        return (config.get('MCLED','ip').lower(),
-                int(config.get('MCLED','port').lower()))
+        config = M2FSConfig.load_conf('m2fs_ip.conf')
+        return config.get('MCLED', 'ip').lower(), int(config.get('MCLED', 'port').lower())
 
     @staticmethod
     def getIPmethod():
         """ Get the configured logging level for agent """
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
-        config.readfp(open(m2fsConfig.getConfDir()+'m2fs_ip.conf','r'))
-        return config.get('IP','method').lower()
+        config = M2FSConfig.load_conf('m2fs_ip.conf')
+        return config.get('IP', 'method').lower()
 
     @staticmethod
     def getOcculterDefaults(ifu):
         """ Get dict of ifu occulter parameter defaults for H, M, or L"""
-        config=ConfigParser.RawConfigParser()
-        config.optionxform=str
         try:
-            config.readfp(open(m2fsConfig.getConfDir()+getOcculterConfFile(ifu), 'r'))
+            config = M2FSConfig.load_conf(getOcculterConfFile(ifu))
             return dict(config.items('Defaults'))
         except Exception:
             return {}
@@ -467,7 +424,7 @@ class m2fsConfig:
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
         config.add_section('Defaults')
-        with open(m2fsConfig.getConfDir() + getOcculterConfFile(ifu), 'w') as configfile:
+        with open(M2FSConfig.getConfDir() + getOcculterConfFile(ifu), 'w') as configfile:
             for setting, value in defaults.items():
                 config.set('Defaults', setting, value)
             config.write(configfile)
@@ -481,15 +438,15 @@ class m2fsConfig:
         Takes a setting name string and a string value.
         """
         # Get a dict with all the settings
-        defaults = m2fsConfig.getOcculterDefaults(ifu)
+        defaults = M2FSConfig.getOcculterDefaults(ifu)
         # Update/Add the value of the setting
         defaults[setting] = value
         # Update the defaults file
-        m2fsConfig.setOcculterDefaults(ifu, defaults)
+        M2FSConfig.setOcculterDefaults(ifu, defaults)
 
 def getMCalLEDAddress():
     """Return the IP and port for the MCalLED unit"""
     # config = ConfigParser.RawConfigParser()
     # config.optionxform = str
-    # config.readfp(open(m2fsConfig.getConfDir() + 'm2fs_mcalled.conf', 'r'))
-    return ('192.168.0.177',8888)
+    # config.readfp(open(M2FSConfig.getConfDir() + 'm2fs_mcalled.conf', 'r'))
+    return '192.168.0.177', 8888

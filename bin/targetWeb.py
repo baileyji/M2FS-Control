@@ -6,7 +6,7 @@ from wtforms import SelectMultipleField, SubmitField, BooleanField, RadioField
 from wtforms import DecimalField, validators
 import sys
 
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 from m2fscontrol.hole_mapper.platedata import get_metadata, get_all_plate_names
 from jbastro.astrolibsimple import sexconvert
 

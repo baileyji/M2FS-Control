@@ -3,7 +3,7 @@ import os, time
 from threading import Timer
 from m2fscontrol.agent import Agent
 import m2fscontrol.selectedconnection as selectedconnection
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 import m2fscontrol.PyNUT as PyNUT
 
 DIRECTOR_VERSION_STRING='Director v0.7'
@@ -161,7 +161,7 @@ class Director(Agent):
         self.command_handlers.update(self.IFUM_COMMANDS)
 
         #Fetch the agent ports
-        agent_ports=m2fsConfig.getAgentPorts()
+        agent_ports=M2FSConfig.getAgentPorts()
         #Galil Agents
         self.connections['GalilAgentR']=selectedconnection.SelectedSocket('localhost', agent_ports['GalilAgentR'])
         self.connections['GalilAgentB']=selectedconnection.SelectedSocket('localhost', agent_ports['GalilAgentB'])
@@ -179,13 +179,13 @@ class Director(Agent):
         # connect USB before boot) MFib agents would never get started and IFU-M agents would be running.
         # MODE will trigger _enterIFUMode() or _enterM2FSMode(), failing would fail if the other is connected.
         # If MODE is issued before anything is connected it will switch.
-        if m2fsConfig.ifum_devices_present():
+        if M2FSConfig.ifum_devices_present():
             self._enterIFUMode()
         else:
             self._enterM2FSMode()
 
         #Ensure stowed shutdown is disabled by default
-        m2fsConfig.disableStowedShutdown()
+        M2FSConfig.disableStowedShutdown()
         self.batteryState = [('Battery', 'Unknown')]
         updateBatteryStateTimer = Timer(2.5, self.updateBatteryState)
         updateBatteryStateTimer.daemon = True
@@ -196,7 +196,7 @@ class Director(Agent):
         This will leave any IFUM only commands in flight with no way to query them. If they are blocking their
         blocks would remain forever.
         """
-        agent_ports = m2fsConfig.getAgentPorts()
+        agent_ports = M2FSConfig.getAgentPorts()
         for k in self.IFUM_COMMANDS:
             self.command_handlers[k] = self.NOT_IFUM_command_handler
         self.command_handlers.update(self.M2FS_COMMANDS)
@@ -226,7 +226,7 @@ class Director(Agent):
         This will leave any M2FS only commands in flight with no way to query them. If they are blocking their
         blocks would remain forever.
         """
-        agent_ports = m2fsConfig.getAgentPorts()
+        agent_ports = M2FSConfig.getAgentPorts()
         for k in self.M2FS_COMMANDS:
             self.command_handlers[k] = self.NOT_M2FS_command_handler
         self.command_handlers.update(self.IFUM_COMMANDS)
@@ -267,13 +267,13 @@ class Director(Agent):
             command.setReply('ERROR: Mode setting not allowed due to pending commands.')
             return
         if 'ifum' in cmd:
-            if m2fsConfig.m2fs_devices_present():
+            if M2FSConfig.m2fs_devices_present():
                 command.setReply('ERROR: MFib is connected.')
             else:
                 self._enterIFUMode()
                 command.setReply('OK')
         else:
-            if m2fsConfig.ifum_devices_present():
+            if M2FSConfig.ifum_devices_present():
                 command.setReply('ERROR: IFU-M is connected.')
             else:
                 self._enterM2FSMode()
@@ -318,7 +318,7 @@ class Director(Agent):
         
         file name is of the form 
         """
-        logdir=m2fsConfig.getLogfileDir()
+        logdir=M2FSConfig.getLogfileDir()
         datestr=time.strftime("%d.%b.%Y.%H.%M.%S", time.localtime(time.time()))
         logfile=logdir+datestr+'.log.gz'
         os.system('journalctl --this-boot | gzip > '+logfile)
@@ -334,7 +334,7 @@ class Director(Agent):
         instruct the UPS to kill the load, disabling power to the instrument.
         The instrument power button must be pressed to start it back
         """
-        m2fsConfig.disableStowedShutdown()
+        M2FSConfig.disableStowedShutdown()
         command.setReply('OK')
         os.system(LINUX_SHUTDOWN_COMMAND)
     
@@ -352,7 +352,7 @@ class Director(Agent):
         In addition the the stowed shutdown flag is set, which will result in
         every agent calling its _stowedShutdown hook as it shuts down.
         """
-        m2fsConfig.enableStowedShutdown()
+        M2FSConfig.enableStowedShutdown()
         command.setReply('OK')
         os.system(LINUX_SHUTDOWN_COMMAND)
     
@@ -361,8 +361,8 @@ class Director(Agent):
         Report the state of the cradles
         
         """
-        rcolor=m2fsConfig.getShoeColorInCradle('R')
-        bcolor=m2fsConfig.getShoeColorInCradle('B')
+        rcolor=M2FSConfig.getShoeColorInCradle('R')
+        bcolor=M2FSConfig.getShoeColorInCradle('B')
         rstate='CRADLE_R='
         rstate+='SHOE_'+rcolor if rcolor else 'NONE'
         bstate='CRADLE_B='
@@ -567,7 +567,7 @@ class Director(Agent):
         for k, d in self.connections.items():
             if k.startswith('INCOMING'):
                 continue
-            agentName=m2fsConfig.nameFromAddrStr(d.addr_str())
+            agentName=M2FSConfig.nameFromAddrStr(d.addr_str())
             agentName=agentName.replace(':','_').replace(' ','_')
             try:
                 d.sendMessageBlocking('STATUS')

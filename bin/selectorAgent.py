@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 from m2fscontrol.orientalazd import OrientalMotor
 from m2fscontrol.agent import Agent
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 import time, threading
 from m2fscontrol.utils import longTest
 import logging
@@ -199,7 +199,7 @@ class SelectorAgent(Agent):
     def _stowShutdown(self):
         """ Perform a stowed shutdown """
         try:
-            self.connections['ifuselector'].move_to(m2fsConfig.getSelectorDefaults()['stow'])
+            self.connections['ifuselector'].move_to(M2FSConfig.getSelectorDefaults()['stow'])
         except IOError as e:
             pass
         except Exception:
@@ -280,7 +280,7 @@ class SelectorAgent(Agent):
                     state = 'MOVING'
                 else:
                     state = 'INTERMEDIATE'
-                    for name, pos in m2fsConfig.getSelectorDefaults().items():
+                    for name, pos in M2FSConfig.getSelectorDefaults().items():
                         pos = float(pos)
                         if abs(pos-status.position) < POSITION_TOLERANCE:
                             state = name
@@ -289,7 +289,7 @@ class SelectorAgent(Agent):
             command.setReply(response)
         else:
             command_parts = command.string.split(' ')
-            known_pos = m2fsConfig.getSelectorDefaults()
+            known_pos = M2FSConfig.getSelectorDefaults()
             if not len(command_parts) >= 2 or command_parts[1].lower() not in known_pos:
                 self.bad_command_handler(command)
                 return
@@ -317,7 +317,7 @@ class SelectorAgent(Agent):
             # Extract the position name
             name = command_parts[1]
             if '?' in command.string:
-                response = m2fsConfig.getSelectorDefaults().get(name.lower(), 'ERROR: Not a valid preset')
+                response = M2FSConfig.getSelectorDefaults().get(name.lower(), 'ERROR: Not a valid preset')
             else:
                 position = int(command_parts[2])
                 limits = self.connections['ifuselector'].limits
@@ -326,7 +326,7 @@ class SelectorAgent(Agent):
                 elif position > limits[1]:
                     response = 'ERROR: Position above software forward limit.'
                 else:
-                    m2fsConfig.setSelectorDefault(name.lower(), position)
+                    M2FSConfig.setSelectorDefault(name.lower(), position)
                     response = 'OK'
             command.setReply(response)
         else:

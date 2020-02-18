@@ -9,7 +9,7 @@ import atexit
 import serial
 import sys
 import select        
-from m2fsConfig import m2fsConfig
+from m2fsConfig import M2FSConfig
 
 
 def get_version_string():

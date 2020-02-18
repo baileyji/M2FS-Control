@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 from m2fscontrol.agent import Agent
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 from m2fscontrol.haydonidea import IdeaDrive
 import m2fscontrol.haydonidea as haydonidea
 import threading
@@ -178,7 +178,7 @@ class OcculterAgent(Agent):
     def _stowShutdown(self):
         """  Perform a stowed shutdown """
         try:
-            self.connections['occulter'].move_to(int(m2fsConfig.getOcculterDefaults(self.IFU)['stow']))
+            self.connections['occulter'].move_to(int(M2FSConfig.getOcculterDefaults(self.IFU)['stow']))
         except IOError as e:
             self.logger.warning('Caught {} during stowed shutdown'.format(e))
 
@@ -296,7 +296,7 @@ class OcculterAgent(Agent):
         calibrated must be set to the calibration state of the drive to avoid an overly conservative relative check
         """
         try:
-            rv_lim, fw_lim = map(int, m2fsConfig.getOcculterDefaults(self.IFU)['limits'].split(','))
+            rv_lim, fw_lim = map(int, M2FSConfig.getOcculterDefaults(self.IFU)['limits'].split(','))
         except Exception:
             self.logger.critical('Could not retrieve software limits, using hardcoded defaults', exc_info=True)
             rv_lim, fw_lim = 0,147200
@@ -329,13 +329,13 @@ class OcculterAgent(Agent):
         It only affects subsequent moves
         """
         if '?' in command.string:
-            response = m2fsConfig.getOcculterDefaults(self.IFU)['limits']
+            response = M2FSConfig.getOcculterDefaults(self.IFU)['limits']
             command.setReply(response)
             return
         command_parts = command.string.split(' ')
         if len(command_parts) == 3 and longTest(command_parts[1]) and longTest(command_parts[2]):
             rv_lim, fw_lim = map(int, command_parts[1:3])
-            m2fsConfig.setOcculterDefault(self.IFU, 'limits', '{}, {}'.format(rv_lim, fw_lim))
+            M2FSConfig.setOcculterDefault(self.IFU, 'limits', '{}, {}'.format(rv_lim, fw_lim))
             command.setReply('OK')
         else:
             self.bad_command_handler(command)

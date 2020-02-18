@@ -2,7 +2,7 @@
 import time
 import m2fscontrol.selectedconnection as selectedconnection
 from m2fscontrol.agent import Agent
-from m2fscontrol.m2fsConfig import m2fsConfig
+from m2fscontrol.m2fsConfig import M2FSConfig
 
 EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.3'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v1.0'
@@ -274,7 +274,7 @@ class ShoeAgent(Agent):
         #Name & cookie
         status_list=[(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT,
                       self.cookie)]
-        cradleState='Shoe'+m2fsConfig.getShoeColorInCradle(self.args.SIDE)
+        cradleState='Shoe' + M2FSConfig.getShoeColorInCradle(self.args.SIDE)
         try:
             response=self._send_command_to_shoe('TS').split(' ')
             try:

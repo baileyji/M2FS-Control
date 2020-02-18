@@ -1,14 +1,14 @@
 #IFUShield
-ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifum_shield", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shield.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifum_shield", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shield.service"
 
 #Occulters
-ATTRS{serial}=="AL04HJ3G", SYMLINK+="ifum_occulterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterL.service"
-ATTRS{serial}=="AL04HIJN", SYMLINK+="ifum_occulterS", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterS.service"
-ATTRS{serial}=="AL04HIOL", SYMLINK+="ifum_occulterL", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterH.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="AL04HJ3G", SYMLINK+="ifum_occulterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterL.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="AL04HIJN", SYMLINK+="ifum_occulterS", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterS.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="AL04HIOL", SYMLINK+="ifum_occulterL", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterH.service"
 
 #IFU Shoe
-ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
 
 #IFU Selector
-ATTRS{serial}=="FT2KYRWY", SYMLINK+="ifum_selector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_selector.service"
-ATTRS{serial}=="ORIENTAL_MOTOR_CO._LTD._ORIENTAL_MOTOR_USB-Device_0000000000", SYMLINK+="ifum_AZDKD"
+SUBSYSTEM=="tty", ATTRS{serial}=="FT2KYRWY", SYMLINK+="ifum_selector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_selector.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="ORIENTAL_MOTOR_CO._LTD._ORIENTAL_MOTOR_USB-Device_0000000000", SYMLINK+="ifum_AZDKD"

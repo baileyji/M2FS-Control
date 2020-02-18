@@ -2,7 +2,7 @@
 Description=M2FS Galil B
 
 [Install]
-WantedBy=director.service
+#WantedBy=director.service
 #Also=
 
 [Service]

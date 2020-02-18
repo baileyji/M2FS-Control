@@ -2,8 +2,8 @@
 Description=M2FS Galil R
 
 [Install]
-WantedBy=director.service
-#Also=
+#WantedBy=director.service
+
 
 [Service]
 Type=simple

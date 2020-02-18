@@ -4,7 +4,7 @@ After=network.target
 
 [Install]
 WantedBy=multi-user.target
-WantedBy=m2fs_director.target
+WantedBy=m2fs_director.service
 
 [Service]
 Type=simple

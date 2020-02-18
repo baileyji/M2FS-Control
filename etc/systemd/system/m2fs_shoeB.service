@@ -1,10 +1,8 @@
 [Unit]
 Description=M2FS Shoe B
-Wants=shoeB.device
-After=shoeB.device
 
 [Install]
-WantedBy=slitController.service
+WantedBy=m2fs_slitController.service
 
 [Service]
 Type=simple

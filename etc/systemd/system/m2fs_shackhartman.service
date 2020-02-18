@@ -1,10 +1,8 @@
 [Unit]
 Description=M2FS Sharck-Hartman
-Wants=shackhartman.device
-After=shackhartman.device
 
 [Install]
-WantedBy=director.service
+#WantedBy=m2fs_director.service
 
 [Service]
 Type=simple

@@ -11,4 +11,4 @@ SUBSYSTEM=="tty", ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe", T
 
 #IFU Selector
 SUBSYSTEM=="tty", ATTRS{serial}=="FT2KYRWY", SYMLINK+="ifum_selector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_selector.service"
-SUBSYSTEM=="tty", ATTRS{serial}=="ORIENTAL_MOTOR_CO._LTD._ORIENTAL_MOTOR_USB-Device_0000000000", SYMLINK+="ifum_AZDKD"
+SUBSYSTEM=="tty", ATTRS{vendor}=="ORIENTAL_MOTOR_CO._LTD.", SYMLINK+="ifum_AZDKD"

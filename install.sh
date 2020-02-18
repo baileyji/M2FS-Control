@@ -41,7 +41,7 @@ sudo cp -v ./etc/systemd/timesyncd.conf /etc/systemd/
 sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/
 sudo mv -v /etc/samba/smb.conf /etc/samba/smb.conf.stock
 sudo cp -v ./etc/samba/smb.conf /etc/samba/
-#cp -v ./vimrc /home/root/.vimrc
+
 #cp ./etc/ntp.conf /etc/
 
 sudo udevadm control --reload-rules

@@ -117,6 +117,10 @@ class OrientalMotor(object):
         self.rlock = threading.RLock()
         self.connect(error=False)
 
+    def close(self):
+        """required by exit hooks of agent"""
+        self.disconnect()
+
     def disconnect(self):
         try:
             self.modbus.close()

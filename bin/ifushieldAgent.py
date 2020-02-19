@@ -5,7 +5,7 @@ from m2fscontrol.agent import Agent
 
 IFUSHIELD_AGENT_VERSION_STRING = 'IFUShield Agent v1.0'
 
-ARDUINO_BOOT_TIME = .3
+ARDUINO_BOOT_TIME = 1.3
 EXPECTED_IFUSHIELD_INO_VERSION = '1.0'
 
 COLORS = ('392', '407', 'whi', '740', '770', '875')
@@ -55,10 +55,10 @@ class IFUArduinoSerial(selectedconnection.SelectedSerial):
         self.sendMessageBlocking('PV')
         response = self.receiveMessageBlocking()
         self.receiveMessageBlocking(nBytes=1)  # discard the :
-        if response != EXPECTED_IFUSHIELD_INO_VERSION:
-            error_message = ("Incompatible Firmware, Arduino reported '%s' , expected '%s'." %
-                             (response, EXPECTED_IFUSHIELD_INO_VERSION))
-            raise selectedconnection.ConnectError(error_message)
+        # if response != EXPECTED_IFUSHIELD_INO_VERSION:
+        #     error_message = ("Incompatible Firmware, Arduino reported '%s' , expected '%s'." %
+        #                      (response, EXPECTED_IFUSHIELD_INO_VERSION))
+        #     raise selectedconnection.ConnectError(error_message)
 
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """
@@ -80,6 +80,7 @@ class IFUShieldAgent(Agent):
         self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
         self.max_clients = 2
         self.command_handlers.update({
+            #TODO add raw
             # Get/Set state of HV lamps
             'THXE': self.HV_command_handler,   #response: {OK,ERROR,#}
             'BENEAR': self.HV_command_handler,
@@ -235,7 +236,7 @@ class IFUShieldAgent(Agent):
         else:  #Activate the appropriate HV lamp
             command_parts = command.string.split(' ')
             try:
-                lamp_num = HVLAMPS.index(command_parts[0].lower())
+                lamp_num = HVLAMPS.index(command_parts[0].lower())+1  #one base in ardunio
                 current = int(command_parts[1])
                 self._send_command_to_shield('HV{}{}'.format(lamp_num, current))
                 command.setReply('OK')

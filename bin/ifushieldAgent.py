@@ -49,7 +49,7 @@ class IFUArduinoSerial(selectedconnection.SelectedSerial):
         # Shoe takes a few seconds to boot
         time.sleep(ARDUINO_BOOT_TIME)
 
-        while receiveMessageBlocking():
+        while self.receiveMessageBlocking():
             pass
         # verify the firmware version
         self.sendMessageBlocking('PV')

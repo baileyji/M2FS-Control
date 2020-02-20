@@ -49,16 +49,17 @@ class IFUArduinoSerial(selectedconnection.SelectedSerial):
         # Shoe takes a few seconds to boot
         time.sleep(ARDUINO_BOOT_TIME)
 
+        #todo should this be flush input?
         while self.receiveMessageBlocking():
             pass
         # verify the firmware version
         self.sendMessageBlocking('PV')
         response = self.receiveMessageBlocking()
         self.receiveMessageBlocking(nBytes=1)  # discard the :
-        # if response != EXPECTED_IFUSHIELD_INO_VERSION:
-        #     error_message = ("Incompatible Firmware, Arduino reported '%s' , expected '%s'." %
-        #                      (response, EXPECTED_IFUSHIELD_INO_VERSION))
-        #     raise selectedconnection.ConnectError(error_message)
+        if response != EXPECTED_IFUSHIELD_INO_VERSION:
+            error_message = ("Incompatible Firmware, Arduino reported '%s' , expected '%s'." %
+                             (response, EXPECTED_IFUSHIELD_INO_VERSION))
+            raise selectedconnection.ConnectError(error_message)
 
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """
@@ -81,6 +82,7 @@ class IFUShieldAgent(Agent):
         self.max_clients = 2
         self.command_handlers.update({
             #TODO add raw
+            'SHIELDRAW': self.RAW_command_handler,
             # Get/Set state of HV lamps
             'THXE': self.HV_command_handler,   #response: {OK,ERROR,#}
             'BENEAR': self.HV_command_handler,
@@ -157,6 +159,24 @@ class IFUShieldAgent(Agent):
                 err = ("IFUShield did not adhere to protocol. '%s' got '%s'" % (command_string, response))
                 self.logger.warning(err)
                 raise IOError('ERROR: %s' % err)
+
+    def RAW_command_handler(self, command):
+        """
+        Send a raw string to the shoe and wait for a response
+
+        NB the PC command can generate more than 1024 bytes of data
+        """
+        arg = command.string.partition(' ')[2]
+        if arg:
+            try:
+                self.connections['ifushield'].sendMessageBlocking(arg)
+                response = self.connections['ifushield'].receiveMessageBlocking(nBytes=2048)
+                response = response.replace('\r', '\\r').replace('\n', '\\n')
+            except IOError, e:
+                response = 'ERROR: %s' % str(e)
+            command.setReply(response)
+        else:
+            self.bad_command_handler(command)
 
     def TEMPS_command_handler(self, command):
         """

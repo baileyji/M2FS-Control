@@ -27,6 +27,58 @@ OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 # Feb 17 01:29:34 claym2fs occulterAgent.py[5884]:     from lib.utils import longTest, floatTest
 # Feb 17 01:29:34 claym2fs occulterAgent.py[5884]: ImportError: No module named lib.utils
 
+
+#todo log spam during idle
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152714.49
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152714.7
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.0
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.21
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.5
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.71
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.0
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.22
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.5
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.71
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
+# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
+
+
+#TODO Failed calibration blocks all subsequent commands
+# In [62]: sr(c,'OCC_CALIBRATE')
+# Out[62]: 'OK\n'
+# (Fails)
+# In [63]: sr(c,'OCC 40000')
+# Out[63]: 'ERROR: Command is blocked.\n'
+
+
 """ Testing procedure
 Disconnected USB/motor at startup -> ?
 Disconnect USB during move

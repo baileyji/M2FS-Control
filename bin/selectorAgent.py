@@ -88,25 +88,6 @@ Homing procedure:
 
 
 
-
-#TODO
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]: SelectorAgent:DEBUG: Current blocks: {}
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]: Traceback (most recent call last):
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:   File "/M2FS-Control/bin/selectorAgent.py", line 396, in <module>
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:     agent.main()
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:   File "/M2FS-Control/m2fscontrol/agent.py", line 798, in main
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:     self.do_select()
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:   File "/M2FS-Control/m2fscontrol/agent.py", line 580, in do_select
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:     for reader in readers: read_map[reader]()
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:   File "/M2FS-Control/m2fscontrol/selectedconnection.py", line 425, in handle_read
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:     callback(self, message_str[:-1])
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:   File "/M2FS-Control/m2fscontrol/agent.py", line 312, in socket_message_received_callback
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:     handler(command)
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:   File "/M2FS-Control/bin/selectorAgent.py", line 387, in CALIBRATE_command_handler
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]:     self.set_remote_in('RV-POS')
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]: AttributeError: 'SelectorAgent' object has no attribute 'set_remote_in'
-# Feb 20 00:57:54 claym2fs selectorAgent.py[11067]: SelectorAgent:INFO: ----SelectorAgent exiting: <__main__.SelectorAgent object at 0x75fb481
-
 SELECTOR_AGENT_VERSION_STRING = 'Selector Agent v1.0'
 
 
@@ -401,7 +382,8 @@ class SelectorAgent(Agent):
         self.connections['ifuselector'].set_remote_in('RV-POS', False)
         self.connections['ifuselector'].set_remote_in('HOME')
         self.connections['ifuselector'].set_remote_in('HOME', False)
-        command.setReply(True)
+        command.setReply('OK')
+
 
 if __name__ == '__main__':
     agent = SelectorAgent()

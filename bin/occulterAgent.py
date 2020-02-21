@@ -235,6 +235,7 @@ class OcculterAgent(Agent):
                 state = self.connections['occulter'].state()
             except IOError as e:
                 command.setReply('ERROR: %s' % str(e))
+                return
             if state.moving:
                 if state.errorPresent:
                     self.logger.warning('HK reporting error while moving: ' + state.faultString)

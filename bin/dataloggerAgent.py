@@ -84,7 +84,7 @@ class DataloggerAgent(Agent):
 
     def TEMPS_command_handler(self, command):
         """ Report the current temperatures """
-            command.setReply(self.currentRecord.tempsString())
+        command.setReply(self.currentRecord.tempsString())
 
     def get_status_list(self):
         """

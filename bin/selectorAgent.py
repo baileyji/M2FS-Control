@@ -13,6 +13,17 @@ import logging
 # Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: pymodbus.client.sync:ERROR: could not open port /dev/ifuselector: [Errno 2] No such file or directory: '/dev/ifuselector'
 # Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: orientalazd:ERROR: Modbus Error: [Connection] Failed to connect[ModbusSerialClient(rtu baud[230400])]
 
+# TODO deal with stream of these:
+# Feb 21 19:07:27 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:31 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:35 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:38 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:42 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:45 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:49 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:52 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+# Feb 21 19:07:56 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+
 """ Testing procedure
 Disconnected USB/motor at startup -> ?
 Disconnect USB during move

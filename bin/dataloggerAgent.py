@@ -254,7 +254,8 @@ class DataloggerAgent(Agent):
             probe_temps = [None] * N_IFU_TEMPS
             self.ifushield.connect()  # in case we lost connection
             self.ifushield.sendMessageBlocking('TEMPS')
-            probe_temps = map(float, self.ifushield.receiveMessageBlocking().split())
+            resp = self.ifushield.receiveMessageBlocking()
+            probe_temps = map(float, resp.split())
             if len(probe_temps) != N_IFU_TEMPS:
                 raise ValueError('Incorrect number of probe temperatures received from IFU Shield')
         except IOError:

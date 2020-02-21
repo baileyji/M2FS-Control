@@ -7,7 +7,7 @@ from bitstring import Bits, BitArray
 import logging, time, threading, select
 
 
-# TODO (general)
+#TODO (general)
 # -Modbus commands can be silently ignored and also not trip an alarm, e.g. move_to raises no errors
 # -ensure all communication commands only raise subclasses of IOError then remove the broad catches (or add
 #  specific ones if must to selectorAgent)
@@ -18,28 +18,31 @@ import logging, time, threading, select
 # address= the starting address to read from
 
 
-""" SOME VERY EARLY NOTES:
-SKR3306D-0470-P0-0BA0 
+# SOME VERY EARLY NOTES:
+# SKR3306D-0470-P0-0BA0
+#
+# D block (2 short 470 travel
+# 6mm lead
+#
+# Max speed 500mm/s  83.333 rev  #should that be 50mm/s?
+#
+# gear 10:1
+#
+# 1000 pulse/rev
+# max pulse rate 83333 Hz
+#
+# pulserate*.006 = speed in mm/s
+#
+#
+# See this: https://minimalmodbus.readthedocs.io/en/master/usage.html#general-on-modbus-protocol
+#Function codes supported 3,6,8,10,17 (hex)  3,6,8,16,23
 
-D block (2 short 470 travel
-6mm lead
+# pymodbus.register_read_message.ReadHoldingRegistersRequest 3
+# pymodbus.register_write_message.WriteSingleRegisterRequest 6
+# pymodbus.diag_message.DiagnosticStatusRequest(**kwargs) 8
+# pymodbus.register_write_message.WriteMultipleRegistersRequest 16
+# pymodbus.register_read_message.ReadWriteMultipleRegistersRequest 23
 
-Max speed 500mm/s  83.333 rev  #should that be 50mm/s?
-
-gear 10:1
-
-1000 pulse/rev
-max pulse rate 83333 Hz
-
-pulserate*.006 = speed in mm/s
-
-
--287261
--28297
-330925
-
-See this: https://minimalmodbus.readthedocs.io/en/master/usage.html#general-on-modbus-protocol
-"""
 
 
 CLIENTID = 1
@@ -58,15 +61,6 @@ DEFAULT_SPEED = int(round(MM_TO_PULSE * DEFAULT_SPEED_MMPERS))
 DEFAULT_ACCEL = int(round(MM_TO_PULSE * 600))  # 0.6 m/s^2 is what the system came programmed with
 DEFAULT_DECEL = DEFAULT_ACCEL
 
-"""
-Function codes supported 3,6,8,10,17 (hex)  3,6,8,16,23
-
-pymodbus.register_read_message.ReadHoldingRegistersRequest 3
-pymodbus.register_write_message.WriteSingleRegisterRequest 6
-pymodbus.diag_message.DiagnosticStatusRequest(**kwargs) 8
-pymodbus.register_write_message.WriteMultipleRegistersRequest 16
-pymodbus.register_read_message.ReadWriteMultipleRegistersRequest 23
-"""
 
 #need to be able to check software limits from agent
 
@@ -440,8 +434,8 @@ class OrientalState(object):
         self.in_position = remote_bits[REMOTE_IO_OUT_BITS.index('IN-POS')]
         self.fwlim = remote_bits[REMOTE_IO_OUT_BITS.index('FW-LS_R')]
         self.rvlim = remote_bits[REMOTE_IO_OUT_BITS.index('RV_LS_R')]
-        self.fwslim = out_bits[REMOTE_IO_OUT_BITS.index('FW-SLS')]
-        self.rvslim = out_bits[REMOTE_IO_OUT_BITS.index('RV-SLS')]
+        self.fwslim = out_bits[OUTPUT_BITS.index('FW-SLS')]
+        self.rvslim = out_bits[OUTPUT_BITS.index('RV-SLS')]
 
         self.position = position
         self.commanded_position = commanded_position

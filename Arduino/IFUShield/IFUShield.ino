@@ -5,6 +5,8 @@
 #include "Ultravolt.h"
 #include <Adafruit_TLC5947.h>
 
+//#define DEBUG
+
 #if defined(ARDUINO_ARCH_SAMD)  
 // for Arduino Zero, output on USB Serial console, 
 // remove line below if using programming port to program the Zero!
@@ -180,7 +182,10 @@ void loop() {
 
         //Find command in commands
         int8_t ndx=getCallbackNdxForCommand();
-        
+
+        #ifdef DEBUG
+                Serial.print(F("Callback ndx is "));Serial.println(ndx);
+        #endif
         //If not a command respond error
         if (ndx == -1 ) Serial.write("?\n");
         else {
@@ -282,11 +287,12 @@ bool LEcommand() {
                ledlevels[4]=level;
                ledlevels[5]=level;
                break;
-    case '?' : char buf[31]; // "0000 0000 0000 0000 0000 0000\n"
-               buf[31]=0;
-               sprintf(buf,"%04d %04d %04d %04d %04d %04d\n", 
-                       ledlevels[0],ledlevels[1],ledlevels[2],ledlevels[3],ledlevels[4],ledlevels[5]);
-               Serial.write(buf, 31);
+    case '?' : 
+               for (uint8_t i=0; i<6; i++) {
+                 if (i!=0) Serial.print(" ");
+                 Serial.print(ledlevels[i]);
+               }
+               Serial.print("\n");
                return true; //Don't bother setting
                break;
   }

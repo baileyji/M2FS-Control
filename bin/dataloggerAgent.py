@@ -229,11 +229,11 @@ class DataloggerAgent(Agent):
 
     def _gatherIFUTemps(self):
         try:
-            cradleRTemp, cradleBTemp = None, None
+            cradleRTemp, cradleBTemp, shoeboxTemp = None, None
             self.ifushoes.connect()  # in case we lost connection
             self.ifushoes.sendMessageBlocking('SLITS_TEMP')
             resp = self.ifushoes.receiveMessageBlocking()
-            cradleRTemp, cradleBTemp = map(float, resp.split())
+            cradleRTemp, cradleBTemp, shoeboxTemp = map(float, resp.split())
         except IOError:
             self.logger.debug("Failed to poll IFU Shoes for temps")
         except ValueError:
@@ -263,7 +263,7 @@ class DataloggerAgent(Agent):
         except ValueError:
             self.logger.debug("Bad response '{}' from IFU Shield for temps".format(resp))
 
-        return cradleRTemp, cradleBTemp, driveTemp, motorTemp, probe_temps
+        return cradleRTemp, cradleBTemp, shoeboxTemp, driveTemp, motorTemp, probe_temps
 
     def _gatherM2FSTemps(self):
         try:
@@ -300,9 +300,9 @@ class DataloggerAgent(Agent):
         #Gather Temps
         if M2FSConfig.ifum_devices_present():
             shTemp = None
-            cradleRTemp, cradleBTemp, driveTemp, motorTemp, probeTemps = self._gatherIFUTemps()
+            cradleRTemp, cradleBTemp,shoeboxTemp, driveTemp, motorTemp, probeTemps = self._gatherIFUTemps()
         else:
-            driveTemp, motorTemp = None, None
+            driveTemp, motorTemp, shoeboxTemp = None, None, None
             probeTemps = [None] * N_IFU_TEMPS
             cradleRTemp, cradleBTemp, shTemp = self._gatherM2FSTemps()
 
@@ -311,7 +311,8 @@ class DataloggerAgent(Agent):
         temps.extend(probeTemps)
         if not all(v is None for v in temps):
             record=LoggerRecord(time.time(), shackhartmanTemp=shTemp, cradleRTemp=cradleRTemp, cradleBTemp=cradleBTemp,
-                         ifuSelectorDriveTemp=driveTemp, ifuSelectorMotorTemp=motorTemp, ifuProbeTemps=probeTemps)
+                                ifuSelectorDriveTemp=driveTemp, ifuSelectorMotorTemp=motorTemp,
+                                ifuProbeTemps=probeTemps, ifuShoebox=shoeboxTemp)
             self.recordQueue.put(record)
         #Do it again in in a few
         self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.queryAgentTemps)

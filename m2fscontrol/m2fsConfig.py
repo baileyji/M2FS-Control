@@ -3,16 +3,17 @@ import os
 import time
 from pkg_resources import resource_filename
 
-N_IFU_TEMPS = 3
+N_IFU_TEMPS = 4
 
 def ifuProbeTempsToDict(ifuProbeTempsList):
-    ret={'ifuentrance': None, 'fiberexit': None, 'ifutop': None}
+    ret={'ifuentrance': None, 'fiberexit': None, 'ifutop': None, 'hoffman':None }
     if ifuProbeTempsList is not None:
         if len(ifuProbeTempsList) != N_IFU_TEMPS:
             raise ValueError('Incorrect number of probe temperatures')
         ret['ifuentrance'] = ifuProbeTempsList[0]
         ret['ifutop'] = ifuProbeTempsList[1]
         ret['fiberexit'] = ifuProbeTempsList[2]
+        ret['hoffman'] = ifuProbeTempsList[3]
     return ret
 
 def getOcculterConfFile(ifu):

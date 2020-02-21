@@ -127,12 +127,14 @@ class LoggerRecord(object):
                  prismRTemp=None, prismBTemp=None,
                  loresRTemp=None, loresBTemp=None,
                  accelsR=None, accelsB=None,
-                 ifuProbeTemps=None, ifuSelectorDriveTemp=None, ifuSelectorMotorTemp=None):
+                 ifuProbeTemps=None, ifuSelectorDriveTemp=None, ifuSelectorMotorTemp=None,
+                 ifuShoebox=None):
         self.unixtime=timestamp
         self.shackhartmanTemp=shackhartmanTemp
         self.ifu=m2fsConfig.ifuProbeTempsToDict(ifuProbeTemps)
         self.ifu['driveTemp']=ifuSelectorDriveTemp
         self.ifu['motorTemp']=ifuSelectorMotorTemp
+        self.ifu['shoebox'] = ifuShoebox
         self.sideR={'cradleTemp':cradleRTemp, 'echelleTemp':echelleRTemp,
             'prismTemp':prismRTemp, 'loresTemp':loresRTemp, 'accels':accelsR}
         self.sideB={'cradleTemp':cradleBTemp, 'echelleTemp':echelleBTemp,
@@ -212,7 +214,8 @@ class LoggerRecord(object):
         """ Return a space delimited string of the temps or 'None' """
         if m2fsConfig.M2FSConfig.ifum_devices_present():  #TODO this is garbage, don't depend on that!
             temps = [self.ifu['ifuentrance'], self.ifu['ifutop'], self.ifu['fiberexit'],
-                     self.ifu['motorTemp'], self.ifu['driveTemp'],
+                     self.ifu['motorTemp'], self.ifu['driveTemp'], self.ifu['hoffman'],
+                     self.ifu['shoebox'],
                      self.sideR['cradleTemp'], self.sideB['cradleTemp'],
                      self.sideR['echelleTemp'], self.sideB['echelleTemp'],
                      self.sideR['prismTemp'], self.sideB['prismTemp'],

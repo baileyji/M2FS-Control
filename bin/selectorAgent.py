@@ -204,11 +204,11 @@ class SelectorAgent(Agent):
                                 ('Moving', str(status.moving)),
                                 ('Torque', str(status.torque)),
                                 ('PError', status.position_error_str),
-                                ('FWLim', status.fwlim),
-                                ('RVLim', status.rvlim),
-                                ('FWSLim', status.fwslim),
-                                ('RVSLim', status.rvslim),
-                                ('Home', status.home),
+                                ('FWLim', str(status.fwlim)),
+                                ('RVLim', str(status.rvlim)),
+                                ('FWSLim', str(status.fwslim)),
+                                ('RVSLim', str(status.rvslim)),
+                                ('Home', str(status.home)),
                                 ('Alarm', 'None' if not status.has_fault else str(status.alarm.code))])
         except IOError as e:
             #TODO distinguish between disconnected and other errors

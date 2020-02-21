@@ -11,9 +11,13 @@ import logging
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 
+#todo
+# Feb 21 21:52:19 claym2fs occulterAgent.py[348]: OcculterNot Specified:DEBUG: Sending o to HK
+
+
 
 #todo log spam during idle
-#This comes from the stall prevention moving poll
+# This comes from the stall prevention moving poll
 # Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
 # Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152714.49
 # Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'

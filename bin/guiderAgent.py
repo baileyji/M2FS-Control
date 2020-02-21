@@ -75,7 +75,7 @@ class GuiderAgent(Agent):
         Agent.__init__(self,'GuiderAgent')
         self.focus=0
         self.commanded_position={FOCUS_CHANNEL:None, FILTER_CHANNEL:None}
-        self.connections['guider']=GuiderSerial('/dev/guider', 115200, timeout=1)
+        self.connections['guider']=GuiderSerial('/dev/m2fs_guider', 115200, timeout=1)
         self.command_handlers.update({
             #Get/Set the guider filter (1, 2, 3, or 4)
             'GFILTER':self.GFILTER_command_handler,

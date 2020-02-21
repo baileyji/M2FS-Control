@@ -45,9 +45,9 @@ class DataloggerAgent(Agent):
         Agent.__init__(self,'DataloggerAgent')
         #Initialize the dataloggers
         self.recordQueue=Queue.Queue()
-        self.dataloggerR=DataloggerListener('R','/dev/dataloggerR', self.recordQueue)
+        self.dataloggerR=DataloggerListener('R','/dev/m2fs_dataloggerR', self.recordQueue)
         self.dataloggerR.start()
-        self.dataloggerB=DataloggerListener('B', '/dev/dataloggerB', self.recordQueue)
+        self.dataloggerB=DataloggerListener('B', '/dev/m2fs_dataloggerB', self.recordQueue)
         self.dataloggerB.start()
         agent_ports=M2FSConfig.getAgentPorts()
         if M2FSConfig.ifum_devices_present(): #TODO make this support user forgetfullness

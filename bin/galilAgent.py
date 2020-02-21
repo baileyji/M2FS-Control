@@ -103,7 +103,7 @@ class GalilAgent(Agent):
             'GES_DEFSWPSTEP':'loresSwapStep','GES_DEFSWPENC':'loresSwapEncoder'}
         #Initialize the Galil
         if not self.args.DEVICE:
-            self.args.DEVICE='/dev/galil'+self.args.SIDE
+            self.args.DEVICE='/dev/m2fs_galil'+self.args.SIDE
         self.connections['galil']=GalilSerial(self.args.DEVICE, self.args.SIDE)
         self.query_commands={
             'FILTER':self.connections['galil'].get_filter,

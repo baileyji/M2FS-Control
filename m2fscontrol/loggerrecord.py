@@ -211,7 +211,7 @@ class LoggerRecord(object):
     def tempsString(self):
         """ Return a space delimited string of the temps or 'None' """
         if m2fsConfig.M2FSConfig.ifum_devices_present():  #TODO this is garbage, don't depend on that!
-            temps = [self.ifu['ifuHTemp'], self.ifu['ifuSTemp'], self.ifu['ifuLTemp'],
+            temps = [self.ifu['ifuentrance'], self.ifu['ifutop'], self.ifu['fiberexit'],
                      self.ifu['motorTemp'], self.ifu['driveTemp'],
                      self.sideR['cradleTemp'], self.sideB['cradleTemp'],
                      self.sideR['echelleTemp'], self.sideB['echelleTemp'],

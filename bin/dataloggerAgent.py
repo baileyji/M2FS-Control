@@ -251,19 +251,18 @@ class DataloggerAgent(Agent):
             self.logger.debug("Bad response '{}' from IFU selector for temps".format(resp))
 
         try:
-            probeTemps = [None] * N_IFU_TEMPS
+            probe_temps = [None] * N_IFU_TEMPS
             self.ifushield.connect()  # in case we lost connection
             self.ifushield.sendMessageBlocking('TEMPS')
-            resp=self.ifushield.receiveMessageBlocking()
-            probeTemps = map(float, resp.split())
-            if len(probeTemps)!=N_IFU_TEMPS:
-                raise ValueError
+            probe_temps = map(float, self.ifushield.receiveMessageBlocking().split())
+            if len(probe_temps) != N_IFU_TEMPS:
+                raise ValueError('Incorrect number of probe temperatures received from IFU Shield')
         except IOError:
             self.logger.debug("Failed to poll IFUShield for temps")
         except ValueError:
             self.logger.debug("Bad response '{}' from IFU Shield for temps".format(resp))
 
-        return cradleRTemp, cradleBTemp, driveTemp, motorTemp, probeTemps
+        return cradleRTemp, cradleBTemp, driveTemp, motorTemp, probe_temps
 
     def _gatherM2FSTemps(self):
         try:

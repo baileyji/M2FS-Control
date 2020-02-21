@@ -88,7 +88,7 @@ class IFUShieldAgent(Agent):
             'BENEAR': self.HV_command_handler,
             'LIHE': self.HV_command_handler,
             # Get/Set state of LEDs
-            'LED': self.LED_command_handler, #response:{ OK,ERROR, # # # # # #}
+            'MCLED': self.LED_command_handler, #response:{ OK,ERROR, # # # # # #}
             #Report all the temps
             'TEMPS': self.TEMPS_command_handler})  #response:{  # # # # # #}
 
@@ -145,7 +145,7 @@ class IFUShieldAgent(Agent):
         if response == ':':
             return ''
         elif response == '?':  # command failed
-            raise IOError("ERROR: IFUShield did not acknowledge (?) command '%s'".format(command_string))
+            raise IOError("ERROR: IFUShield did not acknowledge (gave ?) command {}".format(command_string))
         # command is returning something
         else:
             # do a blocking receive on \n

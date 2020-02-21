@@ -242,7 +242,7 @@ class DataloggerAgent(Agent):
         try:
             driveTemp, motorTemp = None, None
             self.ifuselector.connect()  # in case we lost connection
-            self.ifuselector.sendMessageBlocking('SELECTOR_TEMP')
+            self.ifuselector.sendMessageBlocking('TEMP')
             resp = self.ifuselector.receiveMessageBlocking()
             driveTemp, motorTemp = map(float, resp.split())
         except IOError:

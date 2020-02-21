@@ -142,20 +142,40 @@ class Director(Agent):
             'PLATESETUP':self.PLUGGING_command_handler,
             'PLUGPOS':self.PLUGGING_command_handler}
         self.IFUM_COMMANDS = {
-            'IFU':self.IFU_command_handler,
-            'IFU_MOVE':self.IFU_command_handler,
+            #Move to a preset position
+            'IFUS':self.IFU_command_handler,
+            # Move to a particular absolute position
+            'IFUS_MOVE':self.IFU_command_handler,
+            # Get/Set the step position corresponding to a preset position
+            'IFUS_IFUPOS': self.IFU_command_handler,
+            # Stop movement
+            'IFUS_STOP': self.IFU_command_handler,
+            # Get or clear (with arg "CLEAR") the current alarm, some alarms can not be cleared
+            'IFUS_ALARM': self.IFU_command_handler,
+            # Turn on or off the automatic breaking of the stage
+            'IFUS_AUTOBREAK': self.IFU_command_handler,
+            'IFUS_CALIBRATE': self.IFU_command_handler,
+            'IFUS_LIMITS': self.IFU_command_handler,
 
             'OCC':self.OCCULTER_command_handler,
             'OCC_STEP':self.OCCULTER_command_handler,
             'OCC_CALIBRATE':self.OCCULTER_command_handler,
             'OCCRAW':self.OCCULTER_command_handler,
+            'OCC_ABORT': self.OCCULTER_command_handler,
+            'OCC_RESET': self.OCCULTER_command_handler,
+            # Get/Set the soft limits
+            'OCC_LIMITS': self.OCCULTER_command_handler,
+            # Calibrate the occulter
+            'OCC_CALIBRATE': self.OCCULTER_command_handler,
+            'OCC_STALLPREVENT': self.OCCULTER_command_handler,
 
             'SLITRAW': self.SLITS_comand_handler,
             'SLIT': self.SLITS_comand_handler,
 
-            'BeNeAr':self.IFUSHIELD_command_handler,
-            'LiHe':self.IFUSHIELD_command_handler,
-            'ThXe':self.IFUSHIELD_command_handler}
+            'BENEAR': self.IFUSHIELD_command_handler,
+            'LIHE': self.IFUSHIELD_command_handler,
+            'THXE': self.IFUSHIELD_command_handler,
+            'SHEILDRAW':self.IFUSHIELD_command_handler,}
         self.command_handlers.update(GENERAL_COMMANDS)
         self.command_handlers.update(self.M2FS_COMMANDS)
         self.command_handlers.update(self.IFUM_COMMANDS)

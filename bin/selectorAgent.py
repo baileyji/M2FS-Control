@@ -111,20 +111,21 @@ class SelectorAgent(Agent):
         self.max_clients = 2
         self.command_handlers.update({
             # Get/Set the IFU selector by preset position. The move is carried by the AZD-KD controller.
-            'SELECTOR': self.SELECTOR_command_handler,
+            'IFUS': self.IFUS_command_handler,
             # Get/Set the step position corresponding to a preset position
-            'SELECTOR_SELECTORPOS': self.SELECTORPOS_command_handler,
+            'IFUS_IFUPOS': self.IFUPOS_command_handler,
             # Move to a particular absolute position
-            'SELECTOR_MOVE': self.MOVE_command_handler,
+            'IFUS_MOVE': self.MOVE_command_handler,
             # Get the driver and motor temps
             'TEMP': self.TEMP_command_handler,
             # Stop movement
-            'SELECTOR_STOP': self.STOP_command_handler,
+            'IFUS_STOP': self.STOP_command_handler,
             #Get or clear (with arg "CLEAR") the current alarm, some alarms can not be cleared
-            'SELECTOR_ALARM': self.ALARM_command_handler,
+            'IFUS_ALARM': self.ALARM_command_handler,
             #Turn on or off the automatic breaking of the stage
-            'SELECTOR_AUTOBREAK': self.AUTOBREAK_command_handler,
-            'SELECTOR_CALIBRATE': self.CALIBRATE_command_handler})
+            'IFUS_AUTOBREAK': self.AUTOBREAK_command_handler,
+            'IFUS_CALIBRATE': self.CALIBRATE_command_handler,
+            'IFUS_LIMITS': self.LIMITS_command_handler})
         self.autobreak = True  #Wheter to automatically apply the break when not moving
         self._autobreak_thread = threading.Thread(target=self._autobreak_main, name='Break when not moving')
         self._autobreak_thread.daemon = True
@@ -248,7 +249,16 @@ class SelectorAgent(Agent):
             response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
             command.setReply(response)
 
-    def SELECTOR_command_handler(self, command):
+    def LIMITS_command_handler(self, command):
+        try:
+            limits = self.connections['ifuselector'].limits
+            command.setReply('{} {}'.format(*limits))
+        except IOError as e:
+            response = str(e)
+            response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
+            command.setReply(response)
+
+    def IFUS_command_handler(self, command):
         """
         Get/Set the position of the IFU selector.
 
@@ -305,7 +315,7 @@ class SelectorAgent(Agent):
                     response = 'ERROR: ' + response
             command.setReply(response)
 
-    def SELECTORPOS_command_handler(self, command):
+    def IFUPOS_command_handler(self, command):
         """
         Retrieve or set the step position of a selector preset
 

@@ -68,13 +68,16 @@ pymodbus.register_write_message.WriteMultipleRegistersRequest 16
 pymodbus.register_read_message.ReadWriteMultipleRegistersRequest 23
 """
 
+#need to be able to check software limits from agent
+
 #MBC bit indicates the break is disabled, might stand for motor break current
 
 # Note null strings indicate bits reserved by OM, '-' indicates an unassigned/unused/NON-SIG bit
-DIRECT_IO_IN_BITS = ('FW-LS', '-', 'RV-LS', 'STOP-COFF', 'HOMES', '-', '-', 'ALM-RST', '-', '-', 'P-RESET', '',
-                     '-', '-', '-', '-')
+# Note that setvalue/defaultvalue
+DIRECT_IO_IN_BITS = ('FW-LS', '-', 'RV-LS', 'STOP-COFF', 'HOMES', '-/FREE', '-/STOP', 'ALM-RST', '-/FW-JOG', '-/RV-JOG',
+                     'P-RESET', '', '-', '-', '-', '-')  # 0-9, ext-in, N/C, virin 0-3  pg 378
 DIRECT_IO_OUT_BITS = ('HOME-END', 'IN-POS', 'PLS-RDY', 'READY', 'MOVE', 'ALM-B', '', '', '', '', '', '', '', '',
-                      'ASG', 'BSG')
+                      'ASG', 'BSG')  # Dout 0-5  pg 378
 
 REMOTE_IO_OUT_BITS = ('MBC', 'STOP-COFF_R', 'RV_LS_R', '-', 'FW-LS_R', 'READY', 'INFO', 'ALM-A', 'SYS-BSY',
                       'AREA0', 'AREA1', 'AREA2', 'TIM', 'MOVE', 'IN-POS', 'TLC')
@@ -216,7 +219,7 @@ class OrientalMotor(object):
 
     @property
     def limits(self):
-        """Returns the limits software or LW, whichever is smaller"""
+        """Returns the limits software or HW, whichever is smaller"""
         fv_lim = self.read_regs(0x0388, 2, reverse=False).int
         rw_lim = self.read_regs(0x038A, 2, reverse=False).int
         return rw_lim, fv_lim

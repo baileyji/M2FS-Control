@@ -5,30 +5,15 @@ from m2fscontrol.haydonidea import IdeaDrive
 import m2fscontrol.haydonidea as haydonidea
 import threading
 from m2fscontrol.utils import longTest
+import logging
+
 
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 
 
-#TODO fix imports make a pip package
-# Feb 17 00:46:48 claym2fs systemd[1]: Stopped IFU-M STD Occulter.
-# Feb 17 00:46:48 claym2fs systemd[1]: Started IFU-M STD Occulter.
-# Feb 17 00:46:48 claym2fs occulterAgent.py[3656]: Traceback (most recent call last):
-# Feb 17 00:46:48 claym2fs occulterAgent.py[3656]:   File "/M2FS-Control/bin/occulterAgent.py", line 6, in <module>
-# Feb 17 00:46:48 claym2fs occulterAgent.py[3656]:     from haydonidea import IdeaDrive
-# Feb 17 00:46:48 claym2fs occulterAgent.py[3656]:   File "/M2FS-Control/bin/../lib/haydonidea.py", line 4, in <module>
-# Feb 17 00:46:48 claym2fs occulterAgent.py[3656]:     import lib.SelectedConnection as SelectedConnection
-# Feb 17 00:46:48 claym2fs occulterAgent.py[3656]: ImportError: No module named lib.SelectedConnection
-# Feb 17 00:46:48 claym2fs systemd[1]: ifum_occulterS.service: Main process exited, code=exited, status=1/FAILURE
-# Feb 17 00:46:48 claym2fs systemd[1]: ifum_occulterS.service: Failed with result 'exit-code'.
-# Feb 17 00:46:48 claym2fs systemd[1]: ifum_
-# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]: Traceback (most recent call last):
-# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]:   File "/M2FS-Control/bin/occulterAgent.py", line 9, in <module>
-# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]:     from lib.utils import longTest, floatTest
-# Feb 17 01:29:34 claym2fs occulterAgent.py[5884]: ImportError: No module named lib.utils
-
-
 #todo log spam during idle
+#This comes from the stall prevention moving poll
 # Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
 # Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152714.49
 # Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
@@ -146,13 +131,13 @@ class OcculterAgent(Agent):
             #Move by a relative step amount
             'OCC_STEP': self.STEP_command_handler,
             'OCC_ABORT': self.ABORT_command_handler,
-            'OCC_STOP': self.ABORT_command_handler,
             'OCC_RESET': self.RESET_command_handler,
             # Get/Set the soft limits
             'OCC_LIMITS': self.LIMIT_command_handler,
             #Calibrate the occulter
             'OCC_CALIBRATE': self.CALIBRATE_command_handler,
             'OCC_STALLPREVENT': self.STALLPREVENT_command_handler})
+        logging.getLogger('m2fscontrol.selectedconnection').setLevel('INFO')  #Don't debug selected connection
     
     def get_cli_help_string(self):
         """

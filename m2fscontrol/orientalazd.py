@@ -440,8 +440,8 @@ class OrientalState(object):
         self.in_position = remote_bits[REMOTE_IO_OUT_BITS.index('IN-POS')]
         self.fwlim = remote_bits[REMOTE_IO_OUT_BITS.index('FW-LS_R')]
         self.rvlim = remote_bits[REMOTE_IO_OUT_BITS.index('RV_LS_R')]
-        self.fwslim = remote_bits[REMOTE_IO_OUT_BITS.index('FW-SLS')]
-        self.rvslim = remote_bits[REMOTE_IO_OUT_BITS.index('RV-SLS')]
+        self.fwslim = out_bits[REMOTE_IO_OUT_BITS.index('FW-SLS')]
+        self.rvslim = out_bits[REMOTE_IO_OUT_BITS.index('RV-SLS')]
 
         self.position = position
         self.commanded_position = commanded_position

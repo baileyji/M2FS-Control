@@ -313,8 +313,8 @@ class SelectorAgent(Agent):
                         if abs(pos-status.position) < POSITION_TOLERANCE:
                             state = name
                             break
-                response = '{} ({})'.format(state, status.position)
-            command.setReply(response)
+                response = '{} {}'.format(state, status.position)
+            command.setReply(response.upper())  #protocol is uppercase
         else:
             command_parts = command.string.split(' ')
             known_pos = M2FSConfig.getSelectorDefaults()

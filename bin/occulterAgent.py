@@ -15,6 +15,8 @@ OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 # Feb 21 21:52:19 claym2fs occulterAgent.py[348]: OcculterNot Specified:DEBUG: Sending o to HK
 
 
+#OCC ? seems to be returning worker threads state instead of actually querying, is this by design
+
 
 #todo log spam during idle
 # This comes from the stall prevention moving poll
@@ -243,14 +245,14 @@ class OcculterAgent(Agent):
             if state.moving:
                 if state.errorPresent:
                     self.logger.warning('HK reporting error while moving: ' + state.faultString)
-                resp = 'MOVING ({})'
+                resp = 'MOVING {}'
             elif self.connections['occulter'].prevented_hammerstall:
                 resp = 'ERROR: Move aborted by hammerstall prevention. FC:' + state.faultString
                 self.connections['occulter'].prevented_hammerstall = False
             elif state.errorPresent:
-                resp = 'ERROR: ({}) FC:'+state.faultString
+                resp = 'ERROR: Pos: {} Fault Code:'+state.faultString
             elif not state.calibrated:
-                resp = 'UNCALIBRATED ({})'
+                resp = 'UNCALIBRATED {}'
             else:
                 resp = '{}'
             command.setReply(resp.format(state.position))

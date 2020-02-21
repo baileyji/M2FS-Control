@@ -229,7 +229,7 @@ class DataloggerAgent(Agent):
 
     def _gatherIFUTemps(self):
         try:
-            cradleRTemp, cradleBTemp, shoeboxTemp = None, None
+            cradleRTemp, cradleBTemp, shoeboxTemp = None, None, None
             self.ifushoes.connect()  # in case we lost connection
             self.ifushoes.sendMessageBlocking('SLITS_TEMP')
             resp = self.ifushoes.receiveMessageBlocking()

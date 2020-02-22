@@ -2,6 +2,7 @@
 import time, os
 from serial import Serial, SerialException
 import logging
+from m2fscontrol.m2fsConfig import M2FSConfig
 
 serial = Serial()
 serial.baudrate = 115200
@@ -9,6 +10,7 @@ serial.port = '/dev/m2fs_shutdownButton'
 if __name__ == '__main__':
     logging.basicConfig()
     log = logging.getLogger('M2FSShutdownButton')
+    log.setLevel(M2FSConfig.getAgentLogLevel('M2FSShutdownButton'))
     while True:
         try:
             if not serial.isOpen():

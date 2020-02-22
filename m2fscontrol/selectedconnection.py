@@ -339,7 +339,7 @@ class SelectedConnection(object):
                 self.handle_error(e)
                 raise e
     
-    def handle_error(self, error=''):
+    def handle_error(self, error='', log=True):
         """
         Handler for select on errors. Also used internally.
         
@@ -352,7 +352,8 @@ class SelectedConnection(object):
         """
         with self.rlock:
             err="'%s' on %s." % (escapeString(str(error)), self.addr_str())
-            logger.error(err)
+            if log:
+                logger.error(err)
             if self.errorCallback is not None:
                 callback=self.errorCallback
                 self.errorCallback=self.defaultErrorCallback

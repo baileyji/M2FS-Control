@@ -204,18 +204,6 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                         self.prevented_hammerstall = True
                 except IOError:
                     pass
-#After turning off power
-# OcculterNot Specified:DEBUG: Sending o to HK
-# lib.SelectedConnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/tty.usbserial-AL04HIOL@57600 @ 1573348235.01
-# lib.SelectedConnection:DEBUG: BlockingReceive got: ''
-# lib.SelectedConnection:WARNING: Blocking receive on /dev/tty.usbserial-AL04HIOL@57600 timed out
-# lib.SelectedConnection:DEBUG: BlockingReceive got: ''
-# lib.SelectedConnection:WARNING: Blocking receive on /dev/tty.usbserial-AL04HIOL@57600 timed out
-# OcculterNot Specified:ERROR: HK did not adhere to protocol 'o' got ''
-# Traceback (most recent call last):
-#   File "/Users/one/Dropbox/M2FS-Dropbox/M2FS-Control/lib/haydonidea.py", line 230, in send_command_to_hk
-#     return response.split('`')[1].strip()[1:]
-# IndexError: list index out of range
 
     @property
     def programRunning(self):
@@ -262,14 +250,20 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                     return ''
                 else:
                     e = 'HK did not respond to "{}", is it powered?'.format(command_string)
-                    self.handle_error(e)
+                    logger.error(e, exc_info=True)
+                    self.handle_error(e, log=False)
                     raise SelectedConnection.ReadError(e)
             try:
                 return response.split('`')[1].strip()[1:]
+            except IndexError:
+                e = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
+                logger.error(e)
+                self.handle_error(e, log=False)
+                raise SelectedConnection.ReadError(e)
             except Exception:
                 e = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
-                #logger.error(msg, exc_info=True)
-                self.handle_error(e)
+                logger.error(e, exc_info=True)
+                self.handle_error(e, log=False)
                 raise SelectedConnection.ReadError(e)
                 # raise IOError('ERROR: '+msg)  #Give up, something is wrong!
 

@@ -22,10 +22,10 @@ if __name__ == '__main__':
                 data=serial.readline()
 #                print 'Got: "{}"'.format(data)
                 if 'SHUTDOWN' in data:
-                    log.info("Recieved SHUTDOWN from shutdown button, shutting down now")
+                    log.info("Received SHUTDOWN from shutdown button, shutting down now")
                     os.system('shutdown now')
-        except SerialException:
-            log.debug("Caught SerialException", exc_info=True)
+        except SerialException as e:
+            log.debug("Caught {}".format(e))
             time.sleep(1)
         except IOError:
             log.debug("Caught IOError", exc_info=True)

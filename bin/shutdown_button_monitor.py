@@ -1,26 +1,30 @@
 #!/usr/bin/env python2.7
 import time, os
 from serial import Serial, SerialException
-serial=Serial()
-serial.baudrate=115200
-serial.port='/dev/shutdownButton'
-if __name__=='__main__':
+import logging
+
+serial = Serial()
+serial.baudrate = 115200
+serial.port = '/dev/m2fs_shutdownButton'
+if __name__ == '__main__':
+    logging.basicConfig()
+    log = logging.getLogger('M2FSShutdownButton')
     while True:
         try:
             if not serial.isOpen():
-                print 'Opening...'
+                log.debug('Attempting to connect to shutdown button')
                 serial.open()
                 serial.flushInput()
-                print 'open.'
+                log.info("Connected to shutdown button.")
             else:
                 data=serial.readline()
 #                print 'Got: "{}"'.format(data)
                 if 'SHUTDOWN' in data:
-                    print 'shutdown now'
+                    log.info("Recieved SHUTDOWN from shutdown button, shutting down now")
                     os.system('shutdown now')
         except SerialException:
-            print 'Serial exception'
+            log.debug("Caught SerialException", exc_info=True)
             time.sleep(1)
         except IOError:
-            print 'IOError'
+            log.debug("Caught IOError", exc_info=True)
             time.sleep(1)

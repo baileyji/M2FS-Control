@@ -19,50 +19,9 @@ OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 
 
 #todo log spam during idle
-# This comes from the stall prevention moving poll
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152714.49
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152714.7
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:54 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.0
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.21
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.5
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152715.71
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:55 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.0
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.22
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.5
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: OcculterNot Specified:DEBUG: Sending o to HK
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'o\r', wrote 'o\r' to /dev/ifum_occulterS@57600 @ 1582152716.71
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`oNO\r'
-# Feb 19 22:51:56 claym2fs occulterAgent.py[6443]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '`o#\r'
 
 
-#TODO Failed calibration blocks all subsequent commands
+#TODO Failed calibration blocks all subsequent commands, This shouldn't be happening
 # In [62]: sr(c,'OCC_CALIBRATE')
 # Out[62]: 'OK\n'
 # (Fails)
@@ -102,10 +61,6 @@ Verify code is integrated into repo at haydonkerk/*.idea,
 """
 
 
-# AL04HIJN MSB
-# AL04HJ3G LSB
-# AL04HIOL HSB
-
 #LSB max ~2.37509375
 #MSB max ~ 2.3
 
@@ -143,8 +98,7 @@ class OcculterAgent(Agent):
             #Calibrate the occulter
             'OCC_CALIBRATE': self.CALIBRATE_command_handler,
             'OCC_STALLPREVENT': self.STALLPREVENT_command_handler})
-        logging.getLogger('m2fscontrol.selectedconnection').setLevel('INFO')  #Don't debug selected connection
-    
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
@@ -300,10 +254,9 @@ class OcculterAgent(Agent):
         if calibrate:
             try:
                 self.connections['occulter'].calibrate()
-                state = self.connections['occulter'].state()
-            except RuntimeError:  # calibration failed.
-                response = 'ERROR: Calibration failed ({})'.format(state.faultString)
-                self.returnFromWorkerThread(command_name, finalState=response)
+            except RuntimeError as e:  # calibration failed.
+                # TODO This looks like if calibrate fails it doesn't clear the blocks
+                self.returnFromWorkerThread(command_name, finalState=str(e))
                 return
             except IOError as e:
                 response = str(e)
@@ -443,6 +396,7 @@ class OcculterAgent(Agent):
             response = str(e)
             response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
             command.setReply(response)
+
 
 if __name__ == '__main__':
     agent = OcculterAgent()

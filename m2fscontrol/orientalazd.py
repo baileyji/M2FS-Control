@@ -2,7 +2,7 @@ import pymodbus
 from pymodbus.pdu import ModbusRequest
 from pymodbus.client.sync import ModbusSerialClient as ModbusClient
 from pymodbus.transaction import ModbusRtuFramer
-from pymodbus.exceptions import ModbusIOException, ConnectionException, ModbusException #last is the parent
+from pymodbus.exceptions import ModbusIOException, ConnectionException, ModbusException  #last is the parent
 from bitstring import Bits, BitArray
 import logging, time, threading, select
 
@@ -129,15 +129,25 @@ class OrientalMotor(object):
 
     def connect(self, error=True):
         if self.modbus is not None:
+            try:
+                self.modbus.connect()
+            except ModbusException as s:
+                if error:
+                    raise s
             return
+
         self.modbus = ModbusClient(method="rtu", port=self.port, stopbits=1, bytesize=8, parity='E', baudrate=BAUD)
-        self.modbus.connect()
+
         try:
+            self.modbus.connect()
               # ~1337 mm in the OM control program
             if self.read_regs(0x0404, 2, reverse=False, connect=False).int != -28297:
+                logging.getLogger(__name__).error("Controller not programmed")
                 raise IOError("Controller not programmed")
+        except ModbusException as s:
+            if error:
+                raise s
         except IOError as s:
-            logging.getLogger(__name__).error(s)
             if error:
                 raise s
 

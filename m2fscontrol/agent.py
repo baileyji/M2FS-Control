@@ -1,6 +1,6 @@
 import time, argparse, signal, atexit, sys, select, errno
 import socket
-import logging, logging.handlers
+import logging, logging.handlers, logging.config
 from command import Command
 from selectedconnection import SelectedSocket, WriteError
 import selectedconnection
@@ -150,20 +150,24 @@ class Agent(object):
         Set logging level to DEBUG, set message format, log to stdout
         Set self.logger to logger of self.name
         """
-        #Configure the root logger
-        self.logger=logging.getLogger()
-        if self.logger.handlers==[]:
-            # create console handler
-            ch = logging.StreamHandler()
-            ch.setFormatter(logging.Formatter('%(name)s:%(levelname)s: %(message)s'))
-            ch.setLevel(level)
-            # add handlers to logger
-            self.logger.addHandler(ch)
-        #Set the default logging level
-        self.logger.setLevel(level)
-        #Get a logger for the agent
-        self.logger=logging.getLogger(self.name)
-    
+        if isinstance(level, dict):
+            logging.config.dictConfig(level)
+            self.logger = logging.getLogger(self.name)
+        else:
+            #Configure the root logger if necessary
+            rootlogger=logging.getLogger()
+            if rootlogger.handlers==[]:
+                # create console handler
+                ch = logging.StreamHandler()
+                ch.setFormatter(logging.Formatter('%(name)s:%(levelname)s: %(message)s'))
+                ch.setLevel(level)
+                # add handlers to logger
+                rootlogger.addHandler(ch)
+                rootlogger.setLevel(level)
+            #Get a logger for the agent and set logging levels
+            self.logger = logging.getLogger(self.name)
+            self.logger.setLevel(level)
+
     def initialize_cli_parser(self):
         """
         Configure the command line interface
@@ -509,7 +513,7 @@ class Agent(object):
                     reply+=item.replace(' ','_')+' '
             except Exception as e:
                 self.logger.warning('Caught exception while processing status key,'
-                ' check get_status_list for bugs')
+                                    ' check get_status_list for bugs')
         command.setReply(reply+'\n') # incase reply is empty, shouldn't be
 
     def get_status_list(self):

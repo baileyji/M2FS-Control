@@ -1,0 +1,56 @@
+version: 1
+disable_existing_loggers: False
+formatters:
+  simple:
+    format: '%(name)s:%(levelname)s: %(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: simple
+    stream: ext://sys.stdout
+i
+root:
+  level: INFO
+  handlers: [console]
+
+#Keys under loggers should be agent names
+# agent name values may either be a log level string or
+# a dict with keys corresponding to log names, one of which must be
+# the agent name. The values of these keys may be a log level string
+# or a logger config dict per the python docs. E.g
+#  key:
+#    level: ERROR
+#    handlers: [console]
+#    propagate: no
+loggers:
+  Director: info
+  GalilAgentR: info
+  GalilAgentB: info
+  ShoeAgentR: info
+  ShoeAgentB: info
+  ShackHartmanAgent: info
+  DataloggerAgent: info
+  ProjectorAgent: info
+  PluggingAgent: info
+  PlugController: info
+  SlitController: info
+  GuiderAgent: info
+  MCalAgent: info
+  M2FSShutdownButton: info
+  #IFU-M Agents
+  OcculterAgentH:
+    OcculterAgentH: debug
+    m2fscontrol.selectedconnection: info
+  OcculterAgentS:
+    OcculterAgentS: debug
+    m2fscontrol.selectedconnection: info
+  OcculterAgentL:
+    OcculterAgentL: debug
+    m2fscontrol.selectedconnection: info
+  SelectorAgent:
+    SelectorAgent: debug
+    pymodbus: debug
+  IFUShoeAgent: debug
+  IFUShieldAgent: debug

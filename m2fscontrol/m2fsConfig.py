@@ -1,6 +1,7 @@
 import ConfigParser
 import os
 import time
+import yaml
 from pkg_resources import resource_filename
 
 N_IFU_TEMPS = 4
@@ -354,24 +355,31 @@ class M2FSConfig(object):
             return 'R' if os.path.exists('/dev/shoeRincradleB') else 'B'
 
     @staticmethod
-    def getAgentLogLevel(name):
+    def getAgentLogConfig(name):
         """ Get the configured logging level for agent """
-        config = M2FSConfig.load_conf('m2fs_logging.conf')
+        path = os.path.join(M2FSConfig.getConfDir(), 'm2fs_logging.yml')
+        if os.path.exists(path):
+            with open(path, 'rt') as f:
+                config = yaml.safe_load(f.read())
 
-        def str2loglevel(lls):
-            import logging
-            s=lls.lower()
-            if s == 'info':
-                return logging.INFO
-            elif s== 'debug':
-                return logging.DEBUG
-            elif s=='error':
-                return logging.ERROR
-            elif s=='warning':
-                return logging.WARNING
+        # postprocess loggers
+        # loggers - the corresponding value will be a dict in which each key is a logger name
+        # and each value is a dict describing how to configure the corresponding Logger instance.        #
+        # The configuring dict is searched for the following keys:
+        #     level (optional). The level of the logger.
+        #     propagate (optional). The propagation setting of the logger.
+        #     filters (optional). A list of ids of the filters for this logger.
+        #     handlers (optional). A list of ids of the handlers for this logger.
+        cfg = config['loggers'][name]  #extract one we care about
+        if isinstance(cfg, str):
+            config['loggers'] = {name: {'level': cfg.upper()}}  #TODO should we also use this level for root
             else:
-                return logging.INFO
-        return str2loglevel(config.get('LogLevels',name))
+            loggers = {}
+            for k, v in cfg.items():
+                loggers[k] = {'level': v.upper()} if isinstance(v, str) else v
+            config['loggers'] = loggers
+
+        return config
 
     @staticmethod
     def getIPinfo():

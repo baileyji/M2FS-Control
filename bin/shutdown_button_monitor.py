@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.7
 import time, os
 from serial import Serial, SerialException
+import logging.config
 import logging
 from m2fscontrol.m2fsConfig import M2FSConfig
 
@@ -8,8 +9,7 @@ serial = Serial()
 serial.baudrate = 115200
 serial.port = '/dev/m2fs_shutdownButton'
 if __name__ == '__main__':
-    logging.basicConfig(level=M2FSConfig.getAgentLogLevel('M2FSShutdownButton'),
-                        format='%(name)s:%(levelname)s: %(message)s')
+    logging.config.dictConfig(M2FSConfig.getAgentLogConfig('M2FSShutdownButton'))
     log = logging.getLogger('M2FSShutdownButton')
     while True:
         try:

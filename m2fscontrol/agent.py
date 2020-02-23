@@ -1,4 +1,4 @@
-import time, argparse, signal, atexit, sys, select
+import time, argparse, signal, atexit, sys, select, errno
 import socket
 import logging, logging.handlers
 from command import Command
@@ -567,11 +567,10 @@ class Agent(object):
         # select on them
         locks=self.update_select_maps(read_map, write_map, error_map)
         try:
-            readers, writers, errors = select.select(
-                read_map.keys(), write_map.keys(),
-                error_map.keys(), SELECT_TIMEOUT)
-        except select.error, err:
-            if err[0] != EINTR:
+            readers, writers, errors = select.select(read_map.keys(), write_map.keys(), error_map.keys(),
+                                                     SELECT_TIMEOUT)
+        except select.error as err:
+            if err[0] != errno.EINTR:
                 for lock in locks:
                     lock.release()
                 raise

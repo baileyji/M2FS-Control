@@ -740,7 +740,9 @@ class Agent(object):
         command_name=self.getCommandName(command)
         return next((True for thread in threading.enumerate() if thread.name==command_name), False)
 
-    def startWorkerThread(self, command, initialState, func, args=(), kwargs={}, block=()):
+    def startWorkerThread(self, command, initialState, func, args=(), kwargs=None, block=()):
+        if kwargs is None:
+            kwargs={}
         command_name=self.getCommandName(command)
         #Set the initial state of the command
         self.set_command_state(command_name, initialState)

@@ -141,8 +141,7 @@ class Agent(object):
         #Register a terminate signal handler
         signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(0))
         signal.signal(signal.SIGINT, lambda signum, stack_frame: exit(0))
-        self.logger.info("----%s Startup Complete @ %s-----" %
-                         (self.name, self.cookie) )
+        self.logger.info("----%s Startup Complete @ %s-----" % (self.name, self.cookie) )
     
     def initialize_logger(self, level):
         """
@@ -174,18 +173,12 @@ class Agent(object):
         """
         #Create a command parser with the default agent commands
         helpdesc=self.get_cli_help_string()
-        cli_parser = argparse.ArgumentParser(
-                    description=helpdesc,
-                    add_help=True)
-        cli_parser.add_argument('--version',
-                                action='version',
-                                version=self.get_version_string())
-        cli_parser.add_argument('-p','--port', dest='PORT',
-                                action='store', required=False, type=int,
+        cli_parser = argparse.ArgumentParser( description=helpdesc, add_help=True)
+        cli_parser.add_argument('--version', action='version', version=self.get_version_string())
+        cli_parser.add_argument('-p','--port', dest='PORT', action='store', required=False, type=int,
                                 help='the port on which to listen')
         cli_parser.add_argument('--log', dest='LOG_LEVEL',
-                                action='store', required=False, default='',
-                                type=str,
+                                action='store', required=False, default='', type=str,
                                 help='log level: INFO, DEBUG, ERROR')
         self.cli_parser=cli_parser
         self.add_additional_cli_arguments()
@@ -218,20 +211,15 @@ class Agent(object):
         If unable to initialize the socket call handle_server_error
         """
         try:
-            self.server_socket = socket.socket(socket.AF_INET,
-                                               socket.SOCK_STREAM)
-            self.server_socket.setblocking(0)
-            self.server_socket.setsockopt(socket.SOL_SOCKET,
-                                          socket.SO_REUSEADDR, 1)
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.setblocking(False)
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.server_socket.bind(self.listenOn())
             self.server_socket.listen(1)
-            self.logger.info("Waiting for connection on %s:%s..." %
-                             self.listenOn())
-        except socket.error, e:
+            self.logger.info("Waiting for connection on %s:%s..." % self.listenOn())
+        except socket.error as e:
             if tries > 0:
-                self.logger.error(
-                    'Server socket error %s, retrying %s more times.' %
-                    (set(e),tries))
+                self.logger.error('Server socket error %s, retrying %s more times.' % (str(e),tries))
                 time.sleep(SERVER_RETRY_TIME)
                 self.initialize_socket_server(tries=tries-1)
             else:
@@ -246,7 +234,7 @@ class Agent(object):
         
         For most agents overriding this function is unnecessary.
         """
-        return ('localhost', self.PORT)
+        return 'localhost', self.PORT
     
     def socket_message_received_callback(self, source, message_str):
         """
@@ -268,8 +256,7 @@ class Agent(object):
         """
         #create a command object
         command=Command(source, message_str)
-        #Verify there are no existing commands from this source, if so fail and
-        # return
+        #Verify there are no existing commands from this source, if so fail and return
         existing_from_source=filter(lambda x: x.source==source, self.commands)
         if self.getCommandName(command)=='FLUSH' and existing_from_source:
             warning="Flushing command '%s'."
@@ -341,7 +328,7 @@ class Agent(object):
         if M2FSConfig.doStowedShutdown():
             self._stowShutdown()
         self.logger.info("----%s exiting: %s-----" % (self.name, str(arg)))
-        if self.server_socket!=None:
+        if self.server_socket is not None:
             try:
                 self.server_socket.shutdown(socket.SHUT_WR)
             except socket.error:
@@ -372,8 +359,8 @@ class Agent(object):
         #Close the connection and return if we've got too many
         if n_in >= self.max_clients:
             connection.close()
-            self.logger.info('Rejecting connection from %s:%s, have %s already.'
-                              % (addr[0], addr[1], self.max_clients))
+            self.logger.info('Rejecting connection from %s:%s, have %s already.' %
+                             (addr[0], addr[1], self.max_clients))
             return
         #Configure the connection and add it to connections
         connection.setblocking(0)
@@ -514,15 +501,14 @@ class Agent(object):
         reply=''
         for i in list:
             try:
-                if type(i)==str:
+                if isinstance(i, str):
                     reply+='\r'+i
                 else:
                     item="%s:%s" % (i[0].replace(':','_'), i[1].replace(':','_'))
                     item=item.encode('string_escape') #escape non-printable
                     reply+=item.replace(' ','_')+' '
-            except Exception, e:
-                self.logger.warning(
-                'Caught exception while processing status key,'+
+            except Exception as e:
+                self.logger.warning('Caught exception while processing status key,'
                 ' check get_status_list for bugs')
         command.setReply(reply+'\n') # incase reply is empty, shouldn't be
 
@@ -560,12 +546,13 @@ class Agent(object):
         Call the appropriate handlers for each of the objects returned by select 
         """
         read_map, write_map, error_map = {}, {}, {}
-
+        readers, writers, errors = [], [], []
         #We can select on connections, but we should make sure that we lock all
         # the connections we are going to use. To keep the main loop moving we
         # don't want to block on any that are locked, rather we just don't
         # select on them
         locks=self.update_select_maps(read_map, write_map, error_map)
+        select_start = time.time()
         try:
             readers, writers, errors = select.select(read_map.keys(), write_map.keys(), error_map.keys(),
                                                      SELECT_TIMEOUT)
@@ -574,14 +561,17 @@ class Agent(object):
                 for lock in locks:
                     lock.release()
                 raise
-        #select_end = time.time()
-        #self.logger.debug("select used %.3f s" % (select_end-select_start))
-        for reader in readers: read_map[reader]()
-        for writer in writers: write_map[writer]()
-        for error  in errors:  error_map[error]()
+        select_end = time.time()
+        self.logger.debug("select used %.3f s" % (select_end-select_start))
+        for reader in readers:
+            read_map[reader]()
+        for writer in writers:
+            write_map[writer]()
+        for error in errors:
+            error_map[error]()
         for lock in locks:
             lock.release()
-        #self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
+        self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
     
     def run(self):
         """

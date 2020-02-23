@@ -7,14 +7,14 @@ from pkg_resources import resource_filename
 N_IFU_TEMPS = 4
 
 def ifuProbeTempsToDict(ifuProbeTempsList):
-    ret={'ifuentrance': None, 'fiberexit': None, 'ifutop': None, 'hoffman':None }
+    ret={'ifuentrance': None, 'ifufiberexit': None, 'ifutop': None, 'ifuhoffman':None }
     if ifuProbeTempsList is not None:
         if len(ifuProbeTempsList) != N_IFU_TEMPS:
             raise ValueError('Incorrect number of probe temperatures')
         ret['ifuentrance'] = ifuProbeTempsList[0]
         ret['ifutop'] = ifuProbeTempsList[1]
-        ret['fiberexit'] = ifuProbeTempsList[2]
-        ret['hoffman'] = ifuProbeTempsList[3]
+        ret['ifufiberexit'] = ifuProbeTempsList[2]
+        ret['ifuhoffman'] = ifuProbeTempsList[3]
     return ret
 
 def getOcculterConfFile(ifu):
@@ -373,7 +373,7 @@ class M2FSConfig(object):
         cfg = config['loggers'][name]  #extract one we care about
         if isinstance(cfg, str):
             config['loggers'] = {name: {'level': cfg.upper()}}  #TODO should we also use this level for root
-            else:
+        else:
             loggers = {}
             for k, v in cfg.items():
                 loggers[k] = {'level': v.upper()} if isinstance(v, str) else v

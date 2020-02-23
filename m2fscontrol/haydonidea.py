@@ -351,7 +351,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                 timeout -= .2
             state = self.state()
             if not state.calibrated:
-                raise RuntimeError('ERROR: Calibration Failed ({})'.format(self.state().faultString))
+                raise RuntimeError('ERROR: Calibration Failed ({})'.format(state.faultString))
 
     # def config_encoder(self):
     #     DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res

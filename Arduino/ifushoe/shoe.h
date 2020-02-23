@@ -50,7 +50,7 @@ class ShoeDrive {
     shoepos_t getCommandedPosition(); //from servo
     
     void tellCurrentSlit();
-    uint8_t getCurrentSlit(); //0-6 or -1 
+    uint8_t getCurrentSlit(); //0-5 or 0xFF = INTERMEDIATE, 0xFE = MOVING
     
     void tellSlitPosition(uint8_t slit);
     uint16_t getSlitPosition(uint8_t slit);
@@ -59,7 +59,6 @@ class ShoeDrive {
     bool pipeMoving();  //indicates literal movement
     bool heightMoving(); //indicates literal movement
 
-    
     void defineSlitPosition(uint8_t slit, uint16_t pos);
     void defineSlitPosition(uint8_t slit);
     
@@ -72,7 +71,9 @@ class ShoeDrive {
 
     void getEEPROMInfo(shoecfg_t &data);
     void restoreEEPROMInfo(shoecfg_t data);
-    
+
+    bool idle();  //return true when in position and nothing will move when run is called
+    void motorsOff();  //turn motors off, NO OP unless relays are added 
     void run(); //1ms when idle
 
     uint16_t errors;

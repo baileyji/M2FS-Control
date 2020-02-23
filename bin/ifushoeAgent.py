@@ -15,22 +15,21 @@ MAX_SLIT_MOVE_TIME=25
 
 #todo write files with shoe inserted color based on presence of temp sensors?
 
-# class FirmataShoe(object):
-#     def __init__(self, port):
-#         from PyMata.pymata import PyMata
-#
-#         from pyfirmata import Arduino, util
-#         board = Arduino("/dev/tty.usbmodem14101", baudrate=115200, name='IFUShoe')
-#         it = util.Iterator(board)
-#         it.start()
-#         board.analog[0].enable_reporting()
-#         board.analog[0].read()
-#         self.board = PyMata("/dev/tty.usbmodem14101",baud_rate=115200, bluetooth=False)
-#
-#         self.
+def parseTS(x):
+    #todo
+    response = {}
+    response['ShoeR']=bool(x&0b1)
+    response['ShoeB']=bool(x&0b10)
+    response['PipeB']='MOVING' # or position
+    response['PipeR']=0.43
+    response['CarriageB']='MOVING'  # or UP, DOWN, INTERMEDIATE
+    response['CarriageR']='MOVING'  # or UP, DOWN, INTERMEDIATE
+    response['SwitchB']='PRESSED'  # or 'UNPRESSED'
+    response['SwitchR']='PRESSED'  # or 'UNPRESSED'
+    return
 
 
-class IFUShoeCommandNotAcknowledgedError(IOError):
+class ShoeCommandNotAcknowledgedError(IOError):
     """ Shoe fails to acknowledge a command, e.g. didn't respond with ':' """
     pass
 
@@ -83,12 +82,11 @@ class ShoeSerial(selectedconnection.SelectedSerial):
         #TODO look up datasheet for Actuonix controller /call about sudden disconnect
         try:
             self.connection.write('DS\n')
-            time.sleep(SHOE_SHUTDOWN_TIME) #just in case the shoe resets on close,
-            #gives time to write to EEPROM
             self.connection.flushOutput()
             self.connection.flushInput()
             self.connection.close()
-        except Exception, e:
+        except Exception:
+            self.logger.error('Error on shoe serial disconnect: ', exc_info=True)
             pass
 
 class IFUShoeAgent(Agent):
@@ -115,7 +113,7 @@ class IFUShoeAgent(Agent):
         self.max_clients = 2
         self.command_handlers.update({
             #Send the command string directly to the shoe
-            'SLITSRAW':self.RAW_command_handler,
+            'SLITSRAW': self.RAW_command_handler,
             #Get/Set the active slit.
             'SLITS': self.SLITS_command_handler,
             #Get/Set the step position corresponding to a slit on a tetris
@@ -148,15 +146,9 @@ class IFUShoeAgent(Agent):
         Arguments should be added as:
         self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
         """
-        self.cli_parser.add_argument('--side', dest='SIDE',
-                                     action='store', required=False, type=str,
-                                     help='R or B',
-                                     default='R')
         self.cli_parser.add_argument('--device', dest='DEVICE',
-                                     action='store', required=False, type=str,
-                                     help='the device to control')
-        self.cli_parser.add_argument('command',nargs='*',
-                                help='Agent command to execute')
+                                     action='store', required=False, type=str, help='the device to control')
+        self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')
     
     def get_version_string(self):
         """ Return a string with the version."""
@@ -189,13 +181,12 @@ class IFUShoeAgent(Agent):
         response=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
         # 3 cases:, :, ?, or stuff followed by \r\n:
         #case 1, command succeeds but returns nothing, return
-        if response ==':':
+        if response == ':':
             return ''
         #command fails
-        elif response =='?':
-            raise ShoeCommandNotAcknowledgedError(
-                "ERROR: Shoe did not acknowledge command '%s' (%s)" %
-                (command_string, response) )
+        elif response == '?':
+            raise ShoeCommandNotAcknowledgedError("ERROR: Shoe did not acknowledge command '%s' (%s)" %
+                                                  (command_string, response))
         #command is returning something
         else:
             #do a blocking receive on \n
@@ -208,8 +199,7 @@ class IFUShoeAgent(Agent):
                 #Consider it a failure, but log it. Add the byte to the
                 # response for logging
                 response+=confByte
-                err=("Shoe did not adhere to protocol. '%s' got '%s'" %
-                    (command_string, response))
+                err=("Shoe did not adhere to protocol. '%s' got '%s'" % (command_string, response))
                 self.logger.warning(err)
                 raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
     
@@ -232,34 +222,26 @@ class IFUShoeAgent(Agent):
         Byte 4) [tetris7moving]...[tetris0moving]
         NB we dont actually use the shieldIsR bit since udev is checking based
         on serial numbers
-        
-        As of the comissioning run, the boards are swapped
-        and tetrisShieldIsR() returns true for the B shoe and false for the R shoe
-        -JB 8/22/13
-        
+        #TODO
         """
         #Name & cookie
-        status_list=[(self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT,
-                      self.cookie)]
-        cradleState='Shoe' + M2FSConfig.getShoeColorInCradle(self.args.SIDE)
+        status = {self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT: self.cookie}
         try:
-            response=self._send_command_to_shoe('TS').split(' ')
-            try:
-                shieldIsOn=int(response[0]) & 0x01 == 1
-                tetriOnStr=byte2bitNumberString(int(response[1]))
-                tetriCalibStr=byte2bitNumberString(int(response[2]))
-                tetriMovingStr=byte2bitNumberString(int(response[3]))
-                status_list.extend([
-                    ('Drivers','On' if shieldIsOn else 'Off'),
-                    ('On',tetriOnStr if tetriOnStr else 'None'),
-                    ('Moving',tetriMovingStr if tetriMovingStr else 'None'),
-                    ('Calibrated',tetriCalibStr if tetriCalibStr else 'None')])
-            except Exception:
-                cradleState+=' not responding properly to status request'
-        except IOError, e:
-            cradleState='Disconnected'
-        status_list.insert(2, ('Cradle'+self.args.SIDE, cradleState))
-        return status_list
+            status['Controller'] = 'Online'
+            response = parseTS(self._send_command_to_shoe('TS').split(' '))
+            status['ShoeR'] = 'Connected' if response['ShoeR'] else 'Disconnected'
+            status['ShoeB'] = 'Connected' if response['ShoeB'] else 'Disconnected'
+            status['PipeB'] = response['PipeB']
+            status['PipeR'] = response['PipeR']
+            status['CarriageB'] = response['CarriageB']
+            status['CarriageR'] = response['CarriageR']
+            status['SwitchB'] = response['SwitchB']
+            status['SwitchR'] = response['SwitchR']
+        except ValueError:
+            status['Controller'] = 'ERROR: Bad Data'
+        except IOError:
+            status['Controller'] = 'Disconnected'
+        return status.items()
     
     def RAW_command_handler(self, command):
         """ 
@@ -283,59 +265,14 @@ class IFUShoeAgent(Agent):
         """
         Perform a stowed shutdown
         """
-        pass
-#        if 'shoe' not in self.connections: return
+        if 'shoe' not in self.connections:
+            return
 #        
-#        failmsg="Stowed shutdown of {} failed: {}"
-#        #wait here until the show connection is free. Any threads running
-#        #will then stall if they need the shoe, program will be unresponsive
-#        # to socket interface
-#        self.connections['shoe'].rlock.acquire(blocking=True)
-#        
-#        #drive to hardstop and then 180
-#        resp=self._do_online_only_command('ST*')
-#        if resp !='OK': self.logger.error(resp)
-#
-#        status=self._do_online_only_command('TS')
-#        if status.startswith('ERROR:'):
-#            self.logger.error(failmsg.format(self.name, status))
-#            return
-#        
-#        #determine which tetri are uncalibrated
-#        uncalByte=status.split(' ')[2]
-#        if uncalByte!='0':
-#            calibrated=map(lambda x: int(x)-1,
-#                             byte2bitNumberString(int(uncalByte)).split(' '))
-#            uncalibrated=[x for x in range(0,8) if x not in calibrated]
-#        else:
-#            uncalibrated=range(0,8)
-#        
-#        #Move calibrated and calibrate uncalibrated
-#        for i in range(0,8):
-#            if i in uncalibrated:
-#                resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
-#            else:
-#                cmd='SL'+'ABCDEFGH'[i]+'2'
-#                resp=self._do_online_only_command(cmd)
-#            if resp !='OK':
-#                self.logger.error(failmsg.format(self.name, resp))
-#                return
-#        
-#        #wait
-#        time.sleep(MAX_SLIT_MOVE_TIME)
-#
-#        #wait some more
-#        if len(uncalibrated) > 0:
-#            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
-#
-#        #move any that started out uncalibrated
-#        for i in uncalibrated:
-#            cmd='SL'+'ABCDEFGH'[i]+'2'
-#            resp=self._do_online_only_command(cmd)
-#            if resp !='OK':
-#                self.logger.error(failmsg.format(self.name, resp))
-#                return
-
+#       failmsg="Stowed shutdown of {} failed: {}"
+        #wait here until the show connection is free. Any threads running
+        #will then stall if they need the shoe, program will be unresponsive
+        # to socket interface
+        # self.connections['shoe'].rlock.acquire(blocking=True)
 
     def TEMP_command_handler(self, command):
         """
@@ -345,49 +282,40 @@ class IFUShoeAgent(Agent):
         """
         if self.connections['shoe'].rlock.acquire(False):
             try:
-                response=self._send_command_to_shoe('TE')
+                response = self._send_command_to_shoe('TE')
             except IOError, e:
-                response='UNKNOWN'
+                response = 'UNKNOWN UNKNOWN UNKNOWN'
             finally:
                 self.connections['shoe'].rlock.release()
         else:
-            response='ERROR: Busy, try again'
+            response = 'ERROR: Busy, try again'
         command.setReply(response)
     
     def SLITS_command_handler(self, command):
         """
-        Get/Set the active slit on all 8 tetri.
+        Get/Set the active slit
         
         Command is of the form
-        SLITS {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} {1-7} 
+        SLITS R|B {1-6}
         or 
-        SLITS ?
+        SLITS R|B ?
         
-        If setting, the command instructs the shoe to move each tetris to the 
-        requested slit position, openloop, using the defined step position for
-        that slit. It is an error to set the slits when they are uncalibrated 
-        or a move is in progress. If done the error '!ERROR: Can not set slits at
-        this time. will be generated.'
+        If setting, the command instructs the shoe to move to the
+        requested slit position, using the defined step positions for
+        that slit. It is an error to set the slits when a move is in progress.
+        If done the error '!ERROR: Can not set slits at this time. will be generated.'
         
-        If getting, respond in the from TETRIS0, ..., TETRIS7
-        where TETRISi is one of UNKNOWN INTERMEDIATE MOVING or {1-7}, 7
-        representing the closed position.
+        If getting, respond in the form INTERMEDIATE|MOVING|{1-6}.
         """
         if '?' in command.string:
-            #Command the shoe to report the active slit for all 8 tetri
-            command.setReply(self._do_online_only_command('SG*'))
+            #Command the shoe to report the active slit
+            command.setReply(self._do_online_only_command('SGR' if 'r' in command.string.lower() else 'SGB'))
         else:
             #Vet the command
-            command_parts=command.string.replace(',',' ').split(' ')
-            if not (len(command_parts)==9 and
-                len(command_parts[1])==1 and command_parts[1] in '1234567' and
-                len(command_parts[2])==1 and command_parts[2] in '1234567' and
-                len(command_parts[3])==1 and command_parts[3] in '1234567' and
-                len(command_parts[4])==1 and command_parts[4] in '1234567' and
-                len(command_parts[5])==1 and command_parts[5] in '1234567' and
-                len(command_parts[6])==1 and command_parts[6] in '1234567' and
-                len(command_parts[7])==1 and command_parts[7] in '1234567' and
-                len(command_parts[8])==1 and command_parts[8] in '1234567'):
+            command_parts=command.string.replace(',', ' ').split(' ')
+            if not (len(command_parts)==3 and
+                    command_parts[1].upper() in ('R', 'B') and
+                    len(command_parts[2])==1 and command_parts[2] in '123456'):
                 self.bad_command_handler(command)
             #First check to make sure the command is allowed (all are
             # calibrated and none are moving
@@ -404,10 +332,8 @@ class IFUShoeAgent(Agent):
                 return
             command.setReply('OK')
             slits=''.join(command_parts[1:9])
-            self.startWorkerThread(command, 'MOVING', self.slit_mover,
-                args=(slits, status),
-                block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS',
-                       'SLITS_HARDSTOP'))
+            self.startWorkerThread(command, 'MOVING', self.slit_mover, args=(slits, status),
+                                   block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS'))
     
     def slit_mover(self, slits, status):
         """
@@ -606,5 +532,5 @@ class IFUShoeAgent(Agent):
         
 
 if __name__=='__main__':
-    agent=ShoeAgent()
+    agent=IFUShoeAgent()
     agent.main()

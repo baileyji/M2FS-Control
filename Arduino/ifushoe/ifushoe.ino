@@ -60,6 +60,8 @@ uint8_t stress_slit=0;
 //Power state management
 bool locking_screw_disengaged=false; //Boot assuming locking nut is disengaged
 bool shoeOnline=true; //Always boot in offline mode
+const bool leave_shoe_on_when_idle=true; //This does nothing without relays between the LACs and the shoes
+
 
 //The Shoes
 #define SHOE_R 0
@@ -76,6 +78,7 @@ char command_buffer[81];
 unsigned char command_buffer_ndx=0;
 unsigned char command_length=0;
 bool have_command_to_parse=false;
+
 
 //Temp monitoring
 #define N_TEMP_SENSORS 2
@@ -103,15 +106,26 @@ void print1WireAddress(DeviceAddress deviceAddress) {
 
 #pragma mark Commands
 
+enum Shoe {RED_SHOE=SHOE_R, BLUE_SHOE=SHOE_B, NO_SHOE};
+
+typedef struct {
+    Shoe shoe;
+    int8_t ndx;
+    unsigned char arg_len;
+    char arg_buffer[];
+} Instruction;
+
+Instruction instruction;
+
 //Commands
 typedef struct {
     String name;
     bool (*callback)();
     const bool allowOffline;
+    const bool shoeSpecific;
 } Command;
 
 
-bool CScommand();
 bool CYcommand();
 bool PCcommand();
 bool PVcommand();
@@ -125,40 +139,36 @@ bool TEcommand();
 bool TScommand();
 bool ZBcommand();
 bool MVcommand();
-bool DScommand();
 
 const Command commands[N_COMMANDS]={
-    //Connect Shoe restore slit positions and eanble all commands
-    {"CS", CScommand, true},
-    {"DS", DScommand, true},
     
     //Cycle tetris A N times from stressBottomP to stressTopP
-    {"CY", CYcommand, false},
+    {"CY", CYcommand, false, true},
 
     //Print Commands
-    {"PC", PCcommand, true},
+    {"PC", PCcommand, true, false},
     //Print version String
-    {"PV", PVcommand, true},
+    {"PV", PVcommand, true, false},
     //Slit Defined Position, get the defined position of slit
-    {"SD", SDcommand, true},
+    {"SD", SDcommand, true, true},
     //Slit Get. Get the current slit for shoe R|B 1-6,UNKNOWN,INTERMEDIATE,MOVING
-    {"SG", SGcommand, false},
+    {"SG", SGcommand, false, true},
     //Slit, move to position of slit
-    {"SL", SLcommand, false},
+    {"SL", SLcommand, false, true},
     //Slit Set, define position of slit
-    {"SS", SScommand, true},
+    {"SS", SScommand, true, true},
     //Stop moving
-    {"ST", STcommand, false},
+    {"ST", STcommand, false, true},
     //Tell Step Position (# UKNOWN MOVING)
-    {"TD", TDcommand, false},
+    {"TD", TDcommand, false, true},
     //Report temperature
-    {"TE", TEcommand, true},
+    {"TE", TEcommand, true, false},
     //Tell Status (e.g. moving vreg, etc)
-    {"TS", TScommand, true},
+    {"TS", TScommand, true, false},
     //Zero the boot count
-    {"ZB",ZBcommand, true},
+    {"ZB",ZBcommand, true, false},
     //Directly move an axis on a given shoe 
-    {"MV", MVcommand, true}
+    {"MV", MVcommand, true, true}
 };
 
 #pragma mark Serial Event Handler
@@ -252,8 +262,6 @@ uint8_t bootCount(bool set) {
 //Main loop, runs forever at full steam ahead
 void loop() {
 
-//    monitorLockingNutState();
-
     //In general the controller will probably boot before the shoes are connected
     for (int i=0;i<N_TEMP_SENSORS;i++) if (!temps[i].present) initTempSensors();
     monitorTemperature();
@@ -264,27 +272,36 @@ void loop() {
             printCommandBufNfo();
         #endif
 
-        //Find command in commands
-        int8_t ndx=getCallbackNdxForCommand();
-        
         //If not a command respond error
-        if (ndx == -1 ) Serial.write("?\n");
-        else {
-            //Ensure stresscycles=0 if command is not CY
-            if (commands[ndx].name == "CY") stresscycles=0;
-            
+        if (!parseCommand()) {
+            Serial.write("?\n");
+        } else {
+
+            Command *cmd=commands[instruction.ndx];
+
             #ifdef DEBUG_COMMAND
-                cout<<"Shoe is "<<(shoeOnline ? "ON":"OFF")<<endl;
-                cout<<"Command is ";Serial.println(commands[ndx].name);
+                cout<<"ShoeR "<<(shoeOnlineR ? "ON":"OFF")<<endl;
+                cout<<"ShoeB "<<(shoeOnlineB ? "ON":"OFF")<<endl;
+                cout<<"Command is ";Serial.println(cmd->name);
             #endif
             
-            //Execute the command or respond shoe is offline
-            if (!shoeOnline && !commands[ndx].allowOffline) cout<<F("Powered Down\n:");
-            else {
+            //Ensure stresscycles=0 if command is CY
+            if (cmd->name == "CY") 
+              stresscycles=0;
+            
+            if (shoesWiresCrossed()) {
+                cout<<F("Wires Crossed\n:");
+            } else if (instruction.shoe==NO_SHOE && cmd->shoeRequired){
+                Serial.write("?");
+            } else if (instruction.shoe==RED_SHOE && !cmd->allowOffline && !shoeRconnected()) {
+                cout<<F("Shoe R Disconnected\n:");
+            } else if (instruction.shoe==BLUE_SHOE && !cmd->allowOffline && !shoeBconnected()) {
+                cout<<F("Shoe B Disconnected\n:");
+            } else {
+                //Execute the command 
                 bool commandGood;
-                commandGood=commands[ndx].callback();
-                if (commandGood) Serial.write(":");
-                else Serial.write("?");
+                commandGood=cmd->callback();
+                Serial.write(commandGood ? ":" : "?");
             }
         }
         //Reset the command buffer and the command received flag
@@ -292,7 +309,8 @@ void loop() {
         command_buffer_ndx=0;
     }
   
-    if (shoeOnline) shoeOnlineMain(); 
+    if (shoeRconnected()) shoeOnlineMainR();
+    if (shoeBconnected()) shoeOnlineMainB(); 
 
 }
 
@@ -308,23 +326,68 @@ void printCommandBufNfo(){
 #endif
 
 
+bool shoeRconnected() {
+  return digitalRead(SHOE_SENSE_R_PIN);
+}
+
+bool shoeBconnected() {
+  return!digitalRead(SHOE_SENSE_B_PIN);
+}
+
+bool shoesWiresCrossed() {
+  //Shoe R ties SHOESENSE to HIGH, Shoe B ties SHOESENSE to LOW
+  //SHOE_SENSE_R_PIN is pulled down
+  //SHOE_SENSE_B_PIN is pulled up
+  bool shoeB=temps[SHOE_B_TEMP].present;
+  bool shoeR=temps[SHOE_R_TEMP].present;
+  bool shoeBwireB = !digitalRead(SHOE_SENSE_B_PIN);
+  bool shoeRwireR = digitalRead(SHOE_SENSE_R_PIN);
+  bool shoeRwireB = !shoeRwireR && shoeR;
+  bool shoeBwireR = !shoeBwireB && shoeB;
+  return shoeRwireB || shoeBwireR;
+}
+
+
 //Search through command names for a name that matches the first two
-// characters received return the index of that command.
-// Return -1 if not found or fewer than two characters received. 
-int8_t getCallbackNdxForCommand() {
+// characters received. Attempt to pull out the shoe specifier and comput argument 
+// lengths and buffer offsets. Load everything into the instruction. Return false
+// if no command was matched or fewer than two characters received. 
+bool parseCommand() {
     //Extract the command from the command_buffer
     String name;
+    uint8_t consumed=0;
+    instruction.cmd_ndx=-1;
     if(command_length >= 2) {
         name+=command_buffer[0];
         name+=command_buffer[1];
-        for (uint8_t i=0; i<N_COMMANDS;i++) if (commands[i].name==name) return i;
+        for (uint8_t i=0; i<N_COMMANDS;i++) {
+          if (commands[i].name==name) {
+            instruction.ndx=i;
+            consumed=2;
+            break;
+          }
+        }
     }
-    return -1;
+    instruction.shoe=NO_SHOE;
+    if(command_length >=3){
+      if (command_length[2]=='R' || command_length[2]=='r')
+        instruction.shoe=RED_SHOE;
+      else if (command_length[2]=='B' || command_length[2]=='B')
+        instruction.shoe=BLUE_SHOE;
+    }
+    consumed+=(uint8_t)(instruction.shoe!=NO_SHOE);
+
+    instruction.arg_len=command_length-consumed;
+    instruction.arg_buffer=command_buffer+consumed;
+    
+    return instruction.ndx!=-1;
 }
 
+
 //Convert a character to a slit number. '1' becomes 0, '2' 1, ...
-inline uint8_t convertCharToSlit(char c) {
-    return c-'0'-1; //(-1 as slit is specified 1-7)
+inline uint8_t charToSlit(char c) { 
+    // anything >5 indicates an illegal slit
+    return c-'0'-1; //(-1 as slit is specified 1-6)
 }
 
 //Request and fetch the temperature regularly, ignore rollover edgecase
@@ -345,49 +408,14 @@ void monitorTemperature() {
     }
 }
 
-/* 
-Read the digital input for the locking nut,
-If the state changes to engaged, debounce the pin (routine will block for
-LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS) and update the locking nut state.
-If the state changes to disengaged, update the state immediately and put
-the shoe into offline mode by calling DScommand.
-*/
-//void monitorLockingNutState() {
-//
-//    // If the locking screw reads as disengaged...
-//    if (digitalRead(DISCONNECT_SHOE_PIN)){
-//        if (!locking_screw_disengaged) { //and this is a state change...
-//            //Enter offline mode
-//            DScommand();
-//            locking_screw_disengaged=true;
-//            #ifdef DEBUG_COMMAND
-//                cout<<"Locking screw disengaged.\n";
-//            #endif
-//        }
-//    }
-//    else { //the screw reads as engaged
-//        if (locking_screw_disengaged) { //and this is a state change...
-//            //Debounce switch
-//            uint8_t i=LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS;
-//            while (!digitalRead(DISCONNECT_SHOE_PIN) && (i-- > 1) ) delay(1);
-//            //If the locking screw is engaged power up and accept commands
-//            if (i==0) {
-//                locking_screw_disengaged=false;
-//                #ifdef DEBUG_COMMAND
-//                    cout<<"Locking screw reingaged.\n";
-//                #endif
-//            }
-//        }
-//    }
-//}
-
 
 //Tasks to execute every main loop iteration when the shoe is online 
 void shoeOnlineMain() {
     //Stress testing code
     if (stresscycles>0 && !shoes[0].moving()) {
         stresscycles--;
-        for (uint8_t i=0;i<2;i++) shoes[i].moveToSlit(stress_slit);
+        if (shoeRConnected()) shoeR.moveToSlit(stress_slit);
+        if (shoeBConnected()) shoeB.moveToSlit(stress_slit);
         stress_slit++;
         if (stress_slit==N_SLIT_POS) stress_slit=0;
     }
@@ -409,7 +437,8 @@ void shoeOnlineMain() {
         uint32_t t=micros();
     #endif
     
-    for (uint8_t i=0;i<2;i++) shoes[i].run();
+    if (shoeRConnected()) shoeR.run();
+    if (shoeBConnected()) shoeB.run();
 
     #ifdef DEBUG_RUN_TIME
         uint32_t t1=micros();
@@ -421,12 +450,13 @@ void shoeOnlineMain() {
         cout<<"Cycle "<<(stresscycles+1)/2<<" finished.\n";
         delay(100);
     }
+
     //Do we leave the motors on while idle?
-//    if (!leave_tetris_on_when_idle) {
-//        for (unsigned char i=0; i<8; i++) {
-//            if (!tetris[i].moving()) tetris[i].motorOff();
-//        }
-//    }
+    // NB this is a NO OP unless relays are added between the LAC boards and the shoes
+    if (!leave_shoe_on_when_idle) {     
+        if (shoeR.idle()) shoeR.motorsOff();
+        if (shoeB.idle()) shoeB.motorsOff();
+    }
 }
 
 uint8_t getShoeForCommand() {
@@ -445,45 +475,23 @@ bool ZBcommand(){
     return true;
 }
 
-//Connect the shoe to bring it online
-bool CScommand() {
-    //Come online if the locking nut is engaged
-    //TODO
-//    if (locking_screw_disengaged)
-//        return false;
-//    else {
-        if (!shoeOnline) {
-            shoeOnline=true;
-//            enableTetrisVreg();
-//            delay(20); //Wait a short time for the vreg to stabilize
-        }
-        return true;
-//    }
-}
 
-
-bool DScommand() {
-    //Powerdown and store positions (if online)
-    if (shoeOnline) {
-//        disableTetrisVreg();
-        saveSlitPositionsToEEPROM();
-        shoeOnline=false;
-    }
-    return true;
-}
-
-//Report the current slit for specified shoe: 1-7,UNKNOWN,INTERMEDIATE,MOVING
+//Report the current slit for specified shoe: 1-6,UNKNOWN,INTERMEDIATE,MOVING
 bool SGcommand() {
-  char shoe = getShoeForCommand();
-  if ( shoe==0xFF ) return false;
+  if ( instruction.shoe==NO_SHOE ) return false;
+
+  Shoe *shoe=&shoes[instruction.shoe];
   
-  if(shoes[shoe].moving()) cout<<F("MOVING");
+  if(shoe->moving()) 
+    cout<<F("MOVING");
   else {
-    char slit=shoes[shoe].getCurrentSlit();
-    if (slit>=0) cout<<slit+1;
-    else {
-      shoepos_t pos = shoes[shoe].getCurrentPosition();
-      cout<<F("INTERMEDIATE (")<<pos.pipe<<", "<<pos.height<<")";
+    uint8_t slit=shoe->getCurrentSlit(); //0-5 or 0xFF = INTERMEDIATE, 0xFE = MOVING
+    if (slit<6) cout<<slit+1;
+    else
+      shoepos_t pos = shoe->getCurrentPosition();
+      if (slit==0xFF) cout<<F("INTERMEDIATE (");
+      else cout<<F("MOVING (");
+      cout<<pos.pipe<<", "<<pos.height<<")";
     }
   }
   cout<<endl;
@@ -492,20 +500,21 @@ bool SGcommand() {
 
 //Report the nominial position of the specified slit
 bool SDcommand() {
-  uint8_t shoe = getShoeForCommand();
-  if ( shoe==0xFF ) return false;
+  if ( instruction.shoe==NO_SHOE ) return false;
+  Shoe *shoe=&shoes[instruction.shoe];
 
-  unsigned char slit=convertCharToSlit(command_buffer[3]);
+  unsigned char slit=charToSlit(instruction.arg_buffer[0]);
   if ( slit>N_SLIT_POS-1 ) return false;
 
-  shoes[shoe].tellSlitPosition(slit);
+  shoe->tellSlitPosition(slit);
   cout<<endl;
   return true;
 }
 
 //Report the status bytes
 bool TScommand() {
-
+//TO send for each shoe connected shoeXwireX current slit position movementdetected moveinprog temp
+//shoeboxtemp
   cout<<endl;
   for (int i=0;i<2;i++) {
     if (i==SHOE_R) cout<<"R";
@@ -549,7 +558,7 @@ bool SLcommand() {
   uint8_t shoe = getShoeForCommand();
   if ( shoe==0xFF ) return false;
 
-  uint8_t slit=convertCharToSlit(command_buffer[3]);
+  uint8_t slit=charToSlit(command_buffer[3]);
   if ( slit>N_SLIT_POS-1 ) return false;
     
   if (shoes[shoe].moving()) return false;
@@ -565,7 +574,7 @@ bool SScommand() {
   uint8_t shoe = getShoeForCommand();
   if ( shoe==0xFF ) return false;
 
-  uint8_t slit=convertCharToSlit(command_buffer[3]);
+  uint8_t slit=charToSlit(command_buffer[3]);
   if ( slit>N_SLIT_POS-1 ) return false;
 
   if (command_length >4){

@@ -125,6 +125,8 @@ class Agent(object):
         else:
             self.args.LOG_LEVEL=M2FSConfig.getAgentLogConfig(self.name)
         self.initialize_logger(self.args.LOG_LEVEL)
+        self.logger=logging.getLogger(self.name)
+        self._logger=logging.getLogger(__name__)
         if self.args.PORT:
             self.PORT=self.args.PORT
             self.initialize_socket_server(tries=5)
@@ -148,11 +150,9 @@ class Agent(object):
         Configure logging
         
         Set logging level to DEBUG, set message format, log to stdout
-        Set self.logger to logger of self.name
         """
         if isinstance(level, dict):
             logging.config.dictConfig(level)
-            self.logger = logging.getLogger(self.name)
         else:
             #Configure the root logger if necessary
             rootlogger=logging.getLogger()
@@ -165,8 +165,7 @@ class Agent(object):
                 rootlogger.addHandler(ch)
                 rootlogger.setLevel(level)
             #Get a logger for the agent and set logging levels
-            self.logger = logging.getLogger(self.name)
-            self.logger.setLevel(level)
+            logging.getLogger(self.name).setLevel(level)
 
     def initialize_cli_parser(self):
         """
@@ -266,8 +265,7 @@ class Agent(object):
             warning="Flushing command '%s'."
             warning=escapeString(warning % existing_from_source[0])
             self.logger.warning(warning)
-            reply=escapeString("!ERROR: Command '%s' flushed." %
-                               existing_from_source[0])
+            reply=escapeString("!ERROR: Command '%s' flushed." % existing_from_source[0])
             existing_from_source[0].setReply(reply)
             return
         elif existing_from_source:
@@ -512,8 +510,7 @@ class Agent(object):
                     item=item.encode('string_escape') #escape non-printable
                     reply+=item.replace(' ','_')+' '
             except Exception as e:
-                self.logger.warning('Caught exception while processing status key,'
-                                    ' check get_status_list for bugs')
+                self.logger.warning('Caught exception while processing status key, check get_status_list for bugs')
         command.setReply(reply+'\n') # incase reply is empty, shouldn't be
 
     def get_status_list(self):
@@ -566,7 +563,7 @@ class Agent(object):
                     lock.release()
                 raise
         select_end = time.time()
-        self.logger.debug("select used %.3f s" % (select_end-select_start))
+        self._logger.debug("select used %.3f s" % (select_end-select_start))
         for reader in readers:
             read_map[reader]()
         for writer in writers:
@@ -575,7 +572,7 @@ class Agent(object):
             error_map[error]()
         for lock in locks:
             lock.release()
-        self.logger.debug("select operation used %.3f s" % (time.time() - select_end))
+        self._logger.debug("select operation used %.3f s" % (time.time() - select_end))
     
     def run(self):
         """
@@ -591,7 +588,7 @@ class Agent(object):
         
         Not used at present. Override in subclass
         """
-        self.logger.critical('Command line commands not yet implemented.')
+        self.logger.critical('Command line commands not implemented.')
         sys.exit(0)
     
     def runSetup(self):
@@ -647,7 +644,7 @@ class Agent(object):
             blockingID=threading.current_thread().ident
         #Log some info
         self.logger.debug("Block %s, id= %i" % (command_or_name, blockingID))
-        self.logger.debug("Before block: "+str(self._blocked))
+        self._logger.debug("Before block: "+str(self._blocked))
         #Extract the command name to be blocked
         if isinstance(command_or_name, str):
             if command_or_name not in self.command_handlers:
@@ -660,8 +657,8 @@ class Agent(object):
         #Add the new block to the list
         blocks.append((blockingID, reason))
         self._blocked[blocked_command_name]=blocks
-        self.logger.debug("blocks added: "+str(blocks))
-        self.logger.debug("After block: "+str(self._blocked))
+        self._logger.debug("blocks added: "+str(blocks))
+        self._logger.debug("After block: "+str(self._blocked))
              
     def removeBlocksOfThread(self, threadID=None):
         """ Remove any command blocks caused by this (or a specified) thread.
@@ -671,14 +668,15 @@ class Agent(object):
         """
         if not threadID:
             threadID=threading.current_thread().ident
-        self.logger.debug("Before unblock: "+str(self._blocked))
+        self.logger.debug("Remove blocks of thread {}".format(threadID))
+        self._logger.debug("Before unblock: "+str(self._blocked))
         for k in self._blocked:  # see self.block for a description of _blocked
             # Keep blocks that aren't from this thread
             self._blocked[k] = filter(lambda block: block[0] != threadID, self._blocked[k])
         # Unblock any commands that are no longer blocked
         for k in [k for k,v in self._blocked.items() if not v]:
             self._blocked.pop(k, None)
-        self.logger.debug("After unblock: "+str(self._blocked))
+        self._logger.debug("After unblock: "+str(self._blocked))
 
     def getBlockReason(self, command):
         """ Report the blocking reason if command is blocked, None if not.
@@ -691,7 +689,7 @@ class Agent(object):
         """
         if self.commandIsQuery(command):
             return None
-        self.logger.debug("Current blocks: "+str(self._blocked))
+        self._logger.debug("Current blocks: "+str(self._blocked))
         blocks=self._blocked.get(self.getCommandName(command),[])
         if len(blocks) != 0:
             #Return the reason for the first block

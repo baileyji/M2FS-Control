@@ -331,7 +331,7 @@ bool shoeRconnected() {
 }
 
 bool shoeBconnected() {
-  return!digitalRead(SHOE_SENSE_B_PIN);
+  return !digitalRead(SHOE_SENSE_B_PIN);
 }
 
 bool shoesWiresCrossed() {

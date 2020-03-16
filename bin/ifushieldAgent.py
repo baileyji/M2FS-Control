@@ -241,13 +241,22 @@ class IFUShieldAgent(Agent):
         Respond OK or error as appropriate.
         """
         if '?' in command.string:
+            #TODO this is broken
+            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: IFUShieldAgent:INFO: Received command BENEAR ?
+            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'HV?\n', wrote 'HV?\n' to /dev/ifum_shield@115200 @ 1582324611.89
+            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '9'
+            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '.94 0.00 0.00\r\n'
+            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: ':'
+            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: IFUShieldAgent:DEBUG: 127.0.0.1:43580@22:36:51: 'BENEAR ?', complete. Reply: '0.00'
             try:
                 response = self._send_command_to_shield('HV?')
                 hvstat = response.split()
                 if len(hvstat) != len(HVLAMPS):
                     raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPS)))
                 #This is so lazy of me
-                response = {l: v for l, v in zip(HVLAMPS, hvstat)}[command.string.split()[0].lower()]
+                hvdict={l: v for l, v in zip(HVLAMPS, hvstat)}
+                lamp=command.string.split()[0].lower()
+                response = hvdict[lamp]
             except IOError as e:
                 response = str(e)
                 if not response.startswith('ERROR: '):

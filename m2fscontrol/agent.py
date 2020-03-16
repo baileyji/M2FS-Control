@@ -123,7 +123,7 @@ class Agent(object):
         elif self.args.LOG_LEVEL == 'INFO':
             self.args.LOG_LEVEL=logging.INFO
         else:
-            self.args.LOG_LEVEL=M2FSConfig.getAgentLogLevel(self.name)
+            self.args.LOG_LEVEL=M2FSConfig.getAgentLogConfig(self.name)
         self.initialize_logger(self.args.LOG_LEVEL)
         if self.args.PORT:
             self.PORT=self.args.PORT

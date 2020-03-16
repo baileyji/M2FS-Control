@@ -10,7 +10,7 @@ handlers:
     level: DEBUG
     formatter: simple
     stream: ext://sys.stdout
-i
+
 root:
   level: INFO
   handlers: [console]

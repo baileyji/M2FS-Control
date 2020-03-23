@@ -1,13 +1,15 @@
 [Unit]
-Description=Network UPS Tools - power device driver controller
-After=local-fs.target network.target systemd-udev-settle.service
-Wants=systemd-udev-settle.service
-#StopWhenUnneeded=yes
+Description=Redis commander
+After=redis-server.service
 
 [Service]
-ExecStart=/sbin/upsdrvctl start
-ExecStop=/sbin/upsdrvctl stop
-Type=forking
+ExecStart=redis-commander
+Type=simple
 Restart=always
 RestartSec=10
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes
 
+[Install]
+WantedBy=multi-user.target

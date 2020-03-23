@@ -5,9 +5,9 @@ ExecStop=/bin/kill -s TERM $MAINPID
 PIDFile=/run/redis/redis-server.pid
 TimeoutStopSec=0
 Restart=always
-User=pi
-Group=pi
-RuntimeDirectory=/M2FS-Control
+User=redis
+Group=redis
+RuntimeDirectory=/M2FS-Control/redis/
 RuntimeDirectoryMode=2755
 
 UMask=007
@@ -33,7 +33,7 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 # redis-server can write to its own config file when in cluster mode so we
 # permit writing there by default. If you are not using this feature, it is
 # recommended that you replace the following lines with "ProtectSystem=full".
-ProtectSystem=true
+ProtectSystem=full
 ReadWriteDirectories=-/etc/redis
 
 [Install]

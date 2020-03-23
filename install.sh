@@ -41,6 +41,7 @@ sudo cp -v ./etc/systemd/timesyncd.conf /etc/systemd/
 sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/
 sudo mv -v /etc/samba/smb.conf /etc/samba/smb.conf.stock
 sudo cp -v ./etc/samba/smb.conf /etc/samba/
+sudo cp -v ./redis/redis-server.service /lib/systemd/system/
 
 #cp ./etc/ntp.conf /etc/
 

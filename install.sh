@@ -41,6 +41,7 @@ sudo cp -v ./etc/systemd/timesyncd.conf /etc/systemd/
 sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/
 sudo mv -v /etc/samba/smb.conf /etc/samba/smb.conf.stock
 sudo cp -v ./etc/samba/smb.conf /etc/samba/
+sudo cp -v ./etc/redis/redis.conf /etc/redis/redis.conf
 sudo cp -v ./redis/redis-server.service /lib/systemd/system/
 
 #cp ./etc/ntp.conf /etc/
@@ -51,14 +52,12 @@ sudo udevadm trigger
 #Ensure systemd loads the new units
 sudo systemctl daemon-reload
 sudo systemctl enable m2fs_shutdown_button.service
-sudo systemctl start m2fs_shutdown_button.service
 
 #Bring UPS monitoring online
-sudo systemctl restart nut-server.service
-sudo systemctl restart nut-monitor.service
+sudo systemctl enable nut-server.service
+sudo systemctl enable nut-monitor.service
 
 #Enable and start the director
 sudo systemctl enable m2fs_director.service
-sudo systemctl start m2fs_director.service
 
 sudo systemctl reboot now

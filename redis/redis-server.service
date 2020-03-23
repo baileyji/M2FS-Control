@@ -1,5 +1,5 @@
 [Service]
-Type=forking
+Type=notify
 ExecStart=/usr/bin/redis-server /etc/redis/redis.conf
 ExecStop=/bin/kill -s TERM $MAINPID
 PIDFile=/run/redis/redis-server.pid
@@ -7,7 +7,7 @@ TimeoutStopSec=10
 Restart=always
 User=redis
 Group=redis
-RuntimeDirectory=/M2FS-Control/redis/
+RuntimeDirectory=redis
 RuntimeDirectoryMode=2755
 
 UMask=007
@@ -15,10 +15,11 @@ PrivateTmp=yes
 LimitNOFILE=65535
 PrivateDevices=yes
 ProtectHome=yes
-ReadOnlyDirectories=/
-ReadWriteDirectories=-/var/lib/redis
-ReadWriteDirectories=-/var/log/redis
-ReadWriteDirectories=-/var/run/redis
+#ReadOnlyPaths=/
+#ReadWritePaths=-/var/lib/redis
+#ReadWritePaths=-/var/log/redis
+#ReadWritePaths=-/var/run/redis
+#ReadWritePaths=-/M2FS-Control/redis
 
 NoNewPrivileges=true
 CapabilityBoundingSet=CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE
@@ -34,7 +35,7 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 # permit writing there by default. If you are not using this feature, it is
 # recommended that you replace the following lines with "ProtectSystem=full".
 ProtectSystem=full
-ReadWriteDirectories=-/etc/redis
+#ReadWriteDirectories=-/etc/redis
 
 [Install]
 WantedBy=multi-user.target

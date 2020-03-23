@@ -6,7 +6,9 @@ from selectedconnection import SelectedSocket, WriteError
 import selectedconnection
 from m2fsConfig import M2FSConfig
 import threading
+from walrus import Walrus
 
+REDIS_DB = 0
 SERVER_RETRY_TIME=10
 DEFAULT_LOG_LEVEL=logging.DEBUG
 SELECT_TIMEOUT=.25
@@ -143,6 +145,8 @@ class Agent(object):
         #Register a terminate signal handler
         signal.signal(signal.SIGTERM, lambda signum, stack_frame: exit(0))
         signal.signal(signal.SIGINT, lambda signum, stack_frame: exit(0))
+
+        self.redis = Walrus(host='localhost', port=M2FSConfig.getAgentPorts()['redis'], db=REDIS_DB)
         self.logger.info("----%s Startup Complete @ %s-----" % (self.name, self.cookie) )
     
     def initialize_logger(self, level):

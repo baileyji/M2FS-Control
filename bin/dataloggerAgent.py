@@ -1,7 +1,6 @@
 #!/usr/bin/env python2.7
 import Queue
-from itertools import groupby
-from operator import attrgetter
+
 from threading import Timer
 from datetime import datetime, timedelta
 from m2fscontrol.agent import Agent
@@ -11,15 +10,10 @@ from m2fscontrol.selectedconnection import SelectedSocket
 import logging
 from m2fscontrol.loggerrecord import *
 
-LOGGING_LEVEL=logging.DEBUG  #This will not have any effect if it is more aggressive than the conf file
-
 DATALOGGER_VERSION_STRING='Datalogger Agent v1.0'
 POLL_AGENTS_INTERVAL=60.0
 READING_EXPIRE_INTERVAL=120.0
 
-
-from walrus import *
-db = Walrus(host='localhost', port=6379, db=0)
 
 def logDebugInfo(logger, records):
     """ Records should be sorted in time """
@@ -48,9 +42,8 @@ class DataloggerAgent(Agent):
     def __init__(self):
         Agent.__init__(self,'DataloggerAgent')
         #Initialize the dataloggers
-        self.redis = Walrus(host='localhost', port=6379, db=0)
         self.redis_ts = self.redis.time_series('temps', ['temp_stream'])
-        self.redis_stream=self.redis_ts.temp_stream
+        self.redis_stream = self.redis_ts.temp_stream
         self.dataloggerR=DataloggerListener('R','/dev/m2fs_dataloggerR', self.redis)
         self.dataloggerR.start()
         self.dataloggerB=DataloggerListener('B', '/dev/m2fs_dataloggerB', self.redis)

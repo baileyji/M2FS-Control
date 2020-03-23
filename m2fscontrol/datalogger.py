@@ -6,7 +6,6 @@ import numpy as np
 import threading
 import logging
 import logging.handlers
-import loggerrecord
 from m2fsConfig import M2FSConfig
 
 SELECT_TIMEOUT=5

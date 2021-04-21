@@ -1,6 +1,30 @@
 #ifndef __Shoe_H__
 #define __Shoe_H__
 
+/*
+
+The zero position of the organ pipes (first organ pipe) occurs when post 
+hole axis is 5.65 mm from the front face of the actuator.
+The pipes are 2.5 mm apart, so the positions relative to the front face are:
+
+Nominal positions are then (position-3mm)*(
+
+Post     Position   Nominal
+-lim        4.65    15
+1           5.65    24
+2           8.15    46 
+3          10.65    68
+4          13.15    91
+5          15.65    114
+6          18.15    136
++lim       22.51    175
+
+The mechanical limits on this scale happen at 4.65 and 22.51.
+Pipes have about 13.55mm travel  ~20um adc count
+Height has about 16.60mm travel  ~20um/adc count
+ */
+
+
 #include <Arduino.h>
 #include <Servo.h>
 #include <EwmaT.h>
@@ -22,7 +46,7 @@
 #define DOWN_NDX 0
 
 
-#define MOVING_TIMEOUT_MS 200
+#define MOVING_TIMEOUT_MS 1000
 
 typedef struct shoepos_t {
   uint16_t height;
@@ -30,13 +54,13 @@ typedef struct shoepos_t {
 } shoepos_t;
 
 typedef struct shoecfg_t {
-  uint16_t height_pos[N_HEIGHT_POS];
-  uint16_t pipe_pos[N_SLIT_POS];
-  uint16_t pipe_lim[2];  //min, range
-  uint16_t height_lim[2]; //min, range
-  uint8_t pipe_tol;
-  uint8_t height_tol;
-  shoepos_t pos;  //filtered analog pos, may not really go here
+  uint16_t height_pos[N_HEIGHT_POS];  //in normalized 0-180 Servo units
+  uint16_t pipe_pos[N_SLIT_POS];  // same as height_pos
+  uint16_t pipe_lim[2];  //min ADC, range ADC; in adc units
+  uint16_t height_lim[2]; //same as pipe_lim
+  uint8_t pipe_tol;  //in 0-180 Servo units
+  uint8_t height_tol;  //in 0-180 Servo units
+  shoepos_t pos;  //filtered pos in 0-180 Servo units
   uint8_t desired_slit;
   bool idle_disconnected;
 } shoecfg_t;
@@ -68,11 +92,14 @@ class ShoeDrive {
     uint8_t getCurrentSlit(); //0-5 or 0xFF = INTERMEDIATE, 0xFE = MOVING
     uint16_t getSlitPosition(uint8_t slit);
     uint16_t getHeightPosition(uint8_t height);
+    int32_t getPositionError();
+    int32_t getDistanceFromSlit(uint8_t i);
     
     bool moveInProgress();  //true if a move from one slit to another is in progress
     bool pipeMoving();  //indicates literal movement
     bool heightMoving(); //indicates literal movement
 
+    void defineTol(char axis, uint8_t tol);
     void defineSlitPosition(uint8_t slit, uint16_t pos);
     void defineSlitPosition(uint8_t slit);
     void defineHeightPosition(uint8_t height, uint16_t pos);
@@ -82,6 +109,7 @@ class ShoeDrive {
     void movePipe(uint16_t pos);
     void moveHeight(uint16_t pos);
     void calibrate();
+    void calibrate(uint16_t pipe_min, uint16_t pipe_range, uint16_t height_min, uint16_t height_range);
 
     bool safeToMovePipes();
     bool fibersAreUp();
@@ -116,8 +144,8 @@ class ShoeDrive {
     uint8_t _moveInProgress;  
     Servo *_pipe_motor;
     Servo *_height_motor;
-    EwmaT<uint64_t> _pipe_filter; 
-    EwmaT<uint64_t> _height_filter; 
+    EwmaT<uint64_t> _pipe_filter; //in adc units
+    EwmaT<uint64_t> _height_filter;  // in adc units
 
 };
 #endif

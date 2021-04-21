@@ -7,6 +7,8 @@
 
 //#define DEBUG
 
+#define FIRST_LED_CHAN 0  //6 for the wirewrap board
+
 #if defined(ARDUINO_ARCH_SAMD)  
 // for Arduino Zero, output on USB Serial console, 
 // remove line below if using programming port to program the Zero!
@@ -17,6 +19,8 @@
 //28B3A61D0B00008B
 
 
+//28B24E350C00004E pcb temp 1
+
 #define IGNITION_TIME_MS 80  //Takes about 37 ms to stabilize on a resistor
 #define VMAX 800
 #define IMAX 10
@@ -26,7 +30,7 @@
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
-#define DAC_ADDR 0x63
+#define DAC_ADDR 0x61  //0x62 for wirewrap shield, :(
 
 //HV Lamps
 typedef enum {THXE_LAMP=0, BENEAR_LAMP=1, LIHE_LAMP=2, ALL_LAMPS=3} lamp_t;
@@ -39,7 +43,10 @@ Ultravolt thxe = Ultravolt(PIN_IMON_THXE, PIN_VMON_THXE, PIN_ENABLE_THXE, PIN_VM
                             PIN_IMODE_THXE, PIN_IA0_THXE, PIN_VA0_THXE, VMAX, IMAX, dac);
 
 //LED Levels
-uint16_t ledlevels[] = {0, 0, 0, 0, 0, 0};  //770, 740, IR, white, 405, 390
+//For PCB 390, 405, WHI, IR?, 740, 770
+uint16_t ledlevels[] = {0, 0, 0, 0, 0, 0};  //Maybe for wire wrap 770, 740, IR, white, 405, 390
+
+
 Adafruit_TLC5947 leddrive = Adafruit_TLC5947(1, AFLED_CLK_PIN, AFLED_DIN_PIN, AFLED_LAT_PIN);
 
 
@@ -295,12 +302,14 @@ bool LEcommand() {
                Serial.print("\n");
                return true; //Don't bother setting
                break;
+    default:
+      return false;
   }
 
   for (int i=0;i<6;i++) ledon|=ledlevels[i]>0;
   if (ledon) digitalWrite(AFLED_INHIBIT_PIN, LOW);
   else digitalWrite(AFLED_INHIBIT_PIN, HIGH);
-  for (int i=0;i<6;i++) leddrive.setPWM(i+6, ledlevels[i]);  // ch 6-11
+  for (int i=0;i<6;i++) leddrive.setPWM(i+FIRST_LED_CHAN, ledlevels[i]);  // ch 6-11
   leddrive.write();
   return true;
 }

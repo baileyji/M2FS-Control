@@ -1,13 +1,14 @@
 #import "shoe.h"
 
 #define DEFAULT_IDLE_DISCONNECTED false
-#define MOTOR_RELAY_HOLD_MS 50  //blind guess
+#define MOTOR_RELAY_HOLD_MS 100  //blind guess
 #define SAMPLE_INTERVAL_MS 3
 #define EWMA_SAMPLES 7
 
 #define MOVING 0xFE
 #define UNKNOWN_SLIT 0xFF
-#define DEFAULT_TOL 3   // about 0.33mm, 20mm/180 per unit
+#define DEFAULT_TOL 15   // about 0.33mm, 20mm/180 per unit, more than 25 is right out!
+#define MAX_TOL 25
 
 #define MAX_ADC 1023
 #define ADU_PER_STEP 5.03333333// 1.0929  0=11 180=964
@@ -27,7 +28,7 @@ ShoeDrive::ShoeDrive(uint8_t pipe_servo_pin, uint8_t pipe_pot_pin, uint8_t heigh
                      , _pipe_motor(p)
                      , _height_motor(h) {
 }
-
+int feedback_update_msg=0;
 
 void ShoeDrive::init() {
   pinMode(_motorson_pin, OUTPUT);
@@ -47,8 +48,8 @@ void ShoeDrive::init() {
   _pipe_motor->attach(_pipe_pin, (uint16_t) 1000, (uint16_t) 2000);
   _height_motor->attach(_height_pin, (uint16_t) 1000, (uint16_t) 2000);
 
-  _cfg.pos.pipe=_pipe_filter.filter(512);
-  _cfg.pos.height=_height_filter.filter(512);
+  _cfg.pos.pipe=_pipe_filter.filter((MAX_ADC+1)/2);   //in ADC units, 512 is the midpoint
+  _cfg.pos.height=_height_filter.filter((MAX_ADC+1)/2);
   _cfg.pipe_tol = DEFAULT_TOL;
   _cfg.height_tol = DEFAULT_TOL;
   _cfg.desired_slit=UNKNOWN_SLIT;
@@ -57,7 +58,7 @@ void ShoeDrive::init() {
   _cfg.pipe_lim[0]=0;
   _cfg.pipe_lim[1]=MAX_ADC;
   for (uint8_t i=1;i<N_SLIT_POS+1;i++)
-    _cfg.pipe_pos[i]=25*i;
+    _cfg.pipe_pos[i]=22.5*i+24;
   _cfg.height_pos[0]=25;
   _cfg.height_pos[1]=150;
   _cfg.idle_disconnected=DEFAULT_IDLE_DISCONNECTED;
@@ -67,6 +68,11 @@ void ShoeDrive::init() {
 ShoeDrive::~ShoeDrive() {
 //  _pipe_motor.~Servo();
 //  _height_motor.~Servo(); 
+}
+
+void ShoeDrive::defineTol(char axis, uint8_t tol) {
+  if (axis=='H' && tol<=MAX_TOL) _cfg.height_tol=tol;
+  else if (axis=='P' && tol<=MAX_TOL) _cfg.pipe_tol=tol;
 }
 
 void ShoeDrive::disconnectMotors() {
@@ -120,21 +126,21 @@ shoepos_t ShoeDrive::getLivePosition() {
   shoepos_t pos;
 
   int adu;
-  uint64_t tmp;
+  float tmp;
   adu=analogRead(_pipe_pot_pin);
-  tmp=_pipe_filter.filter(MAX_ADC-adu)-_cfg.pipe_lim[0];
-  pos.pipe=round(tmp*180.0/(float)_cfg.pipe_lim[1]);
+  tmp=_pipe_filter.filter(MAX_ADC-adu);
+  pos.pipe=round((tmp-_cfg.pipe_lim[0])*180.0/(float)_cfg.pipe_lim[1]);
 
   adu=analogRead(_height_pot_pin);
-  tmp=_height_filter.filter(MAX_ADC-adu)-_cfg.height_lim[0];
-  pos.height=round(tmp*180.0/(float)_cfg.height_lim[1]);
+  tmp=_height_filter.filter(MAX_ADC-adu);
+  pos.height=round((tmp-_cfg.height_lim[0])*180.0/(float)_cfg.height_lim[1]);
   return pos;
 }
 
 shoepos_t ShoeDrive::getCommandedPosition() {
   shoepos_t pos;
-  pos.pipe = _pipe_motor->read();
-  pos.height = _height_motor->read();
+  pos.pipe= _pipe_motor->read();
+  pos.height= _height_motor->read();
   return pos;
 }
 
@@ -151,15 +157,25 @@ void ShoeDrive::toggleOffWhenIdle() {
 void ShoeDrive::tellStatus() {
 
   shoepos_t pos;
+  delay(SAMPLE_INTERVAL_MS);
+  feedback_update_msg=1;
+  _updateFeedbackPos();
 
   Serial.println(F("Shoe Status: (pipe, height)"));
   Serial.print(F(" Pos: ")); Serial.print(_cfg.pos.pipe);
   pos=getLivePosition();
-  Serial.print(" ("); Serial.print(pos.pipe);
-  Serial.print("), "); Serial.print(_cfg.pos.height);
-  Serial.print(" (");Serial.print(pos.height);
-  Serial.print(")\n");
-  
+  Serial.print(" ("); Serial.print(pos.pipe);Serial.print("), "); Serial.print(_cfg.pos.height);
+  Serial.print(" (");Serial.print(pos.height);Serial.print(")\n");
+  uint64_t tmp;
+  tmp=_pipe_filter.output();
+  Serial.print(" ADC: "); 
+  if (tmp>=0xffffffff) Serial.print("***");
+  else Serial.print((uint32_t)tmp);
+  Serial.print(", "); 
+  tmp=_height_filter.output();
+  if (tmp>=0xffffffff) Serial.print("***");
+  else Serial.println((uint32_t)tmp);
+
   pos=getCommandedPosition();
   Serial.print(F("Servo: "));Serial.print(pos.pipe);Serial.print(", ");Serial.println(pos.height);
   Serial.print(F("Time: "));Serial.print(millis()-_timeLastPipeMovement);
@@ -167,19 +183,22 @@ void ShoeDrive::tellStatus() {
   Serial.print(F("Moving: "));Serial.print(pipeMoving());Serial.print(", ");
   Serial.println(heightMoving());
 
+  Serial.print(F("Slit: "));
   tellCurrentSlit();
   Serial.println();
   
-  Serial.print(F("Errors: "));Serial.println(errors, BIN);
-  Serial.print(F("MIP: "));Serial.println(_moveInProgress);
-  Serial.print(F("Button: "));Serial.println(downButtonPressed());
-  Serial.print(F("Safe: "));Serial.println(safeToMovePipes());
-  Serial.print(F("Relay: "));Serial.println(motorsConnected);
-  Serial.print(F("Idleoff: "));Serial.println(_cfg.idle_disconnected);
-  Serial.print(F("CPI: "));Serial.println(_currentPipeIndex());
+  Serial.print(F("Errors: "));Serial.print(errors, BIN);
+  Serial.print(F(" MiP: "));Serial.print(_moveInProgress);
+  Serial.print(F(" Button: "));Serial.print(downButtonPressed());
+  Serial.print(F(" Safe: "));Serial.print(safeToMovePipes());
+  Serial.print(F(" Relay: "));Serial.print(motorsConnected);
+  Serial.print(F(" Idleoff: "));Serial.print(_cfg.idle_disconnected);
+  Serial.print(F(" curPipeNdx: "));Serial.println(_currentPipeIndex());
   Serial.print(F("Desired Slit: ")); Serial.println((uint16_t) _cfg.desired_slit);
-  Serial.print(F("Pipe Delta: ")); Serial.print(_cfg.pos.pipe - _cfg.pipe_pos[_cfg.desired_slit]); Serial.print(F(" Tol: ")); Serial.println(_cfg.pipe_tol);
-
+  Serial.print(F("Pipe Delta: ")); Serial.print(getPositionError()); Serial.print(F(" Tol: ")); Serial.println(_cfg.pipe_tol);
+  Serial.print(F("Cal\n Pipe: "));Serial.print(_cfg.pipe_lim[0]);Serial.print(" ");Serial.println(_cfg.pipe_lim[1]);
+  Serial.print(F(" Height: "));Serial.print(_cfg.height_lim[0]);Serial.print(" ");Serial.println(_cfg.height_lim[1]);
+    
   Serial.print(F("Slits:\n"));
   Serial.print(F(" Down: "));Serial.print(_cfg.height_pos[DOWN_NDX]);
   Serial.print(F(" Up: "));Serial.println(_cfg.height_pos[UP_NDX]);
@@ -313,23 +332,38 @@ bool ShoeDrive::idle() {
   return _moveInProgress==0;
 }
 
+void ShoeDrive::calibrate(uint16_t pipe_min, uint16_t pipe_range, uint16_t height_min, uint16_t height_range) {
+    _cfg.height_lim[0]=min(height_min, MAX_ADC);
+    _cfg.height_lim[1]=min(height_range, MAX_ADC);
+    _cfg.pipe_lim[0]=min(pipe_min, MAX_ADC);
+    _cfg.pipe_lim[1]=min(pipe_range, MAX_ADC);
+}
+
 void ShoeDrive::calibrate(){
+    //TODO overhaul function
   //Assumes extremal movements are safe
   if (!idle()) return;
+  _cfg.height_lim[0]=0;
+  _cfg.height_lim[1]=MAX_ADC;
+  _cfg.pipe_lim[0]=0;
+  _cfg.pipe_lim[1]=MAX_ADC;
   Serial.println(F("Calibrating lowered pos. Move down"));
   moveHeight(0);
+  feedback_update_msg=2;
   _wait(CALIB_STEP_TIME_MS);
   _cfg.height_lim[0]=_height_filter.output();
   Serial.print(F("HRetracted="));Serial.println(_cfg.height_lim[0]);
 
   Serial.println(F("Calibrating Pipes. Retracting"));
   movePipe(0);
+  feedback_update_msg=2;
   _wait(CALIB_STEP_TIME_MS);
   _cfg.pipe_lim[0]=_pipe_filter.output();
   Serial.print(F("PRetracted="));Serial.println(_cfg.pipe_lim[0]);
 
   Serial.println(F("Calibrating Pipes. Extending"));
   movePipe(180);
+  feedback_update_msg=2;
   _wait(CALIB_STEP_TIME_MS);
   _cfg.pipe_lim[1]=_pipe_filter.output()-_cfg.pipe_lim[0];
   Serial.print(F("PExtended="));Serial.println(_cfg.pipe_lim[1]+_cfg.pipe_lim[0]);
@@ -337,10 +371,12 @@ void ShoeDrive::calibrate(){
   Serial.println(F("Pipes done, moving to slit 0"));
   _pipe_motor->write(_cfg.pipe_pos[0]);
   _cfg.desired_slit=0;
+  feedback_update_msg=2;
   _wait(CALIB_STEP_TIME_MS);
 
   Serial.println(F("Calibrating full height. Move up"));
   moveHeight(180);
+  feedback_update_msg=2;
   _wait(CALIB_STEP_TIME_MS);
   _cfg.height_lim[1]=_height_filter.output()-_cfg.height_lim[0];
   Serial.print(F("HExtended="));Serial.println(_cfg.height_lim[1]+_cfg.height_lim[0]);
@@ -369,11 +405,14 @@ void ShoeDrive::run(){
     case 9: // move pipes
       if (safeToMovePipes()) {
         Serial.println(F("Safely down, starting pipe move"));
-        _pipe_motor->write(_cfg.pipe_pos[max(_cfg.desired_slit, N_SLIT_POS-1)]);
+        _pipe_motor->write(_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)]);
         _moveInProgress--;
         errors=0;
       } else if (!_heightMoving) {
-        Serial.println(F("Height not moving, yet not safe"));
+        if(errors==0) { 
+          tellStatus();
+          Serial.println(F("Height not moving, yet not safe"));
+        }
         errors|=E_HEIGHTSTALL;
       }
       break;
@@ -385,7 +424,10 @@ void ShoeDrive::run(){
           _moveInProgress--;
           errors=0;
         } else  {
-          if(errors==0) Serial.println(F("Pipe not moving, not in position"));
+          if(errors==0) {
+            tellStatus();
+            Serial.println(F("Pipe not moving, not in position"));
+          }
           errors|=E_PIPESTALL;
         }
       }
@@ -397,11 +439,15 @@ void ShoeDrive::run(){
           _moveInProgress=0;
           errors=0;
         } else {
-          if(errors==0) Serial.println(F("Fibers not up"));
+          if(errors==0) {
+            tellStatus();
+            Serial.println(F("Fibers not up"));
+          }
 //          if (_cfg.idle_disconnected) {
 //            Serial.println(F("Disconnecting motors"));
 //            disconnectMotors();
 //          }
+
           errors|=E_HEIGHTSTUCK;
         }
       }
@@ -421,16 +467,24 @@ void ShoeDrive::run(){
 
 }
 
+int32_t ShoeDrive::getDistanceFromSlit(uint8_t i) {
+  return (int32_t)_cfg.pos.pipe -  (int32_t)_cfg.pipe_pos[min(i, N_SLIT_POS-1)];
+}
+
+int32_t ShoeDrive::getPositionError() {
+  return (int32_t)_cfg.pos.pipe -  (int32_t)_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)];
+}
+
 
 uint8_t ShoeDrive::_currentPipeIndex() {
   //Returns index into pipe pos if within tolerance else 0xff
   for (uint8_t i=0;i<N_SLIT_POS;i++)
-    if (abs(_cfg.pos.pipe - _cfg.pipe_pos[i]) <= _cfg.pipe_tol)
+    if (abs(getDistanceFromSlit(i)) <= _cfg.pipe_tol)
       return i;
   return 0xff;
 }
 
-uint8_t feedback_update_msg=10;
+
 void ShoeDrive::_wait(uint32_t time_ms) {
   uint32_t tic=millis();
   while (millis()-tic<time_ms) {
@@ -444,8 +498,9 @@ void ShoeDrive::_wait(uint32_t time_ms) {
 void ShoeDrive::_updateFeedbackPos() {
   shoepos_t pos;
   int adu;
-  uint64_t tmp;
-  uint32_t t = millis();
+  float tmp;
+  uint32_t t = micros();
+  uint32_t t_ms=millis();
   if (t-_samplet>SAMPLE_INTERVAL_MS) {
 
     /*
@@ -454,29 +509,37 @@ void ShoeDrive::_updateFeedbackPos() {
      * ADC_PER_STEP
      */
     adu=analogRead(_pipe_pot_pin);
-    tmp=_pipe_filter.filter(MAX_ADC-adu)-_cfg.pipe_lim[0];
-    pos.pipe=round(tmp*180.0/(float)_cfg.pipe_lim[1]);
+    tmp=_pipe_filter.filter(MAX_ADC-adu);
+    pos.pipe=round((tmp-_cfg.pipe_lim[0])*180.0/(float)_cfg.pipe_lim[1]);
 
+    if (feedback_update_msg>0) {
+      Serial.print(F("Reading pipe: "));Serial.print(MAX_ADC-adu);Serial.println(".");
+      Serial.print(F("Math: ("));Serial.print(tmp);Serial.print("-");Serial.print(_cfg.pipe_lim[0]);
+      Serial.print(")*180/");Serial.print(_cfg.pipe_lim[1]);Serial.print("=");Serial.println(pos.pipe);
+    }
+    
     adu=analogRead(_height_pot_pin);
-    tmp=_height_filter.filter(MAX_ADC-adu)-_cfg.height_lim[0];
-    pos.height=round(tmp*180.0/(float)_cfg.height_lim[1]);
+    tmp=_height_filter.filter(MAX_ADC-adu);
+    pos.height=round((tmp-_cfg.height_lim[0])*180.0/(float)_cfg.height_lim[1]);
     _samplet=t;
+    
+    if (feedback_update_msg>0) {
+      Serial.print(F("Reading height: "));Serial.print(MAX_ADC-adu);Serial.println(".");
+      Serial.print(F("Math: ("));Serial.print(tmp);Serial.print("-");Serial.print(_cfg.height_lim[0]);
+      Serial.print(")*180/");Serial.print(_cfg.height_lim[1]);Serial.print("=");Serial.println(pos.height);
+      Serial.print(F("Update feedback took "));Serial.print(micros()-t);Serial.println(" us.");
+      feedback_update_msg--;
+    }
   }
 
   if (pos.pipe!=_cfg.pos.pipe) {
-    _cfg.pos.pipe = pos.pipe;
-    _timeLastPipeMovement=t;
+    _cfg.pos.pipe=pos.pipe;
+    _timeLastPipeMovement=t_ms;
   }
 
   if (pos.height!=_cfg.pos.height) {
-    _cfg.pos.height = pos.height;
-    _timeLastHeightMovement=t;
-  }
-  if (feedback_update_msg>0) {
-    Serial.print(F("Update feedback took "));Serial.println(millis()-t);
-    Serial.print((uint16_t) MAX_ADC-adu);Serial.print(" ");Serial.print((uint32_t) (tmp>>32));Serial.print("-");Serial.println((uint32_t) (tmp&0xffffffff));
-    Serial.print(_cfg.height_lim[0]);Serial.print(",");Serial.println(_cfg.height_lim[1]);
-    feedback_update_msg--;
+    _cfg.pos.height=pos.height;
+    _timeLastHeightMovement=t_ms;
   }
 
 }

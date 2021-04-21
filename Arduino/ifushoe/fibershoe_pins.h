@@ -18,5 +18,5 @@
 
 #define PIN_MOTORSOFF_R 10
 #define PIN_MOTORSON_R 9
-#define PIN_MOTORSOFF_B 7
-#define PIN_MOTORSON_B 8
+#define PIN_MOTORSOFF_B 8
+#define PIN_MOTORSON_B 7

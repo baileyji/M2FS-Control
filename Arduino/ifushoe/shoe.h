@@ -30,6 +30,10 @@ Height has about 16.60mm travel  ~20um/adc count
 #include <EwmaT.h>
 //#include "ewmat64.h"
 #include <stdio.h>
+//#include <Streaming.h>
+
+#define DEBUG_FEEDBACK
+
 
 #define E_PIPESTALL   0b0100
 #define E_HEIGHTSTALL 0b0001
@@ -38,15 +42,31 @@ Height has about 16.60mm travel  ~20um/adc count
 #define N_HEIGHT_POS 2
 #define N_SLIT_POS 6
 
-#define MAX_SHOE_POS 180
+#define MAX_SHOE_POS 1000
 
-#define PIPE_CLEARANCE_HEIGHT 35
 
 #define UP_NDX 1
 #define DOWN_NDX 0
 
+#define DEFAULT_IDLE_DISCONNECTED false
+#define MOTOR_RELAY_HOLD_MS 100  //blind guess
+#define SAMPLE_INTERVAL_MS 2
+#define EWMA_SAMPLES 25 //7
+#define RC_PULSE_DELAY 400
 
-#define MOVING_TIMEOUT_MS 1000
+#define MOVING 0xFE
+#define UNKNOWN_SLIT 0xFF
+#define DEFAULT_TOL 33   // about 0.33mm, 20mm/180 per unit, more than 25 is right out!
+#define MAX_HEIGHT_TOL 100
+#define MAX_PIPE_TOL 35
+
+#define MAX_ADC 1023
+#define ADU_PER_STEP 1.024// 1.0929
+#define ADU_TO_STEP 0.9765625// 1.0929
+
+#define MOVING_PIPE_TOL 3
+#define MOVING_HEIGHT_TOL 2
+#define MOVING_TIMEOUT_MS 1250
 
 typedef struct shoepos_t {
   uint16_t height;
@@ -54,13 +74,11 @@ typedef struct shoepos_t {
 } shoepos_t;
 
 typedef struct shoecfg_t {
-  uint16_t height_pos[N_HEIGHT_POS];  //in normalized 0-180 Servo units
+  uint16_t height_pos[N_HEIGHT_POS];  //in Servo units
   uint16_t pipe_pos[N_SLIT_POS];  // same as height_pos
-  uint16_t pipe_lim[2];  //min ADC, range ADC; in adc units
-  uint16_t height_lim[2]; //same as pipe_lim
-  uint8_t pipe_tol;  //in 0-180 Servo units
-  uint8_t height_tol;  //in 0-180 Servo units
-  shoepos_t pos;  //filtered pos in 0-180 Servo units
+  uint8_t pipe_tol;  //in Servo units
+  uint8_t height_tol;  //in Servo units
+  shoepos_t pos;  //filtered pos in Servo units
   uint8_t desired_slit;
   bool idle_disconnected;
 } shoecfg_t;
@@ -75,8 +93,8 @@ class ShoeDrive {
 
     void init();
     void stop();
-    void connectMotors();
-    void disconnectMotors();
+    void powerOnMotors();
+    void powerOffMotors();
     void run(); //1ms when idle
 
     void tellCurrentPosition();
@@ -92,8 +110,8 @@ class ShoeDrive {
     uint8_t getCurrentSlit(); //0-5 or 0xFF = INTERMEDIATE, 0xFE = MOVING
     uint16_t getSlitPosition(uint8_t slit);
     uint16_t getHeightPosition(uint8_t height);
-    int32_t getPositionError();
-    int32_t getDistanceFromSlit(uint8_t i);
+    int16_t getPositionError();
+    int16_t getDistanceFromSlit(uint8_t i);
     
     bool moveInProgress();  //true if a move from one slit to another is in progress
     bool pipeMoving();  //indicates literal movement
@@ -108,26 +126,25 @@ class ShoeDrive {
     void moveToSlit(uint8_t slit);
     void movePipe(uint16_t pos);
     void moveHeight(uint16_t pos);
-    void calibrate();
-    void calibrate(uint16_t pipe_min, uint16_t pipe_range, uint16_t height_min, uint16_t height_range);
 
     bool safeToMovePipes();
     bool fibersAreUp();
     bool downButtonPressed();
 
-    void getEEPROMInfo(shoecfg_t &data);
-    void restoreEEPROMInfo(shoecfg_t data);
+    void getState(shoecfg_t &data);
+    void restoreState(shoecfg_t data);
 
     bool idle();  //return true when in position and nothing will move when run is called
 
-
     uint16_t errors;
-    bool motorsConnected;
+    bool motorsPowered;
 
   private:
     void _wait(uint32_t time_ms);
     void _updateFeedbackPos();
     uint8_t _currentPipeIndex();
+    void ShoeDrive::_movePipe(uint16_t pos);
+    void ShoeDrive::_moveHeight(uint16_t pos);
     uint8_t _sensor_pin;
     uint8_t _pipe_pin;
     uint8_t _pipe_pot_pin;
@@ -137,6 +154,7 @@ class ShoeDrive {
     uint8_t _motorson_pin;
     shoecfg_t _cfg;
     shoepos_t _feedback_pos;
+    shoepos_t _movepos; //for detecting movement
     uint32_t _timeLastPipeMovement;
     uint32_t _timeLastHeightMovement;
     uint32_t _samplet;

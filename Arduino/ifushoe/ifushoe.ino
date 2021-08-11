@@ -25,9 +25,8 @@
 //#define DEBUG_COMMAND
 
 #define POWERDOWN_DELAY_US  1000
-//#define LOCKING_SCREW_ENGAGE_DEBOUNCE_TIME_MS 200
-#define VERSION_STRING "IFUShoe v1.0"
-#define VERSION 0x01
+#define VERSION_STRING "IFUShoe v1.1"
+#define VERSION 0x02
 
 #define TEMP_UPDATE_INTERVAL_MS 5000  //must be longer than max conversion time
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
@@ -42,6 +41,7 @@
 
 
 #pragma mark Globals
+bool booted=false;
 
 typedef struct eeprom_shoe_data_t {
   shoecfg_t cfgR;
@@ -106,16 +106,14 @@ bool tempRetrieved=false;
 unsigned long time_of_last_temp_request=0;
 
 bool device_address_match(DeviceAddress a, DeviceAddress b){
-  for (uint8_t i=0;i<8;i++) {
-    if (a[i]!=b[i]) return false;
-  }
+  for (uint8_t i=0;i<8;i++) if (a[i]!=b[i]) return false;
   return true;
 }
 
 void load_deviceaddress(DeviceAddress a, uint64_t x) {
   for(uint8_t i=0;i<8;i++) {
     a[i] = x & 0xFF;
-    x = x >>8;
+    x = x >> 8;
   }
 }
 
@@ -150,7 +148,7 @@ typedef struct {
 Instruction instruction;
 
 //Commands
-#define N_COMMANDS 18
+#define N_COMMANDS 16
 typedef struct {
     String name;
     bool (*callback)();
@@ -175,8 +173,6 @@ bool TScommand();
 bool ZBcommand();
 bool MVcommand();
 bool IOcommand();
-bool CAcommand();
-bool CMcommand();
 
 Command commands[N_COMMANDS]={
     //name callback offlineok shoespecific
@@ -211,11 +207,7 @@ Command commands[N_COMMANDS]={
     //Directly move an axis on a given shoe 
     {"MV", MVcommand, false, true},
     //Idle off
-    {"IO", IOcommand, true, false},
-    //CAlibrate
-    {"CA", CAcommand, true, true},
-    //Calibrate Manually
-    {"CM", CMcommand, true, true}
+    {"IO", IOcommand, true, false}
 };
 
 #pragma mark Serial Event Handler
@@ -246,7 +238,7 @@ void serialEvent() {
 
 #pragma mark Setup & Loop
 
-bool booted=false;
+
 void setup() {
 
     boottime=millis();
@@ -280,8 +272,7 @@ void setup() {
     //Boot info
     boottime=millis()-boottime;
     bootcount=bootCount(true);
-    cout<<F("# Total boots: ")<<(uint16_t) bootcount<<F(" Boot took ")<<boottime<<F(" ms.\n");
-
+    cout<<F("#Boot ")<<(uint16_t) bootcount<<F(" took ")<<boottime<<F(" ms.\n");
     booted=true;
 }
 
@@ -294,14 +285,15 @@ void loop() {
 
     //If the command received flag is set
     if (have_command_to_parse) {
+
+        bool commandGood=false;
+        
         #ifdef DEBUG_COMMAND
             printCommandBufNfo();
         #endif
 
         //If not a command respond error
-        if (!parseCommand()) {
-            Serial.write("?\n");
-        } else {
+        if (parseCommand()) {
 
             Command *cmd=&commands[instruction.ndx];
 
@@ -310,30 +302,29 @@ void loop() {
                 cout<<"ShoeB "<<(shoeBConnected() ? "ON":"OFF")<<endl;
                 cout<<"Command is ";Serial.println(cmd->name);
             #endif
+
+            if(instruction.shoe==NO_SHOE) cout<<"Nshoe\n";
+            if(instruction.shoe==RED_SHOE) cout<<"Rshoe\n";
+            if(instruction.shoe==BLUE_SHOE) cout<<"Bshoe\n";
             
-            //Ensure stresscycles=0 if command is CY
-            if (cmd->name == "CY") 
-              stresscycles=0;
-            
-//            if (shoeWiresCrossed()&& cmd->shoeSpecific) {
-//                cout<<F("Wires Crossed\n:");
-//            } else 
-            if (instruction.shoe==NO_SHOE && cmd->shoeSpecific){
-                Serial.write("?");
-            } 
-            else if (instruction.shoe==RED_SHOE && !cmd->allowOffline && !shoeRConnected()) {
-                cout<<F("Shoe R Disconnected\n:");
+            if (shoeWiresCrossed()&& cmd->shoeSpecific) {
+                cout<<F("#Shoes Crossed\n");
+                commandGood=false;
+            } else if (instruction.shoe==NO_SHOE && cmd->shoeSpecific){
+                commandGood=false;
+            } else if (instruction.shoe==RED_SHOE && !cmd->allowOffline && !shoeRConnected()) {
+                cout<<F("#Shoe R Disconnected\n:");
+                commandGood=false;
             } else if (instruction.shoe==BLUE_SHOE && !cmd->allowOffline && !shoeBConnected()) {
-                cout<<F("Shoe B Disconnected\n:");
-            } 
-            else {
-                //Execute the command 
-                bool commandGood;
-                commandGood=cmd->callback();
-                Serial.write(commandGood ? ":" : "?");
+                cout<<F("#Shoe B Disconnected\n");
+                commandGood=false;
+            } else {
+                commandGood=cmd->callback();  //Execute the command 
             }
         }
-        //Reset the command buffer and the command received flag
+        
+        Serial.println(commandGood ? ":" : "?");
+        //Reset the command buffer and the command received flag now that we are done with it
         have_command_to_parse=false;
         command_buffer_ndx=0;
     }
@@ -347,13 +338,23 @@ void loop() {
 void shoeOnlineMain() {
     //Stress testing code
     if (stresscycles>0 && !shoeR.moveInProgress() && !shoeB.moveInProgress()) {
-        cout<<"R: "; shoeR.tellCurrentPosition();
-        cout<<" B: "; shoeB.tellCurrentPosition();
-        cout<<"Starting cycle "<<stresscycles<<" to "<<(uint16_t)stress_slit+1<<endl;
-        if (shoeRConnected()) shoeR.moveToSlit(stress_slit);
-        if (shoeBConnected()) shoeB.moveToSlit(stress_slit);
-        stress_slit++;
-        stresscycles--;
+      //#TODO add error handling
+
+        cout<<F("R: "); shoeR.tellCurrentPosition();
+        cout<<F(" B: "); shoeB.tellCurrentPosition();
+        cout<<endl;
+        if (!(shoeR.errors|shoeB.errors)) {
+          cout<<F("#Starting cycle ")<<stresscycles<<F(" to ")<<(uint16_t)stress_slit+1<<endl;
+          if (shoeRConnected()) shoeR.moveToSlit(stress_slit);
+          if (shoeBConnected()) shoeB.moveToSlit(stress_slit);
+          stress_slit++;
+          stresscycles--;
+        } else {
+          cout<<F("#Quit due to errors.");
+          cout<<F("------R Shoe")<<endl; shoeR.tellStatus(); 
+          cout<<F("------B Shoe")<<endl; shoeB.tellStatus();
+          stresscycles=0;
+        }
         if (stress_slit==N_SLIT_POS) stress_slit=0;
     }
 
@@ -394,7 +395,6 @@ void shoeOnlineMain() {
 // version
 bool versionMatch() {
   bool updateVersion=false;
-
   eeprom_version_t ver_info;
   
   EEPROM.get(EEPROM_VERSION_ADDR, ver_info);
@@ -412,13 +412,15 @@ bool versionMatch() {
     ver_info.v[2]=VERSION;
     EEPROM.put(EEPROM_VERSION_ADDR, ver_info);
     return false;
-  } else return true;
+  } 
+  
+  return true;
   
 }
 
 //Load the nominal slits positions for all the slits from EEPROM
 bool loadSlitPositionsFromEEPROM() {
-    cout<<F("#Restoring EEPROM slit info\n");
+    cout<<F("#Restoring EEPROM slit info")<<endl;
     uint16_t crc, saved_crc;
     eeprom_shoe_data_t data;
     uint8_t mode;
@@ -436,20 +438,20 @@ bool loadSlitPositionsFromEEPROM() {
 
     //If the CRC matches, restore the positions
     if (crc == saved_crc) {
-        shoeR.restoreEEPROMInfo(data.cfgR);
-        shoeB.restoreEEPROMInfo(data.cfgB);
+        shoeR.restoreState(data.cfgR);
+        shoeB.restoreState(data.cfgB);
 
-        if (mode==1) {
-            //This will cause the
-        //TODO How does this make things behave e.g. what is the start position?
-            shoeR.movePipe(data.posR.pipe);
-            shoeR.moveHeight(data.posR.height);
-            shoeB.movePipe(data.posB.pipe);
-            shoeB.moveHeight(data.posB.height);
-        }
+//        if (mode==1) {
+//            //This will cause the
+//        //TODO How does this make things behave e.g. what is the start position?
+//            shoeR.movePipe(data.posR.pipe);
+//            shoeR.moveHeight(data.posR.height);
+//            shoeB.movePipe(data.posB.pipe);
+//            shoeB.moveHeight(data.posB.height);
+//        }
         ret=true;
     } else {
-        cout<<F("#ERROR EEPROM CRC\n");
+        cout<<F("#ERROR EEPROM CRC")<<endl;
         return false;
     }
 
@@ -478,8 +480,8 @@ void saveSlitPositionsToEEPROM() {
     #endif
 
     //Fetch the defined slit positions
-    shoeB.getEEPROMInfo(data.cfgB);    
-    shoeR.getEEPROMInfo(data.cfgR);
+    shoeB.getState(data.cfgB);    
+    shoeR.getState(data.cfgR);
     data.posR = shoeR.getCommandedPosition();
     data.posB = shoeB.getCommandedPosition();
 
@@ -521,9 +523,8 @@ uint8_t bootCount(bool set) {
     uint8_t count;
     count=EEPROM.read(EEPROM_BOOT_COUNT_ADDR);
     if (set==true && count < 200) {
-        count++;
         //increment & save boot count
-        EEPROM.write(EEPROM_BOOT_COUNT_ADDR, count);
+        EEPROM.write(EEPROM_BOOT_COUNT_ADDR, ++count);
     }
     return count;
 }
@@ -540,6 +541,13 @@ bool shoeWiresCrossed() {
   //Shoe R ties SHOESENSE to HIGH, Shoe B ties SHOESENSE to LOW
   //PIN_SHOESENSE_R is pulled down
   //PIN_SHOESENSE_B is pulled up
+  //No R     No B -> No temp,  PIN_SHOESENSE_B at high,               PIN_SHOESENSE_R at low
+  //R to R   No B -> R temp,   PIN_SHOESENSE_B at high,               PIN_SHOESENSE_R pulled high from low
+  //R to B   No B -> R temp,   PIN_SHOESENSE_B pulled high from high, PIN_SHOESENSE_R at low
+  //No R   B to B -> B temp,   PIN_SHOESENSE_B pulled  low from high, PIN_SHOESENSE_R at low
+  //No R   B to R -> B temp,   PIN_SHOESENSE_B pulled high from high, PIN_SHOESENSE_R pulled low from low
+  //R to R B to R -> R&B temp, PIN_SHOESENSE_B pulled  low from high, PIN_SHOESENSE_R pulled high from low
+  
   bool shoeB=temps[SHOE_B_TEMP].present;
   bool shoeR=temps[SHOE_R_TEMP].present;
   bool shoeBwireB = !digitalRead(PIN_SHOESENSE_B);
@@ -574,7 +582,7 @@ bool parseCommand() {
     if(command_length >=3){
       if (command_buffer[2]=='R' || command_buffer[2]=='r')
         instruction.shoe=RED_SHOE;
-      else if (command_buffer[2]=='B' || command_buffer[2]=='B')
+      else if (command_buffer[2]=='B' || command_buffer[2]=='b')
         instruction.shoe=BLUE_SHOE;
     }
     consumed+=(uint8_t)(instruction.shoe!=NO_SHOE);
@@ -591,40 +599,22 @@ inline uint8_t charToSlit(char c) {
     return c-'0'-1; //(-1 as slit is specified 1-6)
 }
 
-//May well clobber any conversions in progress
+//Clobbers any conversions in progress
 void initTempSensors() {
     tempSensors.begin();
     tempSensors.setResolution(12);
     tempSensors.setWaitForConversion(false);
-
-    for (int i=0;i<N_TEMP_SENSORS;i++) {
-      bool sensorFound;
-      DeviceAddress addr;
-      sensorFound = tempSensors.getAddress(addr, i);
-      if (!booted && sensorFound) {
-        cout<<F("Found temp at ");
-        print1WireAddress(addr);
-        cout<<endl;
-      }
-      for (int j=0;j<N_TEMP_SENSORS;j++) {
-        if (device_address_match(temps[j].address, addr)) {
-          temps[j].present=sensorFound;
-          if (temps[j].present && !booted) cout<<F("Pos ")<<j<<endl;
-          break;
-        }
-      }    
-    }
 }
 
 //Request and fetch the temperature regularly, ignore rollover edgecase
 void monitorTemperature() {
   unsigned long since = millis() - time_of_last_temp_request;
-  bool need_to_init=false;
+  uint8_t inited=0;
 
   //In general the controller will probably boot before the shoes are connected
-  for (int i=0;i<N_TEMP_SENSORS;i++) need_to_init|=!temps[i].present;
+  for (int i=0;i<N_TEMP_SENSORS;i++) inited+=temps[i].present;
 
-  if (tempRetrieved && need_to_init) initTempSensors();
+  if (tempRetrieved && inited!=N_TEMP_SENSORS) initTempSensors();
   
   if (since > TEMP_UPDATE_INTERVAL_MS) {
     tempSensors.requestTemperatures();
@@ -635,11 +625,11 @@ void monitorTemperature() {
     
   if(!tempRetrieved && since > DS18B20_12BIT_MAX_CONVERSION_TIME_MS) {
      for (uint8_t i=0; i<N_TEMP_SENSORS; i++) {
-       if (temps[i].present) {
-          //cout<<F("Fetching temp ")<<(uint16_t)i;
-          temps[i].reading=tempSensors.getTempC(temps[i].address);
-          //cout<<" got "<<temps[i].reading<<endl;
-       }
+       //cout<<F("Fetching temp ")<<(uint16_t)i;
+       float x=tempSensors.getTempC(temps[i].address);
+       //cout<<" got "<<temps[i].reading<<endl;
+       temps[i].present=x>-127.0;
+       temps[i].reading= temps[i].present ? x: 999.0;
      }
      tempRetrieved = true;
   }
@@ -658,9 +648,10 @@ uint8_t getShoeForCommand() {
 
 //Zero the boot count and set shoe to uninited
 bool ZBcommand(){
-    EEPROM.write(EEPROM_BOOT_COUNT_ADDR, 0);
-    EEPROM.write(EEPROM_MODE_ADDR, 0);
-    return true;
+  if (instruction.arg_len>0) EEPROM.write(EEPROM_SLIT_POSITIONS_CRC16_ADDR, 0);
+  EEPROM.write(EEPROM_BOOT_COUNT_ADDR, 0);
+  EEPROM.write(EEPROM_MODE_ADDR, 0);
+  return true;
 }
 
 
@@ -695,8 +686,12 @@ bool TScommand() {
   if (shoeRConnected()) cout<<F("R Connected")<<endl;
   if (shoeBConnected()) cout<<F("B Connected")<<endl;
   if (shoeWiresCrossed()) cout<<F("R&B Swapped")<<endl;
-  cout<<F("------R Shoe")<<endl; shoeR.tellStatus(); 
-  cout<<F("------B Shoe")<<endl; shoeB.tellStatus(); 
+  if ( instruction.shoe==NO_SHOE ) {
+    cout<<F("------R Shoe")<<endl; shoeR.tellStatus(); 
+    cout<<F("------B Shoe")<<endl; shoeB.tellStatus(); 
+  } else {
+    shoes[instruction.shoe]->tellStatus();
+  }
   cout<<F("================\n");
   return true;
 }
@@ -767,15 +762,15 @@ bool SScommand() {
 }
 
 //Define a motor axis tolerance
-//TO[R|B][#][#######]\0
+//TO[R|B][H|P][1-25]\0
 bool TOcommand() {
-    cout<<"Def tol "<<endl;
+ 
   if ( instruction.shoe==NO_SHOE) return false;
   if (instruction.arg_len<2) return false;
   if (instruction.arg_buffer[0]!='H' && instruction.arg_buffer[0]!='P') return false;
-
+  uint8_t mtol = instruction.arg_buffer[0]=='H' ? MAX_HEIGHT_TOL : MAX_PIPE_TOL;
   long tol=atol(instruction.arg_buffer+1);
-  if (tol>25 || tol<1) 
+  if (tol>mtol || tol<1) 
       return false;
   shoes[instruction.shoe]->defineTol(instruction.arg_buffer[0], tol);
 
@@ -800,8 +795,7 @@ bool HScommand() {
     if (!(instruction.arg_buffer[1] >='0' && instruction.arg_buffer[1]<='9')) 
     return false;
     long pos=atol(instruction.arg_buffer+1);
-    if (pos>MAX_SHOE_POS || pos<0) 
-      return false;
+    if (pos>MAX_SHOE_POS || pos<0)  return false;
     shoes[instruction.shoe]->defineHeightPosition(height, pos);
   }
   else {
@@ -835,7 +829,7 @@ bool PCcommand() {
     cout<<F("#PC - Print list of commands\n");
     cout<<F("#TS - Tell Status\n");
     cout<<F("#PV - Print Version\n");
-    cout<<F("#TE - Report temperatures (drive, r, b)\n");
+    cout<<F("#TE - Report temperatures (B, R, Ctrl)\n");
   
     cout<<F("#TD[R|B] - Tell smoothed ADC pos\n");
     cout<<F("#SG[R|B] - Get the current slit for shoe\n");
@@ -846,20 +840,20 @@ bool PCcommand() {
     cout<<F("#SS[R|B][1-6]{#} - Set Slit position to the current position. "\
                "If given, second number is used to specify the position.\n");
     cout<<F("#HS[R|B][U|D]{#} - Set up/down positon like SS.\n");
+    cout<<F("#TO[R|B][P|H][#] - Set TOlerance of axis\n");
 
     cout<<F("#CY# - Cycle shoes through all the slits # times\n");
    
-    cout<<F("#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-180) without safety checks.\n");
+    cout<<F("#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n");
     cout<<F("#IO - Toggle if we idle the motors.\n");
     cout<<F("#ZB - Zero the boot count\n");
-    cout<<F("#CA - Calibrate\n");
-    cout<<F("#CM[R|B]####,####,####,#### - Set cal: pmin,prange,hmin,hrange\n");
-    cout<<F("#TO[R|B]# - Set tol. 1-25\n");
+
 
     return true;
 }
 
 bool CYcommand() {
+  stresscycles=0;
   if (instruction.arg_len <1) return false;
   stresscycles=atol(instruction.arg_buffer);
   stress_slit=0;
@@ -877,7 +871,7 @@ bool MVcommand() {
   else if (instruction.arg_buffer[0]=='P') shoes[instruction.shoe]->movePipe(pos);
   else return false;
 
-  cout<<"Moving "<<(uint16_t) instruction.shoe<<" axis "<<instruction.arg_buffer[0]<<" to "<<pos<<endl;
+  cout<<F("#Moving ")<<(uint16_t) instruction.shoe<<F(" axis ")<<instruction.arg_buffer[0]<<F(" to ")<<pos<<endl;
   return true;
 }
 
@@ -885,30 +879,6 @@ bool MVcommand() {
 bool IOcommand() {
   shoeR.toggleOffWhenIdle();
   shoeB.toggleOffWhenIdle();
-  cout<<"#"<<shoeR.getOffWhenIdle();
-  return true;
-}
-
-
-bool CAcommand() {
-  shoes[instruction.shoe]->calibrate();
-  saveSlitPositionsToEEPROM();
-  EEPROM.write(EEPROM_MODE_ADDR, 1);
-  return true;
-}
-
-
-bool CMcommand() {
-  uint16_t pos;
-  //pipemin, piperange, heightmin heightrange
-  //CAR####,####,####,####
-  if (instruction.arg_len<19 || instruction.shoe==NO_SHOE) return false;
-  uint16_t pipe_min=max(atol(instruction.arg_buffer), 0);
-  uint16_t pipe_range=max(atol(instruction.arg_buffer+5), 0);
-  uint16_t height_min=max(atol(instruction.arg_buffer+10), 0);
-  uint16_t height_range=max(atol(instruction.arg_buffer+15), 0);
-  shoes[instruction.shoe]->calibrate(pipe_min, pipe_range, height_min, height_range);
-  saveSlitPositionsToEEPROM();
-  EEPROM.write(EEPROM_MODE_ADDR, 1);
+  cout<<"#"<<shoeR.getOffWhenIdle()<<endl;
   return true;
 }

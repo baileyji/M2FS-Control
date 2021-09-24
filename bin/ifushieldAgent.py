@@ -106,11 +106,11 @@ class IFUShieldAgent(Agent):
     def get_version_string(self):
         """ Return a string with the version. """
         return IFUSHIELD_AGENT_VERSION_STRING
-    
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses should override this to provide a description for the cli
         parser
         """
@@ -196,14 +196,14 @@ class IFUShieldAgent(Agent):
 
     def LED_command_handler(self, command):
         """
-        Handle geting/setting the LED illumination value 
-        
+        Handle geting/setting the LED illumination value
+
         Valid command string argument is a number from 0 to 4096
 
         UV BLUE WHITE 740 770 875
-        
-        If we are getting, just report the most recently set value, if setting 
-        convert the command argument to a single byte and send that to the SH 
+
+        If we are getting, just report the most recently set value, if setting
+        convert the command argument to a single byte and send that to the SH
         led. Respond OK or error as appropriate.
         """
         if '?' in command.string:
@@ -241,20 +241,12 @@ class IFUShieldAgent(Agent):
         Respond OK or error as appropriate.
         """
         if '?' in command.string:
-            #TODO this is broken
-            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: IFUShieldAgent:INFO: Received command BENEAR ?
-            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: Attempted write 'HV?\n', wrote 'HV?\n' to /dev/ifum_shield@115200 @ 1582324611.89
-            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '9'
-            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: '.94 0.00 0.00\r\n'
-            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: m2fscontrol.selectedconnection:DEBUG: BlockingReceive got: ':'
-            # Feb 21 22:36:51 claym2fs ifushieldAgent.py[1229]: IFUShieldAgent:DEBUG: 127.0.0.1:43580@22:36:51: 'BENEAR ?', complete. Reply: '0.00'
             try:
-                response = self._send_command_to_shield('HV?')
+                response = self._send_command_to_shield('HV?')  #Per arduino order is BeNeAr LiHe ThXe
                 hvstat = response.split()
                 if len(hvstat) != len(HVLAMPS):
                     raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPS)))
-                #This is so lazy of me
-                hvdict={l: v for l, v in zip(HVLAMPS, hvstat)}
+                hvdict={'thxe':hvstat[2], 'benear':hvstat[0], 'lihe':hvstat[1]}
                 lamp=command.string.split()[0].lower()
                 response = hvdict[lamp]
             except IOError as e:
@@ -265,7 +257,7 @@ class IFUShieldAgent(Agent):
         else:  #Activate the appropriate HV lamp
             command_parts = command.string.split(' ')
             try:
-                lamp_num = HVLAMPS.index(command_parts[0].lower())+1  #one base in ardunio
+                lamp_num = HVLAMPS.index(command_parts[0].lower())+1  #one base in ardunio  THXE_LAMP=1, BENEAR_LAMP=2, LIHE_LAMP=3, ALL_LAMPS=4
                 current = int(command_parts[1])
                 self._send_command_to_shield('HV{}{}'.format(lamp_num, current))
                 command.setReply('OK')
@@ -278,9 +270,9 @@ class IFUShieldAgent(Agent):
                 command.setReply(response)
 
     def get_status_list(self):
-        """ 
+        """
         Return a list of two element tuples to be formatted into a status reply
-        
+
         Report the Key:Value pairs name:cookie, color:value, led:value, hv:value
         """
         try:

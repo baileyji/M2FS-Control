@@ -102,17 +102,17 @@ class OcculterAgent(Agent):
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
         """
         return ("This is the occulter agent. It takes occulter commands via"
                 "a socket connection or via CLI arguments.")
-    
+
     def add_additional_cli_arguments(self):
         """
         Additional CLI arguments may be added by implementing this function.
-        
+
         Arguments should be added as:
         self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
         """
@@ -121,7 +121,7 @@ class OcculterAgent(Agent):
         self.cli_parser.add_argument('--device', dest='DEVICE', help='the device to control',
                                      action='store', required=False, type=str)
         self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')
-    
+
     def get_version_string(self):
         """ Return a string with the version."""
         return OCCULTER_AGENT_VERSION_STRING
@@ -129,7 +129,7 @@ class OcculterAgent(Agent):
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
-        
+
         Report the Key:Value pairs:
             name:cookie,
             Driver: Online| Disconnected]
@@ -149,15 +149,15 @@ class OcculterAgent(Agent):
                                 ('Home', str(state.io.home_tripped)),
                                 ('PError', state.position_error_str),
                                 ('Faults', state.faultString if state.errorPresent else 'None')])
-        except IOError, e:
+        except IOError as e:
             self.logger.warning('HK Drive failed state query: ()'.format(e))
             status_list.append(('Driver', 'Disconnected'))
         return status_list
-    
+
     def RAW_command_handler(self, command):
-        """ 
+        """
         Send a raw string to the drive and wait for a response
-        
+
         NB the PC command can generate more than 1024 bytes of data so limit to 60
         """
         arg = command.string.partition(' ')[2].strip()[:60]
@@ -168,7 +168,7 @@ class OcculterAgent(Agent):
             response = response.replace('\r', '\\r').replace('\n', '\\n')
             if not response:
                 response = 'IDEA DRIVE GAVE NO RESPONSE'
-        except IOError, e:
+        except IOError as e:
             response = 'ERROR: %s' % str(e)
         command.setReply(response)
 
@@ -182,7 +182,7 @@ class OcculterAgent(Agent):
     def OCC_command_handler(self, command):
         """
         Get/Set the occulter position. Command is of the form OCC #|?
-        
+
         If setting, the command instructs the occulter to move to the
         requested position, closedloop.
 
@@ -341,7 +341,7 @@ class OcculterAgent(Agent):
         """
         Command the haydon drive to perform the calibration routine. This can cause motion
         to last for several seconds even though the command will not block.
-        
+
         This command has no arguments
         """
         command.setReply('OK')
@@ -351,7 +351,7 @@ class OcculterAgent(Agent):
     def STEP_command_handler(self, command):
         """
         Command a relative, uncalibrated move a specified number of steps
-        
+
         This command has one argument: the number of steps
         to move. The full range of travel of an occulter corresponds to about
         ? +/-? steps. Extending is in the positive direction.

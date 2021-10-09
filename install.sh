@@ -9,11 +9,16 @@ sudo systemd-tmpfiles --create --prefix /var/log/journal
 sudo systemctl restart systemd-journald
 sudo apt update
 sudo apt full-upgrade
-sudo apt-get auto remove
-sudo apt install python-scipy python-astropy python-matplotlib nut python-flask zsh samba python-pip curl
+sudo apt-get auto-remove
+curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
+sudo apt install python-scipy python-matplotlib nut python-flask zsh samba python-pip curl vim python-redis redis nodejs
+#sudo apt install python-astropy
 sudo pip install --upgrade pip
+sudo pip install astropy<3 ##will get v 2
+sudo pip install walrus, pyyaml, flask_wtf
 sudo apt remove python-serial
-sudo pip install ipython pyserial==2.6 construct==2.0.6 flask_wtf pymodbus==1.5.2 bitstring==3.1.6
+sudo pip install ipython pyserial==2.6 construct==2.0.6 pymodbus==1.5.2 bitstring==3.1.6
+sudo npm install -g redis-commander --unsafe
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 
 

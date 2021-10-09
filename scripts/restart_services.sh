@@ -24,3 +24,4 @@ systemctl restart ifum_occulterH.service
 systemctl restart ifum_shield.service
 systemctl restart ifum_shoe.service
 
+systemctl restart redis-server.service

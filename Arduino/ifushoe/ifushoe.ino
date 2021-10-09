@@ -20,13 +20,13 @@
 // DS time is about ? ms and boot time is about ? ms
 
 //#define DEBUG_ANALOG
-#define DEBUG_EEPROM
+//#define DEBUG_EEPROM
 //#define DEBUG_RUN_TIME  //2.4ms
 //#define DEBUG_COMMAND
 
 #define POWERDOWN_DELAY_US  1000
-#define VERSION_STRING "IFUShoe v1.1"
-#define VERSION 0x02
+#define VERSION_STRING "IFUShoe v1.2"
+#define VERSION 0x03
 
 #define TEMP_UPDATE_INTERVAL_MS 5000  //must be longer than max conversion time
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
@@ -459,11 +459,13 @@ bool loadSlitPositionsFromEEPROM() {
         cout<<"Restoring shoe config from EEPROM took "<<millis()-t<<" ms.\n";
         cout<<"R: P=";
         for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.cfgR.pipe_pos[i]<<" ";
-        cout<<" H="<<data.cfgR.height_pos[0]<<" "<<data.cfgR.height_pos[1];
+        cout<<" H=";
+        for (uint8_t i=0;i<N_HEIGHT_POS;i++) cout<<data.cfgR.height_pos[i]<<" ";
         cout<<" Pos="<<data.posR.pipe<<", "<<data.posR.height<<endl;
         cout<<"B: P=";
         for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.cfgB.pipe_pos[i]<<" ";
-        cout<<" H="<<data.cfgB.height_pos[0]<<" "<<data.cfgB.height_pos[1];
+        cout<<" H=";
+        for (uint8_t i=0;i<N_HEIGHT_POS;i++) cout<<data.cfgB.height_pos[i]<<" ";
         cout<<" Pos="<<data.posB.pipe<<", "<<data.posB.height<<endl;
     #endif
 
@@ -493,11 +495,13 @@ void saveSlitPositionsToEEPROM() {
         cout<<"Saving config to EEPROM took "<<millis()-t<<" ms.\n";
         cout<<"R: P=";
         for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.cfgR.pipe_pos[i]<<" ";
-        cout<<" H="<<data.cfgR.height_pos[0]<<" "<<data.cfgR.height_pos[1];
+        cout<<" H=";
+        for (uint8_t i=0;i<N_HEIGHT_POS;i++) cout<<data.cfgR.height_pos[i]<<" ";
         cout<<" Pos="<<data.posR.pipe<<", "<<data.posR.height<<endl;
         cout<<"B: P=";
         for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.cfgB.pipe_pos[i]<<" ";
-        cout<<" H="<<data.cfgB.height_pos[0]<<" "<<data.cfgB.height_pos[1];
+        cout<<" H=";
+        for (uint8_t i=0;i<N_HEIGHT_POS;i++) cout<<data.cfgB.height_pos[i]<<" ";
         cout<<" Pos="<<data.posB.pipe<<", "<<data.posB.height<<endl;
     #endif
 }
@@ -747,7 +751,7 @@ bool SScommand() {
 
   if (instruction.arg_len>1){
     if (!(instruction.arg_buffer[1] >='0' && instruction.arg_buffer[1]<='9')) 
-    return false;
+      return false;
     long pos=atol(instruction.arg_buffer+1);
     if (pos>MAX_SHOE_POS || pos<0) 
       return false;
@@ -785,17 +789,24 @@ bool TOcommand() {
 
 //HS[R|B][U|D]{#######}\0  without the last number the height uses the current position
 bool HScommand() {
-  if ( instruction.shoe==NO_SHOE) return false;
-
+  if (instruction.shoe==NO_SHOE) return false;
   if (instruction.arg_len<1) return false;
-  if (instruction.arg_buffer[0] != 'U' && instruction.arg_buffer[0] != 'D') return false;
+  if ((instruction.arg_buffer[0] < '1' || instruction.arg_buffer[0] > '6')  && instruction.arg_buffer[0] != 'D') return false;
+  if (instruction.arg_len<1) return false;
+
+  uint8_t height;
+  if (instruction.arg_buffer[0]=='D') height=DOWN_NDX;
+  else {
+    height=charToSlit(instruction.arg_buffer[0])+1;
+    if ( height>N_HEIGHT_POS-1 ) return false;
+  }
   
-  uint8_t height = instruction.arg_buffer[0]=='U' ? UP_NDX:DOWN_NDX;
   if (instruction.arg_len>1){
     if (!(instruction.arg_buffer[1] >='0' && instruction.arg_buffer[1]<='9')) 
-    return false;
+      return false;
     long pos=atol(instruction.arg_buffer+1);
-    if (pos>MAX_SHOE_POS || pos<0)  return false;
+    if (pos>MAX_SHOE_POS || pos<0)
+      return false;
     shoes[instruction.shoe]->defineHeightPosition(height, pos);
   }
   else {
@@ -826,28 +837,27 @@ bool TEcommand() {
 //Print the commands
 bool PCcommand() {
 
-    cout<<F("#PC - Print list of commands\n");
-    cout<<F("#TS - Tell Status\n");
-    cout<<F("#PV - Print Version\n");
-    cout<<F("#TE - Report temperatures (B, R, Ctrl)\n");
+    cout<<F("#PC - Print list of commands\n"\
+            "#TS - Tell Status\n"\
+            "#PV - Print Version\n"\
+            "#TE - Report temperatures (B, R, Ctrl)\n"\
   
-    cout<<F("#TD[R|B] - Tell smoothed ADC pos\n");
-    cout<<F("#SG[R|B] - Get the current slit for shoe\n");
-    cout<<F("#ST{R|B} - Stop motion, optionally of shoe\n");
+            "#TD[R|B] - Tell smoothed ADC pos\n"\
+            "#SG[R|B] - Get the current slit for shoe\n"\
+            "#ST{R|B} - Stop motion, optionally of shoe\n"\
 
-    cout<<F("#SL[R|B][1-6] - Move to slit\n");
-    cout<<F("#SD[R|B][1-6] - Report defined slit position\n");
-    cout<<F("#SS[R|B][1-6]{#} - Set Slit position to the current position. "\
-               "If given, second number is used to specify the position.\n");
-    cout<<F("#HS[R|B][U|D]{#} - Set up/down positon like SS.\n");
-    cout<<F("#TO[R|B][P|H][#] - Set TOlerance of axis\n");
+            "#SL[R|B][1-6] - Move to slit\n"\
+            "#SD[R|B][1-6] - Report defined slit position\n"\
+            "#SS[R|B][1-6]{#} - Set Slit position to the current position. "\
+               "If given, second number is used to specify the position.\n"\
+            "#HS[R|B][1-6|D]{#} - Set up/down positon like SS.\n"\
+            "#TO[R|B][P|H][#] - Set TOlerance of axis\n"\
 
-    cout<<F("#CY# - Cycle shoes through all the slits # times\n");
+            "#CY# - Cycle shoes through all the slits # times\n"\
    
-    cout<<F("#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n");
-    cout<<F("#IO - Toggle if we idle the motors.\n");
-    cout<<F("#ZB - Zero the boot count\n");
-
+            "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
+            "#IO - Toggle if we idle the motors.\n"\
+            "#ZB - Zero the boot count\n");
 
     return true;
 }
@@ -877,6 +887,7 @@ bool MVcommand() {
 
 
 bool IOcommand() {
+  //NB state is saved with other settings, not here. but is overridden to the default state restore (so the eeprom value is moot)
   shoeR.toggleOffWhenIdle();
   shoeB.toggleOffWhenIdle();
   cout<<"#"<<shoeR.getOffWhenIdle()<<endl;

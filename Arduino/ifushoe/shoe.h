@@ -34,6 +34,12 @@ Height has about 16.60mm travel  ~20um/adc count
 //#define DEBUG_FEEDBACK
 
 
+#define ENABLE_DETACH true
+#define RC_PULSE_DELAY 403  // LAC averages 4 RC pulses in multiples of 20ms (so 80ms min) 
+#define RC_PULSE_DELAY_SHORT 90
+
+
+
 #define E_HEIGHTSTALL   0b000001
 #define E_HEIGHTSTUCK   0b000010
 #define E_PIPESTALL     0b000100
@@ -56,8 +62,6 @@ Height has about 16.60mm travel  ~20um/adc count
 #define EWMA_SAMPLES 25 //7
 
 
-#define RC_PULSE_DELAY 403  // LAC averages 4 RC pulses in multiples of 20ms (so 80ms min) 
-#define RC_PULSE_DELAY_SHORT 90
 
 #define MOVING 0xFE
 #define UNKNOWN_SLIT 0xFF
@@ -176,8 +180,9 @@ class ShoeDrive {
     shoestatus_t _status();
     uint8_t _currentPipeIndex();
     uint8_t _currentHeightIndex();
-    void ShoeDrive::_movePipe(uint16_t pos, uint16_t wait, bool detach);
-    void ShoeDrive::_moveHeight(uint16_t pos, uint16_t wait, bool detach);
+    inline void _movePipe(uint16_t pos, uint16_t wait, bool detach);
+    inline void _moveHeight(uint16_t pos, uint16_t wait, bool detach);
+    void _move(Servo *axis, uint16_t pos, uint16_t wait, bool detach);
     shoeheading_t _heading;
     uint8_t _sensor_pin;
     uint8_t _pipe_pin;

@@ -301,11 +301,12 @@ void loop() {
                 cout<<"ShoeR "<<(shoeRConnected() ? "ON":"OFF")<<endl;
                 cout<<"ShoeB "<<(shoeBConnected() ? "ON":"OFF")<<endl;
                 cout<<"Command is ";Serial.println(cmd->name);
-            #endif
+
 
             if(instruction.shoe==NO_SHOE) cout<<"Nshoe\n";
             if(instruction.shoe==RED_SHOE) cout<<"Rshoe\n";
             if(instruction.shoe==BLUE_SHOE) cout<<"Bshoe\n";
+            #endif
             
             if (shoeWiresCrossed()&& cmd->shoeSpecific) {
                 cout<<F("#Shoes Crossed\n");
@@ -338,16 +339,16 @@ void loop() {
 void shoeOnlineMain() {
     //Stress testing code
     if (stresscycles>0 && !shoeR.moveInProgress() && !shoeB.moveInProgress()) {
-      //#TODO add error handling
 
-        cout<<F("R: "); shoeR.tellCurrentPosition();
-        cout<<F(" B: "); shoeB.tellCurrentPosition();
-        cout<<endl;
+//        cout<<F("R: "); shoeR.tellCurrentPosition();
+//        cout<<F(" B: "); shoeB.tellCurrentPosition();
+//        cout<<endl;
         if (!(shoeR.errors|shoeB.errors)) {
-          cout<<F("#Starting cycle ")<<stresscycles<<F(" to ")<<(uint16_t)stress_slit+1<<endl;
+          stress_slit=random(0, N_SLIT_POS);
+          cout<<F("\n#Starting cycle ")<<stresscycles<<F(" to ")<<(uint16_t)stress_slit+1<<endl;
           if (shoeRConnected()) shoeR.moveToSlit(stress_slit);
           if (shoeBConnected()) shoeB.moveToSlit(stress_slit);
-          stress_slit++;
+//          stress_slit++;
           stresscycles--;
         } else {
           cout<<F("#Quit due to errors.");
@@ -355,7 +356,7 @@ void shoeOnlineMain() {
           cout<<F("------B Shoe")<<endl; shoeB.tellStatus();
           stresscycles=0;
         }
-        if (stress_slit==N_SLIT_POS) stress_slit=0;
+//        if (stress_slit==N_SLIT_POS) stress_slit=0;
     }
 
 

@@ -55,6 +55,8 @@ void ShoeDrive::init() {
   _pipe_motor->detach();
   _height_motor->detach();
 
+  _height_moving=false;
+  _pipe_moving=false;
   _timeLastPipeMovement=0;
   _timeLastHeightMovement=0;
   _moveInProgress=0;
@@ -98,6 +100,11 @@ void ShoeDrive::setMotorPower(bool enable) {
 }
 
 void ShoeDrive::stop() {
+  // thiscwont stop a move in progress, need 
+  //_pipe_motor->writeMicroseconds(_cfg.pos.pipe+1000);
+  //_height_motor->writeMicroseconds(_cfg.pos.height+1000);
+  //_wait(RC_PULSE_DELAY_SHORT);
+  // to try and command where we are
   _pipe_motor->detach();
   _height_motor->detach();
   _cfg.desired_slit=UNKNOWN_SLIT;
@@ -477,7 +484,7 @@ void ShoeDrive::run(){
     case SLIT_MOVE: //new move, lower cassette
       errors=0;
       Serial.print(F("#Starting move to ")); Serial.print((uint16_t)_cfg.desired_slit+1); Serial.println(F(". Lowering."));
-      _moveHeight(_cfg.height_pos[DOWN_NDX], RC_PULSE_DELAY, true);
+      _moveHeight(_cfg.height_pos[DOWN_NDX], RC_PULSE_DELAY, false);
       _moveInProgress=SLIT_MOVE_lower;
       break;
     case SLIT_MOVE_lower:
@@ -487,11 +494,13 @@ void ShoeDrive::run(){
 //      } else 
       //Alow pipes to move while the height is twitching at the bottom!
       if (safeToMovePipes()) { //transition to SLIT_MOVE_pipes
+        if (ENABLE_DETACH) _height_motor->detach();
         errors=0;
         Serial.print(F("#Down ("));Serial.print(stat.error.height);Serial.println(F("), moving pipe."));
         _movePipe(_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)], RC_PULSE_DELAY, true);
         _moveInProgress=SLIT_MOVE_pipe;
       } else if (!stat.moving.height){ //transition to RECOVERY_MOVE we are stalled
+        if (ENABLE_DETACH) _height_motor->detach();
         Serial.print(F("#ERROR: Height not down ")); Serial.println(stat.error.height);
         errors|=E_HEIGHTSTALL;
         tellStatus();
@@ -509,7 +518,8 @@ void ShoeDrive::run(){
       } else if (_currentPipeIndex() == _cfg.desired_slit) { // transition to SLIT_MOVE_raise
           errors=0;
           Serial.print(F("#Pipe done ("));Serial.print(stat.error.pipe);Serial.println(F("), raising."));
-          _moveHeight(_cfg.height_pos[min(_cfg.desired_slit+1, N_HEIGHT_POS-1)], RC_PULSE_DELAY, true);
+          _moveHeight(_cfg.height_pos[DOWN_NDX]+30, RC_PULSE_DELAY_SHORT, false);
+          _moveHeight(_cfg.height_pos[min(_cfg.desired_slit+1, N_HEIGHT_POS-1)], RC_PULSE_DELAY, false);
           _moveInProgress=SLIT_MOVE_raise;
       } else  { //transition to RECOVERY_MOVE
         Serial.print(F("#ERROR: Pipe error too large: "));Serial.println(stat.error.pipe);
@@ -521,16 +531,19 @@ void ShoeDrive::run(){
     case SLIT_MOVE_raise: // raise cassette
       if (stat.moving.height) {
         if (_currentPipeIndex() != _cfg.desired_slit) {
+          if (ENABLE_DETACH) _height_motor->detach();
           Serial.print(F("#Pipe shifted "));Serial.print(stat.error.pipe);Serial.println(F(". Lowering."));
           _moveHeight(_cfg.height_pos[DOWN_NDX], RC_PULSE_DELAY_SHORT, true);
           errors|=E_PIPESHIFT;
           _moveInProgress=RECOVERY_MOVE;
         } // else nothing to do but wait
       } else if (fibersAreUp()) { //transition to SHOE_IDLE
+          if (ENABLE_DETACH) _height_motor->detach();
           Serial.print(F("#Raised ("));;Serial.print(stat.error.height);Serial.print(F("). Slit"));Serial.println((int) _cfg.desired_slit+1);
           _moveInProgress=SHOE_IDLE;
           errors=0;
       } else { //transition to RECOVERY_MOVE
+          if (ENABLE_DETACH) _height_motor->detach();
           Serial.print(F("#ERROR: Height stopped too low:"));Serial.println(stat.error.height);
           errors|=E_HEIGHTSTUCK;
 //          tellStatus();
@@ -596,15 +609,26 @@ void ShoeDrive::_updateFeedbackPos() {  //~500us
 
   _cfg.pos.pipe=pos.pipe;
   if (abs((int)pos.pipe-(int)_movepos.pipe)>MOVING_PIPE_TOL){
-      _timeLastPipeMovement=t_ms;
-      _movepos.pipe=pos.pipe;
+    if (!_pipe_moving) Serial.println(F("#########Pipe moving#########"));
+    _pipe_moving=true;
+    _timeLastPipeMovement=t_ms;
+    _movepos.pipe=pos.pipe;
+  } else if (millis()-_timeLastPipeMovement > MOVING_TIMEOUT_MS) {
+    if (_pipe_moving) Serial.println(F("#########Pipe stopping#########"));
+    _pipe_moving=false;
   }
 
   _cfg.pos.height=pos.height;
   if (abs((int)pos.height-(int)_movepos.height)>MOVING_HEIGHT_TOL){
-      _timeLastHeightMovement=t_ms;
-      _movepos.height=pos.height;
+    if (!_height_moving) Serial.println(F("#########Height moving#########"));
+    _height_moving=true;
+    _timeLastHeightMovement=t_ms;
+    _movepos.height=pos.height;
+  } else if (millis()-_timeLastHeightMovement > MOVING_TIMEOUT_MS) {
+    if (_height_moving) Serial.println(F("#########Height stopping#########"));
+    _height_moving=false;
   }
+
 
 }
 

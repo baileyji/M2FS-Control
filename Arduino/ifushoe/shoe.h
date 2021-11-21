@@ -74,7 +74,7 @@ Height has about 16.60mm travel  ~20um/adc count
 #define ADU_TO_STEP 0.9765625// 1.0929
 
 #define MOVING_PIPE_TOL 3
-#define MOVING_HEIGHT_TOL 2
+#define MOVING_HEIGHT_TOL 3
 #define MOVING_TIMEOUT_MS 1250
 
 typedef struct shoepos_t {
@@ -203,6 +203,8 @@ class ShoeDrive {
     Servo *_height_motor;
     EwmaT<uint64_t> _pipe_filter; //in adc units
     EwmaT<uint64_t> _height_filter;  // in adc units
+    bool _height_moving;
+    bool _pipe_moving;
 
 };
 #endif

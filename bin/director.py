@@ -457,12 +457,12 @@ class Director(Agent):
         not one of those three.
         """
         command_name,_,args=command.string.partition(' ')
-        HSL,_,args=args.partition(' ')
-        HSL=HSL.upper()
+        hsl,_,args=args.partition(' ')
+        hsl=hsl.upper()
         occulter_command=command_name+' '+args
-        if HSL not in ('H', 'S', 'L'):
+        if not hsl or hsl[0] not in ('H', 'S', 'L'):
             self.bad_command_handler(command)
-        self.connections['OcculterAgent'+HSL].sendMessage(occulter_command,
+        self.connections['OcculterAgent'+hsl[0]].sendMessage(occulter_command,
             responseCallback=command.setReply, errorCallback=command.setReply)
 
     def IFUSHIELD_command_handler(self, command):

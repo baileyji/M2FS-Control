@@ -19,17 +19,17 @@ class Director(Agent):
     """
     This is the primary control program for the M2FS instrument. It does
     relatively little for the majority of commands, merely passing them along to
-    the appropriate other Agent program responsible for that particular 
+    the appropriate other Agent program responsible for that particular
     subsystem. For additional details please refrence the M2FS Control Systems
     document.
     """
     def __init__(self):
         """
         Initialize the M2FS Director
-        
+
         The Director starts by creating connections to all of the other agents.
         It then updates command_handlers withall of the instrument commands
-        
+
         At this point the Director is ready to start listening for commands and
         processing them when self.main() is called
         """
@@ -302,8 +302,8 @@ class Director(Agent):
     def listenOn(self):
         """
         Return an address tuple on which the server shall listen.
-        
-        Overrides the default localhost address as the director listens for 
+
+        Overrides the default localhost address as the director listens for
         commands from the GUI
         """
         return ('', self.PORT)
@@ -311,7 +311,7 @@ class Director(Agent):
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
         """
@@ -320,33 +320,33 @@ class Director(Agent):
     def get_version_string(self):
         """ Return a string with the version."""
         return DIRECTOR_VERSION_STRING
-    
+
     def guiclose_command_handler(self, command):
         """
         Handle the GUI telling the instrument it is closing
-        
+
         Do nothing, what do we care
         """
         command.setReply('OK')
-    
+
     def _exitHook(self):
         self.store_system_logs()
-    
+
     def store_system_logs(self):
         """
         Write the system logs to the log directory as a gzipped file
-        
-        file name is of the form 
+
+        file name is of the form
         """
         logdir=M2FSConfig.getLogfileDir()
         datestr=time.strftime("%d.%b.%Y.%H.%M.%S", time.localtime(time.time()))
         logfile=logdir+datestr+'.log.gz'
         os.system('journalctl --this-boot | gzip > '+logfile)
-    
+
     def shutdown_command_handler(self, command):
         """
         Start instrument power down
-        
+
         Initiate what Network UPS Tools calls a forced shutdown
         upsmon should start the normal systemd shutdown procedure
         and then, after systemd indicates ready to power off (which entails
@@ -357,29 +357,29 @@ class Director(Agent):
         M2FSConfig.disableStowedShutdown()
         command.setReply('OK')
         os.system(LINUX_SHUTDOWN_COMMAND)
-    
+
     def stowedshutdown_command_handler(self, command):
         """
         Enable/Disable/Query Stowed shutdown
-        
+
         Initiate what Network UPS Tools calls a forced shutdown
         upsmon should start the normal systemd shutdown procedure
         and then, after systemd indicates ready to power off (which entails
         waiting for all agents to shutdown,
         instruct the UPS to kill the load, disabling power to the instrument.
         The instrument power button must be pressed to start it back
-        
+
         In addition the the stowed shutdown flag is set, which will result in
         every agent calling its _stowedShutdown hook as it shuts down.
         """
         M2FSConfig.enableStowedShutdown()
         command.setReply('OK')
         os.system(LINUX_SHUTDOWN_COMMAND)
-    
+
     def cradlestate_command_handler(self, command):
         """
         Report the state of the cradles
-        
+
         """
         rcolor=M2FSConfig.getShoeColorInCradle('R')
         bcolor=M2FSConfig.getShoeColorInCradle('B')
@@ -388,21 +388,21 @@ class Director(Agent):
         bstate='CRADLE_B='
         bstate+='SHOE_' + bcolor if bcolor else 'NONE'
         command.setReply('%s %s' % (rstate, bstate))
-    
+
     def shackhartman_command_handler(self, command):
         """
         Handle commands for the Shack-Hartman system
-        
+
         Pass the command string along to the SH agent. The response and error
         callbacks are the command's setReply function.
         """
         self.connections['ShackHartmanAgent'].sendMessage(command.string,
             responseCallback=command.setReply, errorCallback=command.setReply)
-    
+
     def mcal_command_handler(self, command):
         """
         Handle commands for the MCal system
-        
+
         In M2FS mode pass the command string along to the MCal agent. The response and error
         callbacks are the command's setReply function.
 
@@ -418,10 +418,10 @@ class Director(Agent):
     def SLITS_comand_handler(self, command):
         """
         Handle commands for the fiber slit system
-        
-        Pass the command string along to the slit controller agent. 
+
+        Pass the command string along to the slit controller agent.
         The response callback is the command's setReply function.
-        
+
         This routine implements the same functionality as
         shackhartman_command_handler, but in a different manner.
         Using the errorCallback is much cleaner and removes dependence on an
@@ -478,10 +478,10 @@ class Director(Agent):
     def datalogger_command_handler(self, command):
         """
         Handle commands for the datalogging system
-        
+
         Pass the command string along to the datalogger agent.
         The response callback is the command's setReply function.
-        
+
         This routine implements the same functionality as
         shackhartman_command_handler, but in a different manner.
         Using the errorCallback is much cleaner and removes dependence on an
@@ -495,14 +495,14 @@ class Director(Agent):
             command.setReply('ERROR: Could not establish a connection with the datalogger agent.')
         except selectedconnection.WriteError, err:
             command.setReply('ERROR: Could not send to datalogger agent.')
-    
+
     def PLUGGING_command_handler(self, command):
         """
         Handle commands for the plugging system
-        
+
         Pass the command string along to the plug controller agent.
         The response callback is the command's setReply function.
-        
+
         This routine implements the same functionality as
         shackhartman_command_handler, but in a different manner.
         Using the errorCallback is much cleaner and removes dependence on an
@@ -511,32 +511,32 @@ class Director(Agent):
         """
         try:
             self.connections['PlugController'].connect()
-            self.connections['PlugController'].sendMessage(command.string, 
+            self.connections['PlugController'].sendMessage(command.string,
                 responseCallback=command.setReply)
         except selectedconnection.ConnectError, err:
             command.setReply('ERROR: Could not establish a connection with the plug controller.')
         except selectedconnection.WriteError, err:
             command.setReply('ERROR: Could not send to plug controller.')
-    
+
     def plugmode_command_handler(self, command):
         """
         Handle entering and exiting plug mode
-        
+
         On entering we need to insert the FLS pickoff 'FLSIM IN' to each galil
         This takes 5-30 seconds and if it fails then we can't sucessfully enter
-        plugmode. We then need to make sure that all slits are in a position 
+        plugmode. We then need to make sure that all slits are in a position
         that is suitable for plugging, what constitutes suitable is unknown at
-        present. Finally, notify the plugcontroller that it should start 
+        present. Finally, notify the plugcontroller that it should start
         checking fiber plug locations.
-        
+
         On leaving plug mode we need to remove the FLS pickoff ('FLISM OUT' to
         both Galil agents). And perhaps reset the slit positions, which if
         closed loop control is enabled would require the pickoff to still be
         inserted.
 
-        Considering the FLS system isn't yet operational, this command is 
+        Considering the FLS system isn't yet operational, this command is
         just a dummy to excersise the FLS Pickoffs
-        
+
         TODO When this really matters I need to take into account that the
          FLSIM OUT and FLSIM IN commands might result in an ERROR, which I would
          need to trap a and handle. The most likely cause, which is also expected
@@ -575,9 +575,9 @@ class Director(Agent):
     def get_status_list(self):
         """
         Report the status of all instrument subsystems
-        
+
         Return a list of key:value pairs plus the status responses resulting
-        from STATUS requests to each agent. If an agent doesnt respond report 
+        from STATUS requests to each agent. If an agent doesnt respond report
         it's status it is listed as Offline.
         """
         status=[(self.get_version_string(),self.cookie)]
@@ -598,8 +598,8 @@ class Director(Agent):
                 response='%s:Not_Responding' % agentName
             status.append(response)
         return status
-    
-    
+
+
     def updateBatteryState(self):
         #Get the current state of the UPS
         try:
@@ -619,16 +619,16 @@ class Director(Agent):
         updateBatteryStateTimer=Timer(POLL_NUT_INTERVAL, self.updateBatteryState)
         updateBatteryStateTimer.daemon=True
         updateBatteryStateTimer.start()
-    
+
     def galil_command_handler(self, command):
-        """ 
+        """
         Handle commands for either of the galils
-            
+
         Pass the command string along to the appropriate galil agent.
         The response and error callbacks are the command's setReply function.
-        
+
         Determine the appropriate galil agent by checking the second word in
-        the command string if it is 'R' then GalilAgentR, if it is 'B' then 
+        the command string if it is 'R' then GalilAgentR, if it is 'B' then
         agent B. The command is considered bad if it is neither 'R' nor 'B'.
         """
         command_name,junk,args=command.string.partition(' ')
@@ -648,10 +648,10 @@ class Director(Agent):
     def guider_command_handler(self, command):
         """
         Handle commands for the guider system
-        
+
         Pass the command string along to the guider agent.
         The response callback is the command's setReply function.
-        
+
         This routine implements the same functionality as
         shackhartman_command_handler, but in a different manner.
         Using the errorCallback is much cleaner and removes dependence on an
@@ -666,7 +666,7 @@ class Director(Agent):
             command.setReply('ERROR: Could not establish a connection with the guider agent.')
         except selectedconnection.WriteError, err:
             command.setReply('ERROR: Could not send to guider agent.')
-    
+
 
 if __name__=='__main__':
     director=Director()

@@ -272,7 +272,14 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     @property
     def io(self):
-        return IdeaIO(self.send_command_to_hk(':'))  # 8 bit number O4-1 I4-1 "`:31\r`:#\r"
+        try:
+            resp = self.send_command_to_hk(':')
+            return IdeaIO(resp)  # 8 bit number O4-1 I4-1 "`:31\r`:#\r"
+        except ValueError:
+            e = "HK did not adhere to protocol ':' got '%s'" % resp
+            logger.error(e, exc_info=True)
+            self.handle_error(e, log=False)
+            raise SelectedConnection.ReadError(e)
 
     @property
     def moving(self):
@@ -422,4 +429,3 @@ if __name__ == '__main__':
     log = logging.getLogger()
     log.setLevel(logging.DEBUG)
     m = self = IdeaDrive('mac')
-

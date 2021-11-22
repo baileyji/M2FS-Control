@@ -6,13 +6,22 @@ import threading
 from collections import namedtuple
 
 
-"""SOME VERY EARLY NOTES
-P28H41-12-A01
-0.18 MAX
-.001"/step
-200step/rev
-250,000 rad/sec2 39789 rev/s2 7958 in/s2 MAX
-"""
+
+# Motor: P28H41-12-A01
+# 0.18 Amps MAX
+# 2000 counts per rev
+# .001"/full step
+# 200 full step/rev
+# control in 1/64th step units
+# nominal positioning at .5 full step
+# 1 ustep is 0.397 nm
+# Attained positioning at ~3 microsteps per reported positions ~ 1.19 um
+# Backlash is under 10 usteps (3.97um)
+# Encoder only good to 2.54 um (i.e .001*200/2000*25.4
+# MAX:
+#     250,000 rad/sec2
+#     39789 rev/s2
+#     7958 in/s2
 
 
 # Contact HK: this seems to remain true even after a reset command to the Idea if the programs on the idea drive
@@ -33,6 +42,8 @@ P28H41-12-A01
 #0.180mA ABSOLUTE MAX
 #.001"/fullstep
 #200step/rev
+
+
 
 #a 1" relative test move
 #I64000,48000,0,0,960000,960000,175,0,175,175,300,64

@@ -219,6 +219,7 @@ class SelectorAgent(Agent):
         """ Perform a stowed shutdown """
         try:
             self.connections['ifuselector'].move_to(M2FSConfig.getSelectorDefaults()['stow'])
+            #TODO might not engage break if move takes longer than a second or two (program will be dead)
         except IOError as e:
             pass
         except Exception:

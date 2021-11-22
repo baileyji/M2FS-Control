@@ -150,7 +150,7 @@ class OcculterAgent(Agent):
                                 ('PError', state.position_error_str),
                                 ('Faults', state.faultString if state.errorPresent else 'None')])
         except IOError as e:
-            self.logger.warning('HK Drive failed state query: ()'.format(e))
+            self.logger.warning('HK Drive failed state query: ({})'.format(e))
             status_list.append(('Driver', 'Disconnected'))
         return status_list
 

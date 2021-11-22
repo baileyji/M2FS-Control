@@ -159,7 +159,6 @@ class Director(Agent):
 
             'OCC':self.OCCULTER_command_handler,
             'OCC_STEP':self.OCCULTER_command_handler,
-            'OCC_CALIBRATE':self.OCCULTER_command_handler,
             'OCCRAW':self.OCCULTER_command_handler,
             'OCC_ABORT': self.OCCULTER_command_handler,
             'OCC_RESET': self.OCCULTER_command_handler,

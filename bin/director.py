@@ -460,8 +460,9 @@ class Director(Agent):
         hsl,_,args=args.partition(' ')
         hsl=hsl.upper()
         occulter_command=command_name+' '+args
-        if not hsl or hsl[0] not in ('H', 'S', 'L'):
+        if not hsl or hsl[0] not in 'HSL':
             self.bad_command_handler(command)
+            return
         self.connections['OcculterAgent'+hsl[0]].sendMessage(occulter_command,
             responseCallback=command.setReply, errorCallback=command.setReply)
 

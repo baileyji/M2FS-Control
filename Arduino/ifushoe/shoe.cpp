@@ -16,7 +16,7 @@ ShoeDrive::ShoeDrive(uint8_t pipe_servo_pin, uint8_t pipe_pot_pin, uint8_t heigh
                      , _height_motor(h) {
 }
 
-#define MAX_RETRIES 1
+#define MAX_RETRIES 2
 
 #define SHOE_IDLE 0
 #define USER_MOVE_pipe 2
@@ -30,7 +30,7 @@ ShoeDrive::ShoeDrive(uint8_t pipe_servo_pin, uint8_t pipe_pot_pin, uint8_t heigh
 #define SLIT_MOVE_pipe 8
 #define SLIT_MOVE_raise 7
 
-
+#define DETACHED_LOWPOS false
 
 #ifdef DEBUG_FEEDBACK
 int feedback_update_msg=0;
@@ -246,7 +246,9 @@ void ShoeDrive::moveHeight(uint16_t pos){
   Serial.print(F("#Move H to "));Serial.println(pos);
   _moveInProgress=USER_MOVE_height;
   _cfg.desired_slit=UNKNOWN_SLIT;
-  _moveHeight(pos, RC_PULSE_DELAY, true);
+  _moveHeight(pos+15, RC_PULSE_DELAY_SHORT, false);
+  if ((pos<170) & !DETACHED_LOWPOS) _moveHeight(pos, RC_PULSE_DELAY, false);
+  else _moveHeight(pos, RC_PULSE_DELAY, true);
 }
 
 
@@ -450,7 +452,8 @@ void ShoeDrive::run(){
             Serial.println(F("#Raise fail, lower"));
             // E_HEIGHTSTUCK: height didn't up get to where it was sent. if pipes aren't where they need to be then 
             // that would cause this (though that isn't possible by design), just lower back down and let the cycle go again
-            _moveHeight(_cfg.height_pos[DOWN_NDX], RC_PULSE_DELAY, true);
+            _moveHeight(_cfg.height_pos[DOWN_NDX]+20, RC_PULSE_DELAY_SHORT, false);
+            _moveHeight(_cfg.height_pos[DOWN_NDX], RC_PULSE_DELAY, DETACHED_LOWPOS);
             errors=0;
             _moveInProgress=SLIT_MOVE_lower;
 
@@ -484,6 +487,7 @@ void ShoeDrive::run(){
     case SLIT_MOVE: //new move, lower cassette
       errors=0;
       Serial.print(F("#Starting move to ")); Serial.print((uint16_t)_cfg.desired_slit+1); Serial.println(F(". Lowering."));
+      _moveHeight(_cfg.height_pos[DOWN_NDX]+20, RC_PULSE_DELAY_SHORT, false);
       _moveHeight(_cfg.height_pos[DOWN_NDX], RC_PULSE_DELAY, false);
       _moveInProgress=SLIT_MOVE_lower;
       break;
@@ -494,13 +498,13 @@ void ShoeDrive::run(){
 //      } else 
       //Alow pipes to move while the height is twitching at the bottom!
       if (safeToMovePipes()) { //transition to SLIT_MOVE_pipes
-        if (ENABLE_DETACH) _height_motor->detach();
+        if (ENABLE_DETACH && DETACHED_LOWPOS) _height_motor->detach();
         errors=0;
         Serial.print(F("#Down ("));Serial.print(stat.error.height);Serial.println(F("), moving pipe."));
         _movePipe(_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)], RC_PULSE_DELAY, true);
         _moveInProgress=SLIT_MOVE_pipe;
       } else if (!stat.moving.height){ //transition to RECOVERY_MOVE we are stalled
-        if (ENABLE_DETACH) _height_motor->detach();
+        if (ENABLE_DETACH && DETACHED_LOWPOS) _height_motor->detach();
         Serial.print(F("#ERROR: Height not down ")); Serial.println(stat.error.height);
         errors|=E_HEIGHTSTALL;
         tellStatus();

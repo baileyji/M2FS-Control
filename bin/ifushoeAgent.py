@@ -1,87 +1,132 @@
 #!/usr/bin/env python2.7
 import time
-import m2fscontrol.selectedconnection as selectedconnection
 from m2fscontrol.agent import Agent
 from m2fscontrol.m2fsConfig import M2FSConfig
 from m2fscontrol.utils import longTest
+from m2fscontrol.shoe import ShoeSerial as _ShoeSerial, ShoeCommandNotAcknowledgedError
 
-EXPECTED_FIBERSHOE_INO_VERSION='IFUshoe v1.0'
-SHOE_AGENT_VERSION_STRING='IFU Shoe Agent v1.0'
-SHOE_AGENT_VERSION_STRING_SHORT='v1.0'
 
-SHOE_BOOT_TIME=.5
-SHOE_SHUTDOWN_TIME=.25
-MAX_SLIT_MOVE_TIME=25
+EXPECTED_FIBERSHOE_INO_VERSION = 'IFUshoe v1.3'
+SHOE_AGENT_VERSION_STRING = 'IFU Shoe Agent v1.0'
+SHOE_AGENT_VERSION_STRING_SHORT = SHOE_AGENT_VERSION_STRING.split()[-1]
 
-#todo write files with shoe inserted color based on presence of temp sensors?
+SHOE_BOOT_TIME = .5
+SHOE_SHUTDOWN_TIME = .25
+MAX_SLIT_MOVE_TIME = 25
+STOWSLIT = 1
+
+# todo write files with shoe inserted color based on presence of temp sensors?
 
 def parseTS(x):
-    #todo
-    response = {}
-    response['ShoeR']=bool(x&0b1)
-    response['ShoeB']=bool(x&0b10)
-    response['PipeB']='MOVING' # or position
-    response['PipeR']=0.43
-    response['CarriageB']='MOVING'  # or UP, DOWN, INTERMEDIATE
-    response['CarriageR']='MOVING'  # or UP, DOWN, INTERMEDIATE
-    response['SwitchB']='PRESSED'  # or 'UNPRESSED'
-    response['SwitchR']='PRESSED'  # or 'UNPRESSED'
-    return
-
-
-class ShoeCommandNotAcknowledgedError(IOError):
-    """ Shoe fails to acknowledge a command, e.g. didn't respond with ':' """
-    pass
-
-
-class ShoeSerial(selectedconnection.SelectedSerial):
-    # TODO All this
-    """ 
-    Tetris Shoe Controller Connection Class
-    
-    This class extents the SelectedSerial implementation of SelectedConnection
-    with custom implementations of _postConnect and 
-    _implementationSpecificDisconnect.
-    
-    The _postConnect hook is used to verify the shoe is running a compatible 
-    firmware version. EXPECTED_FIBERSHOE_INO_VERSION should match the define for
-    VERSION_STRING in fibershoe.ino
-    
-    _implementationSpecificDisconnect is overridden to guarantee the shoe is 
-    told to power down whenever the serial connection closes.
     """
-    def _preConnect(self):
-        """ Attempt at workaround for https://bugs.launchpad.net/digitemp/+bug/920959 """
-        try:
-            from subprocess import call
-            s = 'stty crtscts < {device};stty -crtscts < {device}'.format(device=self.port)
-            ret = call(s, shell=True)
-        except Exception, e:
-            raise selectedconnection.ConnectError('rtscts hack failed. {}:{}:{}'.format(s, ret, str(e)))
+    ===================
+    R connected
+    B connected
+    ===R Shoe Status===
+     (pipe, height)
+     ADC: 856, 158
+     Servo: 836, 154
+     Pos (live): 836 (836), 154 (154)
+     Err: 0, 0
+     Attached: 0, 0
+     Moving: 0, 0
+      ms since move: 2494990, 2494990
+     SL: 256
+      SL Delta: 17, -76
+     Toler: 33, 33
+    Desired Slit: 256
+    Detected Slit: INTERMEDIATE
+    Errors: 0 MiP: 0 Safe: 0 Relay: 0 Idleoff: 1 curPipeNdx: 5
+    Slit Pos:
+     Up:    850 835 543 530 484 230
+     Down:  300 300 300 300 300 135
+     Pipe:  224 343 462 581 700 819
+    Free Mem:724
+    ===================
+    ===B Shoe Status===
+     (pipe, height)
+     ADC: 419, 158
+     Servo: 409, 154
+     Pos (live): 409 (409), 154 (154)
+     Err: 0, 0
+     Attached: 0, 0
+     Moving: 0, 0
+      ms since move: 2495030, 2495031
+     SL: 3
+      SL Delta: -53, -416
+     Toler: 33, 33
+    Desired Slit: 3
+    Detected Slit: INTERMEDIATE
+    Errors: 0 MiP: 0 Safe: 0 Relay: 0 Idleoff: 1 curPipeNdx: 255
+    Slit Pos:
+     Up:    865 843 570 530 500 210
+     Down:  300 300 300 300 300 135
+     Pipe:  224 343 462 581 700 819
+    Free Mem:724
+    ===================
 
-    def _postConnect(self):
-        """
-        Implement the post-connect hook
+    """
+    x = '\n'.join([l.strip() for l in x.split('\n') if
+                   not l.startswith('#') and
+                   '===================' not in l
+                   and l.strip()])
+    g, r_b = x.split('===R Shoe Status===')
+    rstat, bstat = r_b.split('===B Shoe Status===')
+    rstat = rstat.strip()
+    bstat = bstat.strip()
 
-        With the shoe we need verify the firmware version. If if doesn't match
-        the expected version fail with a ConnectError. 
-        """
-        #Shoe takes a few seconds to boot
-        time.sleep(SHOE_BOOT_TIME)
-        #verify the firmware version
-        self.sendMessageBlocking('PV')
-        response=self.receiveMessageBlocking()
-        self.receiveMessageBlocking(nBytes=1) #discard the :
-        if response != EXPECTED_FIBERSHOE_INO_VERSION:
-            error_message = ("Incompatible Firmware, Shoe reported '%s' , expected '%s'." %
-                             (response, EXPECTED_FIBERSHOE_INO_VERSION))
-            raise selectedconnection.ConnectError(error_message)
-    
+    def parse_shoestat(x):
+        res = {}
+        d = {}
+        for l in x.split('\n'):
+            k, _, v = l.partition(':')
+            if not v:
+                continue
+            d[k] = v
+        res['moving'] = [bool(int(x)) for x in d['Moving'].split(',')]
+        res['slit'] = d['Detected Slit']
+        res['up'] = [int(x) for x in d['Up'].split()]
+        res['down'] = [int(x) for x in d['Down'].split()]
+        res['pipe'] = [int(x) for x in d['Pipe'].split()]
+        res['debug'] = 'Errors: ' + d['Errors']
+        res['pos_err'] = [int(x) for x in d['SL Delta'].split(',')]
+        res['pos'] = [int(x.split()[0]) for x in d['Pos (live)'].split(',')]
+        return res
+
+    rd = parse_shoestat(rstat)
+    bd = parse_shoestat(bstat)
+    response = {}
+    if 'R disconnected' in g:
+        response['ShoeR'] = 'disconnected'
+    elif 'R&B Swapped' in g:
+        response['ShoeR'] = 'swapped'
+    else:
+        response['ShoeR'] = 'connected'
+
+    if 'B disconnected' in g:
+        response['ShoeB'] = 'disconnected'
+    elif 'R&B Swapped' in g:
+        response['ShoeB'] = 'swapped'
+    else:
+        response['ShoeB'] = 'connected'
+
+    for x in 'RB':
+        d = rd if x == 'R' else bd
+        for y in ('up', 'down', 'pipe'):
+            response[y + '_pos_'+x.lower()] = d[y]
+        response['Slit'+x] = d['slit']
+        response['Pipe'+x] = 'MOVING ({})'.format(d['pos'][0]) if d['moving'][0] else d['pos'][0]
+        response['Height'+x] = 'MOVING ({})'.format(d['pos'][1]) if d['moving'][1] else d['pos'][1]
+        response['pos_err_'+x.lower()] = d['pos_err']
+        response['debug_'+x.lower()] = d['debug']
+
+    return response
+
+
+class ShoeSerial(_ShoeSerial):
     def _implementationSpecificDisconnect(self):
-        """ Disconnect the serial connection, telling the shoe to disconnect """
-        #TODO look up datasheet for Actuonix controller /call about sudden disconnect
+        """ Disconnect the serial connection"""
         try:
-            self.connection.write('DS\n')
             self.connection.flushOutput()
             self.connection.flushInput()
             self.connection.close()
@@ -89,67 +134,58 @@ class ShoeSerial(selectedconnection.SelectedSerial):
             self.logger.error('Error on shoe serial disconnect: ', exc_info=True)
             pass
 
+
 class IFUShoeAgent(Agent):
-    #TODO
     """
-    This control program is responsible for controlling the fiber shoe for one
-    side of the spectrograph. Two instances are run, one for the R side
-    and one for the B side.
-    
-    Low level device functionality is handled by the Arduino microcontroller 
-    embedded in the shoe itself. The C++ code run on the shoe is found in the
-    file fibershoe.ino and its libraries in ../Arduino/libraries
-    
+    This control program is responsible for controlling the IFU fiber shoes.
+
+    Low level device functionality is handled by the Arduino microcontroller
+    embedded in the shoe control tower itself. The C++ code run on the shoe is found in the
+    file ifushoe.ino and its libraries in ../Arduino/libraries
+
     The agent supports two simultaneous connections to allow the datalogger to
     request the shoe temperature.
     """
+
     def __init__(self):
         Agent.__init__(self, 'IFUShoeAgent')
-        #Initialize the shoe
+        # Initialize the shoe
         if not self.args.DEVICE:
             self.args.DEVICE = '/dev/ifum_shoe'
         self.connections['shoe'] = ShoeSerial(self.args.DEVICE, 115200, timeout=1)
-        #Allow two connections so the datalogger agent can poll for temperature
+        # Allow two connections so the datalogger agent can poll for temperature
         self.max_clients = 2
         self.command_handlers.update({
-            #Send the command string directly to the shoe
+            # Send the command string directly to the shoe
             'SLITSRAW': self.RAW_command_handler,
-            #Get/Set the active slit.
+            # Get/Set the active slit.
             'SLITS': self.SLITS_command_handler,
-            #Get/Set the step position corresponding to a slit on a tetris
-            'SLITS_SLITPOS':self.SLITPOS_command_handler,
-            #Get/Set the backlash for a tetris
-            'SLITS_BACKLASH':self.BACKLASH_command_handler,
-            #Get the current step position of a tetris 
-            'SLITS_CURRENTPOS':self.CURRENTPOS_command_handler,
-            #Turn active holding of the slit position on or off
-            'SLITS_ACTIVEHOLD':self.ACTIVEHOLD_command_handler,
-            #Get the temperature of the shoe
-            'SLITS_TEMP':self.TEMP_command_handler,
-            #Tell the shoe to move a tetris a number of steps
-            'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler})
-    
+            # Get/Set the positions corresponding to a slit
+            'SLITS_SLITPOS': self.SLITPOS_command_handler,
+            # Get the temperature of the shoe
+            'SLITS_TEMP': self.TEMP_command_handler})
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
         """
         return ("This is the IFU shoe agent. It takes shoe commands via"
                 "a socket connection or via CLI arguments.")
-    
+
     def add_additional_cli_arguments(self):
         """
         Additional CLI arguments may be added by implementing this function.
-        
+
         Arguments should be added as:
         self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
         """
         self.cli_parser.add_argument('--device', dest='DEVICE',
                                      action='store', required=False, type=str, help='the device to control')
         self.cli_parser.add_argument('command', nargs='*', help='Agent command to execute')
-    
+
     def get_version_string(self):
         """ Return a string with the version."""
         return SHOE_AGENT_VERSION_STRING
@@ -157,64 +193,64 @@ class IFUShoeAgent(Agent):
     def _send_command_to_shoe(self, command_string):
         """
         Send a command string to the shoe, wait for immediate response
-        
+
         Silently ignore an empty command.
-        
+
         Raise ShoeCommandNotAcknowledgedError if the shoe does not acknowledge
         any part of the command.
-        
+
         Procedure is as follows:
         Send the command string to the shoe
         grab a singe byte from the shoe and if it isn't a : or a ? listen for
         a \n delimeted response followed by a :.
-        
+
         Return a string of the response to the commands.
         Note the : ? are not considered responses. ? gets the exception and :
         gets an empty string. The response is stripped of whitespace.
         """
-        #No command, return
+        # No command, return
         if not command_string:
             return ''
-        #Send the command(s)
+        # Send the command(s)
         self.connections['shoe'].sendMessageBlocking(command_string)
-        #Get the first byte from the galil, typically this will be it
-        response=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
+        # Get the first byte, typically this will be it
+        response = self.connections['shoe'].receiveMessageBlocking(nBytes=1)
         # 3 cases:, :, ?, or stuff followed by \r\n:
-        #case 1, command succeeds but returns nothing, return
+        # case 1, command succeeds but returns nothing, return
         if response == ':':
             return ''
-        #command fails
+        # command fails
         elif response == '?':
             raise ShoeCommandNotAcknowledgedError("ERROR: Shoe did not acknowledge command '%s' (%s)" %
                                                   (command_string, response))
-        #command is returning something
+        # command is returning something
         else:
-            #do a blocking receive on \n
-            response=response+self.connections['shoe'].receiveMessageBlocking()
-            #...and a single byte read to grab the :
-            confByte=self.connections['shoe'].receiveMessageBlocking(nBytes=1)
-            if confByte==':':
+            # do a blocking receive on \n
+            response = response + self.connections['shoe'].receiveMessageBlocking()
+            # ...and a single byte read to grab the :
+            confByte = self.connections['shoe'].receiveMessageBlocking(nBytes=1)
+            if confByte == ':':
                 return response.strip()
             else:
-                #Consider it a failure, but log it. Add the byte to the
+                # Consider it a failure, but log it. Add the byte to the
                 # response for logging
-                response+=confByte
-                err=("Shoe did not adhere to protocol. '%s' got '%s'" % (command_string, response))
+                response += confByte
+                err = ("Shoe did not adhere to protocol. '%s' got '%s'" % (command_string, response))
                 self.logger.warning(err)
                 raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
-    
+
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
-        
+
         Report the Key:Value pairs:
             name:cookie,
             Cradle<color>:Shoe<color> <Error if not responding properly>
             Drivers:[Powered| Off]
             On: string of tetri numbers that are on e.g. '1 4 6' or None
             Moving: string of tetri numbers that are moving
-            Calibrated: string of tetri numbers that are calibrated 
-            
+            Calibrated: string of tetri numbers that are calibrated
+
         Status is reported as 4 bytes with the form
         Byte 1) [DontcareX5][shoeOnline][shieldIsR][shieldIsOn]
         Byte 2) [tetris7on]...[tetris0on]
@@ -224,39 +260,37 @@ class IFUShoeAgent(Agent):
         on serial numbers
         #TODO
         """
-        #Name & cookie
-        status = {self.name+' '+SHOE_AGENT_VERSION_STRING_SHORT: self.cookie}
+        # Name & cookie
+        status = {self.name + ' ' + SHOE_AGENT_VERSION_STRING_SHORT: self.cookie}
         try:
             status['Controller'] = 'Online'
             response = parseTS(self._send_command_to_shoe('TS').split(' '))
-            status['ShoeR'] = 'Connected' if response['ShoeR'] else 'Disconnected'
-            status['ShoeB'] = 'Connected' if response['ShoeB'] else 'Disconnected'
+            status['ShoeR'] = response['ShoeR']
+            status['ShoeB'] = response['ShoeB']
             status['PipeB'] = response['PipeB']
             status['PipeR'] = response['PipeR']
-            status['CarriageB'] = response['CarriageB']
-            status['CarriageR'] = response['CarriageR']
-            status['SwitchB'] = response['SwitchB']
-            status['SwitchR'] = response['SwitchR']
+            status['HeightB'] = response['HeightB']
+            status['HeightR'] = response['HeightR']
         except ValueError:
             status['Controller'] = 'ERROR: Bad Data'
         except IOError:
             status['Controller'] = 'Disconnected'
         return status.items()
-    
+
     def RAW_command_handler(self, command):
-        """ 
+        """
         Send a raw string to the shoe and wait for a response
-        
+
         NB the PC command can generate more than 1024 bytes of data
         """
-        arg=command.string.partition(' ')[2]
+        arg = command.string.partition(' ')[2]
         if arg:
             try:
                 self.connections['shoe'].sendMessageBlocking(arg)
-                response=self.connections['shoe'].receiveMessageBlocking(nBytes=2048)
-                response=response.replace('\r','\\r').replace('\n','\\n')
-            except IOError, e:
-                response='ERROR: %s' % str(e)
+                response = self.connections['shoe'].receiveMessageBlocking(nBytes=2048)
+                response = response.replace('\r', '\\r').replace('\n', '\\n')
+            except IOError as e:
+                response = 'ERROR: %s' % str(e)
             command.setReply(response)
         else:
             self.bad_command_handler(command)
@@ -267,270 +301,145 @@ class IFUShoeAgent(Agent):
         """
         if 'shoe' not in self.connections:
             return
-#        
-#       failmsg="Stowed shutdown of {} failed: {}"
-        #wait here until the show connection is free. Any threads running
-        #will then stall if they need the shoe, program will be unresponsive
-        # to socket interface
-        # self.connections['shoe'].rlock.acquire(blocking=True)
+        self._send_command_to_shoe('SLR'+ str(STOWSLIT))
+        self._send_command_to_shoe('SLB' + str(STOWSLIT))
+
+        #TODO look at other agents for process
+
+    #
+    #       failmsg="Stowed shutdown of {} failed: {}"
+    # wait here until the shoe connection is free. Any threads running
+    # will then stall if they need the shoe, program will be unresponsive
+    # to socket interface
+    # self.connections['shoe'].rlock.acquire(blocking=True)
 
     def TEMP_command_handler(self, command):
         """
         Get the current shoe temperature
-        
+
         Responds with the temp or UNKNOWN
         """
         if self.connections['shoe'].rlock.acquire(False):
             try:
                 response = self._send_command_to_shoe('TE')
-            except IOError, e:
+            except IOError as e:
                 response = 'UNKNOWN UNKNOWN UNKNOWN'
             finally:
                 self.connections['shoe'].rlock.release()
         else:
             response = 'ERROR: Busy, try again'
         command.setReply(response)
-    
+
     def SLITS_command_handler(self, command):
         """
         Get/Set the active slit
-        
+
         Command is of the form
         SLITS R|B {1-6}
-        or 
+        or
         SLITS R|B ?
-        
+
         If setting, the command instructs the shoe to move to the
         requested slit position, using the defined step positions for
         that slit. It is an error to set the slits when a move is in progress.
         If done the error '!ERROR: Can not set slits at this time. will be generated.'
-        
+
         If getting, respond in the form INTERMEDIATE|MOVING|{1-6}.
         """
         if '?' in command.string:
-            #Command the shoe to report the active slit
-            command.setReply(self._do_online_only_command('SGR' if 'r' in command.string.lower() else 'SGB'))
+            # Command the shoe to report the active slit
+            command.setReply(self._send_command_to_shoe('SGR' if 'r' in command.string.lower() else 'SGB'))
+            return
         else:
-            #Vet the command
-            command_parts=command.string.replace(',', ' ').split(' ')
-            if not (len(command_parts)==3 and
-                    command_parts[1].upper() in ('R', 'B') and
-                    len(command_parts[2])==1 and command_parts[2] in '123456'):
+            # Vet the command
+            command_parts = command.string.upper().replace(',', ' ').split(' ')
+            if not (len(command_parts) == 3 and command_parts[1] in ('R', 'B') and
+                    command_parts[2] in ('1','2','3','4','5','6')):
                 self.bad_command_handler(command)
-            #First check to make sure the command is allowed (all are
-            # calibrated and none are moving
-            #Verify all tetri are calibrated and none are moving
-            # see documentation of TS command in fibershoe.ino or
-            # get_status_list
-            status=self._do_online_only_command('TS')
-            if status.startswith('ERROR:'):
-                command.setReply(status)
                 return
-            movingByte=''.join(status.split()[3:4])
-            if '0' != movingByte:
-                command.setReply('ERROR: Move in progress (%s).' % movingByte)
-                return
-            command.setReply('OK')
-            slits=''.join(command_parts[1:9])
-            self.startWorkerThread(command, 'MOVING', self.slit_mover, args=(slits, status),
-                                   block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS'))
-    
-    def slit_mover(self, slits, status):
-        """
-        slits is a 8-tuble or list of number strings '1' - '7'
-        status is the response to the command TS
-        """
-        #Command the shoe to reconfigure the tetrii
-        #Determine which are uncalibrated
-        uncalByte=status.split(' ')[2]
-        if uncalByte!='0':
-            calibrated=map(lambda x: int(x)-1,
-                             byte2bitNumberString(int(uncalByte)).split(' '))
-            uncalibrated=[x for x in range(0,8) if x not in calibrated]
-        else:
-            uncalibrated=range(0,8)
+            _, id, slit = command_parts
+
+        try:
+            status = parseTS(self._send_command_to_shoe('TS'))
+            if status['Shoe'+id] != 'connected':
+                command.setReply('ERROR: %s shoe is %s'  % (id, status['Shoe'+id]))
+            elif 'MOVING' in status['Slit'+id]:
+                command.setReply('ERROR: Move in progress')
+            else:
+                command.setReply('OK')
+                self.startWorkerThread(command, 'MOVING', self.slit_mover, args=(id, slit),
+                                       block=('SLITS_SLITPOS', ))
+        except IOError as e:
+            command.setReply(e)
+
+    def slit_mover(self, shoe, slit):
+        """ shoe is R|B, slit a number string '1'-'6' """
+        # Command the shoe
+        shoe = shoe.upper()
+        final_state = ''
         with self.connections['shoe'].rlock:
-            for i in range(0,8):
-                if i in uncalibrated:
-                    resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
-                else:
-                    cmd='SL'+'ABCDEFGH'[i]+slits[i]
-                    resp=self._do_online_only_command(cmd)
-                if resp !='OK':
-                    self.returnFromWorkerThread('SLITS', finalState=resp)
-                    return
+            cmd = 'SL' + shoe + slit
+            resp = self._send_command_to_shoe(cmd)
+            if resp != 'OK':
+                self.returnFromWorkerThread('SLITS', finalState=resp)
+                return
             self.logger.debug('sleeping with lock active')
             time.sleep(MAX_SLIT_MOVE_TIME)
             self.logger.debug('finished sleeping with lock active')
-        if len(uncalibrated) > 0:
-            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
-        with self.connections['shoe'].rlock:
-            for i in uncalibrated:
-                cmd='SL'+'ABCDEFGH'[i]+slits[i]
-                resp=self._do_online_only_command(cmd)
-                if resp !='OK':
-                    self.returnFromWorkerThread('SLITS', finalState=resp)
-                    return
-        self.returnFromWorkerThread('SLITS')
-    
+
+            #TODO now the question is did we get there
+            pos = self._send_command_to_shoe('SG'+shoe)
+            if pos != slit:
+                final_state = 'ERROR: Did not attain requested slit'
+        self.returnFromWorkerThread('SLITS', finalState=final_state)
+
     def SLITPOS_command_handler(self, command):
         """
-        Retrieve or set the step position of a slit
-        
-        This command has three arguments: the tetris, 1-8; the slit 1-7
-        (7=closed); and the slit position or a question mark.
-        
+        Retrieve or set the position of a slit up/down/pipe location
+
+        This command has 4 arguments:
+            - shoe, R|B
+            - place, up, down, pipe
+            - slit 1-6, * (not for setting)
+            - value or a question mark.
+
         The set position only affects subsequent moves.
         """
-        #Vet the command
-        command_parts=command.string.split(' ')
-        if (len(command_parts)>3 and 
-            len(command_parts[1])==1 and command_parts[1] in '12345678' and
-            len(command_parts[2])==1 and command_parts[2] in '1234567' and 
-            ('?' in command_parts[3] or  longTest(command_parts[3]))):
-            #Extract the tetris ID
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            #...and the slit
-            slit=command_parts[2]
-            #If getting
-            if '?' in command.string:
-                #Get the step position of the slit from the requested tetris
-                try:
-                    response=self._send_command_to_shoe('SD'+tetrisID+slit)
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            else:
-                """ Set the position """
-                pos=command_parts[3]
-                try:
-                    self._send_command_to_shoe('SS'+tetrisID+slit+pos)
-                    response='OK'
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            command.setReply(response)
-        else:
+        # Vet the command
+        command_parts = command.string.lower().split(' ')
+        if len(command_parts) < 5:
             self.bad_command_handler(command)
+            return
 
-    def CURRENTPOS_command_handler(self, command):
-        """
-        Respond with the current step position of the tetris
-        
-        This command has one argument: the tetris, 1-8
-        """
-        command_parts=command.string.split(' ')
-        #Vet the command
-        if (len(command_parts)>1 and 
-            len(command_parts[1])==1 and 
-            command_parts[1] in '12345678'):
-            #Extract the tetris ID
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            #Get the step position from the shoe
-            response=self._do_online_only_command('TD'+tetrisID)
-            command.setReply(response)
-        else:
+        id, place, slit, pos = command_parts[1:5]
+        if (id not in ('b', 'r') or place not in ('pipe', 'up', 'down') or
+            slit not in ('1','2','3','4','5','6', '*') or not ('?' in pos or longTest(pos))):
             self.bad_command_handler(command)
-    
-    def ACTIVEHOLD_command_handler(self, command):
-        """
-        Turn active holding on or off or query the state.
-        
-        ACTIVEHOLD [ON|OFF|?]
-        
-        Active holding leaves the tetris motors energized after a move is
-        completed. Note there is no way for the motors to be backdriven
-        (The output shaft will shear off before this will happen), so this
-        doesn't really do anything other than waste power though it just might
-        possibly help repeatability.
-        """
-        if '?' in command.string:
+            return
+
+        if '?' in pos:  # Get the step position of the slit
             try:
-                response=self._send_command_to_shoe('GH')
-            except IOError, e:
-                response=str(e)
-            command.setReply(response)
-        else:
-            if 'ON' in command.string and 'OFF' not in command.string:
-                command.setReply(self._do_online_only_command('AH'))
-            elif 'OFF' in command.string and 'ON' not in command.string:
-                command.setReply(self._do_online_only_command('PH'))
-            else:
+                x = parseTS(self._send_command_to_shoe('TS').split(' '))
+                pos = x[place+'_pos_'+id]
+                response = ' '.join(pos) if slit == '*' else str(pos[int(slit)-1])
+            except IOError:
+                response = 'ERROR: IFU shoe control tower offline'
+        else:  #if setting
+            if slit == '*':
                 self.bad_command_handler(command)
-    
-    def HARDSTOP_command_handler(self, command):
-        """
-        Command a tetris to drive to the hardstop, thus calibrating it
-        
-        This command has one argument: the tetris, 1-8
-        """
-        command_parts=command.string.split(' ')
-        if (len(command_parts)>1 and 
-            len(command_parts[1])==1 and 
-            command_parts[1] in '12345678'):
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            command.setReply(self._do_online_only_command('DH'+tetrisID))
-        else:
-            self.bad_command_handler(command)
-    
-    def MOVESTEPS_command_handler(self, command):
-        """
-        Command a tetris to move a specified number of steps
-        
-        This command has two argument: the tetris, 1-8, and the number of steps
-        to move. The full range of travel of a tetris corresponds to about 
-        7000 +/-1000 steps. The hardstop is in the positive direction. The
-        spring is compressed in the negative direction
-        """
-        command_parts=command.string.split(' ')
-        #Vet the command
-        if (len(command_parts)>2 and 
-            len(command_parts[1])==1 and
-            command_parts[1] in '12345678' and
-            longTest(command_parts[2])):
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            steps=command_parts[2]
-            command.setReply(self._do_online_only_command('PR'+tetrisID+steps))
-        else:
-            self.bad_command_handler(command)
+                return
+            try:
+                base = ('SS' + id) if place == 'pipe' else ('HS' + id + place[0].upper())
+                self._send_command_to_shoe(base + slit + pos)
+                response = 'OK'
+            except ShoeCommandNotAcknowledgedError:
+                response = 'ERROR: Shoe controller rejected command, is a move in progress?'
+            except IOError:
+                response = 'ERROR: IFU shoe control tower offline'
 
-    def BACKLASH_command_handler(self, command):
-        """
-        Retrieve or set the backlash amount of a tetris
-        
-        This command has one or two arguments: the tetris ID (1-8) and the
-        backlash amount or a question mark.
-        
-        Setting only affects subsequent moves.
-        """
-        #Vet the command
-        command_parts=command.string.split(' ')
-        
-        validSet=(len(command_parts)>2 and len(command_parts[1])==1 and
-                  command_parts[1] in '12345678' and longTest(command_parts[2]))
-        validGet=(len(command_parts)>1 and command_parts[1]=='?')
-        
-        if validGet or validSet:
-            #Extract the tetris ID
-            tetrisID='ABCDEFGH'[int(command_parts[1])-1]
-            #If getting
-            if '?' in command.string:
-                #Get the backlash amount from the tetris
-                try:
-                    response=self._send_command_to_shoe('BG'+tetrisID)
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            else:
-                #Set the backlash amount from the tetris
-                amt=command_parts[2]
-                try:
-                    self._send_command_to_shoe('BL'+tetrisID+amt)
-                    response='OK'
-                except IOError:
-                    response='ERROR: Shoe not in cradle %s' % self.args.SIDE
-            command.setReply(response)
-        else:
-            self.bad_command_handler(command)
-        
+        command.setReply(response)
 
-if __name__=='__main__':
-    agent=IFUShoeAgent()
+
+if __name__ == '__main__':
+    agent = IFUShoeAgent()
     agent.main()

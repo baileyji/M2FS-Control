@@ -28,7 +28,6 @@ Height has about 16.60mm travel  ~20um/adc count
 #include <Arduino.h>
 #include <Servo.h>
 #include <EwmaT.h>
-//#include "ewmat64.h"
 #include <stdio.h>
 
 //#define DEBUG_FEEDBACK
@@ -46,10 +45,11 @@ Height has about 16.60mm travel  ~20um/adc count
 #define E_HEIGHTMOVEDUP 0b001000
 #define E_RECOVER       0b010000
 #define E_PIPESHIFT     0b100000
-
-#define N_HEIGHT_POS 7
+//
+//#define N_HEIGHT_POS 7
+#define N_UP_POS 6
+#define N_DOWN_POS 6
 #define N_SLIT_POS 6
-#define USE_BUTTON false
 
 #define MAX_SHOE_POS 1000
 
@@ -100,8 +100,9 @@ typedef struct shoeheading_t {
 } shoeheading_t;
 
 typedef struct shoecfg_t {
-  uint16_t height_pos[N_HEIGHT_POS];  //in Servo units
-  uint16_t pipe_pos[N_SLIT_POS];  // same as height_pos
+  uint16_t height_pos[N_SLIT_POS];  //in Servo units
+  uint16_t down_pos[N_SLIT_POS];    //in Servo units
+  uint16_t pipe_pos[N_SLIT_POS];      // same as height_pos
   uint8_t pipe_tol;  //in Servo units
   uint8_t height_tol;  //in Servo units
   shoepos_t pos;  //filtered pos in Servo units
@@ -122,8 +123,8 @@ typedef struct shoestatus_t {
 class ShoeDrive {
 
   public:
-    ShoeDrive(uint8_t pipe_servo_pin, uint8_t pipe_pot_pin, uint8_t height_servo_pin, uint8_t height_pot_pin, uint8_t height_sensor_pin,
-              uint8_t motorsoff_pin, uint8_t motorson_pin, Servo *p, Servo *h);//, EwmaT<uint64_t> &a, EwmaT<uint64_t> &b);
+    ShoeDrive(char shoe_name, uint8_t pipe_servo_pin, uint8_t pipe_pot_pin, uint8_t height_servo_pin, uint8_t height_pot_pin, uint8_t height_sensor_pin,
+              uint8_t motorsoff_pin, uint8_t motorson_pin, Servo *p, Servo *h);
     ~ShoeDrive();
 
     void init();
@@ -153,9 +154,8 @@ class ShoeDrive {
 
     void defineTol(char axis, uint8_t tol);
     void defineSlitPosition(uint8_t slit, uint16_t pos);
-    void defineSlitPosition(uint8_t slit);
     void defineHeightPosition(uint8_t height, uint16_t pos);
-    void defineHeightPosition(uint8_t height);
+    void defineDownPosition(uint8_t slit, uint16_t pos);
     
     void moveToSlit(uint8_t slit);
     void movePipe(uint16_t pos);
@@ -163,7 +163,6 @@ class ShoeDrive {
 
     bool safeToMovePipes();
     bool fibersAreUp();
-    bool downButtonPressed();
 
     void getState(shoecfg_t &data);
     void restoreState(shoecfg_t data);
@@ -174,12 +173,16 @@ class ShoeDrive {
     bool motorsPowered;
 
   private:
+    char _shoe_name;
     uint8_t _retries;
+    bool _detachHeight(uint16_t height); //return true if detach enabled at the passed height
+    uint16_t safe_pipe_height;  //This changes depending on the move
+    uint16_t _clearance_height(uint8_t slit);
     void _wait(uint32_t time_ms);
     void _updateFeedbackPos();
     shoestatus_t _status();
     uint8_t _currentPipeIndex();
-    uint8_t _currentHeightIndex();
+//    uint8_t _currentHeightIndex();
     inline void _movePipe(uint16_t pos, uint16_t wait, bool detach);
     inline void _moveHeight(uint16_t pos, uint16_t wait, bool detach);
     void _move(Servo *axis, uint16_t pos, uint16_t wait, bool detach);

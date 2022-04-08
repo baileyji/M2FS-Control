@@ -8,14 +8,6 @@
 #include "MemoryFree.h"
 
 
-/*
- * Temb send addr
- * 0x2A00000C35749728   on a control board
- * 0x28D9A4190C000070 . on a shoe (1 dot, pcb needs reflow on button) add byte reversed
- * 0x4700000C19A4D828 . on a shoe (2 dots, rshoe)
- * 0xF700000C19A4CD28 . on a shoe (3 dots, bshoe)
- * 
- */
 
 // DS time is about ? ms and boot time is about ? ms
 
@@ -25,19 +17,20 @@
 //#define DEBUG_COMMAND
 
 #define POWERDOWN_DELAY_US  1000
-#define VERSION_STRING "IFUShoe v1.2"
-#define VERSION 0x03
+#define VERSION_STRING "IFUShoe v1.3"
+#define VERSION 0x04
 
 #define TEMP_UPDATE_INTERVAL_MS 5000  //must be longer than max conversion time
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
 
 //EEPROM Addresses (Uno has 1024 so valid adresses are 0x0000 - 0x03FF
-#define EEPROM_VERSION_ADDR 0x000  //3 bytes (version int repeated thrice)
-#define EEPROM_BOOT_COUNT_ADDR  0x003  // 1 byte
-#define EEPROM_MODE_ADDR 0x004  //1byte   0=unconfigured 1=debug 2=normal operation  anything else -> 0
-#define EEPROM_SLIT_POSITIONS_CRC16_ADDR            0x0006 //2 bytes
-#define EEPROM_SLIT_POSITIONS_ADDR                  0x0008 //32 bytes, ends at 0x28
+#define EEPROM_VERSION_ADDR               0x0000 // 3 bytes (version int repeated thrice)
+#define EEPROM_BOOT_COUNT_ADDR            0x0003 // 2 byte
+#define EEPROM_MODE_ADDR                  0x0005 // 1 byte   0=unconfigured 1=debug 2=normal operation  anything else -> 0
+#define EEPROM_SLIT_POSITIONS_CRC16_ADDR  0x0006 // 2 bytes
+#define EEPROM_SLIT_POSITIONS_ADDR        0x0008 // (44+4)*2 bytes sizeof(eeprom_shoe_data_t)
+//104 bytes
 
 
 #pragma mark Globals
@@ -56,7 +49,7 @@ typedef struct eeprom_version_t {
 
 
 uint32_t boottime;
-uint8_t bootcount;
+uint16_t bootcount;
 ArduinoOutStream cout(Serial);
 
 #ifdef DEBUG_ANALOG
@@ -79,14 +72,27 @@ bool shoeOnline=true; //Always boot in offline mode
 #define SHOE_R_TEMP 1
 #define DRIVE_TEMP 2
 #define DRIVE_TEMP_ADDR  0x2A00000C35749728
+#define DRIVE_TEMP_ADDR2 0x6800000B1E673128
 #define SHOE_B_TEMP_ADDR 0xF700000C19A4CD28
 #define SHOE_R_TEMP_ADDR 0x4700000C19A4D828
+//#define SHOE_X_SPARE_TEMP_ADDR 0x???
+//#define SHOE_X_SPARE_TEMP_ADDR 0x???
+
+/*
+ * Temb send addr
+ * 0x2A00000C35749728   on a control board
+ * 0x7000000C19A4D928 . on a shoe (1 dot, pcb needs reflow on button)
+ * 0x4700000C19A4D828 . on a shoe (2 dots, rshoe)
+ * 0xF700000C19A4CD28 . on a shoe (3 dots, bshoe)
+ * 
+ */
+
 
 
 Servo psr,psb,hsr,hsb;
-ShoeDrive shoeR = ShoeDrive(PIN_PIPE_SERVO_R, PIN_PIPE_POT_R, PIN_HEIGHT_SERVO_R, PIN_HEIGHT_POT_R, PIN_DOWNBUTTON_R, 
+ShoeDrive shoeR = ShoeDrive('R', PIN_PIPE_SERVO_R, PIN_PIPE_POT_R, PIN_HEIGHT_SERVO_R, PIN_HEIGHT_POT_R, PIN_DOWNBUTTON_R, 
                             PIN_MOTORSOFF_R, PIN_MOTORSON_R, &psr,&hsr);
-ShoeDrive shoeB = ShoeDrive(PIN_PIPE_SERVO_B, PIN_PIPE_POT_B, PIN_HEIGHT_SERVO_B, PIN_HEIGHT_POT_B, PIN_DOWNBUTTON_B, 
+ShoeDrive shoeB = ShoeDrive('B', PIN_PIPE_SERVO_B, PIN_PIPE_POT_B, PIN_HEIGHT_SERVO_B, PIN_HEIGHT_POT_B, PIN_DOWNBUTTON_B, 
                             PIN_MOTORSOFF_B, PIN_MOTORSON_B, &psb,&hsb);
 ShoeDrive* shoes[] ={&shoeR, &shoeB};
 
@@ -148,7 +154,7 @@ typedef struct {
 Instruction instruction;
 
 //Commands
-#define N_COMMANDS 16
+#define N_COMMANDS 17
 typedef struct {
     String name;
     bool (*callback)();
@@ -203,11 +209,13 @@ Command commands[N_COMMANDS]={
     //Tell Status (e.g. moving vreg, etc)
     {"TS", TScommand, true, false},
     //Zero the boot count
-    {"ZB",ZBcommand, true, false},
+    {"ZB", ZBcommand, true, false},
     //Directly move an axis on a given shoe 
     {"MV", MVcommand, false, true},
     //Idle off
-    {"IO", IOcommand, true, false}
+    {"IO", IOcommand, true, false},
+    //Report temp sensor addr
+    {"OW",OWcommand, true, false},
 };
 
 #pragma mark Serial Event Handler
@@ -272,7 +280,7 @@ void setup() {
     //Boot info
     boottime=millis()-boottime;
     bootcount=bootCount(true);
-    cout<<F("#Boot ")<<(uint16_t) bootcount<<F(" took ")<<boottime<<F(" ms.\n");
+    cout<<F("#Boot ")<<bootcount<<F(" took ")<<boottime<<F(" ms.\n");
     booted=true;
 }
 
@@ -340,15 +348,11 @@ void shoeOnlineMain() {
     //Stress testing code
     if (stresscycles>0 && !shoeR.moveInProgress() && !shoeB.moveInProgress()) {
 
-//        cout<<F("R: "); shoeR.tellCurrentPosition();
-//        cout<<F(" B: "); shoeB.tellCurrentPosition();
-//        cout<<endl;
         if (!(shoeR.errors|shoeB.errors)) {
           stress_slit=random(0, N_SLIT_POS);
           cout<<F("\n#Starting cycle ")<<stresscycles<<F(" to ")<<(uint16_t)stress_slit+1<<endl;
           if (shoeRConnected()) shoeR.moveToSlit(stress_slit);
           if (shoeBConnected()) shoeB.moveToSlit(stress_slit);
-//          stress_slit++;
           stresscycles--;
         } else {
           cout<<F("#Quit due to errors.");
@@ -356,7 +360,6 @@ void shoeOnlineMain() {
           cout<<F("------B Shoe")<<endl; shoeB.tellStatus();
           stresscycles=0;
         }
-//        if (stress_slit==N_SLIT_POS) stress_slit=0;
     }
 
 
@@ -441,15 +444,6 @@ bool loadSlitPositionsFromEEPROM() {
     if (crc == saved_crc) {
         shoeR.restoreState(data.cfgR);
         shoeB.restoreState(data.cfgB);
-
-//        if (mode==1) {
-//            //This will cause the
-//        //TODO How does this make things behave e.g. what is the start position?
-//            shoeR.movePipe(data.posR.pipe);
-//            shoeR.moveHeight(data.posR.height);
-//            shoeB.movePipe(data.posB.pipe);
-//            shoeB.moveHeight(data.posB.height);
-//        }
         ret=true;
     } else {
         cout<<F("#ERROR EEPROM CRC")<<endl;
@@ -524,12 +518,12 @@ void printCommandBufNfo(){
 
 
 
-uint8_t bootCount(bool set) {
-    uint8_t count;
-    count=EEPROM.read(EEPROM_BOOT_COUNT_ADDR);
-    if (set==true && count < 200) {
+uint16_t bootCount(bool set) {
+    uint16_t count;
+    EEPROM.get(EEPROM_BOOT_COUNT_ADDR, count);
+    if (set && count < 65000) {
         //increment & save boot count
-        EEPROM.write(EEPROM_BOOT_COUNT_ADDR, ++count);
+        EEPROM.put(EEPROM_BOOT_COUNT_ADDR, ++count);
     }
     return count;
 }
@@ -638,6 +632,35 @@ void monitorTemperature() {
      }
      tempRetrieved = true;
   }
+
+  if (!temps[DRIVE_TEMP].present) {
+    load_deviceaddress(temps[DRIVE_TEMP].address, DRIVE_TEMP_ADDR2);
+  }
+}
+
+void OWcommand(){
+
+  uint8_t address[8];
+  uint8_t count = 0;
+OneWire oneWire(PIN_ONE_WIRE_BUS);
+
+  if (oneWire.search(address)) {
+    Serial.print(F("Sensor Addr:"));
+    do {
+      count++;
+      Serial.print("0x");
+      for (uint8_t i = 0; i < 8; i++)
+      {
+        if (address[7-i] < 0x10) Serial.print("0");
+        Serial.print(address[7-i], HEX);
+      }
+      Serial.println(", ");
+    } while (oneWire.search(address));
+
+  } else
+    Serial.println(F("No sensors found."));
+  initTempSensors();
+  return true;
 }
 
 
@@ -653,8 +676,10 @@ uint8_t getShoeForCommand() {
 
 //Zero the boot count and set shoe to uninited
 bool ZBcommand(){
-  if (instruction.arg_len>0) EEPROM.write(EEPROM_SLIT_POSITIONS_CRC16_ADDR, 0);
-  EEPROM.write(EEPROM_BOOT_COUNT_ADDR, 0);
+  uint16_t zero=0;
+  if (instruction.arg_len>0) 
+    EEPROM.put(EEPROM_SLIT_POSITIONS_CRC16_ADDR, zero);
+  EEPROM.put(EEPROM_BOOT_COUNT_ADDR, zero);
   EEPROM.write(EEPROM_MODE_ADDR, 0);
   return true;
 }
@@ -686,18 +711,22 @@ bool SDcommand() {
 bool TScommand() {
 //TO send for each shoe connected shoeXwireX current slit position movementdetected moveinprog temp
 //shoeboxtemp
-  cout<<endl<<endl<<F("================\n");
+  cout<<endl<<endl<<F("===================\n");
 
-  if (shoeRConnected()) cout<<F("R Connected")<<endl;
-  if (shoeBConnected()) cout<<F("B Connected")<<endl;
+  cout<<"R ";
+  if (!shoeRConnected()) cout<<"dis";
+  cout<<F("connected")<<endl;
+  cout<<"B ";
+  if (!shoeBConnected()) cout<<"dis";
+  cout<<F("connected")<<endl;
+  
   if (shoeWiresCrossed()) cout<<F("R&B Swapped")<<endl;
   if ( instruction.shoe==NO_SHOE ) {
-    cout<<F("------R Shoe")<<endl; shoeR.tellStatus(); 
-    cout<<F("------B Shoe")<<endl; shoeB.tellStatus(); 
+    shoeR.tellStatus(); 
+    shoeB.tellStatus(); 
   } else {
     shoes[instruction.shoe]->tellStatus();
   }
-  cout<<F("================\n");
   return true;
 }
 
@@ -746,21 +775,18 @@ bool SLcommand() {
 bool SScommand() {
   if ( instruction.shoe==NO_SHOE) return false;
 
-  if (instruction.arg_len<1) return false;
+  if (instruction.arg_len<2) return false;
   uint8_t slit=charToSlit(instruction.arg_buffer[0]);
   if ( slit>N_SLIT_POS-1 ) return false;
 
-  if (instruction.arg_len>1){
-    if (!(instruction.arg_buffer[1] >='0' && instruction.arg_buffer[1]<='9')) 
-      return false;
-    long pos=atol(instruction.arg_buffer+1);
-    if (pos>MAX_SHOE_POS || pos<0) 
-      return false;
-    shoes[instruction.shoe]->defineSlitPosition(slit, pos);
-  }
-  else {
-    shoes[instruction.shoe]->defineSlitPosition(slit);
-  }
+
+  if (!(instruction.arg_buffer[1] >='0' && instruction.arg_buffer[1]<='9')) 
+    return false;
+  long pos=atol(instruction.arg_buffer+1);
+  if (pos>MAX_SHOE_POS || pos<0) 
+    return false;
+  shoes[instruction.shoe]->defineSlitPosition(slit, pos);
+
 
   saveSlitPositionsToEEPROM();
   return true;
@@ -791,28 +817,22 @@ bool TOcommand() {
 //HS[R|B][U|D]{#######}\0  without the last number the height uses the current position
 bool HScommand() {
   if (instruction.shoe==NO_SHOE) return false;
-  if (instruction.arg_len<1) return false;
-  if ((instruction.arg_buffer[0] < '1' || instruction.arg_buffer[0] > '6')  && instruction.arg_buffer[0] != 'D') return false;
-  if (instruction.arg_len<1) return false;
+  if (instruction.arg_len<3) return false;
+  if ((instruction.arg_buffer[1] < '1' || instruction.arg_buffer[1] > '6')   || 
+      (instruction.arg_buffer[0] != 'D' && instruction.arg_buffer[0] != 'U') ||
+      !(instruction.arg_buffer[2] >='0' && instruction.arg_buffer[2]<='9')) return false;                                                                                                               
 
-  uint8_t height;
-  if (instruction.arg_buffer[0]=='D') height=DOWN_NDX;
-  else {
-    height=charToSlit(instruction.arg_buffer[0])+1;
-    if ( height>N_HEIGHT_POS-1 ) return false;
-  }
+  uint8_t slit=charToSlit(instruction.arg_buffer[1]);
+  if ( slit>N_SLIT_POS-1 ) return false;
   
-  if (instruction.arg_len>1){
-    if (!(instruction.arg_buffer[1] >='0' && instruction.arg_buffer[1]<='9')) 
-      return false;
-    long pos=atol(instruction.arg_buffer+1);
-    if (pos>MAX_SHOE_POS || pos<0)
-      return false;
-    shoes[instruction.shoe]->defineHeightPosition(height, pos);
-  }
-  else {
-    shoes[instruction.shoe]->defineHeightPosition(height);
-  }
+  long pos=atol(instruction.arg_buffer+2);
+  if (pos>MAX_SHOE_POS || pos<0) return false;
+  
+  if (instruction.arg_buffer[0]=='U')
+    shoes[instruction.shoe]->defineHeightPosition(slit, pos);
+  else
+    shoes[instruction.shoe]->defineDownPosition(slit, pos);
+
   saveSlitPositionsToEEPROM();
   return true;
 }
@@ -858,6 +878,7 @@ bool PCcommand() {
    
             "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
             "#IO - Toggle if we idle the motors.\n"\
+            "#OW - Print addresses temp sensors on 1Wire bus\n"\
             "#ZB - Zero the boot count\n");
 
     return true;

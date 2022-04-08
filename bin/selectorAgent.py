@@ -255,6 +255,8 @@ class SelectorAgent(Agent):
                 response = str(e)
                 response = response if response.startswith('ERROR: ') else 'ERROR: ' + response
                 command.setReply(response)
+        else:
+            self.bad_command_handler(command)
 
     def STOP_command_handler(self, command):
         """ Command an immediate stop to any ongoing move """

@@ -90,7 +90,7 @@ class OcculterAgent(Agent):
             #Get/Set the position of the occulter. The move is carried out closedloop by the controller
             'OCC': self.OCC_command_handler,
             #Move by a relative step amount
-            'OCC_STEP': self.STEP_command_handler,
+            'OCC_STEP': self.STEP_command_handler,  #NB this command does NOT autocalibrate!
             'OCC_ABORT': self.ABORT_command_handler,
             'OCC_RESET': self.RESET_command_handler,
             # Get/Set the soft limits

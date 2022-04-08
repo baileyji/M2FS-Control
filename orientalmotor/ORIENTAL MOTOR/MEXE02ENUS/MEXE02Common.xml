@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<userdataroot>
+	<group name="AZ1SDDIN">
+		<key name="ColumnWidth5" value="630" />
+		<key name="ColumnWidth2" value="1755" />
+		<key name="ColumnWidth4" value="1575" />
+		<key name="ColumnWidth1" value="1650" />
+		<key name="ColumnWidth6" value="2490" />
+		<key name="ColumnWidth3" value="2535" />
+	</group>
+	<group name="AZ1SDWave">
+		<key name="TimeScale" value="500" />
+		<key name="CH2Scale" value="1000" />
+		<key name="CH5Scale" value="1/4" />
+		<key name="CH11SignalId" value="144" />
+		<key name="CH1SignalId" value="1" />
+		<key name="CH12Signal" value="SYS-BSY" />
+		<key name="CH7Visible" value="True" />
+		<key name="CH3Signal" value="Present CPOS" />
+		<key name="CH3Visible" value="True" />
+		<key name="CH4Visible" value="True" />
+		<key name="CH6SignalId" value="138" />
+		<key name="TriggerCh" value="CH1" />
+		<key name="CH4SignalId" value="6" />
+		<key name="CH8Signal" value="MOVE" />
+		<key name="CH10SignalId" value="140" />
+		<key name="CH1Signal" value="Command Speed" />
+		<key name="CH9SignalId" value="157" />
+		<key name="CH10Visible" value="True" />
+		<key name="CH11Visible" value="True" />
+		<key name="CH6Signal" value="IN-POS" />
+		<key name="CH2SignalId" value="2" />
+		<key name="CH12Visible" value="True" />
+		<key name="CH4Signal" value="Present FBPOS" />
+		<key name="TriggerMode" value="0" />
+		<key name="VMeasureCh" value="CH1" />
+		<key name="CH1Visible" value="True" />
+		<key name="CH8Visible" value="True" />
+		<key name="CH6Visible" value="True" />
+		<key name="CH1Scale" value="1000" />
+		<key name="CH9Signal" value="TIM" />
+		<key name="CH5Visible" value="True" />
+		<key name="CH12SignalId" value="136" />
+		<key name="CH10Signal" value="TLC" />
+		<key name="CH7SignalId" value="132" />
+		<key name="CH4Scale" value="360" />
+		<key name="CH7Signal" value="READY" />
+		<key name="CH3Scale" value="1000" />
+		<key name="CH5Signal" value="START" />
+		<key name="CH5SignalNameVisible" value="True" />
+		<key name="CH5SignalId" value="32" />
+		<key name="CH2Signal" value="Feedback Speed" />
+		<key name="CH9Visible" value="True" />
+		<key name="CH11Signal" value="HOME-END" />
+		<key name="CH2Visible" value="True" />
+		<key name="CH8SignalId" value="134" />
+		<key name="CH3SignalId" value="5" />
+	</group>
+	<group name="FrameWindow">
+		<key name="SizeWidth" value="2055" />
+		<key name="LocationY" value="201" />
+		<key name="LocationX" value="746" />
+		<key name="SizeHeight" value="1462" />
+		<key name="ToolBarVisible" value="True" />
+		<key name="State" value="Normal" />
+		<key name="StatusBarVisible" value="True" />
+	</group>
+	<group name="SelectSystem">
+		<key name="History0" value="AZ|AZ Series Pulse Input/Built-in Controller/Pulse Input with RS-485 communication|Standard/Geared Motor" />
+	</group>
+	<group name="Launcher">
+		<key name="IsReView" value="True" />
+	</group>
+	<group name="AZ1SDTestOperation">
+		<key name="SelectNumericUpDown" value="3333" />
+	</group>
+	<group name="AZ1SDDrive">
+		<key name="ColumnWidth2" value="4590" />
+		<key name="ColumnWidth4" value="2235" />
+		<key name="ColumnWidth9" value="3090" />
+		<key name="ColumnWidth6" value="2835" />
+		<key name="ColumnWidth17" value="2400" />
+		<key name="ColumnWidth16" value="2355" />
+		<key name="ColumnWidth14" value="1920" />
+		<key name="ColumnWidth1" value="3390" />
+		<key name="ColumnWidth13" value="1470" />
+		<key name="ColumnWidth12" value="1890" />
+		<key name="ColumnWidth11" value="1905" />
+		<key name="ColumnWidth10" value="1965" />
+		<key name="ColumnWidth5" value="2850" />
+		<key name="ColumnWidth7" value="2235" />
+		<key name="ColumnWidth8" value="2820" />
+		<key name="ColumnWidth3" value="1695" />
+		<key name="ColumnWidth15" value="1950" />
+	</group>
+	<group name="AZ1SDEvtDrive">
+		<key name="ColumnWidth5" value="1935" />
+		<key name="ColumnWidth7" value="2055" />
+		<key name="ColumnWidth2" value="3090" />
+		<key name="ColumnWidth4" value="1260" />
+		<key name="ColumnWidth1" value="3390" />
+		<key name="ColumnWidth6" value="3195" />
+		<key name="ColumnWidth3" value="1965" />
+	</group>
+	<group name="AZ1SDRIO">
+		<key name="ColumnWidth1" value="2025" />
+		<key name="ColumnWidth4" value="2325" />
+		<key name="ColumnWidth2" value="3900" />
+		<key name="ColumnWidth5" value="2145" />
+		<key name="ColumnWidth3" value="630" />
+	</group>
+	<group name="ClientWindow">
+		<key name="State" value="Maximized" />
+		<key name="TreeViewWidth" value="192" />
+	</group>
+	<group name="ComOption">
+		<key name="ComPort" value="3" />
+	</group>
+</userdataroot>

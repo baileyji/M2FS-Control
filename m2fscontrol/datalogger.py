@@ -84,7 +84,7 @@ def translateErrorByte(byteStr):
 class DataloggerConnection(Serial):
     """
     Datalogger Connection Class
-    
+
     Wrapper for Serial which knows how to tell the datalogger the unixtime
     and grab a log message.
     """
@@ -103,11 +103,11 @@ class DataloggerConnection(Serial):
             self.open()
         except SerialException:
             pass
-    
+
     def readLogData(self, parse=True):
         """
         Read one byte, then read the number of bytes specified in the first byte
-        
+
         Return the read data
         """
         data = self.read(ord(self.read(1)))
@@ -156,10 +156,10 @@ class DataloggerConnection(Serial):
         return dict(time=unixtime, echelle=echelleTemp, prism=prismTemp, accels=accels, lores=loresTemp)
 
     def telltime(self):
-        """ 
+        """
         Send the current unix time to the datalogger as a 32bit big endian
-        
-        For some reason I can't identify the null bytes are necessary for the 
+
+        For some reason I can't identify the null bytes are necessary for the
         message to be received properly.
         """
         s='t'+UBInt32("f").build(int(time.time()))
@@ -169,15 +169,15 @@ class DataloggerConnection(Serial):
         self.write('\x00'+s[2])
         self.write('\x00'+s[3])
         self.write('\x00'+s[4])
-        
+
         hextime='0x'+(4*'{:02x}').format(*map(ord,s[1:]))
         timemsg='Sending time as {}'.format(hextime)
         logging.getLogger('DataloggerListener').debug(timemsg)
 
     def getByte(self, timeout):
         """
-        Return the next byte received if a byte received within timeout 
-        
+        Return the next byte received if a byte received within timeout
+
         Returns '' and closes connection if there is an IO error
         """
         reader, junk, error=select.select([self], [], [self], timeout)
@@ -213,10 +213,10 @@ class DataloggerListener(threading.Thread):
         self.datalogger=DataloggerConnection(device, side)
         self.logger=logging.getLogger(__name__)
         self.logger.info("Listener started")
-    
+
     def run(self):
         """
-        
+
         It runs, listening for #, E, L, or t from the datalogger and acting
         accordingly.
         E) An \n delimited error message follows, recieve it
@@ -226,7 +226,7 @@ class DataloggerListener(threading.Thread):
         t) The datalogger is requesting the current time, send it
 
         As error, log, or debug messages are received, they are placed into the
-        queue as the second element in a tuple, the first identifing the 
+        queue as the second element in a tuple, the first identifing the
         contents: 'record', 'error', 'debug'
 
         If the datalogger is disconnected, keep trying to connect
@@ -249,7 +249,7 @@ class DataloggerListener(threading.Thread):
                         try:
                             logdata = self.datalogger.readLogData(parse=True)
                             self.logger.debug(logdata)
-                            rec = {k+self.side: logdata[k] for k in ('echelle', 'prism',' lores')
+                            rec = {k+self.side: logdata[k] for k in ('echelle', 'prism', ' lores')
                                    if logdata[k] is not None}
                             self.redis_stream.add(rec, id=datetime.fromtimestamp(logdata['time']))
                         except ValueError as e:

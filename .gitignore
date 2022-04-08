@@ -18,3 +18,5 @@ plates/output/*.eps
 *.setup
 *.old
 .idea
+Arduino/libraries/Arduino_AVRSTL
+Arduino/libraries/ArduinoJson

@@ -70,7 +70,7 @@ class DataloggerAgent(Agent):
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
         """
@@ -78,7 +78,6 @@ class DataloggerAgent(Agent):
 
     def TEMPS_command_handler(self, command):
         """ Report the current temperatures """
-
         latest = self.redis_stream[datetime.utcnow() - timedelta(minutes=1):]
         current = {}
         for r in latest:
@@ -96,7 +95,7 @@ class DataloggerAgent(Agent):
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
-        
+
         Report the Key:Value pair name:cookie
         """
         return [(self.get_version_string(), self.cookie)]
@@ -204,12 +203,11 @@ class DataloggerAgent(Agent):
         self.redis_stream.add(rec, id=datetime.utcnow())
 
         #Do it again in in a few
-        self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.queryAgentTemps)
-        self.queryAgentsTimer.daemon=True
+        self.queryAgentsTimer = Timer(POLL_AGENTS_INTERVAL, self.logTemps)
+        self.queryAgentsTimer.daemon = True
         self.queryAgentsTimer.start()
 
 
 if __name__=='__main__':
-    agent=DataloggerAgent()
+    agent = DataloggerAgent()
     agent.main()
-

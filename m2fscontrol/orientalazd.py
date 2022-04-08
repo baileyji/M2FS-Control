@@ -410,7 +410,12 @@ class OrientalAlarm(object):
         #le=(0, 0, 0, 0,0, 0, 0, ? (-1=[0, 65535]),? (13 = [0, 13]), twos=1 & le=0 (I think), 0, 0, [0, 2315] = 1day 14h 35 min)
 
     def __str__(self):
-        return str(self.record)
+        msg = ('AZD Alarm: {record[0]}:{record[1]} Drive/Motor Temp: {record[2]}/{record[3]} C '
+               'Drive Vin: {volt:.1f} DIOin: {dio} RIOout: {rio} Position: {record[-4]} '
+               'OpInfo: {record[-6]},{record[-5] '
+               'Times (boot/move/power): {record[-3]}/{record[-2]}/{record[-1]')
+        return msg.format(record=self.record, volt=self.record[4]/10,
+                          dio=bin(self.record[5]), rio=bin(self.record[6]))
 
     @property
     def code(self):

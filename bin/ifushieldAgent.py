@@ -81,7 +81,6 @@ class IFUShieldAgent(Agent):
         self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
         self.max_clients = 2
         self.command_handlers.update({
-            #TODO add raw
             'SHIELDRAW': self.RAW_command_handler,
             # Get/Set state of HV lamps
             'THXE': self.HV_command_handler,   #response: {OK,ERROR,#}

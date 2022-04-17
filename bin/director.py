@@ -190,9 +190,10 @@ class Director(Agent):
         #MCal Agent
         self.connections['MCalAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['MCalAgent'])
 
-        #TODO How do we deal with this if nothing is installed? Restart director on insert of device?
+        # If nothing is installed assume M2FS, use mode command to set
 
-        #Agents are started by their devices (but not stopped by removing their devices, TODO perhaps they should be)
+        # Agents are started by their devices (but not stopped by removing their devices)
+        # except for the shoe/slitcontroller agents for M2fs which are always running
         # We default to M2FS mode, If MFib isn't hooked up then won't be able to connect to the MFib agents, but will
         # retry auto-magically as connections exist. If IFU-M is later connected (e.g. IFU-M installed, forgot to
         # connect USB before boot) MFib agents would never get started and IFU-M agents would be running.
@@ -259,7 +260,7 @@ class Director(Agent):
         self.connections['IFUShieldAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
         # Slit Subsystem Controller
         self.connections['IFUShoeAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
-        for c in ('PlugController','GuiderAgent','ShackHartmanAgent','SlitController'):
+        for c in ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController'):
             try:
                 self.connections.pop(c).close()
             except KeyError:

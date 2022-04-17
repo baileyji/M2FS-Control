@@ -255,7 +255,8 @@ class OcculterAgent(Agent):
             try:
                 self.connections['occulter'].calibrate()
             except RuntimeError as e:  # calibration failed.
-                # TODO This looks like if calibrate fails it doesn't clear the blocks
+                # TODO This looks like if calibrate fails it doesn't clear the blocks.
+                # look ok 4/12/22 but need to test
                 self.returnFromWorkerThread(command_name, finalState=str(e))
                 return
             except IOError as e:

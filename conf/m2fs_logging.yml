@@ -50,7 +50,8 @@ loggers:
     OcculterAgentL: debug
     m2fscontrol.selectedconnection: info
   SelectorAgent:
+    m2fscontrol: info
     SelectorAgent: debug
-    pymodbus: debug
+    pymodbus: critical
   IFUShoeAgent: debug
   IFUShieldAgent: debug

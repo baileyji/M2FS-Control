@@ -6,23 +6,6 @@ import time, threading
 from m2fscontrol.utils import longTest
 import logging
 
-#TODO getting 'No handlers could be found for logger "orientalazd"'
-
-#TODO deal with incessent stream of these messages to logging: with a connect that doesn't work at startup
-# Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: pymodbus.client.sync:ERROR: could not open port /dev/ifuselector: [Errno 2] No such file or directory: '/dev/ifuselector'
-# Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: pymodbus.client.sync:ERROR: could not open port /dev/ifuselector: [Errno 2] No such file or directory: '/dev/ifuselector'
-# Feb 17 00:47:35 claym2fs selectorAgent.py[3634]: orientalazd:ERROR: Modbus Error: [Connection] Failed to connect[ModbusSerialClient(rtu baud[230400])]
-
-# TODO deal with stream of these:
-# Feb 21 19:07:27 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:31 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:35 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:38 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:42 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:45 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:49 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:52 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
-# Feb 21 19:07:56 claym2fs selectorAgent.py[1742]: m2fscontrol.orientalazd:ERROR: Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
 
 """ Testing procedure
 Disconnected USB/motor at startup -> ?
@@ -141,7 +124,7 @@ class SelectorAgent(Agent):
         self._autobreak_thread = threading.Thread(target=self._autobreak_main, name='Break when not moving')
         self._autobreak_thread.daemon = True
         self._autobreak_thread.start()
-        logging.getLogger('pymodbus').setLevel('INFO')
+        # logging.getLogger('pymodbus').setLevel('INFO')
 
     def _autobreak_main(self):
         while True:
@@ -212,7 +195,7 @@ class SelectorAgent(Agent):
                                 ('Alarm', 'None' if not status.has_fault else str(status.alarm.code))])
         except IOError as e:
             #TODO distinguish between disconnected and other errors
-            status_list.append(('Driver', 'ERROR'))
+            status_list.append(('Driver', 'IOError'))
         return status_list
 
     def _stowShutdown(self):
@@ -220,6 +203,7 @@ class SelectorAgent(Agent):
         try:
             self.connections['ifuselector'].move_to(M2FSConfig.getSelectorDefaults()['stow'])
             #TODO might not engage break if move takes longer than a second or two (program will be dead)
+            #to from reading code i dont see how break ever gets turned back on after a move anyway MUST VERIFY
         except IOError as e:
             pass
         except Exception:

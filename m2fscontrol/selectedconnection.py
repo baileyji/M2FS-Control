@@ -24,41 +24,42 @@ def escapeString(string):
 class SelectedConnection(object):
     """
     The SelectedConnection class
-    
+
     This class is intended to create a common interface for all selectable
-    connections used in the M2FS control software. At present that includes 
+    connections used in the M2FS control software. At present that includes
     only sockets and serial connections.
-    
-    The abstraction is incomplete as the SelectedConnection can not be 
-    instantiated directly, rather an instance on SelectedSocket or 
+
+    The abstraction is incomplete as the SelectedConnection can not be
+    instantiated directly, rather an instance on SelectedSocket or
     SelectedSerial must be created. I'd like to finish this abstraction.
     """
+    BACKUP_TIMEOUT = BACKUP_TIMEOUT
     def __init__(self,
                 default_message_received_callback=None,
                 default_message_sent_callback=None,
                 default_message_error_callabck=None):
-        """ 
+        """
         Instantiate a SelectedConnection.
-        
-        Optionally register default callbacks for message sends, receives, and 
+
+        Optionally register default callbacks for message sends, receives, and
         errors.
-        
-        The received callback is called when a complete message is recieved with
+
+        The received callback is called when a complete message is received with
         the connection (that is, self) and the message received as arguments.
         See handle_read for further details.
-        
-        The sent callback is called when all of the requested message has been 
+
+        The sent callback is called when all of the requested message has been
         sent. It is called with the connection (that is, self) as argument.
         the connection (that is, self) and the message received as arguments.
         See handle_write for further details.
-        
+
         The error callback is called when handle_error is called which will
         occur if handle_read or receiveMessageBlocking has a read error,
-        handle_write or sendMessageBlocking has a write error, or handle_error 
+        handle_write or sendMessageBlocking has a write error, or handle_error
         is called directly (e.g. by a driver routine after select indicates an
         error).
-        
-        The sent and received callbacks are called iff a message is sent or 
+
+        The sent and received callbacks are called iff a message is sent or
         recieved. If there is an error they will not be called. """
         self.rlock=threading.RLock()
         self.defaultResponseCallback=default_message_received_callback
@@ -70,35 +71,35 @@ class SelectedConnection(object):
         self.out_buffer=''
         self.in_buffer=''
         self.messageTerminator='\n'
-    
+
     def __str__(self):
         """ String form of connection to make easy status reporting """
         if self.isOpen():
             return self.addr_str()
         else:
             return self.addr_str()+'(closed)'
-    
+
     def addr_str(self):
         """ Report connection address. Implemented by subclass """
         pass
-    
+
     def __getattr__(self, attr):
         """
         If class does not have attribute fetch is from the connection
-        
+
         This provides compatibility with select
         """
         return getattr(self.connection, attr)
-    
+
     def connect(self):
         """
         Establish the connection.
-        
+
         If a connection is open no action is taken, otherwise the
         implementation specific connect is called, followed by the _postConnect
         function.
         All exceptions are JLJL isOpen should return False.
-        
+
         """
         if self.isOpen():
             return
@@ -110,35 +111,35 @@ class SelectedConnection(object):
             logger.info('Connect failed: %s' % str(e))
             self.connection=None
             raise ConnectError(str(e))
-    
+
     def isOpen(self):
-        """ 
-        Return true iff the connection is established. 
-        
+        """
+        Return true iff the connection is established.
+
         Override in subclass
         """
         return False
-    
+
     def _preConnect(self):
         """
         Called prior to establishing a connection.
-        
+
         Subclass may implement and throw and exception if the connection
         should not be made. Any return values are ignored. Exception text
         will be raised as a connect error.
         """
         pass
-    
+
     def _postConnect(self):
         """
         Called after establishing a connection.
-        
+
         Subclass may implement and throw and exception if the connection
         is in any way unsuitable. Any return values are ignored. Exception text
         will be raised as a connect error.
         """
         pass
-    
+
     def sendMessage(self, message,
                     sentCallback=None,
                     responseCallback=None,
@@ -146,40 +147,40 @@ class SelectedConnection(object):
                     connect=True):
         """
         Place <message> in the output buffer. Null are not sent.
-        
-        Message will be be sent next time connection is selected. The message 
+
+        Message will be be sent next time connection is selected. The message
         will be terminated by the _terminateMessage function.
-        
+
         The responseCallback will be called upon receipt of the first
         subsequent message with self and the message as arguments.
-        
+
         The sentCallback will be called when the message is transmitted in full
         with self as the only argument.
-        
+
         The errorCallback will only be called if an error occurs. It is called
         with self, and an error message starting with 'ERROR:' as arguments.
 
         It is an error to send a message while there remains data in the output
         buffer. If done and an errorCallback is passed that callback is called.
-        If no error callback is passed a WriteError is raised regardless of the 
-        presence of a defaultErrorHandler, which is not called. The thinking 
-        here is that code may be anticipating calls to the defaulterrorhandler 
+        If no error callback is passed a WriteError is raised regardless of the
+        presence of a defaultErrorHandler, which is not called. The thinking
+        here is that code may be anticipating calls to the defaulterrorhandler
         coming from the previous send attempt.
-        
+
         If the connection is not open and connect is true, an attempt will be
         made to establish a connection by the standard procedure. This is the
         default behavior. If the connection can not be
         established the errorCallback is called with a failure message. A write
         WriteError is raised if there is no defaultErrorCallback or
         errorCallback.
-        
+
         If defined, errorCallback will be used for any errors that occur prior
-        to the responseCallback being called. If the responseCallback is not 
-        defined then it will be used until an error or disconnect, whichever 
+        to the responseCallback being called. If the responseCallback is not
+        defined then it will be used until an error or disconnect, whichever
         comes first. Once called the defaultErrorCallback will be restored. If
         out_buffer was not empty self.errorCallback is not updated.
-        
-        Finally, the message is placed in the output buffer and the response 
+
+        Finally, the message is placed in the output buffer and the response
         and message sent callbacks are updated if defined. They revert to their
         defaults at disconnect. The sent callback will also revert to default
         after the message is sucessfully sent, similarly the recieved after
@@ -228,24 +229,24 @@ class SelectedConnection(object):
                 self.responseCallback=responseCallback
             if sentCallback is not None:
                 self.sentCallback=sentCallback
-    
+
     def sendMessageBlocking(self, message, connect=True):
         """
         Send the string message immediately.
-        
+
         If the connection is not open and connect is true, an attempt
         will be made to establish a connection by the standard procedure.
         This is the default behavior. If the connection can not be
-        established a WriteError is raised. The error callback is NOT called. 
+        established a WriteError is raised. The error callback is NOT called.
         Note this behavior differs from sendMessage.
-        
+
         If the message is empty nothing is transmitted. The message will be
         terminated by the _terminateMessage function.
-        
-        If connected, but message cannot be sent or is only sent in part 
+
+        If connected, but message cannot be sent or is only sent in part
         handle_error is called (which implies self.errorCallback, if set) and
         WriteError is raised. This is probably NOT is ideal behavior, probably
-        should just raise the WriteError. TODO: think/test 
+        should just raise the WriteError.
         """
         with self.rlock:
             if connect:
@@ -280,39 +281,39 @@ class SelectedConnection(object):
             except WriteError,err:
                 self.handle_error(err)
                 raise WriteError(str(err))
-    
+
     def _terminateMessage(self, message):
         """ Append a '\n' to message if it is missing and return """
         with self.rlock:
             if message[-1]!=self.messageTerminator:
                 message+=self.messageTerminator
         return message
-    
+
     def _cleanMessage(self, message):
         """ Right strip whitespace from message """
         return message.rstrip(' \t\n\r')
-    
+
     def receiveMessageBlocking(self, nBytes=0, timeout=None,
                                error_on_absent_terminator=False):
         """
         Wait for a response, chops whitespace and \r & \n off end of response.
-        
+
         Timeout sets a custom timeout to wait in seconds. Float ok.
-        npytes sets the number of bytes for which to wait. See 
+        npytes sets the number of bytes for which to wait. See
         _implementationSpecificBlockingReceive for details. Note that None
         does not imply no timeout, rather it implies the default timout. If there
         is no default timeout then hard coded timeout is used.
-        
+
         If the connection is not open, an attempt will be made to establish a
         connection by the standard procedure. If it fails a ReadError is raised.
-        
+
         If _implementationSpecificBlockingReceive raises a ReadError handle_error
         is called (which implies self.errorCallback if set) and ReadeError is
         raised. This is probably NOT is ideal behavior, probably
-        should just raise the ReadRrror. TODO: think/test
-        
+        should just raise the ReadRrror.
+
         If set to true error_on_absent_terminator will cause a ReadError to be
-        raised if the received message does not include the message terminator. 
+        raised if the received message does not include the message terminator.
         If set to a non-empty string that string will be used as the response.
         """
         with self.rlock:
@@ -338,13 +339,13 @@ class SelectedConnection(object):
             except ReadError, e:
                 self.handle_error(e)
                 raise e
-    
+
     def handle_error(self, error='', log=True):
         """
         Handler for select on errors. Also used internally.
-        
+
         error is a string describing the error.
-        
+
         Log Error.
         If an errorCallback is defined, call it with a string describing what
         happened and set errorCallback to defaultErrorCallback
@@ -359,11 +360,11 @@ class SelectedConnection(object):
                 self.errorCallback=self.defaultErrorCallback
                 callback(self, "ERROR: "+err)
             self._disconnect()
-    
+
     def _disconnect(self):
         """
         Disconnect, clearing output buffer
-        
+
         Calls _implementationSpecificDisconnect to perform the disconnect.
         Trap and log any exceptions that occur.
         Reset set, received, & error callbacks to their defaults.
@@ -381,32 +382,32 @@ class SelectedConnection(object):
         self.sentCallback=self.defaultSentCallback
         self.responseCallback=self.defaultResponseCallback
         self.errorCallback=self.defaultErrorCallback
-    
+
     def close(self):
         """ Terminate the connection """
         with self.rlock:
             if self.isOpen():
                 self._disconnect()
-    
+
     def do_select_read(self):
-        """ 
+        """
         Return true if select should check if conncection is ready be read.
-        
+
         Do select for read whenever the connection is open.
         """
         return self.isOpen()
-    
+
     def handle_read(self):
         """
         Read callback for select
-        
+
         Read with _implementationSpecificRead, appending data to in_buffer
         If '\n' is in the in_buffer leftstrip the in_buffer through the first
         '/n'
         Then, if defined, call the responseCallback with the stripped data,
         excluding the '\n', reset responseCallback and errorCallbacks to the
         defaults
-        
+
         If a ReadError is encountered, call error_handler
         """
         with self.rlock:
@@ -417,7 +418,7 @@ class SelectedConnection(object):
                 if count is not -1:
                     message_str=self.in_buffer[0:count+1]
                     self.in_buffer=self.in_buffer[count+1:]
-                    logger.debug("Received message '%s' on %s" % 
+                    logger.debug("Received message '%s' on %s" %
                         (escapeString(message_str), self))
                     if self.responseCallback:
                         callback=self.responseCallback
@@ -437,27 +438,27 @@ class SelectedConnection(object):
                         logger.debug(msg)
             except ReadError, err:
                 self.handle_error(err)
-    
+
     def do_select_write(self):
         """
         Return true if select should check if conncection is ready for writing.
-        
+
         Do select for write whenever the connection is open & out_buffer is not
         empty.
         """
         return self.isOpen() and self.out_buffer !=''
-    
+
     def handle_write(self):
         """
         Write callback for select
-        
+
         Do nothing if no data to send
-        
+
         Attempt to write all of out_buffer with _implementationSpecificWrite
         If only part of buffer is sent, remove it from the buffer and move on.
         If all of the buffer is sent and sentCallback is defined, call it with
         self as the argument.
-        
+
         If a WriteError is encountered, call error_handler
         """
         with self.rlock:
@@ -479,11 +480,11 @@ class SelectedConnection(object):
                         callback(self)
             except WriteError,err:
                 self.handle_error(str(err))
-    
+
     def do_select_error(self):
-        """ 
+        """
         Return true if select should check for errors on the connection.
-        
+
         Do select for errors when the connection is open
         """
         return self.isOpen()
@@ -498,14 +499,14 @@ class SelectedSerial(SelectedConnection):
                 timeout=None):
         """
         Create a new instance
-        
+
         The connection address is defined by port (a serial device path) and
         baudrate.
-        
+
         A default timeout may be set for blocking receives.
-        
-        An attempt to connect to the device is made, however errors are merely 
-        logged as information. The device could be unplugged or otherwise 
+
+        An attempt to connect to the device is made, however errors are merely
+        logged as information. The device could be unplugged or otherwise
         temporarily unavailable.
         """
         SelectedConnection.__init__(self,
@@ -523,15 +524,15 @@ class SelectedSerial(SelectedConnection):
         except ConnectError, err:
             logger.info('Did not connect to %s at startup. err=%s' %
                 (self.addr_str(),str(err)))
-    
+
     def addr_str(self):
         """ Report connection address. """
         return "%s@%s"%(self.port,self.baudrate)
-    
+
     def _implementationSpecificBlockingSend(self, message):
         """
         Send message over serial, returning number of bytes sent.
-        
+
         Assume full message sent, as no way to tell. Raise WriteError if fail.
         """
         try:
@@ -540,18 +541,18 @@ class SelectedSerial(SelectedConnection):
             return len(message)
         except serial.SerialException, e:
             raise WriteError(str(e))
-    
+
     def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
         """
         Receive a message of nbytes length over serial, waiting timemout sec.
-        
+
         If timeout is a number it is used as the timeout for this receive only
         Otherwise the default timeout is used. If no default timeout was defined
-        125 ms is used. A timout of 0 will block until (if ever) the data 
+        125 ms is used. A timout of 0 will block until (if ever) the data
         arrives.
-        
+
         If nBytes is 0 then listen until we get a '/n' or the timeout occurs.
-        
+
         If a serial exception occurs raise ReadError.
         """
         saved_timeout=self.connection.timeout
@@ -581,15 +582,15 @@ class SelectedSerial(SelectedConnection):
             if self.connection is not None:
                 self.connection.timeout = saved_timeout
         return response
-    
+
     def _implementationSpecificConnect(self):
-        """ Open a serial connection to self.port @ self.baudrate """ 
+        """ Open a serial connection to self.port @ self.baudrate """
         self.connection=serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
-    
+
     def _implementationSpecificRead(self):
         """
         Perform a device specific read, raise ReadError if any error
-        
+
         Read and return all the data in waiting.
         """
         try:
@@ -601,14 +602,14 @@ class SelectedSerial(SelectedConnection):
             raise ReadError(err)
         except IOError, err:
             raise ReadError(err)
-    
+
     def _implementationSpecificWrite(self, data):
         """
         Write data to serial connection, returning the number of bytes written.
-        
+
         If the version of pySerial doesn't support returning the number of bytes
         written assume all the data was transmitted.
-        
+
         If any serial errors raise WriteError
         """
         try:
@@ -620,7 +621,7 @@ class SelectedSerial(SelectedConnection):
                 return len(self.out_buffer)
         except serial.SerialException,err:
             raise WriteError(err)
-    
+
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection """
         try:
@@ -629,11 +630,11 @@ class SelectedSerial(SelectedConnection):
             self.connection.close()
         except Exception:
           pass
-    
+
     def isOpen(self):
         """
         Return true if the connection is considered open.
-        
+
         The connection is considered open if it exists and pySerial
         reports it as open.
         """
@@ -651,18 +652,18 @@ class SelectedSocket(SelectedConnection):
                 timeout=DEFAULT_SOCKET_TIMEOUT):
         """
         Create a new instance
-        
+
         The connection address is defined by host and port number.
-        
-        A live socket may be passed if a connection has already been 
+
+        A live socket may be passed if a connection has already been
         established.
-        
-        An attempt to connect to the device is made, however errors are merely 
-        logged as information. The device could be unplugged or otherwise 
+
+        An attempt to connect to the device is made, however errors are merely
+        logged as information. The device could be unplugged or otherwise
         temporarily unavailable. The attempt is not performed if a live socket
         is given.
-        
-        timeout may be specified to set a default timeout. The default is 
+
+        timeout may be specified to set a default timeout. The default is
         DEFAULT_SOCKET_TIMEOUT
         """
         SelectedConnection.__init__(self,
@@ -688,15 +689,15 @@ class SelectedSocket(SelectedConnection):
             except ConnectError, err:
                 logger.info('Did not connect to %s at startup. err=%s' %
                                  (self.addr_str(),str(err)))
-    
+
     def addr_str(self):
         """ Report connection address. """
         return "%s:%s"%(self.host,self.port)
-    
+
     def _implementationSpecificBlockingSend(self, message):
         """
         Send message over socket, returning number of bytes sent.
-        
+
         Raise WriteError if an error occurs.
         """
         try:
@@ -704,21 +705,21 @@ class SelectedSocket(SelectedConnection):
             return count
         except socket.error,err:
             raise WriteError(str(err))
-    
+
     def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
         """
         Receive a message of nbytes length over a socket, waiting timemout sec.
-        
+
         Returns the bytes received, if any.
-        
+
         If timeout is a number it is used as the timeout for this receive only
         Otherwise the default timeout is used. If no default timeout was defined
-        125 ms is used. A timout of 0 will block until (if ever) the data 
+        125 ms is used. A timout of 0 will block until (if ever) the data
         arrives.
-        
+
         If nBytes is 0 then read 1024 bytes (sokects don't support readline)
         or the timeout occurs.
-        
+
         If a socket error occurs raise ReadError.
         """
         saved_timeout=self.connection.gettimeout()
@@ -739,23 +740,23 @@ class SelectedSocket(SelectedConnection):
             if self.connection !=None:
                 self.connection.settimeout(saved_timeout)
         return response
-    
+
     def _implementationSpecificConnect(self):
-        """ Open a nonblocking socket connection to self.host on self.port """ 
+        """ Open a nonblocking socket connection to self.host on self.port """
         thesocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         thesocket.connect((self.host, self.port))
         thesocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         thesocket.setblocking(0)
         thesocket.settimeout(self.timeout)
         self.connection=thesocket
-   
+
     def _implementationSpecificRead(self):
         """
         Try reading 1024 bytes from the socket.
-       
+
         Since socket is nonblocking it will return with only the bytes available
-        Raise ReadError if socket error or no data received (select will only 
-        indicate a read if data is available) 
+        Raise ReadError if socket error or no data received (select will only
+        indicate a read if data is available)
         """
         try:
             data=self.connection.recv(1024)
@@ -764,11 +765,11 @@ class SelectedSocket(SelectedConnection):
             return data
         except socket.error, err:
             raise ReadError(err)
-    
+
     def _implementationSpecificWrite(self, data):
         """
         Write data out over the socket, returning the number of bytes written.
-        
+
         If any socket errors raise WriteError
         """
         try:
@@ -776,11 +777,11 @@ class SelectedSocket(SelectedConnection):
             return count
         except socket.error, err:
             raise WriteError(err)
-    
+
     def _implementationSpecificDisconnect(self):
         """
         Disconnect the socket
-        
+
         I think I'm doing this right.
         """
         try:
@@ -788,12 +789,11 @@ class SelectedSocket(SelectedConnection):
             self.connection.close()
         except Exception:
             pass
-    
+
     def isOpen(self):
         """
         Return true if the connection is considered open.
-        
+
         The connection is considered open if it exists.
         """
         return self.connection is not None
-

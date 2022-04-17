@@ -5,13 +5,10 @@ from m2fscontrol.agent import Agent
 from m2fscontrol.m2fsConfig import M2FSConfig
 from m2fscontrol.shoe import ShoeSerial, ShoeCommandNotAcknowledgedError
 
-EXPECTED_FIBERSHOE_INO_VERSION='Fibershoe v1.3'
 SHOE_AGENT_VERSION_STRING='Shoe Agent v1.0'
 SHOE_AGENT_VERSION_STRING_SHORT='v1.0'
 
 DH_TIME=35
-SHOE_BOOT_TIME=2
-SHOE_SHUTDOWN_TIME=.25
 MAX_SLIT_MOVE_TIME=25
 
 def longTest(s):
@@ -305,7 +302,6 @@ class ShoeAgent(Agent):
 #            if resp !='OK':
 #                self.logger.error(failmsg.format(self.name, resp))
 #                return
-
 
     def TEMP_command_handler(self, command):
         """

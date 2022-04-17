@@ -6,63 +6,59 @@ import numpy as np
 import threading
 import logging
 import logging.handlers
-from m2fsConfig import M2FSConfig
+# from m2fsConfig import M2FSConfig
+from redis import RedisError
 
-SELECT_TIMEOUT=5
+SELECT_TIMEOUT = 5
 
-SYS_FILE_OK=0x01
-SYS_SD_OK=0x02
-SYS_RTC_OK=0x04
-SYS_TEMP_OK=0x08
-SYS_ADXL_OK=0x10
-SYS_HEADER_OK=0x20
-SYS_HEADER_NEW=0x40
+SYS_FILE_OK = 0x01
+SYS_SD_OK = 0x02
+SYS_RTC_OK = 0x04
+SYS_TEMP_OK = 0x08
+SYS_ADXL_OK = 0x10
+SYS_HEADER_OK = 0x20
+SYS_HEADER_NEW = 0x40
 
+# Temp sensor quantity and order
+N_TEMP_SENSORS = 3
 
+ECHELLE_INDEX_B = 2
+PRISM_INDEX_B = 1
+LORES_INDEX_B = 0
 
-#Temp sensor quantity and order
-N_TEMP_SENSORS=3
+ECHELLE_INDEX_R = 1
+PRISM_INDEX_R = 2
+LORES_INDEX_R = 0
 
-ECHELLE_INDEX_B=2
-PRISM_INDEX_B=1
-LORES_INDEX_B=0
+ECHELLE_OFFSET_B = -0.3125
+PRISM_OFFSET_B = -0.125
+LORES_OFFSET_B = -0.0625
 
-ECHELLE_INDEX_R=1
-PRISM_INDEX_R=2
-LORES_INDEX_R=0
+ECHELLE_OFFSET_R = -0.125
+PRISM_OFFSET_R = -0.125
+LORES_OFFSET_R = -0.0625
 
-ECHELLE_OFFSET_B=-0.3125
-PRISM_OFFSET_B=-0.125
-LORES_OFFSET_B=-0.0625
+# Lengths of the message parts in bytes
+TEMPERATURE_BYTES = 4
+ACCELERATION_BYTES = 2
+TIMESTAMP_LENGTH = 8
+ADXL_FIFO_LENGTH = 32
+NUM_AXES = 3
+ACCELS_TO_GEES = 0.00390625
+ACCEL_RECORD_LENGTH = TIMESTAMP_LENGTH + NUM_AXES * ACCELERATION_BYTES * ADXL_FIFO_LENGTH
+TEMP_RECORD_LENGTH = TIMESTAMP_LENGTH + TEMPERATURE_BYTES * N_TEMP_SENSORS
+COMPOSITE_RECORD_LENGTH = ACCEL_RECORD_LENGTH + TEMP_RECORD_LENGTH - TIMESTAMP_LENGTH
 
-ECHELLE_OFFSET_R=-0.125
-PRISM_OFFSET_R=-0.125
-LORES_OFFSET_R=-0.0625
-
-#Lengths of the message parts in bytes
-TEMPERATURE_BYTES=4
-ACCELERATION_BYTES=2
-TIMESTAMP_LENGTH=8
-ADXL_FIFO_LENGTH=32
-NUM_AXES=3
-ACCELS_TO_GEES=0.00390625
-ACCEL_RECORD_LENGTH=TIMESTAMP_LENGTH+NUM_AXES*ACCELERATION_BYTES*ADXL_FIFO_LENGTH
-TEMP_RECORD_LENGTH=TIMESTAMP_LENGTH + TEMPERATURE_BYTES*N_TEMP_SENSORS
-COMPOSITE_RECORD_LENGTH=ACCEL_RECORD_LENGTH+TEMP_RECORD_LENGTH-TIMESTAMP_LENGTH
-
-
-#These are constructs which take the raw binary data for the accelerations or
+# These are constructs which take the raw binary data for the accelerations or
 # temps and parse them into lists of numbers
-tempsParser =StrictRepeater(N_TEMP_SENSORS, LFloat32("temps")).parse
-accelsParser=StrictRepeater(ADXL_FIFO_LENGTH*NUM_AXES, SLInt16("accel")).parse
-unsigned32BitParser=ULInt32("foo").parse
-
-
+tempsParser = StrictRepeater(N_TEMP_SENSORS, LFloat32("temps")).parse
+accelsParser = StrictRepeater(ADXL_FIFO_LENGTH * NUM_AXES, SLInt16("accel")).parse
+unsigned32BitParser = ULInt32("foo").parse
 
 
 def translateErrorByte(byteStr):
-    err=int(byteStr,16)
-    errors=[]
+    err = int(byteStr, 16)
+    errors = []
     if not SYS_FILE_OK & err:
         errors.append('Logfile Error')
     if not SYS_SD_OK & err:
@@ -79,7 +75,8 @@ def translateErrorByte(byteStr):
         errors.append('Existing Header')
     else:
         errors.append('New Header')
-    return 'Status: '+' '.join(errors)
+    return 'Status: ' + ' '.join(errors)
+
 
 class DataloggerConnection(Serial):
     """
@@ -88,17 +85,18 @@ class DataloggerConnection(Serial):
     Wrapper for Serial which knows how to tell the datalogger the unixtime
     and grab a log message.
     """
+
     def __init__(self, device, side):
         """
         Wrap Serial initialization so we can instantite unpoened w/o problems
         This is fine, because it might be unplugged.
         """
         Serial.__init__(self, baudrate=115200, timeout=1)
-        self.timeout=1
-        self.port=device
+        self.timeout = 1
+        self.port = device
         if side != 'R' and side != 'B':
             raise ValueError('Side must be R or B')
-        self.side=side
+        self.side = side
         try:
             self.open()
         except SerialException:
@@ -162,16 +160,16 @@ class DataloggerConnection(Serial):
         For some reason I can't identify the null bytes are necessary for the
         message to be received properly.
         """
-        s='t'+UBInt32("f").build(int(time.time()))
+        s = 't' + UBInt32("f").build(int(time.time()))
 
         self.write(s[0])
-        self.write('\x00'+s[1])
-        self.write('\x00'+s[2])
-        self.write('\x00'+s[3])
-        self.write('\x00'+s[4])
+        self.write('\x00' + s[1])
+        self.write('\x00' + s[2])
+        self.write('\x00' + s[3])
+        self.write('\x00' + s[4])
 
-        hextime='0x'+(4*'{:02x}').format(*map(ord,s[1:]))
-        timemsg='Sending time as {}'.format(hextime)
+        hextime = '0x' + (4 * '{:02x}').format(*map(ord, s[1:]))
+        timemsg = 'Sending time as {}'.format(hextime)
         logging.getLogger('DataloggerListener').debug(timemsg)
 
     def getByte(self, timeout):
@@ -180,7 +178,7 @@ class DataloggerConnection(Serial):
 
         Returns '' and closes connection if there is an IO error
         """
-        reader, junk, error=select.select([self], [], [self], timeout)
+        reader, junk, error = select.select([self], [], [self], timeout)
         if error:
             self.close()
             return ''
@@ -199,7 +197,8 @@ class DataloggerListener(threading.Thread):
     This is a thread class that handles communication with a datalogger and
     yields the reported data via a queue.
     """
-    def __init__(self, side, device, redis_stream):
+
+    def __init__(self, side, device, redis_ts):
         """
         Start a new thread to capture temperature and accelerometer data from
         an M2FS datalogger on device. Place data into the Queue passed in Queue.
@@ -207,11 +206,11 @@ class DataloggerListener(threading.Thread):
         if side != 'R' and side != 'B':
             raise Exception('Side must be R or B')
         threading.Thread.__init__(self)
-        self.redis_stream = redis_stream
-        self.daemon=True
-        self.side=side
-        self.datalogger=DataloggerConnection(device, side)
-        self.logger=logging.getLogger(__name__)
+        self.redis_ts = redis_ts
+        self.daemon = True
+        self.side = side
+        self.datalogger = DataloggerConnection(device, side)
+        self.logger = logging.getLogger(__name__)
         self.logger.info("Listener started")
 
     def run(self):
@@ -241,7 +240,7 @@ class DataloggerListener(threading.Thread):
                     except SerialException:
                         time.sleep(1)
                 else:
-                    byte=self.datalogger.getByte(SELECT_TIMEOUT)
+                    byte = self.datalogger.getByte(SELECT_TIMEOUT)
                     if byte == 't':
                         self.datalogger.telltime()
                         self.logger.info('Handled time query')
@@ -249,21 +248,24 @@ class DataloggerListener(threading.Thread):
                         try:
                             logdata = self.datalogger.readLogData(parse=True)
                             self.logger.debug(logdata)
-                            rec = {k+self.side: logdata[k] for k in ('echelle', 'prism', ' lores')
+                            rec = {k + self.side: logdata[k] for k in ('echelle', 'prism', 'lores')
                                    if logdata[k] is not None}
-                            self.redis_stream.add(rec, id=datetime.fromtimestamp(logdata['time']))
+                            t=datetime.fromtimestamp(logdata['time'])
+                            for k, v in rec:
+                                getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
+                            # self.redis_stream.add(rec, id=datetime.fromtimestamp(logdata['time']))
                         except ValueError as e:
                             self.logger.error(str(e))
-                        except Exception as e:  #TODO narrow to redis errors
+                        except RedisError as e:
                             self.logger.error(exc_info=True)
                     elif byte == 'E':
-                        msg=self.datalogger.readline()
+                        msg = self.datalogger.readline()
                         if 'Fatal Error' in msg:
                             self.logger.info(translateErrorByte(msg.split(': ')[1]))
                         self.logger.error(msg)
                     elif byte == '#':
-                        msg=self.datalogger.readline()
-                        #older version had a # in front of the error String
+                        msg = self.datalogger.readline()
+                        # older version had a # in front of the error String
                         if 'Fatal Error' in msg:
                             self.logger.info(translateErrorByte(msg.split(': ')[1]))
                         self.logger.info(msg)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import Queue
+# import Queue
 
 from threading import Timer
 from datetime import datetime, timedelta
@@ -7,27 +7,32 @@ from m2fscontrol.agent import Agent
 from m2fscontrol.datalogger import DataloggerListener
 from m2fscontrol.m2fsConfig import M2FSConfig, N_IFU_TEMPS
 from m2fscontrol.selectedconnection import SelectedSocket
-import logging
-from m2fscontrol.loggerrecord import *
+# import logging
+# from m2fscontrol.loggerrecord import *
+from m2fscontrol import m2fsConfig
+from redis import RedisError
 
-DATALOGGER_VERSION_STRING='Datalogger Agent v1.0'
-POLL_AGENTS_INTERVAL=60.0
-READING_EXPIRE_INTERVAL=120.0
+DATALOGGER_VERSION_STRING = 'Datalogger Agent v1.0'
+POLL_AGENTS_INTERVAL = 60.0
+READING_EXPIRE_INTERVAL = 120.0
 
+BASE_TEMP_LIST = ('cradleR', 'cradleB', 'echelleR', 'echelleB', 'prismR', 'prismB', 'loresR', 'loresB')
+IFUM_TEMP_LIST = ('ifuentrance', 'ifutop', 'ifufiberexit', 'ifumotor', 'ifudrive', 'ifuhoffman', 'shoebox')
+M2FS_TEMP_LIST = ('sh',)
 
 def logDebugInfo(logger, records):
     """ Records should be sorted in time """
-    if len(records) <3:
+    if len(records) < 3:
         for r in records:
             logger.debug(r.prettyStr())
     else:
-        bCount=0
-        rCount=0
+        bCount = 0
+        rCount = 0
         for r in records:
             if r.bOnly():
-                bCount+=1
+                bCount += 1
             elif r.rOnly():
-                rCount+=1
+                rCount += 1
         logger.debug("R records: %i  B records: %i" % (rCount, bCount))
         logger.debug("Earliest: %s Latest: %s" %
                      (records[0].timeString(), records[-1].timeString()))
@@ -39,57 +44,59 @@ class DataloggerAgent(Agent):
     data from various sensors in the instrument and both maintains a record of
     the current temp readings and logs all the data to disk.
     """
+
     def __init__(self):
-        Agent.__init__(self,'DataloggerAgent')
-        #Initialize the dataloggers
-        self.redis_ts = self.redis.time_series('temps', ['temp_stream'])
-        self.redis_stream = self.redis_ts.temp_stream
-        self.dataloggerR=DataloggerListener('R','/dev/m2fs_dataloggerR', self.redis)
+        Agent.__init__(self, 'DataloggerAgent')
+        # Initialize the dataloggers
+        self.redis_ts = self.redis.time_series('temps', BASE_TEMP_LIST+M2FS_TEMP_LIST+IFUM_TEMP_LIST)
+        # self.redis_stream = self.redis_ts.temp_stream
+
+        self.dataloggerR = DataloggerListener('R', '/dev/m2fs_dataloggerR', self.redis_ts)
         self.dataloggerR.start()
-        self.dataloggerB=DataloggerListener('B', '/dev/m2fs_dataloggerB', self.redis)
+        self.dataloggerB = DataloggerListener('B', '/dev/m2fs_dataloggerB', self.redis_ts)
         self.dataloggerB.start()
-        agent_ports=M2FSConfig.getAgentPorts()
-        if M2FSConfig.ifum_devices_present(): #TODO make this support user forgetfullness
-            self.ifushoes = SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
-            self.ifuselector = SelectedSocket('localhost', agent_ports['SelectorAgent'])
-            self.ifushield = SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
-        else:
-            self.shoeR=SelectedSocket('localhost', agent_ports['ShoeAgentR'])
-            self.shoeB=SelectedSocket('localhost', agent_ports['ShoeAgentB'])
-            self.shackHartman=SelectedSocket('localhost', agent_ports['ShackHartmanAgent'])
+        agent_ports = M2FSConfig.getAgentPorts()
+
+        # NB at boot USB cable might not be conected, just as MFib might not be. Moreover the ifumshoebox will
+        #  be. Probably the easiest way to deal is to establish a connection to the agents regardless and deal with
+        #  timeouts or some sort of 'OFFLINE'/'NA' response from them, in essence shifting the burden to the edge
+        # The agents simply won't connect if the agents are offline because of a different instrument mode
+        #The log function checks for ifum devices each time and picks m2fs vs ifum logging (ifum takes precedence)
+        self.ifushoes = SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
+        self.ifuselector = SelectedSocket('localhost', agent_ports['SelectorAgent'])
+        self.ifushield = SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
+        self.shoeR = SelectedSocket('localhost', agent_ports['ShoeAgentR'])
+        self.shoeB = SelectedSocket('localhost', agent_ports['ShoeAgentB'])
+        self.shackHartman = SelectedSocket('localhost', agent_ports['ShackHartmanAgent'])
 
         self.command_handlers.update({
-            #Return a list of the temperature values
+            # Return a list of the temperature values
             'TEMPS': self.TEMPS_command_handler})
 
-        self.queryAgentsTimer=None
+        self.queryAgentsTimer = None
 
     def get_version_string(self):
         return DATALOGGER_VERSION_STRING
 
     def get_cli_help_string(self):
-        """
-        Return a brief help string describing the agent.
-
-        Subclasses shuould override this to provide a description for the cli
-        parser
-        """
-        return "This is the M2FS datalogger"
+        """ Return a brief help string describing the agent. """
+        return "This is the M2FS/IFUM datalogger"
 
     def TEMPS_command_handler(self, command):
         """ Report the current temperatures """
-        latest = self.redis_stream[datetime.utcnow() - timedelta(minutes=1):]
-        current = {}
-        for r in latest:
-            current.update(r.data)
+        templist = IFUM_TEMP_LIST+BASE_TEMP_LIST if M2FSConfig.ifum_devices_present() else M2FS_TEMP_LIST+BASE_TEMP_LIST
 
-        if M2FSConfig.ifum_devices_present():
-            templist = ('ifuentrance', 'ifutop', 'ifufiberexit', 'ifumotor', 'ifudrive', 'ifuhoffman',
-                        'shoebox', 'cradleR', 'cradleB', 'echelleR', 'echelleB', 'prismR', 'prismB',
-                        'loresR', 'loresB')
-        else:
-            templist = ('sh', 'cradleR', 'cradleB', 'echelleR', 'echelleB', 'prismR', 'prismB', 'loresR', 'loresB')
-        reply = ' '.join(['{:.3f}'.format(float(current[k])) if k in current else 'U' for k in templist])
+        try:
+            latest = [getattr(self.redis_ts, k.lower())[datetime.utcnow() - timedelta(minutes=1.1):] for k in templist]
+        except RedisError as e:
+            self.logger.error(exc_info=True)
+            return 'ERROR: '+str(e)
+
+        def formatter(x):
+            x = x[-1].get('') if x else None
+            return '{:.3f}'.format(float(x)) if x else 'U'
+
+        reply = ' '.join([formatter(v) for v in latest])
         command.setReply(reply)
 
     def get_status_list(self):
@@ -102,8 +109,8 @@ class DataloggerAgent(Agent):
 
     def runSetup(self):
         """ execute before main loop """
-        self.queryAgentsTimer=Timer(POLL_AGENTS_INTERVAL, self.logTemps)
-        self.queryAgentsTimer.daemon=True
+        self.queryAgentsTimer = Timer(POLL_AGENTS_INTERVAL, self.logTemps)
+        self.queryAgentsTimer.daemon = True
         self.queryAgentsTimer.start()
 
     def _gatherIFUTemps(self):
@@ -182,9 +189,11 @@ class DataloggerAgent(Agent):
         return cradleRTemp, cradleBTemp, shTemp
 
     def logTemps(self):
-        #Gather Temps
+        # Gather Temps
         temps = dict(cradleR=None, cradleB=None, shoebox=None, ifudrive=None, ifumotor=None,
                      ifuentrance=None, ifufiberexit=None, ifutop=None, ifuhoffman=None, sh=None)
+        #todo we should look at walrus compacting/redis preservation rules (though testing seems to indicate no real
+        # issues
         if M2FSConfig.ifum_devices_present():
             cradleRTemp, cradleBTemp, shoeboxTemp, driveTemp, motorTemp, probeTemps = self._gatherIFUTemps()
             temps['cradleR'] = cradleRTemp
@@ -200,14 +209,16 @@ class DataloggerAgent(Agent):
             temps['sh'] = shTemp
 
         rec = {k: v for k, v in temps.items() if v is not None}
-        self.redis_stream.add(rec, id=datetime.utcnow())
+        t = datetime.utcnow()
+        for k, v in rec:
+            getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
 
-        #Do it again in in a few
+        # Do it again in in a few
         self.queryAgentsTimer = Timer(POLL_AGENTS_INTERVAL, self.logTemps)
         self.queryAgentsTimer.daemon = True
         self.queryAgentsTimer.start()
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     agent = DataloggerAgent()
     agent.main()

@@ -11,7 +11,7 @@ ShoeDrive::ShoeDrive(char shoe_name, uint8_t pipe_servo_pin, uint8_t pipe_pot_pi
                      , _height_pot_pin(height_pot_pin)
                      , _sensor_pin(height_sensor_pin)
                      , _motorsoff_pin(motorsoff_pin)
-                     , _motorson_pin(motorson_pin) 
+                     , _motorson_pin(motorson_pin)
                      , _pipe_filter(1, EWMA_SAMPLES)     //about 10 samples
                      , _height_filter(1, EWMA_SAMPLES)
                      , _pipe_motor(p)
@@ -105,7 +105,7 @@ void ShoeDrive::setMotorPower(bool enable) {
 
 void ShoeDrive::stop() {
   //if not powered, don't power up!
-  if (motorsPowered) { 
+  if (motorsPowered) {
     // to try and command where we are
     shoepos_t pos = getLivePosition();
     _move(_height_motor, pos.height, 0, false);
@@ -123,7 +123,7 @@ uint8_t ShoeDrive::getCurrentSlit(){  //0-5 or 0xFF = INTERMEDIATE/UNKNOWN, 0xFE
   ndx = _currentPipeIndex();
   if (!fibersAreUp() || ndx==UNKNOWN_SLIT) return UNKNOWN_SLIT;
   else return ndx;
-} 
+}
 
 void ShoeDrive::tellCurrentSlit() {
   uint8_t slit = getCurrentSlit();
@@ -194,20 +194,20 @@ bool ShoeDrive::moveInProgress() {
 
 bool ShoeDrive::pipeMoving() { //indicates literal movement
   return millis()-_timeLastPipeMovement < MOVING_TIMEOUT_MS;
-}  
+}
 
 
 bool ShoeDrive::heightMoving() { //indicates literal movement
   return millis()-_timeLastHeightMovement < MOVING_TIMEOUT_MS;
 }
 
-    
+
 void ShoeDrive::defineSlitPosition(uint8_t slit, uint16_t pos){
   if (slit>N_SLIT_POS-1) return;
   _cfg.pipe_pos[slit] = pos;
 }
 
-    
+
 void ShoeDrive::defineHeightPosition(uint8_t slit, uint16_t pos){
   if (slit>N_SLIT_POS-1) return;
   _cfg.height_pos[slit] = pos;
@@ -259,7 +259,7 @@ inline void ShoeDrive::_moveHeight(uint16_t pos, uint16_t wait, bool detach){
 void ShoeDrive::_move(Servo *axis, uint16_t pos, uint16_t wait, bool detach){
 
   // Danger. This does not do any checks.
-  
+
   int8_t heading=0;
   uint8_t pin;
   uint16_t last;
@@ -292,7 +292,7 @@ bool ShoeDrive::safeToMovePipes() {
 
   return (cmd.height<=safe_pipe_height &&                  // commanded to a low enough point
           cur.height<=safe_pipe_height + _cfg.height_tol); // Clear of the pipes
-  
+
 }
 
 bool ShoeDrive::fibersAreUp() {
@@ -303,7 +303,7 @@ bool ShoeDrive::fibersAreUp() {
   shoepos_t cmd = getCommandedPosition();
   uint16_t err=abs((int)cur.height-(int)_cfg.height_pos[_cfg.desired_slit]);
   return (cmd.height==_cfg.height_pos[_cfg.desired_slit] &&
-          err < _cfg.height_tol && 
+          err < _cfg.height_tol &&
           !heightMoving());
 }
 
@@ -365,7 +365,7 @@ shoestatus_t ShoeDrive::_status() {
 }
 
 uint16_t ShoeDrive::_clearance_height(uint8_t slit) {
-  //given the current position and a destination slit 
+  //given the current position and a destination slit
   //return the height below which we need to be for pipe safety
 
   // This function uses _cfg.pos for figuring out the current pipe position so
@@ -373,7 +373,7 @@ uint16_t ShoeDrive::_clearance_height(uint8_t slit) {
   // that becomes stale if called during a pipe move
   // In other words the assumption is this is called when the pipes aren't on the way
 
-  // If a situation arises where the tab is between two pipes and contact has been made 
+  // If a situation arises where the tab is between two pipes and contact has been made
   // with the longer (absent any significnat bending) the shorter will still be closer.
   // Here the next move will cause grinding and binding, if this causes lowering to fail
   // then we wind up going to the safe slit 1.
@@ -401,8 +401,8 @@ uint16_t ShoeDrive::_clearance_height(uint8_t slit) {
   if ((current<N_SLIT_POS-1) &&
       (pipe > (_cfg.pipe_pos[current]+40) ))  // 1/3rd of the way between pipes
       current++;
-  
-  //Determine height 
+
+  //Determine height
   uint16_t clearance=min(_cfg.down_pos[slit], _cfg.down_pos[current]);
   Serial.print(F("#Clearance "));Serial.print(clearance);
   Serial.print(F(" move from "));Serial.print((int)current+1);
@@ -427,18 +427,18 @@ void ShoeDrive::run(){
 
   //Execute move: lower, wait, move pipes, wait, raise, wait, done
 
-  
+
   switch (_moveInProgress) {
-    
-    case RECOVERY_MOVE: // A move didn't go as planned  //TODO sort through given down_pos
+
+    case RECOVERY_MOVE: // A move didn't go as planned
         /* failure modes:
-         *  
+         *
         didn't move down all the way -> move pipes to a higher pipe (if needed) and move up)
         didn't move up all the way -> move down then move up -> try again
         too high during pipe move -> move to higer pipe and move up -> try again
         pipe didn't get to position -> move to high pipe then move up -> try again
         */
-        
+
         if (!_retries) { //transition to SHOE_IDLE
           Serial.println(F("#No retry left. IDLE."));
           tellStatus();
@@ -450,9 +450,9 @@ void ShoeDrive::run(){
           _retries--;
 
           if ( (errors & (E_HEIGHTSTALL|E_HEIGHTMOVEDUP|E_RECOVER|E_PIPESHIFT)) | !safeToMovePipes()) {
-            
+
             // E_HEIGHTSTALL: didn't move down all the way may be down just a bit or just not clear.
-            // Lower pipes are slightly more prone to not getting all the way down 
+            // Lower pipes are slightly more prone to not getting all the way down
             // so move pipes to a higher pipe and move up
             // Pathological case of pipe jammed into the rear of the tab or between tabs is thankfully not physically possible.
             Serial.print(F("#Pipe to SL 1"));
@@ -463,22 +463,22 @@ void ShoeDrive::run(){
             Serial.println("");
             _movePipe(_cfg.pipe_pos[0], RC_PULSE_DELAY, true);
             _moveInProgress=RECOVERY_MOVE_pipe;
-            
+
           } else if (errors & E_PIPESTALL) {
 
             uint16_t dest = stat.target.pipe - 200;//0*stat.heading.pipe;
             Serial.print(F("#Pipe retry "));Serial.print(stat.target.pipe);Serial.print(F(" via "));Serial.println(dest);
-            // E_PIPESTALL: pipe didn't get to where it was sent. if height is down we can send it safely whereever, 
+            // E_PIPESTALL: pipe didn't get to where it was sent. if height is down we can send it safely whereever,
             // if height isn't safe then simplest to handle it like a height stall (see above)
             _movePipe(dest, RC_PULSE_DELAY_SHORT, false);
             _movePipe(stat.target.pipe, RC_PULSE_DELAY, true);
             errors=0;
             _moveInProgress=SLIT_MOVE_pipe;
-            
+
           } else if (errors & E_HEIGHTSTUCK) {
 
             Serial.println(F("#Raise fail, lower"));
-            // E_HEIGHTSTUCK: height didn't up get to where it was sent. if pipes aren't where they need to be then 
+            // E_HEIGHTSTUCK: height didn't up get to where it was sent. if pipes aren't where they need to be then
             // that would cause this (though that isn't possible by sw. design), just lower back down and let the cycle go again
             _moveHeight(_clearance_height(_cfg.desired_slit)+20, RC_PULSE_DELAY_SHORT, false);
             _moveHeight(_clearance_height(_cfg.desired_slit), RC_PULSE_DELAY, DETACHED_LOWPOS);
@@ -488,7 +488,7 @@ void ShoeDrive::run(){
           }
         }
         break;
-        
+
     case RECOVERY_MOVE_pipe:
       if (stat.moving.pipe) {
          //wait
@@ -504,7 +504,7 @@ void ShoeDrive::run(){
         tellStatus();
       }
       break;
-      
+
     case RECOVERY_MOVE_raise:
       if (!stat.moving.height) {
         Serial.print(F("#RECOVERY_MOVE_raise done: "));Serial.println(stat.error.height);
@@ -523,25 +523,24 @@ void ShoeDrive::run(){
     case SLIT_MOVE: //new move, lower cassette
       errors=0;
       safe_pipe_height = _clearance_height(_cfg.desired_slit);
-      Serial.print(F("#Starting move to ")); Serial.print((uint16_t)_cfg.desired_slit+1); 
+      Serial.print(F("#Starting move to ")); Serial.print((uint16_t)_cfg.desired_slit+1);
       Serial.print(F(". Lowering, safe height "));Serial.println(safe_pipe_height);
       Serial.print(F("#Free Mem:"));Serial.println(freeMemory());
       //This first move is a tweak for dealing with LAC pulse width oddities. 20 is tied to the LAC settings (i.e. it needs to be set so that the LAC sees the two as distinct positions)
-      _moveHeight(safe_pipe_height+20, RC_PULSE_DELAY_SHORT, false);  
+      _moveHeight(safe_pipe_height+20, RC_PULSE_DELAY_SHORT, false);
       _moveHeight(safe_pipe_height, RC_PULSE_DELAY, false);
       _moveInProgress=SLIT_MOVE_lower;
       break;
     case SLIT_MOVE_lower:  //lowering in process
       //Alow pipes to move while the height is twitching at the bottom!
       if (safeToMovePipes()) { //transition to SLIT_MOVE_pipes
-
         //We detach if enabled, but DETACHED_LOWPOS controls this seperately for positions < CHALLENGING_LOWPOS
         if (_detachHeight(stat.target.height)) _height_motor->detach();
         errors=0;
         Serial.print(F("#Down ("));Serial.print(stat.error.height);Serial.println(F("), moving pipe."));
         _movePipe(_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)], RC_PULSE_DELAY, true);
         _moveInProgress=SLIT_MOVE_pipe;
-        
+
       } else if (!stat.moving.height){ //transition to RECOVERY_MOVE we are stalled breaks if stall timeout is too short to detect real movement
         if (_detachHeight(stat.pos.height)) _height_motor->detach();
         Serial.print(F("#ERROR: Height not down ")); Serial.println(stat.error.height);
@@ -574,7 +573,7 @@ void ShoeDrive::run(){
       if (stat.moving.height) {
         if (_currentPipeIndex() != _cfg.desired_slit) {
           Serial.print(F("#Pipe shifted "));Serial.print(stat.error.pipe);Serial.println(F(". Lowering."));
-          _moveHeight(_clearance_height(_cfg.desired_slit), RC_PULSE_DELAY_SHORT, true); //todo is detach correct here???
+          _moveHeight(_clearance_height(_cfg.desired_slit), RC_PULSE_DELAY_SHORT, true); //NB detach here is a it of a guess
           errors|=E_PIPESHIFT;
           _moveInProgress=RECOVERY_MOVE;
         } // else nothing to do but wait
@@ -590,7 +589,7 @@ void ShoeDrive::run(){
           _moveInProgress=RECOVERY_MOVE;
       }
       break;
-    case USER_MOVE_height: 
+    case USER_MOVE_height:
        if (!stat.moving.height) _moveInProgress=SHOE_IDLE;  //transition to SHOE_IDLE
       break;
     case USER_MOVE_pipe:
@@ -621,7 +620,7 @@ void ShoeDrive::_updateFeedbackPos() {  //~500us
     adu=analogRead(_pipe_pot_pin);
     tmp=_pipe_filter.filter(MAX_ADC-adu);  //reverse it for electrical reasons
     pos.pipe=round(ADU_TO_STEP*(float)tmp);
-    
+
 #ifdef DEBUG_FEEDBACK
     if (feedback_update_msg>0) {
       Serial.print(F("Pipe ADC: "));Serial.print(MAX_ADC-adu);Serial.println(".");
@@ -692,7 +691,7 @@ void ShoeDrive::tellStatus() {
 
   shoepos_t pos, cpos;
   _wait(SAMPLE_INTERVAL_MS);
-  
+
   #ifdef DEBUG_FEEDBACK
   feedback_update_msg=1;
   #endif
@@ -703,10 +702,10 @@ void ShoeDrive::tellStatus() {
   Serial.println(F(" Shoe Status===\n (pipe, height)"));
   uint64_t tmp;
   tmp=_pipe_filter.output();
-  Serial.print(" ADC: "); 
+  Serial.print(" ADC: ");
     if (tmp>=0xffffffff) Serial.print("***");
     else Serial.print((uint32_t)tmp);
-    Serial.print(", "); 
+    Serial.print(", ");
     tmp=_height_filter.output();
     if (tmp>=0xffffffff) Serial.print("***");
     else Serial.println((uint32_t)tmp);
@@ -732,14 +731,14 @@ void ShoeDrive::tellStatus() {
 
   Serial.print(F("Desired Slit: ")); Serial.println((uint16_t) _cfg.desired_slit+1);
   Serial.print(F("Detected Slit: "));tellCurrentSlit();Serial.println();
-  
+
   Serial.print(F("Errors: "));Serial.print(errors, BIN);
     Serial.print(F(" MiP: "));Serial.print(_moveInProgress);
     Serial.print(F(" Safe: "));Serial.print(safeToMovePipes());
     Serial.print(F(" Relay: "));Serial.print(motorsPowered);
     Serial.print(F(" Idleoff: "));Serial.print(_cfg.idle_disconnected);
     Serial.print(F(" curPipeNdx: "));Serial.println(_currentPipeIndex());
-    
+
   Serial.print(F("Slit Pos:\n Up:   "));
     for(uint8_t i=0;i<N_SLIT_POS;i++) {
       Serial.print(" ");
@@ -758,5 +757,5 @@ void ShoeDrive::tellStatus() {
     Serial.print(F("\nFree Mem:"));Serial.print(freeMemory());
     Serial.println(F("\n==================="));
 
-    
+
 }

@@ -6,16 +6,11 @@ from m2fscontrol.utils import longTest
 from m2fscontrol.shoe import ShoeSerial as _ShoeSerial, ShoeCommandNotAcknowledgedError
 
 
-EXPECTED_FIBERSHOE_INO_VERSION = 'IFUshoe v1.3'
 SHOE_AGENT_VERSION_STRING = 'IFU Shoe Agent v1.0'
 SHOE_AGENT_VERSION_STRING_SHORT = SHOE_AGENT_VERSION_STRING.split()[-1]
 
-SHOE_BOOT_TIME = .5
-SHOE_SHUTDOWN_TIME = .25
 MAX_SLIT_MOVE_TIME = 25
 STOWSLIT = 1
-
-# todo write files with shoe inserted color based on presence of temp sensors?
 
 def parseTS(x):
     """
@@ -89,6 +84,7 @@ def parseTS(x):
         res['down'] = [int(x) for x in d['Down'].split()]
         res['pipe'] = [int(x) for x in d['Pipe'].split()]
         res['debug'] = 'Errors: ' + d['Errors']
+        res['tol'] = [int(x) for x in d['Toler'].split()]
         res['pos_err'] = [int(x) for x in d['SL Delta'].split(',')]
         res['pos'] = [int(x.split()[0]) for x in d['Pos (live)'].split(',')]
         return res
@@ -118,12 +114,31 @@ def parseTS(x):
         response['Pipe'+x] = 'MOVING ({})'.format(d['pos'][0]) if d['moving'][0] else d['pos'][0]
         response['Height'+x] = 'MOVING ({})'.format(d['pos'][1]) if d['moving'][1] else d['pos'][1]
         response['pos_err_'+x.lower()] = d['pos_err']
+        response['tol_' + x.lower()] = d['tol']
         response['debug_'+x.lower()] = d['debug']
 
     return response
 
-
+#TODO we need to dead with all the # messages and ts info before :
 class ShoeSerial(_ShoeSerial):
+    SHOE_BOOT_TIME = 3.5
+    SHOE_SHUTDOWN_TIME = .25
+    EXPECTED_FIBERSHOE_INO_VERSION = 'IFUShoe v1.3'
+    """
+    defaultResponseCallback gets unsolicited messages and logs comments as comments, checking input buffer for stuff
+        handle_read fires though whenever the first \n makes it to the buffer. unsolicited messages might only have the
+        first line start with a sentinal value.
+    selected connection doesnt have any mechanism to then call again for rewmaining lines in self.in_buffer
+    the handler will fire again for each time handle_read gets triggered by select but there could be far more lines
+    than handle_read calls
+    
+    the result of all this is a race condition that will see dead data in the in_buffer
+    
+    we need to ensure the shoe ends all lines with \n (or maybe also ? or : but simpler to end those too with \n,
+     consistency with m2fs key here)
+     every line that is unsolicited starts #
+     the issue is TS (or any other multiline response sent as a comment)
+    """
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection"""
         try:
@@ -133,6 +148,66 @@ class ShoeSerial(_ShoeSerial):
         except Exception:
             self.logger.error('Error on shoe serial disconnect: ', exc_info=True)
             pass
+
+
+
+    # def _implementationSpecificRead(self):
+    #     """
+    #     Perform a device specific read, raise ReadError if any error
+    #
+    #     Read and return all the data in waiting.
+    #     """
+    #     data = super(ShoeSerial, self)._implementationSpecificRead()
+    #     if '\n' not in data:
+    #         return data
+    #     comments = filter(lambda x: x.startswith('#'), data.split('\n'))
+    #     good = filter(lambda x: not x.startswith('#'), data.split('\n'))
+    #     if comments:
+    #         print 'Dropping'+ str(comments)
+    #     return '\n'.join(good)
+
+    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
+        """
+        Receive a message of nbytes length over serial, waiting timemout sec.
+
+        If timeout is a number it is used as the timeout for this receive only
+        Otherwise the default timeout is used. If no default timeout was defined
+        125 ms is used. A timout of 0 will block until (if ever) the data
+        arrives.
+
+        If nBytes is 0 then listen until we get a '/n' or the timeout occurs.
+
+        If a serial exception occurs raise ReadError.
+        """
+        import serial
+        from m2fscontrol.selectedconnection import ReadError
+        saved_timeout=self.connection.timeout
+        if type(timeout) in (int, float, long) and timeout>0:
+            self.connection.timeout=timeout
+        elif saved_timeout is None:
+            self.connection.timeout=self.BACKUP_TIMEOUT
+        try:
+            if nBytes == 0:
+                if self.messageTerminator != '\n':
+                    line = []
+                    while True:
+                        c = self.connection.readline()
+                        if not c:
+                            break
+                        line += c
+                        if c.strip().endswidth(':'):
+                            break
+                    response = ''.join(line)
+                else:
+                    response = self.connection.readline()
+            else:
+                response = self.connection.read(nBytes)
+        except serial.SerialException, e:
+            raise ReadError(str(e))
+        finally:
+            if self.connection is not None:
+                self.connection.timeout = saved_timeout
+        return response
 
 
 class IFUShoeAgent(Agent):
@@ -163,7 +238,8 @@ class IFUShoeAgent(Agent):
             # Get/Set the positions corresponding to a slit
             'SLITS_SLITPOS': self.SLITPOS_command_handler,
             # Get the temperature of the shoe
-            'SLITS_TEMP': self.TEMP_command_handler})
+            'SLITS_TEMP': self.TEMP_command_handler,
+            'SLITS_HARDHAT': self.HARDHAT_command_handler})
 
     def get_cli_help_string(self):
         """
@@ -208,6 +284,9 @@ class IFUShoeAgent(Agent):
         Note the : ? are not considered responses. ? gets the exception and :
         gets an empty string. The response is stripped of whitespace.
         """
+
+        #TODO many (most/all) commands presently have debug #info messages interspersed these need to be ignored
+        #TODO does the ':' always have a \n?, that wouls simplify things, just readline until timeout or ':'
         # No command, return
         if not command_string:
             return ''
@@ -240,26 +319,7 @@ class IFUShoeAgent(Agent):
                 raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
 
     def get_status_list(self):
-        """
-        Return a list of two element tuples to be formatted into a status reply
-
-        Report the Key:Value pairs:
-            name:cookie,
-            Cradle<color>:Shoe<color> <Error if not responding properly>
-            Drivers:[Powered| Off]
-            On: string of tetri numbers that are on e.g. '1 4 6' or None
-            Moving: string of tetri numbers that are moving
-            Calibrated: string of tetri numbers that are calibrated
-
-        Status is reported as 4 bytes with the form
-        Byte 1) [DontcareX5][shoeOnline][shieldIsR][shieldIsOn]
-        Byte 2) [tetris7on]...[tetris0on]
-        Byte 3) [tetris7calibrated]...[tetris0calibrated]
-        Byte 4) [tetris7moving]...[tetris0moving]
-        NB we dont actually use the shieldIsR bit since udev is checking based
-        on serial numbers
-        #TODO
-        """
+        """ Return a list of two element tuples to be formatted into a status reply """
         # Name & cookie
         status = {self.name + ' ' + SHOE_AGENT_VERSION_STRING_SHORT: self.cookie}
         try:
@@ -301,17 +361,13 @@ class IFUShoeAgent(Agent):
         """
         if 'shoe' not in self.connections:
             return
-        self._send_command_to_shoe('SLR'+ str(STOWSLIT))
-        self._send_command_to_shoe('SLB' + str(STOWSLIT))
-
-        #TODO look at other agents for process
-
-    #
-    #       failmsg="Stowed shutdown of {} failed: {}"
-    # wait here until the shoe connection is free. Any threads running
-    # will then stall if they need the shoe, program will be unresponsive
-    # to socket interface
-    # self.connections['shoe'].rlock.acquire(blocking=True)
+        try:
+            self._send_command_to_shoe('SLR' + str(STOWSLIT))
+            self._send_command_to_shoe('SLB' + str(STOWSLIT))
+        except IOError as e:
+            pass
+        except Exception:
+            self.logger.error('Error during stowed shutdown', exc_info=True)
 
     def TEMP_command_handler(self, command):
         """
@@ -362,7 +418,7 @@ class IFUShoeAgent(Agent):
         try:
             status = parseTS(self._send_command_to_shoe('TS'))
             if status['Shoe'+id] != 'connected':
-                command.setReply('ERROR: %s shoe is %s'  % (id, status['Shoe'+id]))
+                command.setReply('ERROR: %s shoe is %s' % (id, status['Shoe'+id]))
             elif 'MOVING' in status['Slit'+id]:
                 command.setReply('ERROR: Move in progress')
             else:
@@ -386,12 +442,40 @@ class IFUShoeAgent(Agent):
             self.logger.debug('sleeping with lock active')
             time.sleep(MAX_SLIT_MOVE_TIME)
             self.logger.debug('finished sleeping with lock active')
-
-            #TODO now the question is did we get there
             pos = self._send_command_to_shoe('SG'+shoe)
             if pos != slit:
                 final_state = 'ERROR: Did not attain requested slit'
         self.returnFromWorkerThread('SLITS', finalState=final_state)
+
+    def HARDHAT_command_handler(self, command):
+        """Return engineering status of shoes at a glance
+        arg shoe, R|B
+        returns 6 numbers  pipe_pos  err tol  height_pos  err tol  OR ERROR: xxxxx
+        """
+        # Vet the command
+        command_parts = command.string.lower().split(' ')
+        if len(command_parts) < 2 or command_parts[1] not in ('b', 'r'):
+            self.bad_command_handler(command)
+            return
+
+        id = command_parts[1]
+
+        try:
+            x = parseTS(self._send_command_to_shoe('TS').split(' '))
+
+            if x['Shoe'+id.upper()] != 'connected':
+                response = 'U U U'
+            else:
+                ppos = x['Pipe'+id.upper()]
+                hpos = x['Height' + id.upper()]
+                ptol, htol = x['tol_'+id]
+                ppose, hpose = x['pos_err_'+id]
+                response = '{} {} {} {} {} {}'.format(ppos, ppose, ptol, hpos, hpose, htol)
+
+        except IOError:
+            response = 'ERROR: IFU shoe control tower offline'
+
+        command.setReply(response)
 
     def SLITPOS_command_handler(self, command):
         """

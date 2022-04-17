@@ -1,3 +1,7 @@
+#udevinfo -a -p $(udevinfo -q path -n /dev/device) (angstrom)
+#udevadm info -q all -n /dev/device (ubuntu & (now on angstrom too! 12/14/12))
+#udevadm control --reload-rules
+
 #Devices based on an attribute
 ATTRS{SHORTSERIAL}=="XXXXXX", NAME="dataloggerR"
 ATTRS{SHORTSERIAL}=="XXXXXX", NAME="dataloggerB"

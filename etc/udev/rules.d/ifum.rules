@@ -1,5 +1,6 @@
 #IFUShield
 SUBSYSTEM=="tty", ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifum_shield", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shield.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifum_shield31B0"
 
 #Occulters
 SUBSYSTEM=="tty", ATTRS{serial}=="AL04HJ3G", SYMLINK+="ifum_occulterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterL.service"
@@ -8,7 +9,11 @@ SUBSYSTEM=="tty", ATTRS{serial}=="AL04HIOL", SYMLINK+="ifum_occulterL", TAG+="sy
 
 #IFU Shoe
 SUBSYSTEM=="tty", ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe4270"
+SUBSYSTEM=="tty", ATTRS{serial}=="85036313130351712011", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="85036313130351712011", SYMLINK+="ifum_shoe2011"
+
 
 #IFU Selector
 SUBSYSTEM=="tty", ATTRS{serial}=="FT2KYRWY", SYMLINK+="ifum_selector", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_selector.service"
-SUBSYSTEM=="tty", ATTRS{vendor}=="ORIENTAL_MOTOR_CO._LTD.", SYMLINK+="ifum_AZDKD"
+SUBSYSTEM=="tty", ATTRS{manufacturer}=="ORIENTAL MOTOR CO.,LTD.", SYMLINK+="ifum_AZDKD"

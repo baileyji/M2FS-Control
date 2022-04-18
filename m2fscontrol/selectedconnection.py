@@ -34,10 +34,11 @@ class SelectedConnection(object):
     SelectedSerial must be created. I'd like to finish this abstraction.
     """
     BACKUP_TIMEOUT = BACKUP_TIMEOUT
+
     def __init__(self,
-                default_message_received_callback=None,
-                default_message_sent_callback=None,
-                default_message_error_callabck=None):
+                 default_message_received_callback=None,
+                 default_message_sent_callback=None,
+                 default_message_error_callabck=None):
         """
         Instantiate a SelectedConnection.
 
@@ -562,7 +563,7 @@ class SelectedSerial(SelectedConnection):
             self.connection.timeout=BACKUP_TIMEOUT
         try:
             if nBytes == 0:
-                if self.messageTerminator != '\n':
+                if self.messageTerminator not in '\n\r':
                     line = []
                     while True:
                         c = self.connection.read(1)

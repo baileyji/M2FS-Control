@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#do manually first
+# sudo git clone https://github.com/baileyji/M2FS-Control.git /M2FS-Control --recurse-submodules --branch ifum
+
 #Set password
 passwd
 
@@ -12,19 +15,18 @@ sudo apt full-upgrade
 sudo apt-get auto-remove
 curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
 sudo apt install python-scipy python-matplotlib nut python-flask zsh samba python-pip curl vim python-redis redis nodejs
-#sudo apt install python-astropy
-sudo pip install --upgrade pip
-sudo pip install astropy<3 ##will get v 2
-sudo pip install walrus, pyyaml, flask_wtf
 sudo apt remove python-serial
-sudo pip install ipython pyserial==2.6 construct==2.0.6 pymodbus==1.5.2 bitstring==3.1.6
+#no to samba wins servers dhcp modification
+#sudo pip install --upgrade pip
+sudo pip install 'astropy<3' ##will get v 2
+sudo pip install walrus pyyaml flask_wtf ipython pyserial==2.6 construct==2.0.6 pymodbus==1.5.2 bitstring==3.1.6 'quantities<0.13'
 sudo npm install -g redis-commander --unsafe
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 
 
 #Install M2FS-Control
 cd /
-sudo git clone https://github.com/baileyji/M2FS-Control.git /M2FS-Control --recurse-submodules --branch ifum
+#sudo git clone https://github.com/baileyji/M2FS-Control.git /M2FS-Control --recurse-submodules --branch ifum
 sudo chown -R pi /M2FS-Control
 sudo pip install -e /M2FS-Control/jbastro
 sudo pip install -e /M2FS-Control/hole_mapper
@@ -41,7 +43,7 @@ sudo cp -v ./etc/hostname /etc/
 sudo cp -v ./etc/hosts /etc/
 sudo cp -v ./etc/dhcpcd.conf /etc/
 sudo cp -v ./etc/udev/rules.d/* /etc/udev/rules.d/
-sudo cp -v ./etc/systemd/system/* /etc/systemd/system/ 
+sudo cp -v ./etc/systemd/system/* /etc/systemd/system/
 sudo cp -v ./etc/systemd/timesyncd.conf /etc/systemd/
 sudo cp -v ./etc/avahi/services/smb.service /etc/avahi/services/
 sudo mv -v /etc/samba/smb.conf /etc/samba/smb.conf.stock
@@ -60,7 +62,6 @@ sudo systemctl enable m2fs_shutdown_button.service
 
 #Bring UPS monitoring online
 sudo systemctl enable nut-server.service
-sudo systemctl enable nut-monitor.service
 
 #Enable and start the director
 sudo systemctl enable m2fs_director.service

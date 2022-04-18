@@ -218,25 +218,21 @@ class Director(Agent):
         for k in self.IFUM_COMMANDS:
             self.command_handlers[k] = self.NOT_IFUM_command_handler
         self.command_handlers.update(self.M2FS_COMMANDS)
-        # Plugging Controller
-        self.connections['PlugController'] = selectedconnection.SelectedSocket('localhost',
-                                                                               agent_ports['PlugController'])
-        # Guider Agent
-        self.connections['GuiderAgent'] = selectedconnection.SelectedSocket('localhost',
-                                                                            agent_ports['GuiderAgent'])
-        # Shack-Hartman Agent
-        self.connections['ShackHartmanAgent'] = selectedconnection.SelectedSocket('localhost',
-                                                                                  agent_ports['ShackHartmanAgent'])
-        # Slit Subsytem Controller
-        self.connections['SlitController'] = selectedconnection.SelectedSocket('localhost',
-                                                                               agent_ports['SlitController'])
-        for c in ('SelectorAgent','OcculterAgentS','OcculterAgentH','OcculterAgentL','IFUShieldAgent','IFUShoeAgent'):
+
+        IFUM_AGENTS = ('SelectorAgent','OcculterAgentH','OcculterAgentL', 'OcculterAgentS', 'IFUShieldAgent'
+                       'IFUShoeAgent')
+        M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
+        for k in M2FS_AGENTS:
+            if self.connections.get(k, None) is not None:
+                self.connections[k] = selectedconnection.SelectedSocket('localhost', agent_ports[k])
+
+        for c in IFUM_AGENTS:
             try:
                 self.connections.pop(c).close()
             except KeyError:
                 pass
             except IOError:
-                self.logger.info("Failed to close connection to {} when switching to IFU Mode".format(c), exc_info=True)
+                self.logger.info("Failed to close connection to {} when switching to M2FS Mode".format(c), exc_info=True)
         self.active_mode = 'm2fs'
 
     def _enterIFUMode(self):
@@ -248,17 +244,15 @@ class Director(Agent):
         for k in self.M2FS_COMMANDS:
             self.command_handlers[k] = self.NOT_M2FS_command_handler
         self.command_handlers.update(self.IFUM_COMMANDS)
-        #IFU Selector
-        self.connections['SelectorAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['SelectorAgent'])
-        #Occulter Controllers
-        self.connections['OcculterAgentH']=selectedconnection.SelectedSocket('localhost', agent_ports['OcculterAgentH'])
-        self.connections['OcculterAgentS']=selectedconnection.SelectedSocket('localhost', agent_ports['OcculterAgentS'])
-        self.connections['OcculterAgentL']=selectedconnection.SelectedSocket('localhost', agent_ports['OcculterAgentL'])
-        #IFU Shield (LEDs, Lamps, & Temps)
-        self.connections['IFUShieldAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['IFUShieldAgent'])
-        # Slit Subsystem Controller
-        self.connections['IFUShoeAgent']=selectedconnection.SelectedSocket('localhost', agent_ports['IFUShoeAgent'])
-        for c in ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController'):
+
+        IFUM_AGENTS = ('SelectorAgent','OcculterAgentH','OcculterAgentL', 'OcculterAgentS', 'IFUShieldAgent'
+                       'IFUShoeAgent')
+        M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
+        for k in IFUM_AGENTS:
+            if self.connections.get(k, None) is not None:
+                self.connections[k] = selectedconnection.SelectedSocket('localhost', agent_ports[k])
+
+        for c in M2FS_AGENTS:
             try:
                 self.connections.pop(c).close()
             except KeyError:

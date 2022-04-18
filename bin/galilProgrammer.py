@@ -16,12 +16,12 @@ def main():
                       dest="auto", action="store_true", default=False)
     parser.add_option("--burn", help="Store program in flash, takes 10 sec. Do not interrupt.",
                       dest="burn", action="store_true", default=False)
-                      
+
     (args, args_leftover)=parser.parse_args()
     if not args.device or not args.file:
         parser.print_help()
         exit(1)
-    
+
     bitrate=115200
 
     try:
@@ -34,7 +34,7 @@ def main():
     f.close()
     data=map(lambda x:x.replace('\n','\r'),data)
     data=map(lambda x:x.replace('\t',' '),data)
-    
+
     fail=False
     for l in data:
         if '\\' in l:
@@ -48,7 +48,7 @@ def main():
     if fail:
         print "File not suitable for upload"
         exit(0)
-            
+
     #open serial connection
     try:
         ser = serial.Serial(args.device, bitrate, timeout=1, writeTimeout=4)
@@ -64,9 +64,9 @@ def main():
     for line in data:
         ser.write(line)
         time.sleep(.010)
-	
+
     ser.write('\r\\;\\\r')
-    ser.flush()
+    ser.flushOutput()
     #import pdb; pdb.set_trace()
     resp=ser.read(45)
 
@@ -74,12 +74,12 @@ def main():
         print "Complete: "+resp
         if args.burn:
             ser.write('BP\r')
-            ser.flush()
+            ser.flushOutput()
             time.sleep(10)
             ser.write('RS\r')
         elif args.auto:
             ser.write('XQ#AUTO,0\r')
-            ser.flush()
+            ser.flushOutput()
             resp=ser.read(45)
             if  resp[:1]==':':
                 print "#AUTO started"

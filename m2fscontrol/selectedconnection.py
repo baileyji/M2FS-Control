@@ -538,7 +538,7 @@ class SelectedSerial(SelectedConnection):
         """
         try:
             self.connection.write(message)
-            self.connection.flush()
+            self.connection.flushOutput()
             return len(message)
         except serial.SerialException, e:
             raise WriteError(str(e))

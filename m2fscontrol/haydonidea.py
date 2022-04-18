@@ -50,11 +50,6 @@ from collections import namedtuple
 
 BAUD = 57600
 
-IFU_DEVICE_MAP = {'lsb': '/dev/occulterLR', 'msb': '/dev/occulterMR', 'hsb': '/dev/occulterHR',
-                  'mac1': '/dev/tty.usbserial-AL04HIOL', 'mac2': '/dev/tty.usbserial-AL04HJ3G',
-                  'mac': '/dev/tty.usbserial-AL04HIOL'}
-
-logger = getLogger(__name__)
 HK_TIMEOUT = 1
 ENCODER_CONFIG = (16, 0, 2000)  #16 64th steps of error allowed (16/64/200*.1" in ~3um)
 
@@ -171,13 +166,12 @@ class IdeaState(object):
         return '0b{:08b}0b{:02b}'.format(self.faults.byte, self.io.errcode)
 
 class IdeaDrive(SelectedConnection.SelectedSerial):
-    def __init__(self, ifu='Not Specified', port=None, preventstall=True):
+    def __init__(self, port, ifu='Not Specified', preventstall=True):
 
         self.errorFlags = {}
-        logger.name = 'Occulter' + ifu
-        dev = port if port is not None else IFU_DEVICE_MAP[ifu]
+        self.logger = getLogger(__name__+ifu)
         # Perform superclass initialization, note we implement the _postConnect hook , see below
-        SelectedConnection.SelectedSerial.__init__(self, dev, BAUD, timeout=HK_TIMEOUT,
+        SelectedConnection.SelectedSerial.__init__(self, port, BAUD, timeout=HK_TIMEOUT,
                                                    default_message_received_callback=self._unsolicited_message_handler)
         # Override the default message terminator for consistency.
         self.messageTerminator = '\r'
@@ -192,7 +186,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     def _unsolicited_message_handler(self, message_source, message):
         """ Handle any unexpected messages from the drive - > log a warning. """
-        logger.warning("Got unexpected, unsolicited message '%s'" % message)
+        self.logger.warning("Got unexpected, unsolicited message '%s'" % message)
 
     def _antistall_main(self):
         while True:
@@ -200,7 +194,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             if not self.prevent_stall:
                 continue
             with self.rlock:  # ensure atomicity
-                if not self.isOpen() or self.move_info is None: #TODO verify that ANY movement command including raw sets move_info
+                if not self.isOpen() or self.move_info is None:  #TODO verify that ANY movement command including raw sets move_info
                     continue
                 try:
                     elapsed = time.time()-self.move_info.start_time
@@ -208,7 +202,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                         # The .5 and max(x, 1) are to allow for a bit of slop and a minimum execution time
                         msg = ('Detected potential hammerstall ({:.1f} s elapsed, {:.1f} s expected) '
                                'aborting move and restarting drive.')
-                        getLogger(__name__).critical(msg.format(elapsed, self.move_info.duration))
+                        self.logger.critical(msg.format(elapsed, self.move_info.duration))
                         self.abort()
                         self.reset()
                         self.move_info = None
@@ -257,23 +251,23 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             response = self.receiveMessageBlocking() + self.receiveMessageBlocking()
             if not response:
                 if command_string == 'b':  # Encoder command can return something OR nothing, UGH!
-                    logger.info('HK encoder query did not get response, this sometimes happens')
+                    self.logger.info('HK encoder query did not get response, this sometimes happens')
                     return ''
                 else:
                     e = 'HK did not respond to "{}", is it powered?'.format(command_string)
-                    logger.error(e, exc_info=True)
+                    self.logger.error(e, exc_info=True)
                     self.handle_error(e, log=False)
                     raise SelectedConnection.ReadError(e)
             try:
                 return response.split('`')[1].strip()[1:]
             except IndexError:
                 e = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
-                logger.error(e)
+                self.logger.error(e)
                 self.handle_error(e, log=False)
                 raise SelectedConnection.ReadError(e)
             except Exception:
                 e = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
-                logger.error(e, exc_info=True)
+                self.logger.error(e, exc_info=True)
                 self.handle_error(e, log=False)
                 raise SelectedConnection.ReadError(e)
                 # raise IOError('ERROR: '+msg)  #Give up, something is wrong!
@@ -288,7 +282,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             return IdeaIO(resp)  # 8 bit number O4-1 I4-1 "`:31\r`:#\r"
         except ValueError:
             e = "HK did not adhere to protocol ':' got '%s'" % resp
-            logger.error(e, exc_info=True)
+            self.logger.error(e, exc_info=True)
             self.handle_error(e, log=False)
             raise SelectedConnection.ReadError(e)
 

@@ -4,14 +4,12 @@ from threading import Timer
 from m2fscontrol.agent import Agent
 import m2fscontrol.selectedconnection as selectedconnection
 from m2fscontrol.m2fsConfig import M2FSConfig
-import m2fscontrol.PyNUT as PyNUT
+from m2fscontrol.ups import get_ups_state
 
 DIRECTOR_VERSION_STRING='Director v0.7'
 LINUX_SHUTDOWN_COMMAND='shutdown now'
 POLL_NUT_INTERVAL=15
 MIN_UPS_RUNTIME=360
-NUT_LOGIN="monitor"
-NUT_PASSWORD="1"
 
 # TODOsave resources by making sure systemd selectively starts based on UDEV creation or some such
 
@@ -600,9 +598,9 @@ class Director(Agent):
             status.append(response)
         return status
 
-
     def updateBatteryState(self):
         #Get the current state of the UPS
+        batteryState = get_ups_state()
         try:
             nut=PyNUT.PyNUTClient(login=NUT_LOGIN, password=NUT_PASSWORD)
             upsstate=nut.GetUPSVars('myups')

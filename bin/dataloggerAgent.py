@@ -115,6 +115,7 @@ class DataloggerAgent(Agent):
 
     def _gatherIFUTemps(self):
         try:
+            self.logger.debug('Polling Shoes')
             cradleRTemp, cradleBTemp, shoeboxTemp = None, None, None
             self.ifushoes.connect()  # in case we lost connection
             self.ifushoes.sendMessageBlocking('SLITS_TEMP')
@@ -132,6 +133,7 @@ class DataloggerAgent(Agent):
             self.logger.debug("Failed to poll IFU Shoes for temps")
 
         try:
+            self.logger.debug('Polling Selector')
             driveTemp, motorTemp = None, None
             self.ifuselector.connect()  # in case we lost connection
             self.ifuselector.sendMessageBlocking('TEMP')
@@ -143,11 +145,12 @@ class DataloggerAgent(Agent):
             self.logger.debug("Bad response '{}' from IFU selector for temps".format(resp))
 
         try:
+            self.logger.debug('Polling IFU Shield')
             probe_temps = [None] * N_IFU_TEMPS
             self.ifushield.connect()  # in case we lost connection
             self.ifushield.sendMessageBlocking('TEMPS')
             resp = self.ifushield.receiveMessageBlocking()
-            probe_temps = map(float, resp.split())
+            probe_temps = map(float, resp.split(','))
             if len(probe_temps) != N_IFU_TEMPS:
                 raise ValueError('Incorrect number of probe temperatures received from IFU Shield')
         except IOError:
@@ -210,7 +213,7 @@ class DataloggerAgent(Agent):
 
         rec = {k: v for k, v in temps.items() if v is not None}
         t = datetime.utcnow()
-        for k, v in rec:
+        for k, v in rec.items():
             getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
 
         # Do it again in in a few

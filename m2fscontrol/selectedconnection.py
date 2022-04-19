@@ -564,7 +564,7 @@ class SelectedSerial(SelectedConnection):
         try:
             if nBytes == 0:
                 if self.messageTerminator != '\n':
-                    response = self.read_until(self.connection, self.messageTerminator, self.connection.timout)
+                    response = self.read_until(self.connection, self.messageTerminator, self.connection.timeout)
                 else:
                     response = self.connection.readline()
             else:

@@ -220,7 +220,7 @@ class Director(Agent):
             self.command_handlers[k] = self.NOT_IFUM_command_handler
         self.command_handlers.update(self.M2FS_COMMANDS)
 
-        IFUM_AGENTS = ('SelectorAgent','OcculterAgentH','OcculterAgentL', 'OcculterAgentS', 'IFUShieldAgent'
+        IFUM_AGENTS = ('SelectorAgent','OcculterAgentH','OcculterAgentL', 'OcculterAgentS', 'IFUShieldAgent',
                        'IFUShoeAgent')
         M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
         for k in M2FS_AGENTS:
@@ -250,7 +250,7 @@ class Director(Agent):
             self.command_handlers[k] = self.NOT_M2FS_command_handler
         self.command_handlers.update(self.IFUM_COMMANDS)
 
-        IFUM_AGENTS = ('SelectorAgent','OcculterAgentH','OcculterAgentL', 'OcculterAgentS', 'IFUShieldAgent'
+        IFUM_AGENTS = ('SelectorAgent','OcculterAgentH','OcculterAgentL', 'OcculterAgentS', 'IFUShieldAgent',
                        'IFUShoeAgent')
         M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
         for k in IFUM_AGENTS:

@@ -251,7 +251,7 @@ class DataloggerListener(threading.Thread):
                             rec = {k + self.side: logdata[k] for k in ('echelle', 'prism', 'lores')
                                    if logdata[k] is not None}
                             t=datetime.fromtimestamp(logdata['time'])
-                            for k, v in rec:
+                            for k, v in rec.items():
                                 getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
                             # self.redis_stream.add(rec, id=datetime.fromtimestamp(logdata['time']))
                         except ValueError as e:

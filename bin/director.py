@@ -224,7 +224,7 @@ class Director(Agent):
                        'IFUShoeAgent')
         M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
         for k in M2FS_AGENTS:
-            if self.connections.get(k, None) is not None:
+            if self.connections.get(k, None) is None:
                 self.logger.info("Creating connection to {}".format(k))
                 self.connections[k] = selectedconnection.SelectedSocket('localhost', agent_ports[k])
             else:
@@ -254,7 +254,7 @@ class Director(Agent):
                        'IFUShoeAgent')
         M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
         for k in IFUM_AGENTS:
-            if self.connections.get(k, None) is not None:
+            if self.connections.get(k, None) is None:
                 self.logger.info("Creating connection to {}".format(k))
                 self.connections[k] = selectedconnection.SelectedSocket('localhost', agent_ports[k])
             else:

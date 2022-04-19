@@ -127,12 +127,14 @@ class DataloggerAgent(Agent):
                 except ValueError:
                     return None
 
-            if 'busy' not in resp.lower():
+            if resp and 'busy' not in resp.lower():
                 d = map(floatnone, resp.split())
                 self.logger.debug('Got {}'.format(d))
                 cradleRTemp, cradleBTemp, shoeboxTemp = d
         except IOError:
             self.logger.debug("Failed to poll IFU Shoes for temps")
+        except ValueError:
+            self.logger.debug("Bad response '{}' from IFU shoe for temps".format(resp))
 
         try:
             self.logger.debug('Polling Selector')

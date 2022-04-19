@@ -214,6 +214,7 @@ class Director(Agent):
         This will leave any IFUM only commands in flight with no way to query them. If they are blocking their
         blocks would remain forever.
         """
+        self.logger.info("Entering M2FS mode")
         agent_ports = M2FSConfig.getAgentPorts()
         for k in self.IFUM_COMMANDS:
             self.command_handlers[k] = self.NOT_IFUM_command_handler
@@ -224,7 +225,10 @@ class Director(Agent):
         M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
         for k in M2FS_AGENTS:
             if self.connections.get(k, None) is not None:
+                self.logger.info("Creating connection to {}".format(k))
                 self.connections[k] = selectedconnection.SelectedSocket('localhost', agent_ports[k])
+            else:
+                self.logger.info("Using existing connection ({}) to {}".format(self.connections[k], k))
 
         for c in IFUM_AGENTS:
             try:
@@ -240,6 +244,7 @@ class Director(Agent):
         This will leave any M2FS only commands in flight with no way to query them. If they are blocking their
         blocks would remain forever.
         """
+        self.logger.info("Entering IFUM mode")
         agent_ports = M2FSConfig.getAgentPorts()
         for k in self.M2FS_COMMANDS:
             self.command_handlers[k] = self.NOT_M2FS_command_handler
@@ -250,7 +255,10 @@ class Director(Agent):
         M2FS_AGENTS = ('PlugController', 'GuiderAgent', 'ShackHartmanAgent', 'SlitController')
         for k in IFUM_AGENTS:
             if self.connections.get(k, None) is not None:
+                self.logger.info("Creating connection to {}".format(k))
                 self.connections[k] = selectedconnection.SelectedSocket('localhost', agent_ports[k])
+            else:
+                self.logger.info("Using existing connection ({}) to {}".format(self.connections[k], k))
 
         for c in M2FS_AGENTS:
             try:

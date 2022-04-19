@@ -50,8 +50,9 @@ class IFUArduinoSerial(selectedconnection.SelectedSerial):
         time.sleep(ARDUINO_BOOT_TIME)
 
         #todo should this be flush input?
-        while self.receiveMessageBlocking():
-            pass
+        self.connection.flushInput()
+        # while self.receiveMessageBlocking():
+        #     pass
         # verify the firmware version
         self.sendMessageBlocking('PV')
         response = self.receiveMessageBlocking()

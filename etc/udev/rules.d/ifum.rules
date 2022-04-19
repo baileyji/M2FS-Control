@@ -3,9 +3,9 @@ SUBSYSTEM=="tty", ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifum_shield",
 SUBSYSTEM=="tty", ATTRS{serial}=="757343238393515131B0", SYMLINK+="ifum_shield31B0"
 
 #Occulters
-SUBSYSTEM=="tty", ATTRS{serial}=="AL04HJ3G", SYMLINK+="ifum_occulterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterL.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="AL04HJ3G", SYMLINK+="ifum_occulterH", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterH.service"
 SUBSYSTEM=="tty", ATTRS{serial}=="AL04HIJN", SYMLINK+="ifum_occulterS", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterS.service"
-SUBSYSTEM=="tty", ATTRS{serial}=="AL04HIOL", SYMLINK+="ifum_occulterL", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterH.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="AL04HIOL", SYMLINK+="ifum_occulterL", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_occulterL.service"
 
 #IFU Shoe
 SUBSYSTEM=="tty", ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"

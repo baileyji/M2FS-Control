@@ -198,15 +198,20 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                     continue
                 try:
                     elapsed = time.time()-self.move_info.start_time
-                    if (elapsed-.5) > max(self.move_info.duration, 1) and self.moving:
-                        # The .5 and max(x, 1) are to allow for a bit of slop and a minimum execution time
-                        msg = ('Detected potential hammerstall ({:.1f} s elapsed, {:.1f} s expected) '
-                               'aborting move and restarting drive.')
-                        self.logger.critical(msg.format(elapsed, self.move_info.duration))
-                        self.abort()
-                        self.reset()
-                        self.move_info = None
-                        self.prevented_hammerstall = True
+                    if (elapsed-.5) > max(self.move_info.duration, 1):
+                        if self.moving:
+                            # The .5 and max(x, 1) are to allow for a bit of slop and a minimum execution time
+                            msg = ('Detected potential hammerstall ({:.1f} s elapsed, {:.1f} s expected) '
+                                   'aborting move and restarting drive.')
+                            self.logger.critical(msg.format(elapsed, self.move_info.duration))
+                            self.abort()
+                            self.reset()
+                            self.prevented_hammerstall = True
+                        else:
+                            msg = ('Hammerstall monitoring ended as drive reports no movement '
+                                   '({:.1f} s elapsed, {:.1f} s expected).')
+                            self.logger.debug(msg.format(elapsed, self.move_info.duration))
+                            self.move_info = None
                 except IOError:
                     pass
 
@@ -248,7 +253,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             # Response will be nothing or  "`<cmdkey><ascii>\r`<cmdkey>#\r", NB that receiveMessageBlocking strips the
             # terminator so a merged response would look like "`<cmdkey><ascii>`<cmdkey>#"
             # Need to do a blocking receive on \r twice
-            response = self.receiveMessageBlocking() + self.receiveMessageBlocking()
+            response = self.receiveMessageBlocking() #+ self.receiveMessageBlocking()TODO or maybe not, need to check serial docks
             if not response:
                 if command_string == 'b':  # Encoder command can return something OR nothing, UGH!
                     self.logger.info('HK encoder query did not get response, this sometimes happens')

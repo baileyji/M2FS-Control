@@ -556,26 +556,17 @@ class SelectedSerial(SelectedConnection):
 
         If a serial exception occurs raise ReadError.
         """
-        saved_timeout=self.connection.timeout
+        saved_timeout = self.connection.timeout
         if type(timeout) in (int, float, long) and timeout>0:
-            self.connection.timeout=timeout
+            self.connection.timeout = timeout
         elif saved_timeout is None:
-            self.connection.timeout=BACKUP_TIMEOUT
+            self.connection.timeout = BACKUP_TIMEOUT
         try:
             if nBytes == 0:
-                response = self.connection.read_until(terminator=self.messageTerminator)
-                # if self.messageTerminator not in '\n\r':
-                #     line = []
-                #     while True:
-                #         c = self.connection.read(1)
-                #         if not c:
-                #             break
-                #         line += c
-                #         if line[-1] == bytes(self.messageTerminator):
-                #             break
-                #     response = ''.join(line)
-                # else:
-                #     response = self.connection.readline()
+                if self.messageTerminator != '\n':
+                    response = self.read_until(self.connection, self.messageTerminator, self.connection.timout)
+                else:
+                    response = self.connection.readline()
             else:
                 response = self.connection.read(nBytes)
         except serial.SerialException, e:
@@ -584,6 +575,24 @@ class SelectedSerial(SelectedConnection):
             if self.connection is not None:
                 self.connection.timeout = saved_timeout
         return response
+
+    @staticmethod
+    def read_until(connection, expected, timeout=None):
+        """ Read until an expected sequence is found or until timeout occurs. """
+        lenterm = len(expected)
+        line = bytearray()
+        tic=time.time()
+        while True:
+            c = connection.read(1)
+            if c:
+                line += c
+                if line[-lenterm:] == expected:
+                    break
+            else:
+                break
+            if timeout is not None and time.time()-tic > timeout:
+                break
+        return bytes(line)
 
     def _implementationSpecificConnect(self):
         """ Open a serial connection to self.port @ self.baudrate """

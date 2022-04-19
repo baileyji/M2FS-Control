@@ -21,8 +21,8 @@ def escapeString(string):
 class Agent(object):
     """
     Base Class for (nearly) all M2FS control programs
-    
-    The base class provides the basic functionality for the program. 
+
+    The base class provides the basic functionality for the program.
     It configures logging.
     It handles incoming socket connections
     It does the basic grunt work of listening for incoming commands and calling
@@ -31,62 +31,62 @@ class Agent(object):
         command has completed.
     It runs the main event loop which uses select to read and write on all agent
     connections, whether inbound or outbound.
-    
-    Agents have connections (SelectedConnections) to other entities. The 
+
+    Agents have connections (SelectedConnections) to other entities. The
     connections are maintained in the connections dictionary. Subclasses
-    should create SelectedConnections in __init__ and add them to 
+    should create SelectedConnections in __init__ and add them to
     connections. Keys are strings and may not begin with 'INCOMING', which is
     reserved for inbound connections.
-    
-    The inter-agent command protocol consists of \n terminated strings, the 
+
+    The inter-agent command protocol consists of \n terminated strings, the
     first word (everything up to the first space) of which is the  command name.
     Sided commands (i.e. commands which act on the R or B side of the instrument
     have the additional constraint that the second word is either R or B. By
     convention polling commands typically have a ? as the second word (or third
     when R or B is present).
-    
+
     The agent supports the default commands STATUS and VERSION. Subclasses add
     support for additional commands by adding a command & handler pair to the
-    command_handlers dictionary (e.g. 
+    command_handlers dictionary (e.g.
         self.command_handlers['NEW_COMMAND']=self.NEW_COMMAND_handler_func
     the command handler function must accept two arguments self & command. Ther
     latt of which will be a Command object.
-    
+
     Handler functions which can execute fully in under about 1 second should do
     what they need to do and return. Any communication on any of the connections
-    must be performed blocking if it must complete during the handler: data 
-    sent via sendMessage will go out no sooner than the next iteration of the 
+    must be performed blocking if it must complete during the handler: data
+    sent via sendMessage will go out no sooner than the next iteration of the
     main loop. Long running command handlers should start a worker thread with
-    the function startWorkerThread after acknowledging the command by calling 
+    the function startWorkerThread after acknowledging the command by calling
     setReply('OK').
     While the worker thread is active, new commands to the agent are serviced
-    normally or, if they are blocked (whether by a call to block or as an 
-    argument to startWorkerThread), with a try again later error. 
-    
-    Caution should be exerciese in handlers that run in the main thread if they 
-    use a connection a worker thread also uses. Althrough the send and receive 
-    calls are thread safe, the inability of the main thread handler to attain 
-    the lock (due to a worker thread holding it) could casue an agent to 
+    normally or, if they are blocked (whether by a call to block or as an
+    argument to startWorkerThread), with a try again later error.
+
+    Caution should be exerciese in handlers that run in the main thread if they
+    use a connection a worker thread also uses. Althrough the send and receive
+    calls are thread safe, the inability of the main thread handler to attain
+    the lock (due to a worker thread holding it) could casue an agent to
     temporarily appear unresponsive. For an example see the shoeAgent SLITS and
     TEMP command handlers. Instead of blocking the temp command, the temp
     handler attempts to acquire the shoe connection lock and if it can't simply
     responds try again later.
-    
-    During thread execution 
-    
-    Worker threads must call returnFromWorkerThread immediately prior to 
-    returning. 
+
+    During thread execution
+
+    Worker threads must call returnFromWorkerThread immediately prior to
+    returning.
 
     The worker thread should use the functions:
         set_command_state
         block
         unblock
         returnFromWorkerThread
-    """ 
+    """
     def __init__(self, basename):
         """
         Initialize the agent
-        
+
         Set max clients to 1 (Only receive commands from one connection).
         Create an instance cookie from the current time.
         Configure command line arguments (change defaults by overriding
@@ -95,7 +95,7 @@ class Agent(object):
         Register default command handlers for STATUS and VERSION
         Define the agent name, appending SIDE if an argument
         Initialize logging.
-        Start listening for connections on user supplied port. If no port 
+        Start listening for connections on user supplied port. If no port
         supplied, get port for agent from m2fscontrolm2fsConfig based on agent name.
         Register atexit function for cleanup.
         Register exit handler for SIGSTOP, SIGTERM, & SIGINT
@@ -148,11 +148,11 @@ class Agent(object):
 
         self.redis = Walrus(host='localhost', port=M2FSConfig.getAgentPorts()['redis'], db=REDIS_DB)
         self.logger.info("----%s Startup Complete @ %s-----" % (self.name, self.cookie) )
-    
+
     def initialize_logger(self, level):
         """
         Configure logging
-        
+
         Set logging level to DEBUG, set message format, log to stdout
         """
         if isinstance(level, dict):
@@ -174,7 +174,7 @@ class Agent(object):
     def initialize_cli_parser(self):
         """
         Configure the command line interface
-        
+
         NB If an argument is stored to dest=SIDE it will be appended to the
         agent name by __init__.
         """
@@ -189,29 +189,29 @@ class Agent(object):
                                 help='log level: INFO, DEBUG, ERROR')
         self.cli_parser=cli_parser
         self.add_additional_cli_arguments()
-    
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
-        """ 
+        """
         return "Subclass should override to provide help"
-    
+
     def add_additional_cli_arguments(self):
         """
         Additional CLI arguments may be added by implementing this function.
-        
+
         Arguments should be added as:
         self.cli_parser.add_argument(See ArgumentParser.add_argument for syntax)
         """
         pass
-    
+
     def initialize_socket_server(self, tries=0):
         """
         Start listening for socket connections
-        
+
         Creat a non-blocking server socket on self.listenOn()
         In the even of a socket error sleep SERVER_RETRY_TIME and retry
          tries times. Tries should be less than any recursion limit.
@@ -231,27 +231,27 @@ class Agent(object):
                 self.initialize_socket_server(tries=tries-1)
             else:
                 self.handle_server_error(error=str(e))
-    
+
     def listenOn(self):
         """
-        Return an address tuple on which the server shall listen. 
-        
+        Return an address tuple on which the server shall listen.
+
         Must return a tuple of form (address, port) address must be a string,
         port a number, self.PORT may be used for the default port.
-        
+
         For most agents overriding this function is unnecessary.
         """
         return 'localhost', self.PORT
-    
+
     def socket_message_received_callback(self, source, message_str):
         """
         Create a Command from the message and execute the proper handler.
-        
+
         This is intended to be the callback for any SelectedConnections created
         from incomming connections.
-        
+
         A Command is created from the received string and source.
-        If a command exists from the source log a warning and ignore the 
+        If a command exists from the source log a warning and ignore the
             command.
         Otherwise add the Command to the list of commands. Then get the command
             handler from command_handlers using the first word in the message
@@ -298,33 +298,34 @@ class Agent(object):
             command.setReply(workerState)
             return
         except KeyError:
+            self.logger.debug("Keyerror properly indicates no commandstate for %s, executing afresh " % command.string)
             pass
         #Execute the command's handler
         command_name=self.getCommandName(command)
         handler=self.command_handlers.get(command_name, self.bad_command_handler)
         handler(command)
-    
+
     def get_version_string(self):
         """ Return a string with the version. Subclasses should override. """
         return 'AGENT Base Class Version 0.1'
-    
+
     def _stowShutdown(self):
         """
         Stowed shutdown hook, called prior to shutting down agent
-        
+
         Only called if a stowed shutdown is required.
         """
         pass
-    
+
     def _exitHook(self):
         """Called on agent exit, hook for subclass """
         pass
-    
+
     def on_exit(self, arg):
         """
         Prepare to exit
-        
-        call the stowed shutdown hook if necessary 
+
+        call the stowed shutdown hook if necessary
         Log exit
         shutdown server socket
         close all open connections
@@ -343,16 +344,16 @@ class Agent(object):
         for c in self.connections.values():
             c.close()
         time.sleep(1)
-    
+
     def handle_connect(self):
         """
         Callback for when select indicates read on a server socket connection.
-        
-        Accept connection. 
+
+        Accept connection.
         Close if already have self.max_clients connections
         Else,
         Create a SelectedSocket from the socket with
-            self.socket_message_received_callback as the 
+            self.socket_message_received_callback as the
             default_message_received_callback.
         log connection
         Add it to self.connections
@@ -375,7 +376,7 @@ class Agent(object):
             default_message_received_callback=self.socket_message_received_callback)
         self.logger.info('Connected with %s:%s' % (addr[0], addr[1]))
         self.connections['INCOMING%i' % n_in]=soc
-    
+
     def handle_server_error(self, error=''):
         """
         Callback for when select indicates error on a server socket.
@@ -385,21 +386,21 @@ class Agent(object):
         """
         self.logger.error('Socket server error: "%s"' % error)
         sys.exit(1)
-    
+
     def update_select_maps(self, read_map, write_map, error_map):
         """
-        Update dictionaries for select call. 
-        
+        Update dictionaries for select call.
+
         always select on server reads (incomming connection) or errors (fatal)
-            with self.handle_connect and self.handle_server_error as the 
+            with self.handle_connect and self.handle_server_error as the
             handlers
         select on each of the connections for read, write, and error if the
             connection reports it needs selecting on
         Use the read, write, & error handlers defined by SelectedConnection
-        
-        In case it isn't clear: The select maps are key value pairs of 
+
+        In case it isn't clear: The select maps are key value pairs of
             selectable_object:handler_for_when_select_indicates_object_is_ready
-            
+
         Function aquires locks for all the items in the select map, if it
         is unable to do so, it will not add an item to the map. They must all be
         released after the select call. A list of aquired locks is returned
@@ -432,7 +433,7 @@ class Agent(object):
     def cull_dead_sockets_and_their_commands(self):
         """
         Remove dead sockets from connections & purge their commands.
-        
+
         Find all closed socket connections (commands come from connections with
         keys starting with INCOMING.
         Remove the socket from connections
@@ -447,11 +448,11 @@ class Agent(object):
             dead_commands=filter(lambda x:x.source==deadSocket, self.commands)
             for dead_command in dead_commands:
                 self.commands.remove(dead_command)
-    
+
     def handle_completed_commands(self):
         """
         Return results of complete commands and cull the commands.
-        
+
         Find all commands that are 'complete'.
         For each command, send the reply to the source
         Remove the command
@@ -468,38 +469,38 @@ class Agent(object):
                 self.commands.remove(command)
             except WriteError:
                 pass
-    
+
     def not_implemented_command_handler(self, command):
         """
-        Placeholder command handler 
-        
+        Placeholder command handler
+
         Agents may use this command handler as a placeholder.
         """
         command.setReply('ERROR: Command not implemented.')
-    
+
     def bad_command_handler(self, command):
         """
-        Handle an unrecognized command 
-        
+        Handle an unrecognized command
+
         Agents may use this command handler if a command is found to be invalid.
         """
         command.setReply('!ERROR: Unrecognized command.')
-    
+
     def version_request_command_handler(self,command):
-        """ Handle a version request """ 
+        """ Handle a version request """
         command.setReply(self.get_version_string())
-    
+
     def status_command_handler(self,command):
         """
         Handle a status request
-        
+
         Calls the get_status_list method to retrieve a list of key value tuples,
         which are then formatted into a response per the agreed upon protocol.
-        
+
         Staus responses shall be in the form of key:value pairs, with the
         first pair the name of the agent with version and the value the agent's
-        cookie. Keys and values must use _ in lieu of spaces. Pairs are to be 
-        seperated by spaces. Any \r or \n in the response should be escaped, 
+        cookie. Keys and values must use _ in lieu of spaces. Pairs are to be
+        seperated by spaces. Any \r or \n in the response should be escaped,
         except for when joining status responses of child agents, in which case
         they are to be seperated by a \r.
         """
@@ -520,35 +521,35 @@ class Agent(object):
     def get_status_list(self):
         """
         Return a list of tuples & strings to be formatted into a status reply
-        
-        Subclasses may implement this function to avoid worrying about status 
+
+        Subclasses may implement this function to avoid worrying about status
         command reply syntax. It is called automatically by the agent base class
         to get the contents of the status reply.
-        
+
         The tuples in the list should consist of strings and two element tuples
         of strings only, with strings listed after the tuples. The first tuple
         should be a two element tuple with the agent name and cookie. Subsequent
         tuples should be two element key value pairs reporting the status of the
         agent. The keys and values will be coerced into obeying the status
-        syntax: spaces and colons will be replaced by underscores and \r & \n 
+        syntax: spaces and colons will be replaced by underscores and \r & \n
         will be escaped. Non printable characters will be replaced with escaped
         hexadecimal.
-        
-        Finally single element strings are to contain the properly formatted 
-        status replies from any child agents. Provided they were obtained 
+
+        Finally single element strings are to contain the properly formatted
+        status replies from any child agents. Provided they were obtained
         via the STATUS command to the child agent, they will a meet all
         requirements.
         """
         return [(self.get_version_string(), self.cookie)]
-    
+
     def do_select(self):
         """
         Select on all connections which require it.
-        
+
         First call update_select_maps to get object:handler pairs on which to
             select for reading, writing, & errors.
         Perform the select call
-        Call the appropriate handlers for each of the objects returned by select 
+        Call the appropriate handlers for each of the objects returned by select
         """
         read_map, write_map, error_map = {}, {}, {}
         readers, writers, errors = [], [], []
@@ -577,7 +578,7 @@ class Agent(object):
         for lock in locks:
             lock.release()
         self._logger.debug("select operation used %.3f s" % (time.time() - select_end))
-    
+
     def run(self):
         """
         Called once per main loop, after select & any handlers but
@@ -585,62 +586,62 @@ class Agent(object):
         Implement in subclass
         """
         pass
-    
+
     def runOnce(self):
         """
         Main for standalone, no-server-socket operation.
-        
+
         Not used at present. Override in subclass
         """
         self.logger.critical('Command line commands not implemented.')
         sys.exit(0)
-    
+
     def runSetup(self):
         """
         Called once before entering main loop.
         Implement in subclass
         """
         pass
-    
+
     def getConnectionByName(self, name):
         """ Return the SelectedConnection named name or rase KeyError """
         return self.connections[name]
-    
+
     def getCommandName(self, command):
         """ Return the command_name for the command object (or a raw string)
-        
-        This is the string which maps to the commands callback in 
+
+        This is the string which maps to the commands callback in
         command_handlers
         """
         if isinstance(command,Command):
             return command.string.partition(' ')[0]
         else:
             return command.partition(' ')[0]
-    
+
     def commandIsQuery(self, command):
-        """ Return true if the command is a query 
-        
+        """ Return true if the command is a query
+
         Subclasses may need to override this.
         """
         try:
             return command.string.split(' ')[1]=='?'
         except IndexError:
             return False
-    
+
     def block(self, command_or_name, reason='', blockingID=None):
         """
         Cause command to be blocked by the current thread. Queries never block.
-        
+
         If command_or_name is a name (a string) it must correspond to of the
         keys of command_handlers else a KeyError is raised.
-        
+
         Reason may be set to a reason for the block
-        
+
         If set, blockingID should be the thread identifier that is the source of
         the block. If not set the current thread's identifier is used.
-        
-        _blocked is a dictionary, keys are the commands that are currently 
-        blocked. values ate 2-tuples consisting of blocking thread id and the 
+
+        _blocked is a dictionary, keys are the commands that are currently
+        blocked. values ate 2-tuples consisting of blocking thread id and the
         reason (possibly a null string) for the block.
         """
         #Get the thread id that is responsible for the block
@@ -663,7 +664,7 @@ class Agent(object):
         self._blocked[blocked_command_name]=blocks
         self._logger.debug("blocks added: "+str(blocks))
         self._logger.debug("After block: "+str(self._blocked))
-             
+
     def removeBlocksOfThread(self, threadID=None):
         """ Remove any command blocks caused by this (or a specified) thread.
 
@@ -684,9 +685,9 @@ class Agent(object):
 
     def getBlockReason(self, command):
         """ Report the blocking reason if command is blocked, None if not.
-        
+
         Query commands never block.
-        
+
         Return a string specifying the blocking reason. A null string means no
         reason was specified in the call to block.
         Returns None if command is not blocked.
@@ -699,29 +700,29 @@ class Agent(object):
             #Return the reason for the first block
             return blocks[0][1]
         return None
-    
+
     def set_command_state(self, command_name, state):
         """ Set the thread state for command_name.
-        
-        command_name must match the string for the callback that started the 
+
+        command_name must match the string for the callback that started the
         worker thread.
-        
+
         While the state is set, sending the agent the named command will return
         the specified state. The command's callback will NOT be called.
         """
         self.command_state[command_name]=state
-    
+
     def clear_command_state(self, command_name):
-        """ Clear the thread state for command_name 
+        """ Clear the thread state for command_name
 
         command_name must match the string for the callback that started the
         worker thread.
         """
         self.command_state.pop(command_name, None)
-    
+
     def _getWorkerThreadState(self, command):
         """ Return the set statue of the command
-        
+
         This function takes a command object and extracts the command name to
         retrieve to command state for the command name. If no command state
         exists it raises KeyError
@@ -757,24 +758,24 @@ class Agent(object):
         else:
             self.clear_command_state(command_name)
         self.removeBlocksOfThread()
-    
+
     def main(self):
         """
         Main loop (or one shot if no port). Act on commands as received.
-        
+
         The general (only at time of writing) case assumes operation with a
         port. The typical flow is as follows:
-        
+
         Agent has been initialized and SelectedConnections to all other devices
         and agents required have been created and are self.connections.
         Main calls runSetup to allow subclasses to perform any additional setup
         and then enters the main loop.
-        
+
         In the main loop:
-        
+
         Then do_select is run, which checks each connection to see
         if it needs reading, writing, or checking for errors. It then selects
-        on those connections, finally executing the read, write, or error 
+        on those connections, finally executing the read, write, or error
         callbacks for each connected as indicated. For details of what these
         handlers do, see SelectedConnection. In essence they grab received data
         into an internal buffer until some criterion is met; transmit any
@@ -784,7 +785,7 @@ class Agent(object):
         a connections with a key that starts with INCOMING. Also note that
         the dropped commands(') callback(s) will already have been executed.
         Finally, the loop closes out any completed commands. Essentially this
-        means taking the command response and sending it to the source. Note 
+        means taking the command response and sending it to the source. Note
         the data isn't actually sent until the next do_select call, at the
         earliest
         """
@@ -793,16 +794,15 @@ class Agent(object):
             self.runOnce()
         while True:
             self.do_select()
-            
+
             self.run()
-            
+
             #log commands
             for command in self.commands:
                 self.logger.debug(command)
-            
+
             #Deal with incomming sockets that died
             self.cull_dead_sockets_and_their_commands()
-            
+
             #Respond to any commands
             self.handle_completed_commands()
-

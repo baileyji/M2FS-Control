@@ -5,7 +5,7 @@ from m2fscontrol.agent import Agent
 
 IFUSHIELD_AGENT_VERSION_STRING = 'IFUShield Agent v1.0'
 
-ARDUINO_BOOT_TIME = 1.3
+ARDUINO_BOOT_TIME = 2.3
 EXPECTED_IFUSHIELD_INO_VERSION = '1.0'
 
 COLORS = ('392', '407', 'whi', '740', '770', '875')

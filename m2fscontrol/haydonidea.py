@@ -250,19 +250,23 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         if not self.command_has_response(command_string):
             return ''  #NB this is also the response we would expect from a powered down HK, gross
         else:
-            # Response will be nothing or  "`<cmdkey><ascii>\r`<cmdkey>#\r", NB that receiveMessageBlocking strips the
+            # Response will be nothing or  "`<cmdkey><ascii>\r`<cmdkey>#\r",
+            # NB that receiveMessageBlocking strips the
             # terminator so a merged response would look like "`<cmdkey><ascii>`<cmdkey>#"
             # Need to do a blocking receive on \r twice
-            response = self.receiveMessageBlocking() #+ self.receiveMessageBlocking()TODO or maybe not, need to check serial docks
+            response = self.receiveMessageBlocking()
+
             if not response:
                 if command_string == 'b':  # Encoder command can return something OR nothing, UGH!
                     self.logger.info('HK encoder query did not get response, this sometimes happens')
                     return ''
                 else:
                     e = 'HK did not respond to "{}", is it powered?'.format(command_string)
-                    self.logger.error(e, exc_info=True)
+                    self.logger.error(e)
                     self.handle_error(e, log=False)
                     raise SelectedConnection.ReadError(e)
+
+            response = response + self.receiveMessageBlocking()
             try:
                 return response.split('`')[1].strip()[1:]
             except IndexError:
@@ -428,6 +432,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         self.send_command_to_hk('R')
 
     def state(self):
+        self.logger.debug('Requesting state')
         pos = self.position()
         io = self.io
         perr = pos - self.commanded_position if self.commanded_position is not None and io.calibrated else 0

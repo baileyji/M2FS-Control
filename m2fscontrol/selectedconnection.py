@@ -563,18 +563,19 @@ class SelectedSerial(SelectedConnection):
             self.connection.timeout=BACKUP_TIMEOUT
         try:
             if nBytes == 0:
-                if self.messageTerminator not in '\n\r':
-                    line = []
-                    while True:
-                        c = self.connection.read(1)
-                        if not c:
-                            break
-                        line += c
-                        if line[-1] == bytes(self.messageTerminator):
-                            break
-                    response = ''.join(line)
-                else:
-                    response = self.connection.readline()
+                response = self.connection.read_until(terminator=self.messageTerminator)
+                # if self.messageTerminator not in '\n\r':
+                #     line = []
+                #     while True:
+                #         c = self.connection.read(1)
+                #         if not c:
+                #             break
+                #         line += c
+                #         if line[-1] == bytes(self.messageTerminator):
+                #             break
+                #     response = ''.join(line)
+                # else:
+                #     response = self.connection.readline()
             else:
                 response = self.connection.read(nBytes)
         except serial.SerialException, e:

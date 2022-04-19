@@ -254,7 +254,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             # NB that receiveMessageBlocking strips the
             # terminator so a merged response would look like "`<cmdkey><ascii>`<cmdkey>#"
             # Need to do a blocking receive on \r twice
-            response = self.receiveMessageBlocking()
+            response = self.receiveMessageBlocking(terminator='\r')
 
             if not response:
                 if command_string == 'b':  # Encoder command can return something OR nothing, UGH!
@@ -266,7 +266,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                     self.handle_error(e, log=False)
                     raise SelectedConnection.ReadError(e)
 
-            response = response + self.receiveMessageBlocking()
+            response = response + self.receiveMessageBlocking(terminator='\r')
             try:
                 return response.split('`')[1].strip()[1:]
             except IndexError:

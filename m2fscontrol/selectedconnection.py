@@ -295,7 +295,8 @@ class SelectedConnection(object):
         return message.rstrip(' \t\n\r')
 
     def receiveMessageBlocking(self, nBytes=0, timeout=None,
-                               error_on_absent_terminator=False):
+                               error_on_absent_terminator=False,
+                               **kwargs):
         """
         Wait for a response, chops whitespace and \r & \n off end of response.
 
@@ -313,6 +314,8 @@ class SelectedConnection(object):
         raised. This is probably NOT is ideal behavior, probably
         should just raise the ReadRrror.
 
+        kwargs allows passing subclass specific options (e.g. terminator for serial)
+
         If set to true error_on_absent_terminator will cause a ReadError to be
         raised if the received message does not include the message terminator.
         If set to a non-empty string that string will be used as the response.
@@ -325,7 +328,7 @@ class SelectedConnection(object):
                 logger.error(err)
                 raise ReadError(err)
             try:
-                response = self._implementationSpecificBlockingReceive(nBytes, timeout)
+                response = self._implementationSpecificBlockingReceive(nBytes, timeout, **kwargs)
                 logger.debug("BlockingReceive got: '%s'" % escapeString(response))
                 if response == '':
                     logger.warning('Blocking receive on %s timed out' % self.addr_str())
@@ -543,9 +546,11 @@ class SelectedSerial(SelectedConnection):
         except serial.SerialException, e:
             raise WriteError(str(e))
 
-    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
+    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None, terminator=None):
         """
         Receive a message of nbytes length over serial, waiting timemout sec.
+
+        if terminator is None .readline() ('\n') will be used.
 
         If timeout is a number it is used as the timeout for this receive only
         Otherwise the default timeout is used. If no default timeout was defined
@@ -563,7 +568,7 @@ class SelectedSerial(SelectedConnection):
             self.connection.timeout = BACKUP_TIMEOUT
         try:
             if nBytes == 0:
-                if self.messageTerminator != '\n':
+                if terminator is not None:
                     response = self.read_until(self.connection, self.messageTerminator, self.connection.timeout)
                 else:
                     response = self.connection.readline()
@@ -717,7 +722,7 @@ class SelectedSocket(SelectedConnection):
         except socket.error,err:
             raise WriteError(str(err))
 
-    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
+    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None, **kwargs):
         """
         Receive a message of nbytes length over a socket, waiting timemout sec.
 

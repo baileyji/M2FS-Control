@@ -27,11 +27,15 @@ root:
 loggers:
   Director: info
   GalilAgentR: info
-  GalilAgentB: info
+  GalilAgentB:
+    GalilAgentB: info
+    m2fscontrol.selectedconnection: debug
   ShoeAgentR: info
   ShoeAgentB: info
   ShackHartmanAgent: info
-  DataloggerAgent: info
+  DataloggerAgent:
+    DataloggerAgent: debug
+    m2fscontrol.selectedconnection: debug
   ProjectorAgent: info
   PluggingAgent: info
   PlugController: info
@@ -42,7 +46,7 @@ loggers:
   #IFU-M Agents
   OcculterAgentH:
     OcculterAgentH: debug
-    m2fscontrol.selectedconnection: info
+    m2fscontrol.selectedconnection: debug
   OcculterAgentS:
     OcculterAgentS: debug
     m2fscontrol.selectedconnection: info

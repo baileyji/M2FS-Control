@@ -93,7 +93,7 @@ class DataloggerAgent(Agent):
             return 'ERROR: '+str(e)
 
         def formatter(x):
-            x = x[-1].get('') if x else None
+            x = x[-1].data.get('') if x else None
             return '{:.3f}'.format(float(x)) if x else 'U'
 
         reply = ' '.join([formatter(v) for v in latest])
@@ -213,6 +213,7 @@ class DataloggerAgent(Agent):
 
         rec = {k: v for k, v in temps.items() if v is not None}
         t = datetime.utcnow()
+        self.logger.debug('Logging {}'.format(rec))
         for k, v in rec.items():
             getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
 

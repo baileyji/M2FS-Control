@@ -128,7 +128,9 @@ class DataloggerAgent(Agent):
                     return None
 
             if 'busy' not in resp.lower():
-                cradleRTemp, cradleBTemp, shoeboxTemp = map(floatnone, resp.split())
+                d = map(floatnone, resp.split())
+                self.logger.debug('Got {}'.format(d))
+                cradleRTemp, cradleBTemp, shoeboxTemp = d
         except IOError:
             self.logger.debug("Failed to poll IFU Shoes for temps")
 
@@ -138,7 +140,9 @@ class DataloggerAgent(Agent):
             self.ifuselector.connect()  # in case we lost connection
             self.ifuselector.sendMessageBlocking('TEMP')
             resp = self.ifuselector.receiveMessageBlocking()
-            driveTemp, motorTemp = map(float, resp.split())
+            d = map(float, resp.split())
+            self.logger.debug('Got {}'.format(d))
+            driveTemp, motorTemp = d
         except IOError:
             self.logger.debug("Failed to poll selector for temps")
         except ValueError:
@@ -151,6 +155,8 @@ class DataloggerAgent(Agent):
             self.ifushield.sendMessageBlocking('TEMPS')
             resp = self.ifushield.receiveMessageBlocking()
             probe_temps = map(float, resp.split(','))
+            self.logger.debug('Got {}'.format(probe_temps))
+
             if len(probe_temps) != N_IFU_TEMPS:
                 raise ValueError('Incorrect number of probe temperatures received from IFU Shield')
         except IOError:

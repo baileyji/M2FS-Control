@@ -46,7 +46,6 @@ import logging, time, threading, select
 
 
 CLIENTID = 1
-PORT = '/dev/tty.usbserial-FT2KYRWY'  # '/dev/thkrail'
 BAUD = 230400
 
 ADDR_REMOTEOUT = (0x007f, 1)
@@ -472,7 +471,7 @@ class OrientalState(object):
     def error_string(self):
         return 'No Errors' if not self.alarm.code else str(self.alarm)
 
-self = m = OrientalMotor(PORT)
+# self = m = OrientalMotor(PORT)
 # if __name__ == '__main__':
 #     logging.basicConfig()
 #     log = logging.getLogger()

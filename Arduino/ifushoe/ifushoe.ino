@@ -722,6 +722,7 @@ bool TScommand() {
   cout<<F("connected")<<endl;
   
   if (shoeWiresCrossed()) cout<<F("R&B Swapped")<<endl;
+  else cout<<F("R&B Normal")<<endl;
   if ( instruction.shoe==NO_SHOE ) {
     shoeR.tellStatus(); 
     shoeB.tellStatus(); 

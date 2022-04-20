@@ -13,6 +13,9 @@ def conn(thing, timeout=None):
     return s
 
 
-def sr(socket, msg):
+def sr(socket, msg, show=True):
     socket.send(msg + '\n')
-    return socket.recv(1024)
+    s = socket.recv(1024)
+    if show:
+        print(s.decode('string_escape'))
+    return s

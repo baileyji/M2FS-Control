@@ -322,7 +322,7 @@ class SelectorAgent(Agent):
         """
         Retrieve or set the step position of a selector preset
 
-        This command has two arguments: the preset, {HSB,MSB,LSB,STOW}; and the position or a question mark.
+        This command has two arguments: the preset, {HR,STD,LSB,STOW}; and the position or a question mark.
 
         The set position only affects subsequent moves.
         """

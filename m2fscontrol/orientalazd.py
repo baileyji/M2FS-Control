@@ -357,10 +357,11 @@ class OrientalMotor(object):
         # code = client.read_holding_registers(0x0080, 2, unit=1).registers
         self.write_regs(0x01AA, [0, number])
         regs_iter = iter(self.read_regs(0x0A00, 26, raw=True))
-        vals = [merge((r, next(regs_iter)), le=0) for r in regs_iter]
-        #code, subcode, drive t, motor t, invert volt*10, dio in, rio out, op info 1, op info 2, feedbackpos, time from boot, time from move, main power time
-        #le=(0, 0, 0, 0,0, 0, 0, ? (-1=[0, 65535]),? (13 = [0, 13]), twos=1 & le=0 (I think), 0, 0, [0, 2315] = 1day 14h 35 min)
-        return OrientalAlarm(vals)
+        try:
+            vals = [merge((r, next(regs_iter)), le=0) for r in regs_iter]
+            return OrientalAlarm(vals)
+        except Exception:
+            return 'ERROR: Unable to read alarm code'
 
     def reset_alarm(self):
         # 0x0180-1  write 0, then 1
@@ -406,14 +407,19 @@ class OrientalAlarm(object):
             raise ValueError('Alarm records must have 13 entries')
         self.record = tuple(alarm_record)
         #code, subcode, drive t, motor t, invert volt*10, dio in, rio out, op info 1, op info 2, feedbackpos, time from boot, time from move, main power time
+        # code0, subcode1, drive t2, motor t3, invert volt*10 4, dio in 5, rio out 6, op info 1 7, op info 2 8, feedbackpos 9, time from boot 10,
+        # time from move 11, main power time 12
         #le=(0, 0, 0, 0,0, 0, 0, ? (-1=[0, 65535]),? (13 = [0, 13]), twos=1 & le=0 (I think), 0, 0, [0, 2315] = 1day 14h 35 min)
 
     def __str__(self):
+        if self.code == 0:
+            return 'No Alarm'
+
         msg = ('AZD Alarm: {record[0]}:{record[1]} Drive/Motor Temp: {record[2]}/{record[3]} C '
-               'Drive Vin: {volt:.1f} DIOin: {dio} RIOout: {rio} Position: {record[-4]} '
-               'OpInfo: {record[-6]},{record[-5] '
-               'Times (boot/move/power): {record[-3]}/{record[-2]}/{record[-1]')
-        return msg.format(record=self.record, volt=self.record[4]/10,
+               'Drive Vin: {volt:.1f} DIOin: {dio} RIOout: {rio} Position: {record[9]} '
+               'OpInfo: {record[7]},{record[8]} '
+               'Times (boot/move/power): {record[10]}/{record[11]}/{record[12]}')
+        return msg.format(record=self.record, volt=float(self.record[4])/10,
                           dio=bin(self.record[5]), rio=bin(self.record[6]))
 
     @property

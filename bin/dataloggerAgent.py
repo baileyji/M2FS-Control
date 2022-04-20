@@ -128,7 +128,7 @@ class DataloggerAgent(Agent):
                     return None
 
             if resp and 'busy' not in resp.lower():
-                d = map(floatnone, resp.split())
+                d = map(floatnone, resp.split(','))
                 self.logger.debug('Got {}'.format(d))
                 cradleRTemp, cradleBTemp, shoeboxTemp = d
         except IOError:

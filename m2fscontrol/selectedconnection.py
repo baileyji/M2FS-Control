@@ -645,7 +645,7 @@ class SelectedSerial(SelectedConnection):
             self.connection.flushInput()
             self.connection.close()
         except Exception:
-          pass
+            self.logger.error('Error on disconnect: ', exc_info=True)
 
     def isOpen(self):
         """

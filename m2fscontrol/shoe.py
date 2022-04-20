@@ -52,7 +52,8 @@ class ShoeSerial(selectedconnection.SelectedSerial):
         the expected version fail with a ConnectError.
         """
         # Shoe takes a few seconds to boot
-        time.sleep(SHOE_BOOT_TIME)
+        time.sleep(self.SHOE_BOOT_TIME)
+        self.connection.flushInput()
         # verify the firmware version
         self.sendMessageBlocking('PV')
         response = self.receiveMessageBlocking()

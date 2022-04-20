@@ -4,6 +4,7 @@ from m2fscontrol.agent import Agent
 from m2fscontrol.m2fsConfig import M2FSConfig
 from m2fscontrol.utils import longTest
 from m2fscontrol.shoe import ShoeSerial as _ShoeSerial, ShoeCommandNotAcknowledgedError
+from m2fscontrol.selectedconnection import ConnectError
 
 
 SHOE_AGENT_VERSION_STRING = 'IFU Shoe Agent v1.0'
@@ -84,7 +85,7 @@ def parseTS(x):
         res['down'] = [int(x) for x in d['Down'].split()]
         res['pipe'] = [int(x) for x in d['Pipe'].split()]
         res['debug'] = 'Errors: ' + d['Errors']
-        res['tol'] = [int(x) for x in d['Toler'].split()]
+        res['tol'] = [int(x) for x in d['Toler'].split(',')]
         res['pos_err'] = [int(x) for x in d['SL Delta'].split(',')]
         res['pos'] = [int(x.split()[0]) for x in d['Pos (live)'].split(',')]
         return res
@@ -92,17 +93,17 @@ def parseTS(x):
     rd = parse_shoestat(rstat)
     bd = parse_shoestat(bstat)
     response = {}
-    if 'R disconnected' in g:
-        response['ShoeR'] = 'disconnected'
-    elif 'R&B Swapped' in g:
+    if 'R&B Swapped' in g:
         response['ShoeR'] = 'swapped'
+    elif 'R disconnected' in g:
+        response['ShoeR'] = 'disconnected'
     else:
         response['ShoeR'] = 'connected'
 
-    if 'B disconnected' in g:
-        response['ShoeB'] = 'disconnected'
-    elif 'R&B Swapped' in g:
+    if 'R&B Swapped' in g:
         response['ShoeB'] = 'swapped'
+    elif 'B disconnected' in g:
+        response['ShoeB'] = 'disconnected'
     else:
         response['ShoeB'] = 'connected'
 
@@ -139,75 +140,64 @@ class ShoeSerial(_ShoeSerial):
      every line that is unsolicited starts #
      the issue is TS (or any other multiline response sent as a comment)
     """
-    def _implementationSpecificDisconnect(self):
-        """ Disconnect the serial connection"""
-        try:
-            self.connection.flushOutput()
-            self.connection.flushInput()
-            self.connection.close()
-        except Exception:
-            self.logger.error('Error on shoe serial disconnect: ', exc_info=True)
-            pass
 
-
-
-    # def _implementationSpecificRead(self):
-    #     """
-    #     Perform a device specific read, raise ReadError if any error
-    #
-    #     Read and return all the data in waiting.
-    #     """
-    #     data = super(ShoeSerial, self)._implementationSpecificRead()
-    #     if '\n' not in data:
-    #         return data
-    #     comments = filter(lambda x: x.startswith('#'), data.split('\n'))
-    #     good = filter(lambda x: not x.startswith('#'), data.split('\n'))
-    #     if comments:
-    #         print 'Dropping'+ str(comments)
-    #     return '\n'.join(good)
-
-    def _implementationSpecificBlockingReceive(self, nBytes, timeout=None):
+    def _postConnect(self):
         """
-        Receive a message of nbytes length over serial, waiting timemout sec.
+        Implement the post-connect hook
 
-        If timeout is a number it is used as the timeout for this receive only
-        Otherwise the default timeout is used. If no default timeout was defined
-        125 ms is used. A timout of 0 will block until (if ever) the data
-        arrives.
-
-        If nBytes is 0 then listen until we get a '/n' or the timeout occurs.
-
-        If a serial exception occurs raise ReadError.
+        With the shoe we need verify the firmware version. If if doesn't match
+        the expected version fail with a ConnectError.
         """
-        import serial
-        from m2fscontrol.selectedconnection import ReadError
-        saved_timeout=self.connection.timeout
-        if type(timeout) in (int, float, long) and timeout>0:
-            self.connection.timeout=timeout
-        elif saved_timeout is None:
-            self.connection.timeout=self.BACKUP_TIMEOUT
-        try:
-            if nBytes == 0:
-                if self.messageTerminator != '\n':
-                    line = []
-                    while True:
-                        c = self.connection.readline()
-                        if not c:
-                            break
-                        line += c
-                        if c.strip().endswidth(':'):
-                            break
-                    response = ''.join(line)
-                else:
-                    response = self.connection.readline()
+        # Shoe takes a few seconds to boot
+        time.sleep(self.SHOE_BOOT_TIME)
+        self.connection.flushInput()
+        # verify the firmware version
+        self.sendMessageBlocking('PV')
+        response = self.receiveMessageBlocking()
+        self.receiveMessageBlocking()  # discard the :
+        if response != self.EXPECTED_FIBERSHOE_INO_VERSION:
+            error_message = ("Incompatible Firmware, Shoe reported '%s', expected '%s'." %
+                             (response, self.EXPECTED_FIBERSHOE_INO_VERSION))
+            raise ConnectError(error_message)
+
+
+def shoecmd(connection, command_string, logger):
+    connection.sendMessageBlocking(command_string)
+    # Get the first byte, typically this will be it
+    errmsg = ''
+    while True:
+        # 3 cases:, #stuff\r\n, :\r\n, ?\r\n, or stuff followed by \r\n:
+        response = connection.receiveMessageBlocking()
+        if 'Shoes Crossed' in response or 'Disconnected' in response:
+            response=response.replace('#', 'ERROR: ')
+        if response.startswith('#'):
+            logger.debug('Shoe says: {}'.format(response))
+            continue
+        # case 1, command succeeds but returns nothing, return
+        elif response.startswith('ERROR:'):
+            errmsg = response
+        elif response == ':':
+            return ''
+        # command fails
+        elif response == '?':
+            if errmsg:
+                msg = errmsg
             else:
-                response = self.connection.read(nBytes)
-        except serial.SerialException, e:
-            raise ReadError(str(e))
-        finally:
-            if self.connection is not None:
-                self.connection.timeout = saved_timeout
-        return response
+                msg = "ERROR: Shoe rejected command '{}'".format(command_string)
+            raise ShoeCommandNotAcknowledgedError(msg)
+        # command is returning something
+        else:
+            # ...and a single byte read to grab the :
+            confByte = connection.receiveMessageBlocking()
+            if confByte == ':':
+                return response.strip()
+            else:
+                # Consider it a failure, but log it. Add the byte to the
+                # response for logging
+                response += confByte
+                err = ("Shoe did not adhere to protocol. '%s' got '%s'" % (command_string, response))
+                logger.warning(err)
+                raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
 
 
 class IFUShoeAgent(Agent):
@@ -227,7 +217,7 @@ class IFUShoeAgent(Agent):
         # Initialize the shoe
         if not self.args.DEVICE:
             self.args.DEVICE = '/dev/ifum_shoe'
-        self.connections['shoe'] = ShoeSerial(self.args.DEVICE, 115200, timeout=1)
+        self.connections['shoe'] = ShoeSerial(self.args.DEVICE, 115200, timeout=.35)
         # Allow two connections so the datalogger agent can poll for temperature
         self.max_clients = 2
         self.command_handlers.update({
@@ -290,33 +280,8 @@ class IFUShoeAgent(Agent):
         # No command, return
         if not command_string:
             return ''
-        # Send the command(s)
-        self.connections['shoe'].sendMessageBlocking(command_string)
-        # Get the first byte, typically this will be it
-        response = self.connections['shoe'].receiveMessageBlocking(nBytes=1)
-        # 3 cases:, :, ?, or stuff followed by \r\n:
-        # case 1, command succeeds but returns nothing, return
-        if response == ':':
-            return ''
-        # command fails
-        elif response == '?':
-            raise ShoeCommandNotAcknowledgedError("ERROR: Shoe did not acknowledge command '%s' (%s)" %
-                                                  (command_string, response))
-        # command is returning something
         else:
-            # do a blocking receive on \n
-            response = response + self.connections['shoe'].receiveMessageBlocking()
-            # ...and a single byte read to grab the :
-            confByte = self.connections['shoe'].receiveMessageBlocking(nBytes=1)
-            if confByte == ':':
-                return response.strip()
-            else:
-                # Consider it a failure, but log it. Add the byte to the
-                # response for logging
-                response += confByte
-                err = ("Shoe did not adhere to protocol. '%s' got '%s'" % (command_string, response))
-                self.logger.warning(err)
-                raise ShoeCommandNotAcknowledgedError('ERROR: %s' % err)
+            return shoecmd(self.connections['shoe'], command_string, self.logger)
 
     def get_status_list(self):
         """ Return a list of two element tuples to be formatted into a status reply """
@@ -324,7 +289,7 @@ class IFUShoeAgent(Agent):
         status = {self.name + ' ' + SHOE_AGENT_VERSION_STRING_SHORT: self.cookie}
         try:
             status['Controller'] = 'Online'
-            response = parseTS(self._send_command_to_shoe('TS').split(' '))
+            response = self._TS()
             status['ShoeR'] = response['ShoeR']
             status['ShoeB'] = response['ShoeB']
             status['PipeB'] = response['PipeB']
@@ -335,7 +300,7 @@ class IFUShoeAgent(Agent):
             status['Controller'] = 'ERROR: Bad Data'
         except IOError:
             status['Controller'] = 'Disconnected'
-        return status.items()
+        return zip(status.keys(), map(str, status.values()))
 
     def RAW_command_handler(self, command):
         """
@@ -416,7 +381,7 @@ class IFUShoeAgent(Agent):
             _, id, slit = command_parts
 
         try:
-            status = parseTS(self._send_command_to_shoe('TS'))
+            status = self._TS()
             if status['Shoe'+id] != 'connected':
                 command.setReply('ERROR: %s shoe is %s' % (id, status['Shoe'+id]))
             elif 'MOVING' in status['Slit'+id]:
@@ -461,7 +426,7 @@ class IFUShoeAgent(Agent):
         id = command_parts[1]
 
         try:
-            x = parseTS(self._send_command_to_shoe('TS').split(' '))
+            x = self._TS()
 
             if x['Shoe'+id.upper()] != 'connected':
                 response = 'U U U'
@@ -476,6 +441,13 @@ class IFUShoeAgent(Agent):
             response = 'ERROR: IFU shoe control tower offline'
 
         command.setReply(response)
+
+    def _TS(self):
+        self.connections['shoe'].sendMessageBlocking('TS')
+        response = self.connections['shoe'].receiveMessageBlocking(nBytes=2048, timeout=.5)
+        self.logger.debug('TS response was {} lines and {} bytes long'.format(len(response.split('\n')),
+                                                                                  len(response)))
+        return parseTS(response)
 
     def SLITPOS_command_handler(self, command):
         """
@@ -503,7 +475,7 @@ class IFUShoeAgent(Agent):
 
         if '?' in pos:  # Get the step position of the slit
             try:
-                x = parseTS(self._send_command_to_shoe('TS').split(' '))
+                x = self._TS()
                 pos = x[place+'_pos_'+id]
                 response = ' '.join(pos) if slit == '*' else str(pos[int(slit)-1])
             except IOError:

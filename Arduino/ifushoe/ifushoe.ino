@@ -315,17 +315,18 @@ void loop() {
             if(instruction.shoe==RED_SHOE) cout<<"Rshoe\n";
             if(instruction.shoe==BLUE_SHOE) cout<<"Bshoe\n";
             #endif
-            
+
+            //NB the formatting here affects python control
             if (shoeWiresCrossed()&& cmd->shoeSpecific) {
-                cout<<F("#Shoes Crossed\n");
+                cout<<F("ERROR: R&B Swapped\n");
                 commandGood=false;
             } else if (instruction.shoe==NO_SHOE && cmd->shoeSpecific){
                 commandGood=false;
             } else if (instruction.shoe==RED_SHOE && !cmd->allowOffline && !shoeRConnected()) {
-                cout<<F("#Shoe R Disconnected\n:");
+                cout<<F("ERROR: R Unplugged\n");
                 commandGood=false;
             } else if (instruction.shoe==BLUE_SHOE && !cmd->allowOffline && !shoeBConnected()) {
-                cout<<F("#Shoe B Disconnected\n");
+                cout<<F("ERROR: B Unplugged\n");
                 commandGood=false;
             } else {
                 commandGood=cmd->callback();  //Execute the command 
@@ -355,7 +356,7 @@ void shoeOnlineMain() {
           if (shoeBConnected()) shoeB.moveToSlit(stress_slit);
           stresscycles--;
         } else {
-          cout<<F("#Quit due to errors.");
+          cout<<F("#Quit due to errors.")<<endl;
           cout<<F("------R Shoe")<<endl; shoeR.tellStatus(); 
           cout<<F("------B Shoe")<<endl; shoeB.tellStatus();
           stresscycles=0;
@@ -691,7 +692,7 @@ bool SGcommand() {
 
   shoes[instruction.shoe]->tellCurrentSlit();
   shoepos_t pos = shoes[instruction.shoe]->getFilteredPosition();
-  cout<<"("<<pos.pipe<<", "<<pos.height<<")"<<endl;
+  cout<<" ("<<pos.pipe<<", "<<pos.height<<")"<<endl;
   return true;
 }
 
@@ -711,7 +712,7 @@ bool SDcommand() {
 bool TScommand() {
 //TO send for each shoe connected shoeXwireX current slit position movementdetected moveinprog temp
 //shoeboxtemp
-  cout<<endl<<endl<<F("===================\n");
+  cout<<F("===================")<<endl;
 
   cout<<"R ";
   if (!shoeRConnected()) cout<<"dis";

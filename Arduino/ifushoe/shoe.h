@@ -177,7 +177,7 @@ class ShoeDrive {
     uint8_t _retries;
     bool _detachHeight(uint16_t height); //return true if detach enabled at the passed height
     uint16_t safe_pipe_height;  //This changes depending on the move
-    uint16_t _clearance_height(uint8_t slit);
+    uint16_t _clearance_height(uint8_t slit, bool tell=false);
     void _wait(uint32_t time_ms);
     void _updateFeedbackPos();
     shoestatus_t _status();

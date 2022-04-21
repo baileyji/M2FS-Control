@@ -110,11 +110,6 @@ TempSensor temps[N_TEMP_SENSORS];
 bool tempRetrieved=false;
 unsigned long time_of_last_temp_request=0;
 
-bool device_address_match(DeviceAddress a, DeviceAddress b){
-  for (uint8_t i=0;i<8;i++) if (a[i]!=b[i]) return false;
-  return true;
-}
-
 void load_deviceaddress(DeviceAddress a, uint64_t x) {
   for(uint8_t i=0;i<8;i++) {
     a[i] = x & 0xFF;
@@ -122,7 +117,6 @@ void load_deviceaddress(DeviceAddress a, uint64_t x) {
   }
 }
 
-// function to print a device address
 void print1WireAddress(DeviceAddress deviceAddress) {
   Serial.print("0x");
   for (int8_t i = 7; i >=0; i--) {

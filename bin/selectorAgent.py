@@ -194,7 +194,6 @@ class SelectorAgent(Agent):
                                 ('Home', str(status.home)),
                                 ('Alarm', 'None' if not status.has_fault else str(status.alarm.code))])
         except IOError as e:
-            #TODO distinguish between disconnected and other errors
             status_list.append(('Driver', 'IOError'))
         return status_list
 
@@ -202,8 +201,6 @@ class SelectorAgent(Agent):
         """ Perform a stowed shutdown """
         try:
             self.connections['ifuselector'].move_to(M2FSConfig.getSelectorDefaults()['stow'])
-            #TODO might not engage break if move takes longer than a second or two (program will be dead)
-            #to from reading code i dont see how break ever gets turned back on after a move anyway MUST VERIFY
         except IOError as e:
             pass
         except Exception:

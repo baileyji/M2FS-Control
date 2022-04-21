@@ -373,7 +373,7 @@ class M2FSConfig(object):
         #     handlers (optional). A list of ids of the handlers for this logger.
         cfg = config['loggers'][name]  #extract one we care about
         if isinstance(cfg, str):
-            config['loggers'] = {name: {'level': cfg.upper()}}  #TODO should we also use this level for root
+            config['loggers'] = {name: {'level': cfg.upper()}}
         else:
             loggers = {}
             for k, v in cfg.items():

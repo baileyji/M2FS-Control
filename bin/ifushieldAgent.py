@@ -48,11 +48,7 @@ class IFUArduinoSerial(selectedconnection.SelectedSerial):
         """
         # Shoe takes a few seconds to boot
         time.sleep(ARDUINO_BOOT_TIME)
-
-        #todo should this be flush input?
         self.connection.flushInput()
-        # while self.receiveMessageBlocking():
-        #     pass
         # verify the firmware version
         self.sendMessageBlocking('PV')
         response = self.receiveMessageBlocking()

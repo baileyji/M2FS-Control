@@ -64,7 +64,7 @@ IN_PER_64THSTEP = .001 / 64
 MAX_TRAVEL = int(2.6/IN_PER_64THSTEP)
 HARD_LIMITS = (0, int(2.6/IN_PER_64THSTEP))
 
-MAX_POSITION = 2.6 #TODO note units throughout
+MAX_POSITION = 2.6  # inches
 MIN_POSITION = -2.6  # Account for a bad 0
 MIN_SPEED = .1  # 1 full step / second
 MAX_SPEED = 1.6  #in/s
@@ -169,6 +169,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def __init__(self, port, ifu='Not Specified', preventstall=True):
 
         self.errorFlags = {}
+        self.name = ifu
         self.logger = getLogger(__name__+ifu)
         # Perform superclass initialization, note we implement the _postConnect hook , see below
         SelectedConnection.SelectedSerial.__init__(self, port, BAUD, timeout=HK_TIMEOUT,
@@ -194,7 +195,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             if not self.prevent_stall:
                 continue
             with self.rlock:  # ensure atomicity
-                if not self.isOpen() or self.move_info is None:  #TODO verify that ANY movement command including raw sets move_info
+                if not self.isOpen() or self.move_info is None:
                     continue
                 try:
                     elapsed = time.time()-self.move_info.start_time
@@ -245,7 +246,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
         # Send the command, do not catch the WriteError as they must bubble up
         getLogger(__name__).debug('Sending {} to HK'.format(command_string))
-        self.sendMessageBlocking(command_string, connect=True)  #TODO think about if we should or shouldn't connect and
+        self.sendMessageBlocking(command_string, connect=True)
 
         if not self.command_has_response(command_string):
             return ''  #NB this is also the response we would expect from a powered down HK, gross
@@ -261,7 +262,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                     self.logger.info('HK encoder query did not get response, this sometimes happens')
                     return ''
                 else:
-                    e = 'HK did not respond to "{}", is it powered?'.format(command_string)
+                    e = 'HK{} did not respond to "{}", is it powered?'.format(self.name, command_string)
                     self.logger.error(e)
                     self.handle_error(e, log=False)
                     raise SelectedConnection.ReadError(e)
@@ -270,16 +271,15 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             try:
                 return response.split('`')[1].strip()[1:]
             except IndexError:
-                e = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
+                e = "HK{} did not adhere to protocol '{}' got '{}'".format(self.name, command_string, response)
                 self.logger.error(e)
                 self.handle_error(e, log=False)
                 raise SelectedConnection.ReadError(e)
             except Exception:
-                e = "HK did not adhere to protocol '%s' got '%s'" % (command_string, response)
+                e = "HK{} did not adhere to protocol '{}' got '{}'".format(self.name, command_string, response)
                 self.logger.error(e, exc_info=True)
                 self.handle_error(e, log=False)
                 raise SelectedConnection.ReadError(e)
-                # raise IOError('ERROR: '+msg)  #Give up, something is wrong!
 
     def abort(self):
         self.send_command_to_hk('A')
@@ -290,7 +290,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             resp = self.send_command_to_hk(':')
             return IdeaIO(resp)  # 8 bit number O4-1 I4-1 "`:31\r`:#\r"
         except ValueError:
-            e = "HK did not adhere to protocol ':' got '%s'" % resp
+            e = "HK{} did not adhere to protocol ':' got '{}'".format(self.name, resp)
             self.logger.error(e, exc_info=True)
             self.handle_error(e, log=False)
             raise SelectedConnection.ReadError(e)
@@ -362,7 +362,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
     def calibrate(self, nosleep=False):
         with self.rlock:
             self.send_command_to_hk('mCalibrate_')
-            self.sendMessageBlocking('mCalibrate_')
+            # self.sendMessageBlocking('mCalibrate_')
             self.commanded_position = 0
             self.move_info = MoveInfo(start_time=time.time(), duration=CALIBRATION_MAX_TIME)
         if not nosleep:
@@ -373,6 +373,8 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             state = self.state()
             if not state.calibrated:
                 raise RuntimeError('ERROR: Calibration Failed ({})'.format(state.faultString))
+            else:
+                pos = self.position()  #Query pos as a fix for position latency
 
     # def config_encoder(self):
     #     DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res

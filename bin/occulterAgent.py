@@ -5,20 +5,10 @@ from m2fscontrol.haydonidea import IdeaDrive
 import m2fscontrol.haydonidea as haydonidea
 import threading
 from m2fscontrol.utils import longTest
-import logging
 
 
 OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
-
-#todo
-# Feb 21 21:52:19 claym2fs occulterAgent.py[348]: OcculterNot Specified:DEBUG: Sending o to HK
-
-
-#OCC ? seems to be returning worker threads state instead of actually querying, is this by design
-
-
-#todo log spam during idle
 
 
 #TODO Failed calibration blocks all subsequent commands, This shouldn't be happening
@@ -54,15 +44,11 @@ RESET: clear alarm/recover command
 OCC: calibrates on move if needed
 only a calibrating move blocks. rest can override a previous move
 movement commands check for sanity and starts move
-
-
-
-Verify code is integrated into repo at haydonkerk/*.idea,
 """
 
 
 #LSB max ~2.37509375
-#MSB max ~ 2.3
+#STD max ~2.3
 
 
 class OcculterAgent(Agent):

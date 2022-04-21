@@ -16,16 +16,23 @@
 #endif
 
 #define VERSION_STRING "1.0"
-//28B3A61D0B00008B
-
-
-//28B24E350C00004E pcb temp 1
 
 #define IGNITION_TIME_MS 80  //Takes about 37 ms to stabilize on a resistor
 #define VMAX 800
 #define IMAX 10
 
 #define N_TEMP_SENSORS 4  //entrance, ifu tower, fiber exit, hoffman
+#define ENTRANCE_TEMP 0
+#define MIDDLE_TEMP 1
+#define EXIT_TEMP 2
+#define HOFFMAN_TEMP 3
+
+#define ENTRANCE_TEMP_ADDR 0x8B00000B1DA6B328
+#define MIDDLE_TEMP_ADDR 0x0600000B1EC52628
+#define EXIT_TEMP_ADDR 0x7700000B1DF37C28
+#define HOFFMAN_TEMP_ADDR1 0x2700000C35701C28
+#define HOFFMAN_TEMP_ADDR2 0x4E00000C354EB228
+
 #define TEMP_UPDATE_INTERVAL_MS 10000
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
 #define DS18B20_12BIT_MAX_CONVERSION_TIME_MS 750
@@ -61,8 +68,25 @@ typedef struct {
 TempSensor temps[N_TEMP_SENSORS];
 bool tempRetrieved=false;
 unsigned long time_of_last_temp_request=0;
-unsigned long time_since_last_temp_request=0xFFFFFFFF;
 
+bool device_address_match(DeviceAddress a, DeviceAddress b){
+  for (uint8_t i=0;i<8;i++) if (a[i]!=b[i]) return false;
+  return true;
+}
+
+bool device_address_match(DeviceAddress a, uint64_t x){
+  DeviceAddress b;
+  load_deviceaddress(b,x);
+  for (uint8_t i=0;i<8;i++) if (a[i]!=b[i]) return false;
+  return true;
+}
+
+void load_deviceaddress(DeviceAddress a, uint64_t x) {
+  for(uint8_t i=0;i<8;i++) {
+    a[i] = x & 0xFF;
+    x = x >> 8;
+  }
+}
 
 //Command buffer
 char command_buffer[81];
@@ -124,9 +148,11 @@ void serialEvent() {
   }
 }
 
+
 // function to print a device address
 void print1WireAddress(DeviceAddress deviceAddress) {
-  for (uint8_t i = 0; i < 8; i++) {
+  Serial.print("0x");
+  for (int8_t i = 7; i >=0; i--) {
     if (deviceAddress[i] < 16) Serial.print("0");
     Serial.print(deviceAddress[i], HEX);
   }
@@ -148,33 +174,42 @@ void setup() {
 
     pinMode(AFLED_INHIBIT_PIN, OUTPUT);
     digitalWrite(AFLED_INHIBIT_PIN, HIGH);
-    Serial.print(F("LED Start: "));Serial.println(leddrive.begin());
+    Serial.print(F("#LED Start: "));Serial.println(leddrive.begin());
     for (int i=0;i<24;i++) leddrive.setPWM(i,0);
     leddrive.write();
     
     //Set up temp sensors
-    tempSensors.begin();
-    tempSensors.setResolution(12);
-    tempSensors.setWaitForConversion(false);
+    initTempSensors();
+    load_deviceaddress(temps[ENTRANCE_TEMP].address, ENTRANCE_TEMP_ADDR);
+    load_deviceaddress(temps[MIDDLE_TEMP].address, MIDDLE_TEMP_ADDR);
+    load_deviceaddress(temps[EXIT_TEMP].address, EXIT_TEMP_ADDR);
+    load_deviceaddress(temps[HOFFMAN_TEMP].address, HOFFMAN_TEMP_ADDR1);
 
-    Serial.println(F("Searching for temp sensors: "));
+
+    Serial.println(F("#Searching for temp sensors: "));
     for (int i=0;i<N_TEMP_SENSORS;i++) {
-      uint8_t addr;
-      bool sensorFound;
-      temps[i].present = tempSensors.getAddress(temps[i].address, i);
-      if (temps[i].present) {
-        Serial.print(F("Found one at: "));print1WireAddress(temps[i].address);
-        Serial.println("");
+      DeviceAddress x;
+      bool present;
+      present = tempSensors.getAddress(x, i);
+      if (present) {
+        Serial.print(F("#Found sensor at: "));print1WireAddress(x);Serial.println("");
+        if (device_address_match(x, HOFFMAN_TEMP_ADDR2)) {
+          load_deviceaddress(temps[HOFFMAN_TEMP].address, HOFFMAN_TEMP_ADDR2);
+        }
       }        
     }
-    Serial.println(F(" done searching."));
+    Serial.println(F("# done searching."));
+    
     tempSensors.requestTemperatures();
     time_of_last_temp_request=millis();
     tempRetrieved=false;
-
-
 }
 
+void initTempSensors() {
+    tempSensors.begin();
+    tempSensors.setResolution(12);
+    tempSensors.setWaitForConversion(false);
+}
 
 //Main loop, runs forever, full steam ahead
 void loop() {
@@ -233,20 +268,24 @@ int8_t getCallbackNdxForCommand() {
 //Request and fetch the temperature regularly, ignore rollover edgecase
 void monitorTemperature() {
 
-    if (time_since_last_temp_request > TEMP_UPDATE_INTERVAL_MS) {
-        tempSensors.requestTemperatures();
-        time_of_last_temp_request=millis();
-        tempRetrieved=false;
-    }
+  unsigned long since = millis() - time_of_last_temp_request;
+
+  if (since > TEMP_UPDATE_INTERVAL_MS) {
+    tempSensors.requestTemperatures();
+    time_of_last_temp_request=millis();
+    tempRetrieved=false;
+    since=0;
+  }
+
+  if(!tempRetrieved && since > DS18B20_12BIT_MAX_CONVERSION_TIME_MS) {
+     for (uint8_t i=0; i<N_TEMP_SENSORS; i++) {
+       float x=tempSensors.getTempC(temps[i].address);
+       temps[i].present=x>-127.0;
+       temps[i].reading= temps[i].present ? x: 999.0;
+     }
+     tempRetrieved = true;
+  }
     
-    time_since_last_temp_request=millis()-time_of_last_temp_request;
-    
-    if(!tempRetrieved && time_since_last_temp_request > DS18B20_12BIT_MAX_CONVERSION_TIME_MS) {
-       for (uint8_t i=0; i<N_TEMP_SENSORS; i++) {
-         if (temps[i].present) temps[i].reading=tempSensors.getTempC(temps[i].address);
-       }
-       tempRetrieved = true;
-    }
 }
 
 

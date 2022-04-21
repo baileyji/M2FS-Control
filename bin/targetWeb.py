@@ -1,27 +1,28 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
+import time
 from flask import Flask, render_template, request, Response, make_response, redirect
 from flask_wtf.csrf import CsrfProtect
 from flask_wtf import Form
 from wtforms import SelectMultipleField, SubmitField, BooleanField, RadioField
 from wtforms import DecimalField, validators
-import sys
 
-from m2fscontrol.m2fsConfig import M2FSConfig
-from m2fscontrol.hole_mapper.platedata import get_metadata, get_all_plate_names
+import hole_mapper.pathconf
+from hole_mapper.platedata import get_metadata, get_all_plate_names
 from jbastro.astrolibsimple import sexconvert
 
 from flask import send_file
 import StringIO, datetime
 
 import logging
+
 def setup_logging(loglevel=logging.DEBUG):
-    
     log = logging.getLogger()
     log.setLevel(loglevel)
-    log_formatter = logging.Formatter("%(asctime)s - %(levelname)s :: %(message)s")
-#    console_handler = logging.StreamHandler()
-#    console_handler.setFormatter(log_formatter)
-#    log.addHandler(console_handler)
+
+hole_mapper.pathconf.run_params_dir='./plates/plates'
+hole_mapper.pathconf.m2fs_params_dir='./plates/configs'
+hole_mapper.pathconf.setups_dir='./plates/setups'
+hole_mapper.pathconf.output_dir='./plates/output'
 
 setup_logging()
 _log=logging.getLogger()
@@ -33,7 +34,6 @@ TARGET_CACHE_FILE='./targetweb.cache'
 
 #Go ahead and call this to save time when the page is accessed the first time
 _log.info('Preloading all plates')
-import time
 tic=time.time()
 get_metadata('', cachefile=TARGET_CACHE_FILE)
 toc=time.time()
@@ -48,11 +48,11 @@ ROTATOR_SETTING=-7.24
 
 
 def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING, n0=1,sn0=1):
-    
+
     rot='{:.2f}'.format(rotator)
-    
+
     fields=[]
-    
+
     file_lines=[]
     obsfmt=('{n:<3} {id:<30} {ra:<12} {de:<12} {eq:<11} {pmRA:<11} {pmDE:<11} '
     '{irot:<11} {rotmode:<11} {gra1:<11} {gde1:<11} {geq1:<11} '
@@ -107,7 +107,7 @@ def generate_tlist_file(platefiles, rotator=ROTATOR_SETTING, n0=1,sn0=1):
                             gde2=sexconvert(0,dtype=str),
                             geq2=0,
                             geq1=0)
-                            
+
             file_lines.append(s)
             ndx+=1
 
@@ -212,7 +212,7 @@ def index():
                                                           n0=form.tnum.data,
                                                           sn0=form.snum.data)))
         dat.seek(0)
-        
+
         return send_file(dat, mimetype='text/plain',
             attachment_filename=fn,as_attachment=False)
 
@@ -221,5 +221,3 @@ def index():
 
 if __name__ =='__main__':
     app.run(host='0.0.0.0',port=8080,debug=False)
-
-

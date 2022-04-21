@@ -2,9 +2,10 @@
 
 #do manually first
 # sudo git clone https://github.com/baileyji/M2FS-Control.git /M2FS-Control --recurse-submodules --branch ifum
+#append coherent_pool=4M to command line in /boot/cmdline.txt consider also adding fsck.mode=force to always run fsck
 
 #Set password
-passwd
+#passwd
 
 #Update the system and install dependencies
 sudo mkdir -p /var/log/journal
@@ -36,6 +37,7 @@ sudo pip install -e /M2FS-Control
 cd /M2FS-Control
 cp -v ./zshrc ~/.zshrc
 chsh -s /bin/zsh
+chmod a+w /M2FS-Control/redis
 
 #Install M2FS system config files
 sudo cp -v ./etc/ups/* /etc/nut/
@@ -51,6 +53,7 @@ sudo cp -v ./etc/samba/smb.conf /etc/samba/
 sudo cp -v ./etc/redis/redis.conf /etc/redis/redis.conf
 sudo cp -v ./redis/redis-server.service /lib/systemd/system/
 
+cp ./toprc ~/.config/procps/
 #cp ./etc/ntp.conf /etc/
 
 sudo udevadm control --reload-rules
@@ -59,6 +62,7 @@ sudo udevadm trigger
 #Ensure systemd loads the new units
 sudo systemctl daemon-reload
 sudo systemctl enable m2fs_shutdown_button.service
+sudo systemctl enable m2fs_targetlist.service
 
 #Bring UPS monitoring online
 sudo systemctl enable nut-server.service

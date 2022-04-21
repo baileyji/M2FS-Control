@@ -363,20 +363,11 @@ bool HVcommand() {
   lamp_t lamp;
   
   if (command_buffer[2]=='?') {
-//    current_t lamplevels[N_LAMPS];
-//    for (int i=0; i<N_LAMPS; i++) {
-//      lamplevels[i] = hvcontrol.isLampEnabled(i) ? active.current : 0;
-//    }
-//    char buf[16]; // "0000 0000 0000\n"
-//    buf[16]=0;
     Serial.print(benear.getCurrent());
     Serial.print(" ");
     Serial.print(lihe.getCurrent());
     Serial.print(" ");
     Serial.println(thxe.getCurrent());
-//    sprintf(buf,"%02d %02d %02d\n", lamplevels[0],lamplevels[1],lamplevels[2]);
-//    Serial.write(buf, 16);
-
     return true;
   }
 
@@ -494,13 +485,13 @@ bool TScommand() {
 //Print the commands
 bool PCcommand() {
     Serial.println(F("#PC   Print Commands - Print this list of commands"));
-    Serial.println(F("#LEx# Led command - Set LED x (1-6) to # (0-4095) illumination"));
-    Serial.println(F("#HVx# High Voltage - Set HV lamp x to # illumination, all others off"));
+    Serial.println(F("#LEx# Led command - Set LED x, 1-6 to #, 0-4095 illumination"));
+    Serial.println(F("#HVx# High Voltage - Set HV lamp x, 1-3 to #, 0-10 illumination"));
     Serial.println(F("#OF   Off - Turn all light sources off"));
     Serial.println(F("#TS   Tell Status - Tell the status"));
     Serial.println(F("#PV   Print Version - Print the version string"));
     Serial.println(F("#TE   Temperature - Report all temperatures"));
-    Serial.println(F("#MIx#   Monitor Ignition - Monitor Ignition of x to #"));
+    Serial.println(F("#MIx# Monitor Ignition - Monitor Ignition of x to #"));
     return true;
 }
 

@@ -83,7 +83,10 @@ class DataloggerAgent(Agent):
         return "This is the M2FS/IFUM datalogger"
 
     def TEMPS_command_handler(self, command):
-        """ Report the current temperatures """
+        """ Report the current temperatures
+        IFUM: IFU_Entrance, IFU_Top, Fiber_Exit, IFU_Motor, IFU_Drive, IFU_Hoffman, IFU_Shoebox, CradleR/B, EchelleR/B, PrismR/B, LoResR/B
+        M2FS: SH, CradleR/B, EchelleR/B, PrismR/B, LoResR/B
+        """
         templist = IFUM_TEMP_LIST+BASE_TEMP_LIST if M2FSConfig.ifum_devices_present() else M2FS_TEMP_LIST+BASE_TEMP_LIST
 
         try:

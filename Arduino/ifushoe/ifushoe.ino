@@ -79,12 +79,11 @@ bool shoeOnline=true; //Always boot in offline mode
 //#define SHOE_X_SPARE_TEMP_ADDR 0x???
 
 /*
- * Temb send addr
+ * Temp send addr
  * 0x2A00000C35749728   on a control board
  * 0x7000000C19A4D928 . on a shoe (1 dot, pcb needs reflow on button)
  * 0x4700000C19A4D828 . on a shoe (2 dots, rshoe)
  * 0xF700000C19A4CD28 . on a shoe (3 dots, bshoe)
- * 
  */
 
 

@@ -160,7 +160,7 @@ class DataloggerConnection(Serial):
         For some reason I can't identify the null bytes are necessary for the
         message to be received properly.
         """
-        s = 't' + UBInt32("f").build(int(time.time()))
+        s = 't' + UBInt32("f").build(int(time.mktime(datetime.utcnow().timetuple())))
 
         self.write(s[0])
         self.write('\x00' + s[1])
@@ -210,7 +210,7 @@ class DataloggerListener(threading.Thread):
         self.daemon = True
         self.side = side
         self.datalogger = DataloggerConnection(device, side)
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__name__+side)
         self.logger.info("Listener started")
 
     def run(self):
@@ -250,14 +250,13 @@ class DataloggerListener(threading.Thread):
                             self.logger.debug(logdata)
                             rec = {k + self.side: logdata[k] for k in ('echelle', 'prism', 'lores')
                                    if logdata[k] is not None}
-                            t=datetime.fromtimestamp(logdata['time'])
+                            t = datetime.utcfromtimestamp(logdata['time'])
                             for k, v in rec.items():
                                 getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
-                            # self.redis_stream.add(rec, id=datetime.fromtimestamp(logdata['time']))
                         except ValueError as e:
                             self.logger.error(str(e))
                         except RedisError as e:
-                            self.logger.error(exc_info=True)
+                            self.logger.error(e, exc_info=True)
                     elif byte == 'E':
                         msg = self.datalogger.readline()
                         if 'Fatal Error' in msg:
@@ -278,12 +277,9 @@ class DataloggerListener(threading.Thread):
             except SerialException, e:
                 self.logger.debug("%s" % str(e))
                 time.sleep(1)
-                pass
             except OSError, e:
                 self.logger.debug("%s" % str(e))
                 time.sleep(1)
-                pass
             except IOError, e:
                 self.logger.debug("%s" % str(e))
                 time.sleep(1)
-                pass

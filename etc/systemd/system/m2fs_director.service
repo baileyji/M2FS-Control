@@ -1,22 +1,23 @@
 [Unit]
 Description=M2FS Director
+Wants=m2fs_datalogger.service
+Wants=m2fs_mcalled.service
+Wants=m2fs_slitController.service
+
+#Wants=m2fs_targetlist.service
+
 #Wants=galilR.service
 #Wants=galilB.service
-#Wants=m2fs_datalogger.service
-Wants=m2fs_mcalled.service
-#Wants=m2fs_targetlist.service
-#
-Wants=m2fs_slitController.service
 #Wants=guider.service
 #Wants=shackhartman.service
-#
+
 #Wants=selector.service
 #Wants=occulterH.service
 #Wants=occulterS.service
 #Wants=occulterL.service
 #Wants=ifushoe.service
 #Wants=ifushield.service
-#
+
 After=network.target
 
 [Install]
@@ -31,4 +32,3 @@ Restart=always
 KillMode=control-group
 KillSignal=SIGTERM
 SendSIGKILL=yes
-

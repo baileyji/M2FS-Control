@@ -627,7 +627,7 @@ void monitorTemperature() {
      tempRetrieved = true;
   }
 
-  if (!temps[DRIVE_TEMP].present) {
+  if (!temps[DRIVE_TEMP].present && tempRetrieved) {
     load_deviceaddress(temps[DRIVE_TEMP].address, DRIVE_TEMP_ADDR2);
   }
 }

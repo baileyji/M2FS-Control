@@ -309,7 +309,7 @@ class OrientalMotor(object):
         This performs a deceleration stop and sets the commanded position to stop position. Motor is left energized.
         """
         if apply_break:
-            self.turn_on_break()  #TODO where does the set the commanded postion
+            self.turn_on_break()  #NB where does the set the commanded postion
         else:
             self.move_to(0, 0)  #this works, go figure
 

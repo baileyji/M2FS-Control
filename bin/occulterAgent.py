@@ -11,14 +11,6 @@ OCCULTER_AGENT_VERSION_STRING='Occulter Agent v1.0'
 OCCULTER_AGENT_VERSION_STRING_SHORT='v1.0'
 
 
-#TODO Failed calibration blocks all subsequent commands, This shouldn't be happening
-# In [62]: sr(c,'OCC_CALIBRATE')
-# Out[62]: 'OK\n'
-# (Fails)
-# In [63]: sr(c,'OCC 40000')
-# Out[63]: 'ERROR: Command is blocked.\n'
-
-
 """ Testing procedure
 Disconnected USB/motor at startup -> ?
 Disconnect USB during move

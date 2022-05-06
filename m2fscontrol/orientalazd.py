@@ -139,16 +139,19 @@ class OrientalMotor(object):
 
         try:
             self.modbus.connect()
-              # ~1337 mm in the OM control program
+            # ~1337 mm in the OM control program
             if self.read_regs(0x0404, 2, reverse=False, connect=False).int != -28297:
                 logging.getLogger(__name__).error("Controller not programmed")
                 raise IOError("Controller not programmed")
         except ModbusException as s:
             if error:
-                raise s
+                raise IOError('Controller may not be powered, got '+str(s))
         except IOError as s:
             if error:
                 raise s
+        except TypeError:
+            if error:
+                raise IOError('Controller may not be powered, got TypeError from pymodbus')
 
     def write_regs(self, addr, values, connect=True):
         if connect:
@@ -309,7 +312,7 @@ class OrientalMotor(object):
         This performs a deceleration stop and sets the commanded position to stop position. Motor is left energized.
         """
         if apply_break:
-            self.turn_on_break()  #NB where does the set the commanded postion
+            self.turn_on_break()  #NB where does the set the commanded position
         else:
             self.move_to(0, 0)  #this works, go figure
 

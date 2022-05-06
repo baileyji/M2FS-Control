@@ -866,7 +866,7 @@ bool PCcommand() {
             "#SD[R|B][1-6] - Report defined slit position\n"\
             "#SS[R|B][1-6]{#} - Set Slit position to the current position. "\
                "If given, second number is used to specify the position.\n"\
-            "#HS[R|B][1-6|D]{#} - Set up/down positon like SS.\n"\
+            "#HS[R|B][U|D][1-6]{#} - Set up/down positon like SS.\n"\
             "#TO[R|B][P|H][#] - Set TOlerance of axis\n"\
 
             "#CY# - Cycle shoes through all the slits # times\n"\

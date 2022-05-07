@@ -85,8 +85,8 @@ class ShackHartmanAgent(Agent):
         Agent.__init__(self,'ShackHartmanAgent')
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
-        self.connections['shled']=LEDserial('/dev/shLED', 115200)
-        self.connections['shlenslet']=selectedconnection.SelectedSerial('/dev/shLenslet', 115200)
+        self.connections['shled']=LEDserial('/dev/m2fs_shLED', 115200)
+        self.connections['shlenslet']=selectedconnection.SelectedSerial('/dev/m2fs_shLenslet', 115200)
         self.shledValue=0
         self.command_handlers.update({
             #Get/Set the SH calibration LED brightness

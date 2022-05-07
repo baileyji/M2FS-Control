@@ -40,8 +40,10 @@ KERNELS=="1-1.1.2.1", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="m2fs_shoe
 KERNELS=="1-1.1.2.2", ATTRS{serial}=="64935343433351713280", SYMLINK+="m2fs_shoeRincradleB"
 
 #The cradles are by port
-SUBSYSTEM=="tty", KERNELS=="1-1.1.2.1", SYMLINK+="m2fs_shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service" #, ENV{SYSTEMD_WANTS}+="m2fs_shoeR.service",
-SUBSYSTEM=="tty", KERNELS=="1-1.1.2.2", SYMLINK+="m2fs_shoeB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service" #, ENV{SYSTEMD_WANTS}+="m2fs_shoeB.service"
+SUBSYSTEM=="tty", KERNELS=="1-1.1.2.1", SYMLINK+="m2fs_shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service"
+#, ENV{SYSTEMD_WANTS}+="m2fs_shoeR.service",
+SUBSYSTEM=="tty", KERNELS=="1-1.1.2.2", SYMLINK+="m2fs_shoeB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service"
+#, ENV{SYSTEMD_WANTS}+="m2fs_shoeB.service"
 
 
 #Shack-Hartman system rules

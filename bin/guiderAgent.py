@@ -43,6 +43,7 @@ GET_MOVING='\x93'
 
 MAESTRO_NOT_RESPONDING_STRING='Guider not responding'
 FOC_POS_LIMIT_MSG='Positive limit reached'
+FOC_NEG_LIMIT_MSG='Negative limit reached'
 
 
 class GuiderSerial(selectedconnection.SelectedSerial):
@@ -142,13 +143,11 @@ class GuiderAgent(Agent):
         if focus=='+':
             focus=self.focus+FOCUS_NUDGE
             if focus > MAX_FOC_ROTATION:
-                self.returnFromWorkerThread('GFOCUS',
-                                            'ERROR: '+FOC_POS_LIMIT_MSG)
+                self.returnFromWorkerThread('GFOCUS', 'ERROR: '+FOC_POS_LIMIT_MSG)
         elif focus=='-':
             focus=self.focus-FOCUS_NUDGE
             if focus < JITTER_STOP_MOVE:
-                self.returnFromWorkerThread('GFOCUS',
-                                            'ERROR: '+FOC_NEG_LIMIT_MSG)
+                self.returnFromWorkerThread('GFOCUS', 'ERROR: '+FOC_NEG_LIMIT_MSG)
 
         #Handle the absolute case
         if focus not in ['+','-']:

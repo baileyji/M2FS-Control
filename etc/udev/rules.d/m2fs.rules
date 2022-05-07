@@ -15,13 +15,13 @@ SUBSYSTEM=="tty", ATTRS{serial}=="FTULQCGO", SYMLINK+="m2fs_dataloggerR"
 SUBSYSTEM=="tty", ATTRS{serial}=="FTULQ7ME", SYMLINK+="m2fs_dataloggerC"
 
 #Galil B must be plugged into port 5 of main hub
-SUBSYSTEM=="tty", ATTRS{product}=="DMC-41x3", KERNELS=="1-1.2.5", SYMLINK+="m2fs_galilB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_galilB.service"
+SUBSYSTEM=="tty", ATTRS{product}=="DMC-41x3", KERNELS=="1-1.1.3.5", SYMLINK+="m2fs_galilB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_galilB.service"
 #Galil B must be plugged into port 4 of main hub
-SUBSYSTEM=="tty", ATTRS{product}=="DMC-41x3", KERNELS=="1-1.2.4", SYMLINK+="m2fs_galilR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_galilR.service"
+SUBSYSTEM=="tty", ATTRS{product}=="DMC-41x3", KERNELS=="1-1.1.3.4", SYMLINK+="m2fs_galilR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_galilR.service"
 
 #Device nodes for fiber shoe controllers by serial number
-#Spares. If a spare controller is used, its serial number must replace 
-# the current serial listed in both of the rules with the comment 
+#Spares. If a spare controller is used, its serial number must replace
+# the current serial listed in both of the rules with the comment
 # "Place the X shoe's serial in this rule. If you don't do this it won't work.
 # Also , please make a comment noting your change. Once done the modified file
 # must be placed into /etc/udev/rules.d/.
@@ -35,15 +35,16 @@ SUBSYSTEM=="tty", ATTRS{serial}=="64935343433351713280", SYMLINK+="m2fs_shoe3280
 #Device nodes for the fiber shoes
 # Red is in port 1 of the spectrograph hub, blue in port 2.
 #Place the blue shoe's serial in this rule
-KERNELS=="1-1.3.1", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="m2fs_shoeBincradleR"
+KERNELS=="1-1.1.2.1", ATTRS{serial}=="64935343233351F0F171", SYMLINK+="m2fs_shoeBincradleR"
 #Place the red shoe's serial in this rule
-KERNELS=="1-1.3.2", ATTRS{serial}=="64935343433351713280", SYMLINK+="m2fs_shoeRincradleB"
+KERNELS=="1-1.1.2.2", ATTRS{serial}=="64935343433351713280", SYMLINK+="m2fs_shoeRincradleB"
 
 #The cradles are by port
-SUBSYSTEM=="tty", KERNELS=="1-1.3.1", SYMLINK+="m2fs_shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_shoeR.service", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service"
-SUBSYSTEM=="tty", KERNELS=="1-1.3.2", SYMLINK+="m2fs_shoeB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_shoeB.service", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service"
+SUBSYSTEM=="tty", KERNELS=="1-1.1.2.1", SYMLINK+="m2fs_shoeR", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service" #, ENV{SYSTEMD_WANTS}+="m2fs_shoeR.service",
+SUBSYSTEM=="tty", KERNELS=="1-1.1.2.2", SYMLINK+="m2fs_shoeB", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_slitController.service" #, ENV{SYSTEMD_WANTS}+="m2fs_shoeB.service"
 
-#Shack-Hartman system rules 
+
+#Shack-Hartman system rules
 SUBSYSTEM=="tty", ATTRS{product}=="Pololu Simple High-Power Motor Controller 24v12", SYMLINK+="m2fs_shLenslet", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_shackhartman.service"
 SUBSYSTEM=="tty", ATTRS{serial}=="FTEZU88I", SYMLINK+="m2fs_shLED", TAG+="systemd", ENV{SYSTEMD_WANTS}+="m2fs_shackhartman.service"
 

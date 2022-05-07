@@ -1,8 +1,8 @@
 #!/usr/bin/env python2.7
 import sys
-sys.path.append(sys.path[0]+'/../lib/')
-import selectedconnection
-from agent import Agent
+# sys.path.append(sys.path[0]+'/../lib/')
+import m2fscontrol.selectedconnection as selectedconnection
+from m2fscontrol.agent import Agent
 
 SHACKHARTMAN_AGENT_VERSION_STRING='Shack-Hartman Agent v0.2'
 

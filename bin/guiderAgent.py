@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 import m2fscontrol.selectedconnection as selectedconnection
-from agent import Agent
+from m2fscontrol.agent import Agent
 import time
 import logging
 
@@ -48,7 +48,7 @@ FOC_POS_LIMIT_MSG='Positive limit reached'
 class GuiderSerial(selectedconnection.SelectedSerial):
     """
     The guider connection class
-    
+
     This is just a simple wrapper for selectedserial that removes the default
     line terminator on sent messages and whitespace remover on received messages
     """
@@ -61,14 +61,14 @@ class GuiderSerial(selectedconnection.SelectedSerial):
         return message
 
 class GuiderAgent(Agent):
-    """ 
+    """
     This is the M2FS Guider agent. It is in charge of the guider box focus and
     filter, each of which are driver by an RC servo connected to a Pololu
-    Micro Maestro Servo Controller. The general idea is that a command comes in 
-    and the agent get/sets the target angle of the servo. In in the case of the 
+    Micro Maestro Servo Controller. The general idea is that a command comes in
+    and the agent get/sets the target angle of the servo. In in the case of the
     filter, that angle is converted from/to a filter id, based on an
     emperically determined relationship.
-    
+
     As M2FS agents go this is very basic.
     """
     def __init__(self):
@@ -82,25 +82,25 @@ class GuiderAgent(Agent):
             #Get/Set the guider focus value
             'GFOCUS':self.GFOCUS_command_handler})
         self.logger.setLevel(logging.DEBUG)
-    
+
     def get_version_string(self):
         """ Return a string with the version."""
         return GUIDER_AGENT_VERSION_STRING
-    
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
         """
         return ("This is the guider agent. It controls the guider filter "+
             "wheel & guider focus.")
-    
+
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
-        
+
         Report the Key:Value pairs name:cookie, Filter:position, Focus:value,
         & ErrByte:value pairs.
         """
@@ -109,14 +109,14 @@ class GuiderAgent(Agent):
         return [(self.get_version_string(), self.cookie),
                 ('Filter',filterStatus),
                 ('Focus', focusStatus)]
-    
+
     def GFOCUS_command_handler(self, command):
-        """ 
+        """
         Handle geting/setting the guider focus
-        
+
         Responds with the current value, MOVING, or ERROR if the controller is
         offline. !ERROR if the command is invalid (focus out of range 0-90)
-        
+
         Responds OK if the requested position is within 0 - 90.
         """
         if '?' in command.string:
@@ -129,15 +129,15 @@ class GuiderAgent(Agent):
             command.setReply('OK')
             self.startWorkerThread(command, 'MOVING', self.setFocusPos,
                                    args=(focus,))
-    
+
     def setFocusPos(self, focus):
-        """ 
-        Translate focus to a command to the Maestro and send it
-        
-        Focus must be  in the range 0 - 90 or +/-.
-        
         """
-        
+        Translate focus to a command to the Maestro and send it
+
+        Focus must be  in the range 0 - 90 or +/-.
+
+        """
+
         #Handle the nudge case
         if focus=='+':
             focus=self.focus+FOCUS_NUDGE
@@ -149,7 +149,7 @@ class GuiderAgent(Agent):
             if focus < JITTER_STOP_MOVE:
                 self.returnFromWorkerThread('GFOCUS',
                                             'ERROR: '+FOC_NEG_LIMIT_MSG)
-    
+
         #Handle the absolute case
         if focus not in ['+','-']:
             focus=max( min(MAX_FOC_ROTATION, float(focus)), JITTER_STOP_MOVE)
@@ -173,7 +173,7 @@ class GuiderAgent(Agent):
                 jitter_nudge=JITTER_STOP_MOVE
             else:
                 jitter_nudge=-JITTER_STOP_MOVE
-    
+
 
         #Move to the desired focus
         pwid=deg2pwid(focus, MAX_FOC_ROTATION)
@@ -198,7 +198,7 @@ class GuiderAgent(Agent):
             return
         self.focus=focus
         self.returnFromWorkerThread('GFOCUS')
-    
+
     def getFocusPos(self):
         """
         Get the focus angle from the Maestro
@@ -210,14 +210,14 @@ class GuiderAgent(Agent):
         if state != 'MOVING':
             state=pwid2deg(state, MAX_FOC_ROTATION)
         return str(state)
-    
+
     def GFILTER_command_handler(self, command):
         """
         Handle geting/setting the guider filter
-        
+
         Responds with the current filter, INTERMEDIATE, MOVING, or ERROR (if the
         controller is offline. !ERROR if the command is invalid
-        
+
         Responds OK if the requested filter is valid.
         """
         if '?' in command.string:
@@ -230,11 +230,11 @@ class GuiderAgent(Agent):
             command.setReply('OK')
             self.startWorkerThread(command, 'MOVING', self.setFilterPos,
                                    args=(filter,))
-    
+
     def setFilterPos(self, filter):
         """
         Translate filter to a degree position and command Maestro to target
-        
+
         Filter must be a key in FILTER_DEGREE_POS_FW. Raise an Exception if there
         are any errors.
         """
@@ -266,11 +266,11 @@ class GuiderAgent(Agent):
             return
         time.sleep(FILTER_HOME_TIME)
         self.returnFromWorkerThread('GFILTER')
-    
+
     def getFilterPos(self):
         """
         Get the filter based on the angle reported by the Maestro
-        
+
         Responds with the current filter, INTERMEDIATE, or ERROR (if the
         controller is offline.
         """
@@ -286,13 +286,13 @@ class GuiderAgent(Agent):
             except ValueError:
                 filter='INTERMEDIATE'
         return filter
-    
+
     def getChannelState(self, channel):
         """
         Returns MOVING or the pulse width for the specified channel.
-        
+
         NB will always return the pullse width as written
-        
+
         Raises IOError if any errors
         """
         guider=self.connections['guider']
@@ -307,11 +307,11 @@ class GuiderAgent(Agent):
     def getErrorStatus(self):
         """
         Poll the controller for the error status byte
-        
-        Returns the error value as a hex string or ERROR if IOERROR. No errors 
+
+        Returns the error value as a hex string or ERROR if IOERROR. No errors
         is the string '0x00'
-        
-        NB We must and the response as some of the bits are reserved and may not 
+
+        NB We must and the response as some of the bits are reserved and may not
         be 0 despite there being no error.
         """
         try:
@@ -331,7 +331,7 @@ class GuiderAgent(Agent):
 def convertUnsigned16bit(str):
     """
     Convert a 2 byte little-endian string to an unsigned 16 bit number
-    
+
     Raise ValueError if not a 2 byte string or unable to convert
     """
     if len(str) != 2:
@@ -342,7 +342,7 @@ def convertUnsigned16bit(str):
         raise ValueError
 
 def filterAngle2Filter(angle):
-    """ 
+    """
     Convert angle to the filter ID. Raise ValueError if no matching filter
     """
     try:
@@ -355,13 +355,13 @@ def filterAngle2Filter(angle):
 def deg2pwid(deg, max_rotation):
     """
     Convert an angular position to a servo pulse width.
-    
+
     max_rotation should be a number corresponding to the servo angle at maximum
     pulse width.
 
     Assumes the maximum and minimum pulse widths of the servos are specified
     in the constants MAX_PWIDTH & MIN_PWIDTH.
-        
+
     Raise ValueError if degree is not in the range 0 - max_rotation
     """
     if not (0 <= deg <= max_rotation):
@@ -371,20 +371,20 @@ def deg2pwid(deg, max_rotation):
 def pwid2deg(pwid, max_rotation):
     """
     Convert a servo pulse width to an angle.
-    
+
     max_rotation should be a number corresponding to the servo angle at maximum
     pulse width.
 
     Assumes the maximum and minimum pulse widths of the servos are specified
-    in the constants MAX_PWIDTH & MIN_PWIDTH. 
-    
+    in the constants MAX_PWIDTH & MIN_PWIDTH.
+
     """
     return (pwid-MIN_PWIDTH)/(MAX_PWIDTH-MIN_PWIDTH) * max_rotation
 
 def pwid2bytes(pwid):
     """
     Convert a pulse width to the two byte form needed to command the Maestro
-    
+
     See p. 40 of maestro.pdf
     """
     target=int(round(pwid)*4)
@@ -394,16 +394,16 @@ def pwid2bytes(pwid):
 def bytes2pwid(bytes):
     """
     Convert the two byte position sent by the Maestro to a pulse width.
-    
+
     bytes must be an ascii string of at least length 2. The conversion is
-    performed on the first two characters. 
-    
+    performed on the first two characters.
+
     See p. 42 of maestro.pdf
     """
     return round((ord(bytes[0])|(ord(bytes[1])<<8))/4)
 
 def validFocusValue(focus):
-    """ Return true iff focus is a valid focus position 
+    """ Return true iff focus is a valid focus position
     Valid focus values are JITTER_STOP_MOVE to 90, +, & -
     """
     if focus in ['+', '-']:

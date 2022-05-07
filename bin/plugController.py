@@ -2,11 +2,11 @@
 import logging.handlers
 from m2fscontrol.agent import Agent
 from m2fscontrol.m2fsConfig import M2FSConfig
-from m2fscontrol.hole_mapper import pathconf
+from hole_mapper import pathconf
 
 pathconf.ROOT = M2FSConfig.getPlateDir()
 
-from m2fscontrol.hole_mapper import fibermap, platedata
+from hole_mapper import fibermap, platedata
 
 platedata.get_platenames_for_known_fibermaps()
 
@@ -20,12 +20,12 @@ class PlugController(Agent):
     """
     This is the M2FS plugging controller, at present, it doesn't do much because
     the plugging subsystem is still manual.
-    
-    It is responsible for the instruments awareness of the fiber positions and 
+
+    It is responsible for the instruments awareness of the fiber positions and
     plug plates. This is accomplished by requiring that the observer upload
     new plates to the instrument (via a samba share or, perhaps in the future, a
-    web interface) and pick the plate and setup they are observing via the 
-    instrument GUI. It combines this information with the plugging feedback 
+    web interface) and pick the plate and setup they are observing via the
+    instrument GUI. It combines this information with the plugging feedback
     system to generate determine where fibers are plugged and to which targets
     they map.
     """
@@ -43,36 +43,36 @@ class PlugController(Agent):
             'PLUGPOS': self.PLUGPOS_command_handler,
             #Enter/Leave plugging mode
             'PLUGMODE': self.PLUGMODE_command_handler})
-    
+
     def get_version_string(self):
         """ Return the version string """
         return PLUG_CONTROLLER_VERSION_STRING
-    
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
         """
         return "This is the M2FS Plugplate manager & plugging controller"
-    
+
     def PLATELIST_command_handler(self, command):
         """
         Reply with a space delimited list of available plates and their setups.
         Spaces in plate names are escaped with _
-        
+
         The list of available plates is maintained by the plate manager.
         """
         plateList=platedata.get_platenames_for_known_fibermaps()
         plateList=[ p.replace(' ', '_') for p in plateList]
         #\n is required to force sending of empty response if needed
         command.setReply(' '.join(plateList)+'\n')
-    
+
     def PLATE_command_handler(self, command):
         """
-        Get/Set the current plate 
-        
+        Get/Set the current plate
+
         If getting, return the name of the currently selected plate
         If setting return the names of setups on the plate
         An invalid platename returns an !ERROR
@@ -97,7 +97,7 @@ class PlugController(Agent):
 
     def PLATESETUP_command_handler(self, command):
         """
-        Get/Set the current plate setup 
+        Get/Set the current plate setup
         """
         if '?' in command.string:
             if self.map:
@@ -113,11 +113,11 @@ class PlugController(Agent):
                 command.setReply('!ERROR: Invalid Setup.')
             except fibermap.FibermapError as e:
                 command.setReply('!ERROR: {}'.format(str(e)))
-    
+
     def PLUGPOS_command_handler(self, command):
         """
         Report the current plug positions of the fibers.
-            
+
         Response consists of a space delimited list of 256 items, UNKNOWN,
         UNPLUGGED, or a HoleUUID
         """
@@ -129,18 +129,18 @@ class PlugController(Agent):
                 self.bad_command_handler(command)
             else:
                 command.setReply(self.get_fiber_plug_positions(side))
-    
+
     def PLUGMODE_command_handler(self, command):
         """
         Start/Stop determination of fiber plug positions.
-        
+
         Not this does not control the FLS pickoff, the secondary calibration
         unit, or the shoes. It only deals with getting the projector and imager
         working. The director is responsible for notifying the Galils to insert
-        the FLS pickof mirrors and ensuring they complete sucessfully before 
-        telling us to begin plugging. Similarly, the GUI is responsible for 
-        telling the calibration unit to insert and telling the instrument to 
-        cancel if it fails. 
+        the FLS pickof mirrors and ensuring they complete sucessfully before
+        telling us to begin plugging. Similarly, the GUI is responsible for
+        telling the calibration unit to insert and telling the instrument to
+        cancel if it fails.
         """
         if '?' in command.string:
             command.setReply(self.get_plugmode_status())
@@ -159,30 +159,30 @@ class PlugController(Agent):
                 except Exception, e:
                     command.setReply('ERROR: %s'%str(e))
             else:
-                self.bad_command_handler(command)            
-    
+                self.bad_command_handler(command)
+
 
     def enter_plug_mode(self):
         """
         Start the hole process of monitoring the plug position of the fibers
-        
+
         This will involve bootstrapping a complex set of subprograms, both
         and remotely (the projector is on a different computer) which do the
         following:
             Locally the FLS imager is brought online ans processing of its video
-            stream to determine the raw illumination levels of the fibers is 
+            stream to determine the raw illumination levels of the fibers is
             begun. from this stream of data key points must be extracted to
             synchronize which frame (actually set of frames)was being projected
-            while the images (remember each captured image is actually many 
+            while the images (remember each captured image is actually many
             hundred seperate frames from the imager stitched together by the
             FPGA.
             Remotely the projector begings projecting a video sequence for
-            imaging. This video sequence will evolve dynamically based on the 
+            imaging. This video sequence will evolve dynamically based on the
             outputs of the local processing. how the two communicate is not yet
             determined.
         """
         raise Exception('Not implemented')
-    
+
     def exit_plug_mode(self):
         """ Finish Plugging. Consider determined positions of fibers final """
         pass
@@ -190,15 +190,15 @@ class PlugController(Agent):
     def get_plugmode_status(self):
         """ Tell whether plugmode is on off or in some fault state """
         return 'OFF'
-    
+
     def get_fiber_plug_positions(self, side):
-        """ 
+        """
         Report the states of the 128 fibers connected to side 'R' or 'B'
-        
+
         Response consists of a space delimited list of 128 items, UNKNOWN,
         Tetris#:Groove#:[UNPLUGGED,HoleUUID, UNKNOWN]:[FiberID, UNKNOWN]
         fiberID is unknown if the show is unplugged
-        
+
         Red CCD first followed by the B CCD.
         """
         #For now return the expected plug positions
@@ -217,7 +217,7 @@ class PlugController(Agent):
 def fiberID_by_tetris_groove_side(tetris, groove, side):
     """
     Return the fiberID (e.g. R-04-15) based on the tetris, groove, & side
-    If shoes aren't swapped the mapping is direct, if shoes are, it is 
+    If shoes aren't swapped the mapping is direct, if shoes are, it is
     flipped.
     Side must be R or B
     """
@@ -231,10 +231,10 @@ def fiberID_by_tetris_groove_side(tetris, groove, side):
 def holeID_by_tetris_groove_side(tetris, groove, side):
     """
     Return [UNKNOWN, UNPLUGGED, <HoleUUID>] for specified fiber.
-    
-    Fiber is specified by tetris - a number from 1-8, fiber - a number 1 - 
+
+    Fiber is specified by tetris - a number from 1-8, fiber - a number 1 -
     16, and side, the side of the spectrograph. For instance, a return value
-    of <holeUUID> to tetris 1, groove 15, side 'R', indicates that 
+    of <holeUUID> to tetris 1, groove 15, side 'R', indicates that
     <holeUUID> will illuminate the R side CCD via the fiber in tetris 1
     groove 15. The color of the shoe is not relevant to this determination.
     """

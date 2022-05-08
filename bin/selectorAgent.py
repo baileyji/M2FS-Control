@@ -344,8 +344,8 @@ class SelectorAgent(Agent):
                             response = 'ERROR: Position must be unique. Assigned to {}'.format(pname)
                             break
                     if not response:
-                    M2FSConfig.setSelectorDefault(name.lower(), position)
-                    response = 'OK'
+                        M2FSConfig.setSelectorDefault(name.lower(), position)
+                        response = 'OK'
             command.setReply(response)
         else:
             self.bad_command_handler(command)
@@ -392,8 +392,8 @@ class SelectorAgent(Agent):
             self.bad_command_handler(command)
 
     def CALIBRATE_command_handler(self, command):
-        self.startWorkerThread(command, 'MOVING', self._calibration_worker,
-                               block=('IFUS', 'IFUS_AUTOBREAK'))
+        command.setReply('OK')
+        self.startWorkerThread(command, 'MOVING', self._calibration_worker, block=('IFUS', 'IFUS_AUTOBREAK'))
 
     def _calibration_worker(self):
         try:

@@ -1,4 +1,6 @@
 import time, select
+
+import redis
 from serial import Serial, SerialException
 from datetime import datetime
 from construct import UBInt32, StrictRepeater, LFloat32, SLInt16, ULInt32
@@ -255,6 +257,8 @@ class DataloggerListener(threading.Thread):
                                 getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
                         except ValueError as e:
                             self.logger.error(str(e))
+                        except redis.ResponseError as e:
+                            self.logger.error('Redis error {} while logging {} at t={}'.format(e, rec, t))
                         except RedisError as e:
                             self.logger.error(e, exc_info=True)
                     elif byte == 'E':

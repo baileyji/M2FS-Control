@@ -386,13 +386,22 @@ class SelectorAgent(Agent):
             self.bad_command_handler(command)
 
     def CALIBRATE_command_handler(self, command):
-        self.connections['ifuselector'].set_remote_in('RV-POS')
-        while self.connections['ifuselector'].moving:
-            time.sleep(.1)
-        self.connections['ifuselector'].set_remote_in('RV-POS', False)
-        self.connections['ifuselector'].set_remote_in('HOME')
-        self.connections['ifuselector'].set_remote_in('HOME', False)
-        command.setReply('OK')
+        self.startWorkerThread(command, 'MOVING', self._calibration_worker,
+                               block=('IFUS', 'IFUS_AUTOBREAK'))
+
+    def _calibration_worker(self):
+        try:
+            autobreak = self.autobreak
+            self.autobreak = False
+            success = self.connections['ifuselector'].calibrate()
+        except IOError:
+            success = False
+        self.autobreak = autobreak
+
+        if success:
+            self.returnFromWorkerThread('IFUS_CALIBRATE', 'ERROR: Calibration Failed')
+        else:
+            self.returnFromWorkerThread('IFUS_CALIBRATE')
 
 
 if __name__ == '__main__':

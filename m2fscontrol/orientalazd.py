@@ -43,8 +43,10 @@ import logging, time, threading, select
 # pymodbus.register_write_message.WriteMultipleRegistersRequest 16
 # pymodbus.register_read_message.ReadWriteMultipleRegistersRequest 23
 
+ALARM_CODES = {0x66: 'Hardware Overtravel',
+               0x67: 'Software Overtravel'}
 
-
+MAX_HOME_TIME = 40
 CLIENTID = 1
 BAUD = 230400
 
@@ -234,9 +236,36 @@ class OrientalMotor(object):
     def moving(self):
         return self.get_remoteOut(pretty=False)[REMOTE_IO_OUT_BITS.index('MOVE')]
 
+    @property
+    def home_end(self):
+        return self.get_out(pretty=False)[DIRECT_IO_OUT_BITS.index('HOME-END')]
+
     def get_out(self, pretty=True):
         x = self.read_regs(*ADDR_OUTPUTS)
         return tuple([v for i, v in enumerate(OUTPUT_BITS) if x[i] and v]) if pretty else x
+
+    def calibrate(self):
+        #TODO this won't work with software limits enabled if they are tighter than the hardware limits)
+        self.reset_alarm()
+        self.turn_off_break()
+        self.set_remote_in('FW-POS', False)
+        self.set_remote_in('RV-POS', False)
+        self.set_remote_in('RV-POS')
+        while self.moving:
+            time.sleep(.1)
+        self.set_remote_in('RV-POS', False)
+        self.reset_alarm()
+        if self.break_is_on:
+            return False  # Abort we were stopped
+        self.set_remote_in('HOME')
+        self.set_remote_in('HOME', False)
+        elapsed = 0
+        while not (self.break_is_on or self.alarm or self.home_end or elapsed > MAX_HOME_TIME):
+            elapsed += .1
+            time.sleep(.1)
+
+        self.turn_on_break()
+        return self.home_end and not self.alarm
 
     def get_temps(self):
         """ drivetemp, motor temp (deg C)"""
@@ -315,6 +344,10 @@ class OrientalMotor(object):
             self.turn_on_break()  #NB where does the set the commanded position
         else:
             self.move_to(0, 0)  #this works, go figure
+
+    @property
+    def break_is_on(self):
+        return self.get_remoteOut(pretty=False)[REMOTE_IO_OUT_BITS.index('STOP-COFF_R')]
 
     def turn_on_break(self):
         #p284
@@ -408,6 +441,8 @@ class OrientalAlarm(object):
         # 66 means sensor error at power on  get if motor disconnected
         if len(alarm_record) != 13:
             raise ValueError('Alarm records must have 13 entries')
+        u = alarm_record[9]  # fbpos is in twos compliment, 32b
+        alarm_record[9] = (u & ((1 << 31) - 1)) - (u & (1 << 31))
         self.record = tuple(alarm_record)
         #code, subcode, drive t, motor t, invert volt*10, dio in, rio out, op info 1, op info 2, feedbackpos, time from boot, time from move, main power time
         # code0, subcode1, drive t2, motor t3, invert volt*10 4, dio in 5, rio out 6, op info 1 7, op info 2 8, feedbackpos 9, time from boot 10,
@@ -419,7 +454,7 @@ class OrientalAlarm(object):
             return 'No Alarm'
 
         msg = ('AZD Alarm: {record[0]}:{record[1]} Drive/Motor Temp: {record[2]}/{record[3]} C '
-               'Drive Vin: {volt:.1f} DIOin: {dio} RIOout: {rio} Position: {record[9]} '
+               'Drive Vin: {volt:.1f} DIOin: {dio} RIOout: {rio} FBPos: {record[9]} '
                'OpInfo: {record[7]},{record[8]} '
                'Times (boot/move/power): {record[10]}/{record[11]}/{record[12]}')
         return msg.format(record=self.record, volt=float(self.record[4])/10,

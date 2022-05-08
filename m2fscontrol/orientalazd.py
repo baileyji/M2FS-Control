@@ -266,7 +266,7 @@ class OrientalMotor(object):
         self.set_remote_in('RV-POS', False)
         self.reset_alarm()
         self.turn_off_break()
-        self.sleep(.15)
+        time.sleep(.15)
         self.disable_software_limits()
         self.set_remote_in('RV-POS')
         time.sleep(1)

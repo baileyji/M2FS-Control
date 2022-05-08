@@ -338,6 +338,12 @@ class SelectorAgent(Agent):
                 elif position > limits[1]:
                     response = 'ERROR: Position above software forward limit.'
                 else:
+                    response=''
+                    for pname, pos in M2FSConfig.getSelectorDefaults().items():
+                        if int(pos) == position and pname != name.lower():
+                            response = 'ERROR: Position must be unique. Assigned to {}'.format(pname)
+                            break
+                    if not response:
                     M2FSConfig.setSelectorDefault(name.lower(), position)
                     response = 'OK'
             command.setReply(response)

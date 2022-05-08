@@ -245,6 +245,22 @@ class OrientalMotor(object):
         x = self.read_regs(*ADDR_OUTPUTS)
         return tuple([v for i, v in enumerate(OUTPUT_BITS) if x[i] and v]) if pretty else x
 
+    def disable_software_limits(self):
+        self.write_regs(0x0386, [word.uint for word in Bits(int=-1, length=32).cut(16)])
+
+    def enable_software_limits(self):
+        """See page 404 of HM-60262-6E.pdf. 1=deceleration stop"""
+        self.write_regs(0x0386, [word.uint for word in Bits(int=1, length=32).cut(16)])
+
+    def set_sw_limits(self, limits):
+        """See page 404 of HM-60262-6E.pdf."""
+        rlim=min(limits)
+        flim=max(limits)
+        # negative
+        self.write_regs(0x038A, [word.uint for word in Bits(int=rlim, length=32).cut(16)])
+        # positive
+        self.write_regs(0x0388, [word.uint for word in Bits(int=flim, length=32).cut(16)])
+
     def calibrate(self):
         #TODO this won't work with software limits enabled if they are tighter than the hardware limits)
         self.reset_alarm()

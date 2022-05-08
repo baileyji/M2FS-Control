@@ -393,7 +393,8 @@ class SelectorAgent(Agent):
 
     def CALIBRATE_command_handler(self, command):
         command.setReply('OK')
-        self.startWorkerThread(command, 'MOVING', self._calibration_worker, block=('IFUS', 'IFUS_AUTOBREAK'))
+        self.startWorkerThread(command, 'MOVING', self._calibration_worker,
+                               block=('IFUS', 'IFUS_CALIBRATE','IFUS_AUTOBREAK'))
 
     def _calibration_worker(self):
         try:

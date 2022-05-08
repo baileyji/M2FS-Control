@@ -44,7 +44,8 @@ import logging, time, threading, select
 # pymodbus.register_read_message.ReadWriteMultipleRegistersRequest 23
 
 ALARM_CODES = {0x66: 'Hardware Overtravel',
-               0x67: 'Software Overtravel'}
+               0x67: 'Software Overtravel',
+               0x62: 'Return-to-home error'}
 
 MAX_HOME_TIME = 40
 CLIENTID = 1
@@ -453,12 +454,12 @@ class OrientalAlarm(object):
         if self.code == 0:
             return 'No Alarm'
 
-        msg = ('AZD Alarm: {record[0]}:{record[1]} Drive/Motor Temp: {record[2]}/{record[3]} C '
-               'Drive Vin: {volt:.1f} DIOin: {dio} RIOout: {rio} FBPos: {record[9]} '
+        msg = ('AZD Alarm: {record[0]}:{record[1]} ({alarm}) Drive/Motor T: {record[2]}/{record[3]} C '
+               'Vin: {volt:.1f} DIOin: {dio} RIOout: {rio} Pos: {record[9]} '
                'OpInfo: {record[7]},{record[8]} '
-               'Times (boot/move/power): {record[10]}/{record[11]}/{record[12]}')
-        return msg.format(record=self.record, volt=float(self.record[4])/10,
-                          dio=bin(self.record[5]), rio=bin(self.record[6]))
+               'Time (boot/move/power): {record[10]}/{record[11]}/{record[12]}')
+        return msg.format(record=self.record, alarm=ALARM_CODES.get(self.record[0], 'HM-60262-6E pg.452'),
+                          volt=float(self.record[4])/10, dio=bin(self.record[5]), rio=bin(self.record[6]))
 
     @property
     def code(self):

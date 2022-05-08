@@ -262,17 +262,20 @@ class OrientalMotor(object):
         self.write_regs(0x0388, [word.uint for word in Bits(int=flim, length=32).cut(16)])
 
     def calibrate(self):
-        #TODO this won't work with software limits enabled if they are tighter than the hardware limits)
-        self.reset_alarm()
-        self.turn_off_break()
         self.set_remote_in('FW-POS', False)
         self.set_remote_in('RV-POS', False)
+        self.reset_alarm()
+        self.turn_off_break()
+        self.sleep(.15)
+        self.disable_software_limits()
         self.set_remote_in('RV-POS')
+        time.sleep(1)
         while self.moving:
             time.sleep(.1)
         self.set_remote_in('RV-POS', False)
         self.reset_alarm()
         if self.break_is_on:
+            self.enable_software_limits()
             return False  # Abort we were stopped
         self.set_remote_in('HOME')
         self.set_remote_in('HOME', False)
@@ -281,6 +284,7 @@ class OrientalMotor(object):
             elapsed += .1
             time.sleep(.1)
 
+        self.enable_software_limits()
         self.turn_on_break()
         return self.home_end and not self.alarm
 

@@ -12,9 +12,10 @@ from collections import namedtuple
 # 2000 counts per rev
 # .001"/full step
 # 200 full step/rev
+# 2000 count/rev * 1/200 rev/full step * 1/.001" fstep/in = 10000 counts/in
 # control in 1/64th step units
 # nominal positioning at .5 full step
-# 1 ustep is 0.397 nm
+# 1 ustep is 0.397 nm (this is the IFUM GUI commanded unit! The HK GUI uses full steps!)
 # Attained positioning at ~3 microsteps per reported positions ~ 1.19 um
 # Backlash is under 10 usteps (3.97um)
 # Encoder only good to 2.54 um (i.e .001*200/2000*25.4
@@ -22,6 +23,7 @@ from collections import namedtuple
 #     250,000 rad/sec2
 #     39789 rev/s2
 #     7958 in/s2
+#~16kHz max toggle rate
 
 
 # Contact HK: this seems to remain true even after a reset command to the Idea if the programs on the idea drive
@@ -35,13 +37,6 @@ from collections import namedtuple
 # is raised.
 
 
-#~16kHz max toggle rate
-
-#2000 count/rev encoder
-#steps are in microsteps
-#0.180mA ABSOLUTE MAX
-#.001"/fullstep
-#200step/rev
 
 
 
@@ -168,9 +163,10 @@ class IdeaState(object):
 class IdeaDrive(SelectedConnection.SelectedSerial):
     def __init__(self, port, ifu='Not Specified', preventstall=True):
 
+        self.calibrating = False
         self.errorFlags = {}
         self.name = ifu
-        self.logger = getLogger(__name__+ifu)
+        self.logger = getLogger(__name__+'.'+ifu)
         # Perform superclass initialization, note we implement the _postConnect hook , see below
         SelectedConnection.SelectedSerial.__init__(self, port, BAUD, timeout=HK_TIMEOUT,
                                                    default_message_received_callback=self._unsolicited_message_handler)
@@ -199,7 +195,7 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
                     continue
                 try:
                     elapsed = time.time()-self.move_info.start_time
-                    if (elapsed-.5) > max(self.move_info.duration, 1):
+                    if (elapsed-1) > max(self.move_info.duration, 1):
                         if self.moving:
                             # The .5 and max(x, 1) are to allow for a bit of slop and a minimum execution time
                             msg = ('Detected potential hammerstall ({:.1f} s elapsed, {:.1f} s expected) '
@@ -246,40 +242,41 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
         # Send the command, do not catch the WriteError as they must bubble up
         getLogger(__name__).debug('Sending {} to HK'.format(command_string))
-        self.sendMessageBlocking(command_string, connect=True)
+        with self.rlock:
+            self.sendMessageBlocking(command_string, connect=True)
 
-        if not self.command_has_response(command_string):
-            return ''  #NB this is also the response we would expect from a powered down HK, gross
-        else:
-            # Response will be nothing or  "`<cmdkey><ascii>\r`<cmdkey>#\r",
-            # NB that receiveMessageBlocking strips the
-            # terminator so a merged response would look like "`<cmdkey><ascii>`<cmdkey>#"
-            # Need to do a blocking receive on \r twice
-            response = self.receiveMessageBlocking(terminator='\r')
+            if not self.command_has_response(command_string):
+                return ''  #NB this is also the response we would expect from a powered down HK, gross
+            else:
+                # Response will be nothing or  "`<cmdkey><ascii>\r`<cmdkey>#\r",
+                # NB that receiveMessageBlocking strips the
+                # terminator so a merged response would look like "`<cmdkey><ascii>`<cmdkey>#"
+                # Need to do a blocking receive on \r twice
+                response = self.receiveMessageBlocking(terminator='\r')
 
-            if not response:
-                if command_string == 'b':  # Encoder command can return something OR nothing, UGH!
-                    self.logger.info('HK encoder query did not get response, this sometimes happens')
-                    return ''
-                else:
-                    e = 'HK{} did not respond to "{}", is it powered?'.format(self.name, command_string)
+                if not response:
+                    if command_string == 'b':  # Encoder command can return something OR nothing, UGH!
+                        self.logger.info('HK encoder query did not get response, this sometimes happens')
+                        return ''
+                    else:
+                        e = 'HK{} did not respond to "{}", is it powered?'.format(self.name, command_string)
+                        self.logger.error(e)
+                        self.handle_error(e, log=False)
+                        raise SelectedConnection.ReadError(e)
+
+                response = response + self.receiveMessageBlocking(terminator='\r')
+                try:
+                    return response.split('`')[1].strip()[1:]
+                except IndexError:
+                    e = "HK{} did not adhere to protocol '{}' got '{}'".format(self.name, command_string, response)
                     self.logger.error(e)
                     self.handle_error(e, log=False)
                     raise SelectedConnection.ReadError(e)
-
-            response = response + self.receiveMessageBlocking(terminator='\r')
-            try:
-                return response.split('`')[1].strip()[1:]
-            except IndexError:
-                e = "HK{} did not adhere to protocol '{}' got '{}'".format(self.name, command_string, response)
-                self.logger.error(e)
-                self.handle_error(e, log=False)
-                raise SelectedConnection.ReadError(e)
-            except Exception:
-                e = "HK{} did not adhere to protocol '{}' got '{}'".format(self.name, command_string, response)
-                self.logger.error(e, exc_info=True)
-                self.handle_error(e, log=False)
-                raise SelectedConnection.ReadError(e)
+                except Exception:
+                    e = "HK{} did not adhere to protocol '{}' got '{}'".format(self.name, command_string, response)
+                    self.logger.error(e, exc_info=True)
+                    self.handle_error(e, log=False)
+                    raise SelectedConnection.ReadError(e)
 
     def abort(self):
         self.send_command_to_hk('A')
@@ -348,6 +345,8 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
             self.send_command_to_hk(cmd + ','.join(map(str, map(int, params))))
             self.commanded_position = position if not relative else position + self.commanded_position
             self.move_info = MoveInfo(start_time=time.time(), duration=movetime(distance, speed, accel, decel))
+            self.logger.info('Started move at {} with duration of {}'.format(self.move_info.start_time,
+                                                                             self.move_info.duration))
 
     def position_error(self, steps=True):
         if self.commanded_position is None:
@@ -360,26 +359,39 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
         return pos if steps else pos*IN_PER_64THSTEP
 
     def calibrate(self, nosleep=False):
-        with self.rlock:
-            self.send_command_to_hk('mCalibrate_')
-            # self.sendMessageBlocking('mCalibrate_')
-            self.commanded_position = 0
-            self.move_info = MoveInfo(start_time=time.time(), duration=CALIBRATION_MAX_TIME)
-        if not nosleep:
-            timeout = CALIBRATION_MAX_TIME
-            while not self.calibrated and timeout > 0:
-                time.sleep(.2)
-                timeout -= .2
-            state = self.state()
-            if not state.calibrated:
-                raise RuntimeError('ERROR: Calibration Failed ({})'.format(state.faultString))
-            else:
-                pos = self.position()  #Query pos as a fix for position latency
+        try:
+            with self.rlock:
+                self.calibrating=True
+                self.send_command_to_hk('mCalibrate_')
+                self.commanded_position = 0
+                self.move_info = MoveInfo(start_time=time.time(), duration=CALIBRATION_MAX_TIME)
+            if not nosleep:
+                timeout = CALIBRATION_MAX_TIME
+                while not self.calibrated and timeout > 0:
+                    time.sleep(.2)
+                    timeout -= .2
 
-    # def config_encoder(self):
-    #     DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res
-    #     params = [DeadBand, StallHunts, Destination, Priority, encoder_res, motor_res]
-    #     self.send_command_to_hk(cmd + ','.join(map(int, params)))
+                if timeout < 0:
+                    raise RuntimeError('ERROR: Calibration timed out')
+                else:
+                    self.logger.info('Device reports calibrated')
+
+                time.sleep(1)
+                state = self.state()
+
+                # self.logger.info('Position query 4x')
+                # with self.rlock:
+                #     pos = self.position()
+                #     time.sleep(1)
+                #     pos = self.position()
+                #     time.sleep(.15)
+                #     pos = self.position()
+                #     time.sleep(.15)
+                #     pos = self.position()  # Query pos as a fix for position latency
+                if not state.calibrated:
+                    raise RuntimeError('ERROR: Calibration Failed ({})'.format(state.faultString))
+        finally:
+            self.calibrating = False
 
     def encoder_config(self):
         #This appears to return nothing if the encoder is not configured
@@ -435,10 +447,11 @@ class IdeaDrive(SelectedConnection.SelectedSerial):
 
     def state(self):
         self.logger.debug('Requesting state')
-        pos = self.position()
-        io = self.io
-        perr = pos - self.commanded_position if self.commanded_position is not None and io.calibrated else 0
-        return IdeaState(self.programRunning, self.faults, io, self.encoder_config(), self.moving, pos, perr)
+        with self.rlock:
+            pos = self.position()
+            io = self.io
+            perr = pos - self.commanded_position if self.commanded_position is not None and io.calibrated else 0
+            return IdeaState(self.programRunning, self.faults, io, self.encoder_config(), self.moving, pos, perr)
 
 
 if __name__ == '__main__':

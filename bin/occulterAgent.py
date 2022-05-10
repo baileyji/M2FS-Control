@@ -184,7 +184,10 @@ class OcculterAgent(Agent):
             elif state.errorPresent:
                 resp = 'ERROR: Pos: {} Fault Code:'+state.faultString
             elif not state.calibrated:
-                resp = 'UNCALIBRATED {}'
+                if self.connections['occulter'].calibrating:
+                    resp = 'MOVING {}'  #There is a moment where the controller is still moving has not set the calibrated bit
+                else:
+                    resp = 'UNCALIBRATED {}'
             else:
                 resp = '{}'
             command.setReply(resp.format(state.position))
@@ -231,7 +234,7 @@ class OcculterAgent(Agent):
         command_name = threading.currentThread().getName()
         if calibrate:
             try:
-                self.connections['occulter'].calibrate()
+                self.connections['occulter'].calibrate(nosleep=False)
             except RuntimeError as e:  # calibration failed.
                 # TODO This looks like if calibrate fails it doesn't clear the blocks.
                 # look ok 4/12/22 but need to test

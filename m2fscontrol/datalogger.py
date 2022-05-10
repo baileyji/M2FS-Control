@@ -172,7 +172,7 @@ class DataloggerConnection(Serial):
 
         hextime = '0x' + (4 * '{:02x}').format(*map(ord, s[1:]))
         timemsg = 'Sending time as {}'.format(hextime)
-        logging.getLogger('DataloggerListener').debug(timemsg)
+        logging.getLogger(__name__+self.side).debug(timemsg)
 
     def getByte(self, timeout):
         """

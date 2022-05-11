@@ -14,7 +14,16 @@ SHOE_TIMEOUT=.35
 MAX_SLIT_MOVE_TIME = 25
 STOWSLIT = 1
 
-def parseTS(x):
+# 'SLITSRAW': self.RAW_command_handler,
+# # Get/Set the active slit.
+# 'SLITS': self.SLITS_command_handler,
+# # Get/Set the positions corresponding to a slit
+# 'SLITS_SLITPOS': self.SLITPOS_command_handler,
+# # Get the temperature of the shoe
+# 'SLITS_TEMP': self.TEMP_command_handler,  # B, R, drive
+# 'SLITS_HARDHAT': self.HARDHAT_command_handler})
+
+def parseTS(xin):
     """
     ===================
     R connected
@@ -63,10 +72,11 @@ def parseTS(x):
     ===================
 
     """
-    x = '\n'.join([l.strip() for l in x.split('\n') if
+    x = '\n'.join([l.strip() for l in xin.split('\n') if
                    not l.startswith('#') and
                    '===================' not in l
                    and l.strip()])
+
     g, r_b = x.split('===R Shoe Status===')
     rstat, bstat = r_b.split('===B Shoe Status===')
     rstat = rstat.strip()
@@ -463,51 +473,6 @@ class IFUShoeAgent(Agent):
         else:
             self.returnFromWorkerThread('SLITS')
 
-        # # #TODO while loop tracking moving of SG
-        # while True:
-        #     if self._shoe_error is not None:
-        #         final_state = self._shoe_error
-        #         self._shoe_error = None
-        #     else:
-        #         try:
-        #             pos = self._send_command_to_shoe('SG' + shoe)
-        #             if pos.startswith('MOVING'):
-        #                 self.logger.debug('Move to {} in progress: {}'.format(slit, pos))
-        #                 time.sleep(1)
-        #                 continue
-        #             elif pos.startswith('ERROR'):
-        #                 final_state = pos
-        #             elif not pos:
-        #                 final_state = 'ERROR: Failed to get slit position, this should not happen'
-        #             elif pos[0] != slit:
-        #                 final_state = 'ERROR: Did not attain slit {}, at {}'.format(slit, pos)
-        #         except ShoeCommandNotAcknowledgedError as e:
-        #             final_state = str(e)
-        #         except IOError:
-        #             final_state = 'ERROR: IFU shoe control tower offline'
-        #     break
-
-        # Old no polling
-        # time.sleep(MAX_SLIT_MOVE_TIME)
-        #
-        # if self._shoe_error is not None:
-        #     final_state = self._shoe_error
-        #     self._shoe_error = None
-        # else:
-        #     try:
-        #         pos = self._send_command_to_shoe('SG'+shoe)
-        #     except ShoeCommandNotAcknowledgedError:
-        #         pos = 'ERROR: Shoe controller rejected command, is a move in progress?'
-        #     except IOError:
-        #         pos = 'ERROR: IFU shoe control tower offline'
-        #
-        #     if pos.startswith('ERROR'):
-        #         final_state = pos
-        #     elif pos != slit:
-        #         final_state = 'ERROR: Did not attain ({}) requested slit ({})'.format(pos, slit)
-
-        # self.returnFromWorkerThread('SLITS', finalState=final_state)
-
     def HARDHAT_command_handler(self, command):
         """Return engineering status of shoes at a glance
         arg shoe, R|B
@@ -547,10 +512,11 @@ class IFUShoeAgent(Agent):
             self.connections['shoe'].sendMessageBlocking('TS')
             TS_LINES=47
             l = [self.connections['shoe'].receiveMessageBlocking() for _ in range(TS_LINES)]
-        response = ''.join(l)
-            # response = self.connections['shoe'].receiveMessageBlocking(nBytes=2048, timeout=.5)
-            #self.logger.debug('TS response was {} lines and {} bytes long'.format(len(response.split('\n')), len(response)))
-        return parseTS(response)
+        response = '\n'.join(l)
+        try:
+            return parseTS(response)
+        except Exception:
+            self.logger.error('Failed to parse {}.\n\n'.format(response), exc_info=True)
 
     def SLITPOS_command_handler(self, command):
         """
@@ -570,11 +536,15 @@ class IFUShoeAgent(Agent):
             return
         # Vet the command
         command_parts = command.string.lower().split(' ')
-        if len(command_parts) < 5:
+        if len(command_parts) < 4:
             self.bad_command_handler(command)
             return
+        elif len(command_parts) < 5:
+            id, place, pos = command_parts[1:4]
+            slit='*'
+        else:
+            id, place, slit, pos = command_parts[1:5]
 
-        id, place, slit, pos = command_parts[1:5]
         if (id not in ('b', 'r') or place not in ('pipe', 'up', 'down') or
             slit not in ('1','2','3','4','5','6', '*') or not ('?' in pos or longTest(pos))):
             self.bad_command_handler(command)

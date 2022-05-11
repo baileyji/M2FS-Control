@@ -140,6 +140,11 @@ class Director(Agent):
             'PLATESETUP':self.PLUGGING_command_handler,
             'PLUGPOS':self.PLUGGING_command_handler}
         self.IFUM_COMMANDS = {
+            'SLITSRAW': self.SLITS_comand_handler,
+            'SLITS': self.SLITS_comand_handler,
+            'SLITS_SLITPOS': self.SLITS_comand_handler,
+            'SLITS_TEMP': self.SLITS_comand_handler,
+            'SLITS_HARDHAT': self.SLITS_comand_handler,
             #Move to a preset position
             'IFUS':self.IFU_command_handler,
             # Move to a particular absolute position

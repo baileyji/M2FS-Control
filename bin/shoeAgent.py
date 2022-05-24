@@ -42,7 +42,7 @@ class ShoeAgent(Agent):
         Agent.__init__(self,'ShoeAgent')
         #Initialize the shoe
         if not self.args.DEVICE:
-            self.args.DEVICE='/dev/shoe'+self.args.SIDE
+            self.args.DEVICE='/dev/m2fs_shoe'+self.args.SIDE
 #        if self.args.simulator:
 #            self.connections['shoe']=SelectedConnection.SimConnection( self.args.DEVICE, timeout=1)
 #        else:

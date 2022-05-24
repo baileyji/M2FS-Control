@@ -18,10 +18,10 @@ GALILR='tty.usbserial-'
 SHOER='tty.usbmodem'
 SHOEB='tty.usbmodem'
 
-sudo ln -s /dev/$GUIDER /dev/guider
-sudo ln -s /dev/$SHLED /dev/shLED
-sudo ln -s /dev/$SHLENSLET /dev/shLenslet
-sudo ln -s /dev/$GALILB /dev/galilR
-sudo ln -s /dev/$GALILR /dev/galilB
-sudo ln -s /dev/$SHOER /dev/shoeR
-sudo ln -s /dev/$SHOEB /dev/shoeB
+sudo ln -s /dev/$GUIDER /dev/m2fs_guider
+sudo ln -s /dev/$SHLED /dev/m2fs_shLED
+sudo ln -s /dev/$SHLENSLET /dev/m2fs_shLenslet
+sudo ln -s /dev/$GALILB /dev/m2fs_galilR
+sudo ln -s /dev/$GALILR /dev/m2fs_galilB
+sudo ln -s /dev/$SHOER /dev/m2fs_shoeR
+sudo ln -s /dev/$SHOEB /dev/m2fs_shoeB

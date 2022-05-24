@@ -351,9 +351,9 @@ class M2FSConfig(object):
             return ''
         #Determine if what is in the cradle is matching
         if color == 'R':
-            return 'B' if os.path.exists('/dev/shoeBincradleR') else 'R'
+            return 'B' if os.path.exists('/dev/m2fs_shoeBincradleR') else 'R'
         if color == 'B':
-            return 'R' if os.path.exists('/dev/shoeRincradleB') else 'B'
+            return 'R' if os.path.exists('/dev/m2fs_shoeRincradleB') else 'B'
 
     @staticmethod
     def getAgentLogConfig(name):

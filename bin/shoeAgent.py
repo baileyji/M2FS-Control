@@ -293,6 +293,7 @@ class ShoeAgent(Agent):
             command_parts=command.string.replace(',',' ').split(' ')
             if not (len(command_parts) == 3 and command_parts[1] in '12345678' and command_parts[2].upper() in 'TF'):
                 self.bad_command_handler(command)
+                return
             command.setReply('OK')
             if command_parts[2].upper()=='T':
                 self._disabled_tetri.add(int(command_parts[1]))
@@ -336,6 +337,7 @@ class ShoeAgent(Agent):
                 len(command_parts[7])==1 and command_parts[7] in '1234567' and
                 len(command_parts[8])==1 and command_parts[8] in '1234567'):
                 self.bad_command_handler(command)
+                return
             #First check to make sure the command is allowed (all are
             # calibrated and none are moving
             #Verify all tetri are calibrated and none are moving

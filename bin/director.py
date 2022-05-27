@@ -130,6 +130,8 @@ class Director(Agent):
             'SLITS_ACTIVEHOLD':self.SLITS_comand_handler,
             'SLITS_MOVESTEPS':self.SLITS_comand_handler,
             'SLITS_HARDSTOP':self.SLITS_comand_handler,
+            'SLITS_DISABLE': self.SLITS_comand_handler,
+
             #Plugging Commands
             #
             #The director passes the command along to the agent.

@@ -46,7 +46,9 @@ class ShoeAgent(Agent):
 #        if self.args.simulator:
 #            self.connections['shoe']=SelectedConnection.SimConnection( self.args.DEVICE, timeout=1)
 #        else:
-        self.connections['shoe']=ShoeSerial(self.args.DEVICE, 115200, timeout=1)
+        self.side = self.args.SIDE.upper()
+        self._disabled_tetri = set(M2FSConfig.getDisabledTetri(self.side))
+        self.connections['shoe'] = ShoeSerial(self.args.DEVICE, 115200, timeout=1)
         #Allow two connections so the datalogger agent can poll for temperature
         self.max_clients=2
         self.command_handlers.update({
@@ -68,7 +70,8 @@ class ShoeAgent(Agent):
             #Tell the shoe to move a tetris a number of steps
             'SLITS_MOVESTEPS':self.MOVESTEPS_command_handler,
             #Tell shoe to drive a tetris to the hardstop, calibrating it
-            'SLITS_HARDSTOP':self.HARDSTOP_command_handler})
+            'SLITS_HARDSTOP':self.HARDSTOP_command_handler,
+            'SLITS_DISABLE': self.DISABLE_command_handler})
 
     def get_cli_help_string(self):
         """
@@ -251,57 +254,6 @@ class ShoeAgent(Agent):
         Perform a stowed shutdown
         """
         pass
-#        if 'shoe' not in self.connections: return
-#
-#        failmsg="Stowed shutdown of {} failed: {}"
-#        #wait here until the show connection is free. Any threads running
-#        #will then stall if they need the shoe, program will be unresponsive
-#        # to socket interface
-#        self.connections['shoe'].rlock.acquire(blocking=True)
-#
-#        #drive to hardstop and then 180
-#        resp=self._do_online_only_command('ST*')
-#        if resp !='OK': self.logger.error(resp)
-#
-#        status=self._do_online_only_command('TS')
-#        if status.startswith('ERROR:'):
-#            self.logger.error(failmsg.format(self.name, status))
-#            return
-#
-#        #determine which tetri are uncalibrated
-#        uncalByte=status.split(' ')[2]
-#        if uncalByte!='0':
-#            calibrated=map(lambda x: int(x)-1,
-#                             byte2bitNumberString(int(uncalByte)).split(' '))
-#            uncalibrated=[x for x in range(0,8) if x not in calibrated]
-#        else:
-#            uncalibrated=range(0,8)
-#
-#        #Move calibrated and calibrate uncalibrated
-#        for i in range(0,8):
-#            if i in uncalibrated:
-#                resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
-#            else:
-#                cmd='SL'+'ABCDEFGH'[i]+'2'
-#                resp=self._do_online_only_command(cmd)
-#            if resp !='OK':
-#                self.logger.error(failmsg.format(self.name, resp))
-#                return
-#
-#        #wait
-#        time.sleep(MAX_SLIT_MOVE_TIME)
-#
-#        #wait some more
-#        if len(uncalibrated) > 0:
-#            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
-#
-#        #move any that started out uncalibrated
-#        for i in uncalibrated:
-#            cmd='SL'+'ABCDEFGH'[i]+'2'
-#            resp=self._do_online_only_command(cmd)
-#            if resp !='OK':
-#                self.logger.error(failmsg.format(self.name, resp))
-#                return
 
     def TEMP_command_handler(self, command):
         """
@@ -319,6 +271,34 @@ class ShoeAgent(Agent):
         else:
             response='ERROR: Busy, try again'
         command.setReply(response)
+
+    def DISABLE_command_handler(self, command):
+        """
+        Disable/Eenable specified tetris. When disabled tetris is ignored in SLITS command.
+
+        Command is of the form
+        DISABLE {1-8} {T, F}
+        or
+        DISABLE ?  will respond with string in form of up to 8 command seperated numbers
+         1-8 indicating disabled slits or None
+        """
+        if '?' in command.string:
+            #Command the shoe to report the active slit for all 8 tetri
+            if not self._disabled_tetri:
+                command.setReply('None')
+            else:
+                command.setReply(','.join(map(str, sorted(tuple(self._disabled_tetri)))))
+        else:
+            #Vet the command
+            command_parts=command.string.replace(',',' ').split(' ')
+            if not (len(command_parts) == 3 and command_parts[1] in '12345678' and command_parts[2].upper() in 'TF'):
+                self.bad_command_handler(command)
+            command.setReply('OK')
+            if command_parts[2].upper()=='T':
+                self._disabled_tetri.add(int(command_parts[1]))
+            else:
+                self._disabled_tetri.discard(int(command_parts[1]))
+            M2FSConfig.setDisabledTetri(self.side, sorted(tuple(self._disabled_tetri)))
 
     def SLITS_command_handler(self, command):
         """
@@ -374,7 +354,7 @@ class ShoeAgent(Agent):
             self.startWorkerThread(command, 'MOVING', self.slit_mover,
                 args=(slits, status),
                 block=('SLITSRAW', 'SLITS_SLITPOS', 'SLITS_MOVESTEPS',
-                       'SLITS_HARDSTOP'))
+                       'SLITS_HARDSTOP', 'SLITS_DISABLE'))
 
     def slit_mover(self, slits, status):
         """
@@ -392,21 +372,26 @@ class ShoeAgent(Agent):
             uncalibrated=range(0,8)
         with self.connections['shoe'].rlock:
             for i in range(0,8):
+                if i+1 in self._disabled_tetri:
+                    self.logger.debug('Skipping tetris {} as it is disabled'.format(i))
+                    continue
                 if i in uncalibrated:
                     resp=self._do_online_only_command('DH'+'ABCDEFGH'[i])
                 else:
                     cmd='SL'+'ABCDEFGH'[i]+slits[i]
                     resp=self._do_online_only_command(cmd)
-                if resp !='OK':
+                if resp != 'OK':
                     self.returnFromWorkerThread('SLITS', finalState=resp)
                     return
             self.logger.debug('sleeping with lock active')
             time.sleep(MAX_SLIT_MOVE_TIME)
             self.logger.debug('finished sleeping with lock active')
         if len(uncalibrated) > 0:
-            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME,0))
+            time.sleep(max(DH_TIME-MAX_SLIT_MOVE_TIME, 0))
         with self.connections['shoe'].rlock:
             for i in uncalibrated:
+                if i+1 in self._disabled_tetri:
+                    continue
                 cmd='SL'+'ABCDEFGH'[i]+slits[i]
                 resp=self._do_online_only_command(cmd)
                 if resp !='OK':

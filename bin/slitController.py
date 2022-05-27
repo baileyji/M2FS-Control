@@ -11,14 +11,14 @@ class SlitController(Agent):
     shoes simultaneously. Of the complete set of commands supported by the
     shoes, only the SLITS (while in closed loop mode) command really calls for
     simultaneouse control. The agent does make an effort to ensure the state
-    command ACTIVEHOLD is kept in sync, but is really unimportant (see the 
+    command ACTIVEHOLD is kept in sync, but is really unimportant (see the
     command handler's comments.
-    
+
     This agent's existance driven by the single-user nature of the FLS system.
-    If the FLS imager served up images which any proccess could grab (once 
+    If the FLS imager served up images which any proccess could grab (once
     properly turn on) then this agent could be eliminated. When I created it the
     imager server idea hadn't occured to me.
-    
+
     The R slits are the slits in the shoe in the R cradle. This may be the blue
     shoe.
     """
@@ -46,30 +46,31 @@ class SlitController(Agent):
             'SLITS_MOVESTEPS':self.pass_along_command_handler,
             'SLITS_HARDSTOP':self.pass_along_command_handler,
             'SLITS_SLITPOS':self.pass_along_command_handler,
-            'SLITS_CURRENTPOS':self.pass_along_command_handler})
+            'SLITS_CURRENTPOS':self.pass_along_command_handler,
+            'SLITS_DISABLE': self.pass_along_command_handler})
             #'SLITS_ILLUMPROF':self.not_implemented_command_handler,
             #'SLITS_ILLUMMEAS':self.not_implemented_command_handler,
             #'SLITS_IMAGSET':self.not_implemented_command_handler,
             #'SLITS_PROJSET':self.not_implemented_command_handler})
-    
+
     def get_cli_help_string(self):
         """
         Return a brief help string describing the agent.
-        
+
         Subclasses shuould override this to provide a description for the cli
         parser
         """
         return "This is the slit controller agent"
-    
+
     def get_version_string(self):
         """ Return a string with the version."""
         return SLIT_CONTROLLER_VERSION_STRING
-    
+
     def get_status_list(self):
         """
         Return a list of tuples & strings to be formatted into a status reply
-        
-        Report the Key:Value pairs name:cookie, Closed-loop:status, and the 
+
+        Report the Key:Value pairs name:cookie, Closed-loop:status, and the
         status of the shoe agents.
         """
         #First check Red shoe status
@@ -89,11 +90,11 @@ class SlitController(Agent):
         return [(self.get_version_string(), self.cookie),
                 ('Closed-loop','On' if self.closed_loop else 'Off'),
                 statusR, statusB]
-    
+
     def pass_along_command_handler(self, command):
-        """ 
+        """
         Command handler for commands that just get passed along to the shoes
-        
+
         Extract the cradle/shoe target from the command (R | B).
         Make sure the current mode is suitable to pass them along
         """
@@ -124,20 +125,20 @@ class SlitController(Agent):
                     command.setReply(response)
                 except IOError:
                     command.setReply('ShoeAgentB Offline')
-    
+
     def SLITS_comand_handler(self, command):
         """
         Get/Set the position of the tetris slits by way of the shoe agents
-        
-        M2FS Allows for both open and closed loop control of the slit 
+
+        M2FS Allows for both open and closed loop control of the slit
         mechanisms. Open loop control is relatively simple and is handled by the
         individual shoe agents. Closed loop control requires the use of the FLS
         imager (or the science CCDs) and has not been implemented yet. Since
-        the FLS imager is a single resource and can not be used by both the 
-        agents at the same time (well it could if I wrote some sort of image 
-        server, perhaps I should think about this down the road) I plan on 
-        handling interface with the imager using the slit controller. 
-        
+        the FLS imager is a single resource and can not be used by both the
+        agents at the same time (well it could if I wrote some sort of image
+        server, perhaps I should think about this down the road) I plan on
+        handling interface with the imager using the slit controller.
+
         at the
         implemented by the pass_along_command_handler
         Handle a SLITS command """
@@ -145,11 +146,11 @@ class SlitController(Agent):
             """ Retrieve the slit positions """
             if not self.closed_loop:
                 if 'R' in command.string:
-                    self.connections['ShoeAgentR'].sendMessage('SLITS ?', 
+                    self.connections['ShoeAgentR'].sendMessage('SLITS ?',
                         responseCallback=command.setReply,
                         errorCallback=command.setReply)
                 elif 'B' in command.string:
-                    self.connections['ShoeAgentB'].sendMessage('SLITS ?', 
+                    self.connections['ShoeAgentB'].sendMessage('SLITS ?',
                         responseCallback=command.setReply,
                         errorCallback=command.setReply)
                 else:
@@ -165,7 +166,7 @@ class SlitController(Agent):
             if not self.closed_loop:
                 if 'R' in command.string:
                     shoe_command='SLITS'+command.string.partition('R')[2]
-                    self.connections['ShoeAgentR'].sendMessage(shoe_command, 
+                    self.connections['ShoeAgentR'].sendMessage(shoe_command,
                         responseCallback=command.setReply,
                         errorCallback=command.setReply)
                 elif 'B' in command.string:
@@ -178,11 +179,11 @@ class SlitController(Agent):
             else:
                 """ We are operating closed loop, way more work to do folks"""
                 command.setReply('ERROR: Closed loop control not yet implemented.')
-    
+
     def SLITS_CLOSEDLOOP_command_handler(self, command):
-        """ 
+        """
         Toggle the slit position control mode
-        
+
         The position control mode may only be changed when the slits are not
         moving. No fundamental reason, just it makes my life coding easier.
         We need to establish the state of slit motion on both shoes. A failure
@@ -226,19 +227,19 @@ class SlitController(Agent):
         #Made it this far, nothing is moving (or they are disconnected)
         command.setReply('OK')
         self.closed_loop='ON' in command.string
-    
+
     def SLITS_ACTIVEHOLD_command_handler(self, command):
         """
         This is an engineering/testing command. Once a state is decided on it
         will be hardcoded as the default into the shoes' microcontroller.
-        
-        The function is an example of state synchronization problem with the 
+
+        The function is an example of state synchronization problem with the
         current control architecture. Say we want to set active holding to the
-        non-default state. Now there should never be a situation where the 
+        non-default state. Now there should never be a situation where the
         states of the two shoes differ. If the command arrives while one
-        shoe is disconnected or one of the shoe agents crashes then the state 
+        shoe is disconnected or one of the shoe agents crashes then the state
         needs to be sent/resent to the shoe later. How do we resolve this?
-        
+
         This instance of the issue is of minor importance as the default state
         will be preferred however the general problem with state could surface
         in some other area of the system.
@@ -273,7 +274,7 @@ class SlitController(Agent):
             command.setReply('OK')
             self.connections['ShoeAgentR'].sendMessage(command.string)
             self.connections['ShoeAgentB'].sendMessage(command.string)
-    
+
 
 if __name__=='__main__':
     agent=SlitController()

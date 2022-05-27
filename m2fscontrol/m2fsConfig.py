@@ -453,3 +453,21 @@ class M2FSConfig(object):
         defaults[setting] = value
         # Update the defaults file
         M2FSConfig.setOcculterDefaults(ifu, defaults)
+
+    @staticmethod
+    def getDisabledTetri(side):
+        try:
+            config = M2FSConfig.load_conf('m2fs_tetri{}.conf'.format(side.upper()))
+            return eval(dict(config.items('Defaults'))['disabled'])
+        except Exception:
+            return tuple()
+
+    @staticmethod
+    def setDisabledTetri(side, tetri):
+        config = ConfigParser.RawConfigParser()
+        config.optionxform = str
+        config.add_section('Defaults')
+        with open(M2FSConfig.getConfDir() + 'm2fs_tetri{}.conf'.format(side.upper()), 'w') as configfile:
+            config.set('Defaults', 'disabled', tetri)
+            config.write(configfile)
+            configfile.close()

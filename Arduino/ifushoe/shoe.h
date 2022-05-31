@@ -160,6 +160,7 @@ class ShoeDrive {
     void moveToSlit(uint8_t slit);
     void movePipe(uint16_t pos);
     void moveHeight(uint16_t pos);
+    void downUp();
 
     bool safeToMovePipes();
     bool fibersAreUp();

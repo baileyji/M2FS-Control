@@ -228,9 +228,16 @@ void ShoeDrive::moveToSlit(uint8_t slit) { //kick off a move
   }
 }
 
+void ShoeDrive::downUp() {
+  if (_moveInProgress!=SHOE_IDLE || _cfg.desired_slit>N_SLIT_POS-1) return;
+  _retries=0;
+  _moveInProgress=SLIT_MOVE;  
+}
+
 void ShoeDrive::movePipe(uint16_t pos){
-  // Danger. This does not do any checks.
-  Serial.print(F("#Move pipe to "));Serial.println(pos);
+  // Danger. This does not do any real checks.
+  if (pos>1000) return;
+//  Serial.print(F("#Move pipe to "));Serial.println(pos);
   _moveInProgress=USER_MOVE_pipe;
   _cfg.desired_slit=UNKNOWN_SLIT;
   _movePipe(pos, RC_PULSE_DELAY, true);
@@ -243,8 +250,9 @@ inline void ShoeDrive::_movePipe(uint16_t pos, uint16_t wait, bool detach){
 
 
 void ShoeDrive::moveHeight(uint16_t pos){
-  // Danger. This does not do any checks.
-  Serial.print(F("#Move H to "));Serial.println(pos);
+  // Danger. This does not do any real checks.
+  if (pos>1000) return;
+//  Serial.print(F("#Move H to "));Serial.println(pos);
   _moveInProgress=USER_MOVE_height;
   _cfg.desired_slit=UNKNOWN_SLIT;
   _moveHeight(pos+15, RC_PULSE_DELAY_SHORT, false); //twitch up first
@@ -255,6 +263,7 @@ void ShoeDrive::moveHeight(uint16_t pos){
 inline void ShoeDrive::_moveHeight(uint16_t pos, uint16_t wait, bool detach){
   _move(_height_motor, pos, wait, detach);
 }
+
 
 void ShoeDrive::_move(Servo *axis, uint16_t pos, uint16_t wait, bool detach){
 
@@ -432,6 +441,7 @@ void ShoeDrive::run(){
 
   switch (_moveInProgress) {
 
+
     case RECOVERY_MOVE: // A move didn't go as planned
         /* failure modes:
          *
@@ -444,7 +454,7 @@ void ShoeDrive::run(){
         if (!_retries) { //transition to SHOE_IDLE
           tellStatus();
           Serial.print(F("ERROR: Recovery failed after "));Serial.print((int)MAX_RETRIES);
-          Serial.println(F("tries, idling."));
+          Serial.println(F(" tries, idling."));
           _moveInProgress=SHOE_IDLE;
         } else {
           Serial.print(F("#Start retry "));Serial.println((int)_retries);
@@ -516,7 +526,6 @@ void ShoeDrive::run(){
       }
       break;
 
-
     /*positions
     _cfg.pos filtered analog position
     stat.target position being written via PWM
@@ -528,7 +537,7 @@ void ShoeDrive::run(){
       safe_pipe_height = _clearance_height(_cfg.desired_slit, true);
       Serial.print(F("#Starting move to ")); Serial.print((uint16_t)_cfg.desired_slit+1);
       Serial.print(F(". Lowering, safe height "));Serial.println(safe_pipe_height);
-      Serial.print(F("#Free Mem:"));Serial.println(freeMemory());
+//      Serial.print(F("#Free Mem:"));Serial.println(freeMemory());
       //This first move is a tweak for dealing with LAC pulse width oddities. 20 is tied to the LAC settings (i.e. it needs to be set so that the LAC sees the two as distinct positions)
       _moveHeight(safe_pipe_height+20, RC_PULSE_DELAY_SHORT, false);
       _moveHeight(safe_pipe_height, RC_PULSE_DELAY, false);

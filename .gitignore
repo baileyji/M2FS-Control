@@ -20,3 +20,4 @@ plates/output/*.eps
 .idea
 Arduino/libraries/Arduino_AVRSTL
 Arduino/libraries/ArduinoJson
+m2fscontrol.egg-info

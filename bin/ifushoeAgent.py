@@ -250,6 +250,8 @@ class IFUShoeAgent(Agent):
             'SLITSRAW': self.RAW_command_handler,
             # Get/Set the active slit.
             'SLITS': self.SLITS_command_handler,
+            # downup cycle
+            'SLITS_DOWNUP': self.DOWNUP_command_handler,
             # Get/Set the positions corresponding to a slit
             'SLITS_SLITPOS': self.SLITPOS_command_handler,
             # Get the temperature of the shoe
@@ -446,10 +448,49 @@ class IFUShoeAgent(Agent):
         except IOError as e:
             command.setReply(e)
 
+    def DOWNUP_command_handler(self, command):
+        """
+        Move the assembly down then back up.
+
+        Command is of the form
+        SLITS R|B
+
+        It is an error to set the slits when a move is in progress.
+        If done the error '!ERROR: Can not set slits at this time. will be generated.'
+        """
+        if self._shoe_error is not None:
+            command.setReply(self._shoe_error)
+            self._shoe_error = None
+            return
+        # Vet the command
+        command_parts = command.string.upper().replace(',', ' ').split(' ')
+        if not (len(command_parts) == 2 and command_parts[1] in ('R', 'B')):
+            self.bad_command_handler(command)
+            return
+        _, id = command_parts
+
+        try:
+            status = self._TS()
+            if status['Shoe'+id] != 'connected':
+                command.setReply('ERROR: %s shoe is %s' % (id, status['Shoe'+id]))
+            elif 'MOVING' in status['Slit'+id]:
+                command.setReply('ERROR: Move in progress')
+            else:
+                try:
+                    self._send_command_to_shoe('DU' + id)
+                    resp = 'OK'
+                except ShoeCommandNotAcknowledgedError:
+                    resp = 'ERROR: Shoe rejected command, is a move in progress?'
+                except IOError:
+                    resp = 'ERROR: IFU shoe control tower offline'
+                command.setReply(resp)
+        except IOError as e:
+            command.setReply(e)
+
     def commandIsQuery(self, command):
         """ Return true if the command is a query """
         try:
-            return command.string.strip()[-1]=='?'
+            return command.string.strip()[-1] == '?'
         except IndexError:
             return False
 

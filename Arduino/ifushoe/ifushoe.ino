@@ -147,7 +147,7 @@ typedef struct {
 Instruction instruction;
 
 //Commands
-#define N_COMMANDS 17
+#define N_COMMANDS 18
 typedef struct {
     String name;
     bool (*callback)();
@@ -157,7 +157,6 @@ typedef struct {
 
 
 bool CYcommand();
-bool PCcommand();
 bool PVcommand();
 bool SDcommand();
 bool SGcommand();
@@ -172,7 +171,36 @@ bool TScommand();
 bool ZBcommand();
 bool MVcommand();
 bool IOcommand();
+bool DUcommand();
 
+bool PCcommand() {
+
+    cout<<F("#PC - Print list of commands\n"\
+            "#TS - Tell Status\n"\
+            "#PV - Print Version\n"\
+            "#TE - Report temperatures (B, R, Ctrl)\n"\
+  
+            "#TD[R|B] - Tell smoothed ADC pos\n"\
+            "#SG[R|B] - Get the current slit for shoe\n"\
+            "#ST{R|B} - Stop motion, optionally of shoe\n"\
+
+            "#SL[R|B][1-6] - Move to slit\n"\
+            "#DU[R|B] - Cycle down up"\
+            "#SD[R|B][1-6] - Report defined slit position\n"\
+            "#PS[R|B][1-6]{#} - Set Slit position to the current position. "\
+               "If given, second number is used to specify the position.\n"\
+            "#HS[R|B][U|D][1-6]{#} - Set up/down positon like SS.\n"\
+            "#TO[R|B][P|H][#] - Set TOlerance of axis\n"\
+
+            "#CY# - Cycle shoes through all the slits # times\n"\
+   
+            "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
+            "#IO - Toggle if we idle the motors.\n"\
+            "#OW - Print addresses temp sensors on 1Wire bus\n"\
+            "#ZB - Zero the boot count\n");
+
+    return true;
+}
 Command commands[N_COMMANDS]={
     //name callback offlineok shoespecific
     //Cycle tetri N times through all of the slits
@@ -187,8 +215,8 @@ Command commands[N_COMMANDS]={
     {"SG", SGcommand, false, true},
     //Slit, move to position of slit
     {"SL", SLcommand, false, true},
-    //Slit Set, define position of slit
-    {"SS", SScommand, true, true},
+    //Pipe Set, define position of slit
+    {"PS", SScommand, true, true},
     //Set TOlerance Set, define position of slit
     {"TO", TOcommand, true, true},
     //Height Set, define position of up/down
@@ -209,6 +237,8 @@ Command commands[N_COMMANDS]={
     {"IO", IOcommand, true, false},
     //Report temp sensor addr
     {"OW",OWcommand, true, false},
+    //DownUp command
+    {"DU",DUcommand, false, true},
 };
 
 #pragma mark Serial Event Handler
@@ -849,36 +879,6 @@ bool TEcommand() {
   return true;
 }
 
-
-//Print the commands
-bool PCcommand() {
-
-    cout<<F("#PC - Print list of commands\n"\
-            "#TS - Tell Status\n"\
-            "#PV - Print Version\n"\
-            "#TE - Report temperatures (B, R, Ctrl)\n"\
-  
-            "#TD[R|B] - Tell smoothed ADC pos\n"\
-            "#SG[R|B] - Get the current slit for shoe\n"\
-            "#ST{R|B} - Stop motion, optionally of shoe\n"\
-
-            "#SL[R|B][1-6] - Move to slit\n"\
-            "#SD[R|B][1-6] - Report defined slit position\n"\
-            "#SS[R|B][1-6]{#} - Set Slit position to the current position. "\
-               "If given, second number is used to specify the position.\n"\
-            "#HS[R|B][U|D][1-6]{#} - Set up/down positon like SS.\n"\
-            "#TO[R|B][P|H][#] - Set TOlerance of axis\n"\
-
-            "#CY# - Cycle shoes through all the slits # times\n"\
-   
-            "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
-            "#IO - Toggle if we idle the motors.\n"\
-            "#OW - Print addresses temp sensors on 1Wire bus\n"\
-            "#ZB - Zero the boot count\n");
-
-    return true;
-}
-
 bool CYcommand() {
   stresscycles=0;
   if (instruction.arg_len <1) return false;
@@ -887,6 +887,11 @@ bool CYcommand() {
   return true;
 }
 
+bool DUcommand() {
+  if (instruction.shoe==NO_SHOE) return false;
+  shoes[instruction.shoe]->downUp();
+  return true;
+}
 
 bool MVcommand() {
   //MV R|B H|P #  No spaces

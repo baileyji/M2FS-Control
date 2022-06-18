@@ -5,6 +5,9 @@
 #define PIN_PIPE_SERVO_B 3
 #define PIN_HEIGHT_SERVO_B 2
 
+#define PIN_JRK_TX 5
+#define PIN_JRK_RX 4
+
 #define PIN_PIPE_POT_R A3
 #define PIN_HEIGHT_POT_R A0
 #define PIN_PIPE_POT_B A1

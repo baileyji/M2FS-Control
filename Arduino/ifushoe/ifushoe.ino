@@ -2,23 +2,19 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <EEPROM.h>
-#include <EwmaT.h>
+#include <SoftwareSerial.h>
 #include "fibershoe_pins.h"
 #include "shoe.h"
 #include "MemoryFree.h"
+#include "JrkG2.h"
 
-
-
-// DS time is about ? ms and boot time is about ? ms
-
-//#define DEBUG_ANALOG
 //#define DEBUG_EEPROM
 //#define DEBUG_RUN_TIME  //2.4ms
 //#define DEBUG_COMMAND
 
 #define POWERDOWN_DELAY_US  1000
-#define VERSION_STRING "IFUShoe v1.3"
-#define VERSION 0x04
+#define VERSION_STRING "IFUShoe v2.0"
+#define VERSION 0x05
 
 #define TEMP_UPDATE_INTERVAL_MS 5000  //must be longer than max conversion time
 #define DS18B20_10BIT_MAX_CONVERSION_TIME_MS 188
@@ -52,10 +48,6 @@ uint32_t boottime;
 uint16_t bootcount;
 ArduinoOutStream cout(Serial);
 
-#ifdef DEBUG_ANALOG
-EwmaT<uint64_t> filt0(20,100), filt1(15,100), filt2(1,10), filt3(1,1);  //1/100 = .01 ~average 100 .1 average 10 1 average none
-#endif
-
 //Stress testing
 unsigned long stresscycles=0;
 uint8_t stress_slit=0;
@@ -86,13 +78,13 @@ bool shoeOnline=true; //Always boot in offline mode
  * 0xF700000C19A4CD28 . on a shoe (3 dots, bshoe)
  */
 
-
-
-Servo psr,psb,hsr,hsb;
-ShoeDrive shoeR = ShoeDrive('R', PIN_PIPE_SERVO_R, PIN_PIPE_POT_R, PIN_HEIGHT_SERVO_R, PIN_HEIGHT_POT_R, PIN_DOWNBUTTON_R, 
-                            PIN_MOTORSOFF_R, PIN_MOTORSON_R, &psr,&hsr);
-ShoeDrive shoeB = ShoeDrive('B', PIN_PIPE_SERVO_B, PIN_PIPE_POT_B, PIN_HEIGHT_SERVO_B, PIN_HEIGHT_POT_B, PIN_DOWNBUTTON_B, 
-                            PIN_MOTORSOFF_B, PIN_MOTORSON_B, &psb,&hsb);
+// The Shoe Drive connection and objects
+SoftwareSerial jrkSerial(PIN_JRK_RX, PIN_JRK_TX);
+JrkG2Serial jrk_pipe_r(jrkSerial, 0), jrk_pipe_b(jrkSerial, 1), jrk_height_r(jrkSerial, 2), jerk_height_b(jrkSerial, 3);
+ShoeDrive shoeR = ShoeDrive('R', PIN_PIPE_POT_R, PIN_HEIGHT_POT_R, PIN_MOTORSOFF_R, PIN_MOTORSON_R, 
+                            &jrk_pipe_r, &jrk_height_r);
+ShoeDrive shoeB = ShoeDrive('B', PIN_PIPE_POT_B, PIN_HEIGHT_POT_B, PIN_MOTORSOFF_B, PIN_MOTORSON_B, 
+                            &jrk_pipe_b, &jerk_height_b);                        
 ShoeDrive* shoes[] ={&shoeR, &shoeB};
 
 
@@ -147,7 +139,7 @@ typedef struct {
 Instruction instruction;
 
 //Commands
-#define N_COMMANDS 18
+#define N_COMMANDS 17
 typedef struct {
     String name;
     bool (*callback)();
@@ -170,7 +162,6 @@ bool TEcommand();
 bool TScommand();
 bool ZBcommand();
 bool MVcommand();
-bool IOcommand();
 bool DUcommand();
 
 bool PCcommand() {
@@ -180,22 +171,21 @@ bool PCcommand() {
             "#PV - Print Version\n"\
             "#TE - Report temperatures (B, R, Ctrl)\n"\
   
-            "#TD[R|B] - Tell smoothed ADC pos\n"\
+            "#TD[R|B] - Tell position\n"\
             "#SG[R|B] - Get the current slit for shoe\n"\
             "#ST{R|B} - Stop motion, optionally of shoe\n"\
 
             "#SL[R|B][1-6] - Move to slit\n"\
             "#DU[R|B] - Cycle down up"\
             "#SD[R|B][1-6] - Report defined slit position\n"\
-            "#PS[R|B][1-6]{#} - Set Slit position to the current position. "\
-               "If given, second number is used to specify the position.\n"\
-            "#HS[R|B][U|D][1-6]{#} - Set up/down positon like SS.\n"\
-            "#TO[R|B][P|H][#] - Set TOlerance of axis\n"\
+            "#PS[R|B][1-6]{#} - Set slit pipe to current position or, "\
+               "if given, specified position.\n"\
+            "#HS[R|B][U|D][1-6]{#} - Set up/down positon like PS.\n"\
+            "#TO[R|B][P|H][#] - Set tolerance of axis\n"\
 
             "#CY# - Cycle shoes through all the slits # times\n"\
    
             "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
-            "#IO - Toggle if we idle the motors.\n"\
             "#OW - Print addresses temp sensors on 1Wire bus\n"\
             "#ZB - Zero the boot count\n");
 
@@ -233,8 +223,6 @@ Command commands[N_COMMANDS]={
     {"ZB", ZBcommand, true, false},
     //Directly move an axis on a given shoe 
     {"MV", MVcommand, false, true},
-    //Idle off
-    {"IO", IOcommand, true, false},
     //Report temp sensor addr
     {"OW",OWcommand, true, false},
     //DownUp command
@@ -904,14 +892,5 @@ bool MVcommand() {
   else return false;
 
   cout<<F("#Moving ")<<(uint16_t) instruction.shoe<<F(" axis ")<<instruction.arg_buffer[0]<<F(" to ")<<pos<<endl;
-  return true;
-}
-
-
-bool IOcommand() {
-  //NB state is saved with other settings, not here. but is overridden to the default state restore (so the eeprom value is moot)
-  shoeR.toggleOffWhenIdle();
-  shoeB.toggleOffWhenIdle();
-  cout<<"#"<<shoeR.getOffWhenIdle()<<endl;
   return true;
 }

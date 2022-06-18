@@ -1,8 +1,10 @@
 #ifndef __Shoe_H__
 #define __Shoe_H__
+#include <Arduino.h>
+#include <stdio.h>
+#include "JrkG2.h"
 
 /*
-
 The zero position of the organ pipes (first organ pipe) occurs when post 
 hole axis is 5.65 mm from the front face of the actuator.
 The pipes are 2.5 mm apart, so the positions relative to the front face are:
@@ -24,44 +26,23 @@ Pipes have about 13.55mm travel  ~20um adc count
 Height has about 16.60mm travel  ~20um/adc count
  */
 
-
-#include <Arduino.h>
-#include <Servo.h>
-#include <EwmaT.h>
-#include <stdio.h>
-
-//#define DEBUG_FEEDBACK
-
-
-#define ENABLE_DETACH true
-#define RC_PULSE_DELAY 403  // LAC averages 4 RC pulses in multiples of 20ms (so 80ms min) 
-#define RC_PULSE_DELAY_SHORT 90
-
-
-
 #define E_HEIGHTSTALL   0b000001
 #define E_HEIGHTSTUCK   0b000010
 #define E_PIPESTALL     0b000100
 #define E_HEIGHTMOVEDUP 0b001000
 #define E_RECOVER       0b010000
 #define E_PIPESHIFT     0b100000
-//
-//#define N_HEIGHT_POS 7
+
+
 #define N_UP_POS 6
 #define N_DOWN_POS 6
 #define N_SLIT_POS 6
 
 #define MAX_SHOE_POS 1000
 
-
 #define DOWN_NDX 0
 
-#define DEFAULT_IDLE_DISCONNECTED true
-#define MOTOR_RELAY_HOLD_MS 8  //ds says 4ms max needed
-#define SAMPLE_INTERVAL_MS 2
-#define EWMA_SAMPLES 25 //7
-
-
+#define MOTOR_RELAY_HOLD_MS 6  //DS says 4ms max needed
 
 #define MOVING 0xFE
 #define UNKNOWN_SLIT 0xFF
@@ -75,7 +56,33 @@ Height has about 16.60mm travel  ~20um/adc count
 
 #define MOVING_PIPE_TOL 3
 #define MOVING_HEIGHT_TOL 3
-#define MOVING_TIMEOUT_MS 1250
+#define MOVING_TIMEOUT_MS 250
+
+#define MAX_RETRIES 2
+
+#define SHOE_IDLE 0
+#define USER_MOVE_pipe 2
+#define USER_MOVE_height 1
+
+#define RECOVERY_MOVE 99
+#define RECOVERY_MOVE_pipe 98
+#define RECOVERY_MOVE_raise 97
+#define SLIT_MOVE 10
+#define SLIT_MOVE_lower 9
+#define SLIT_MOVE_pipe 8
+#define SLIT_MOVE_raise 7
+
+#define CHALLENGING_LOWPOS 170
+
+#define STALL_DECREMENT 42
+#define STALL_LIMIT 630000
+
+
+typedef struct stalldata_t {
+  uint32_t lastcall;
+  int32_t total_pipe;
+  int32_t total_height; 
+} stalldata_t;
 
 typedef struct shoepos_t {
   uint16_t height;
@@ -87,17 +94,20 @@ typedef struct shoeerr_t {
   int16_t pipe;
 } shoeerr_t;
 
-
 typedef struct shoemoving_t {
   bool height;
   bool pipe;
 } shoemoving_t;
 
-
 typedef struct shoeheading_t {
   int8_t pipe;
   int8_t height;
 } shoeheading_t;
+
+typedef struct shoetol_t {
+  uint8_t pipe;
+  uint8_t height;
+} shoetol_t;
 
 typedef struct shoecfg_t {
   uint16_t height_pos[N_SLIT_POS];  //in Servo units
@@ -105,9 +115,7 @@ typedef struct shoecfg_t {
   uint16_t pipe_pos[N_SLIT_POS];      // same as height_pos
   uint8_t pipe_tol;  //in Servo units
   uint8_t height_tol;  //in Servo units
-  shoepos_t pos;  //filtered pos in Servo units
   uint8_t desired_slit;
-  bool idle_disconnected;
 } shoecfg_t;
 
 typedef struct shoestatus_t {
@@ -116,16 +124,19 @@ typedef struct shoestatus_t {
   shoeerr_t error;
   shoemoving_t moving;
   shoeheading_t heading;
+  uint8_t desired_slit;
+//  uint32_t last_pipe_movement_ms;
+//  uint32_t last_height_movement_ms;
+//  uint8_t retries_left;
 } shoestatus_t;
-
 
 
 class ShoeDrive {
 
   public:
-    ShoeDrive(char shoe_name, uint8_t pipe_servo_pin, uint8_t pipe_pot_pin, uint8_t height_servo_pin, uint8_t height_pot_pin, uint8_t height_sensor_pin,
-              uint8_t motorsoff_pin, uint8_t motorson_pin, Servo *p, Servo *h);
-    ~ShoeDrive();
+    ShoeDrive(char shoe_name, uint8_t pipe_pot_pin, uint8_t height_pot_pin,
+              uint8_t motorsoff_pin, uint8_t motorson_pin, JrkG2Serial *p, JrkG2Serial *h);
+//    ~ShoeDrive();
 
     void init();
     void stop();
@@ -136,8 +147,6 @@ class ShoeDrive {
     shoepos_t getFilteredPosition();  //From feedback
     shoepos_t getLivePosition(); //reads ADCs
     shoepos_t getCommandedPosition(); //from servo
-    bool getOffWhenIdle();
-    void toggleOffWhenIdle();
 
     void tellStatus();
     
@@ -175,40 +184,41 @@ class ShoeDrive {
 
   private:
     char _shoe_name;
-    uint8_t _retries;
-    bool _detachHeight(uint16_t height); //return true if detach enabled at the passed height
-    uint16_t safe_pipe_height;  //This changes depending on the move
-    uint16_t _clearance_height(uint8_t slit, bool tell=false);
-    void _wait(uint32_t time_ms);
-    void _updateFeedbackPos();
-    shoestatus_t _status();
-    uint8_t _currentPipeIndex();
-//    uint8_t _currentHeightIndex();
-    inline void _movePipe(uint16_t pos, uint16_t wait, bool detach);
-    inline void _moveHeight(uint16_t pos, uint16_t wait, bool detach);
-    void _move(Servo *axis, uint16_t pos, uint16_t wait, bool detach);
-    shoeheading_t _heading;
     uint8_t _sensor_pin;
-    uint8_t _pipe_pin;
     uint8_t _pipe_pot_pin;
-    uint8_t _height_pin;
     uint8_t _height_pot_pin;
     uint8_t _motorsoff_pin;
     uint8_t _motorson_pin;
+
     shoecfg_t _cfg;
+
+    void _protectStall();
+    bool _detachHeight(uint16_t height); //return true if detach enabled at the passed height
+    uint16_t _clearance_height(uint8_t slit, bool tell=false);
+    void _updateFeedbackPos();
+    shoestatus_t _status();
+    uint8_t _currentPipeIndex();
+    inline void _movePipe(uint16_t pos);
+    inline void _moveHeight(uint16_t pos);
+    void _move(JrkG2Serial *axis, uint16_t pos);
+    bool _jrk_wants_to_move(JrkG2Serial *axis);
+
+    uint16_t _safe_pipe_height;  //This changes depending on the move
+    uint8_t _retries;
+    shoeheading_t _heading;
     shoepos_t _feedback_pos;
     shoepos_t _movepos; //for detecting movement
     uint32_t _timeLastPipeMovement;
     uint32_t _timeLastHeightMovement;
-    uint32_t _samplet;
-    //0 idle, 1 pipe, 2 height, 7 up move commanded, 8 pipe move commanded, 9 down move commanded ,10 starting move
-    uint8_t _moveInProgress;  
-    Servo *_pipe_motor;
-    Servo *_height_motor;
-    EwmaT<uint64_t> _pipe_filter; //in adc units
-    EwmaT<uint64_t> _height_filter;  // in adc units
     bool _height_moving;
     bool _pipe_moving;
+//    shoestatus_t _status;
+    stalldata_t _stallmon;
+    
+    uint32_t _samplet;
 
+    uint8_t _moveInProgress;       //0 idle, 1 pipe, 2 height, 7 up move commanded, 8 pipe move commanded, 9 down move commanded ,10 starting move
+    JrkG2Serial *_pipe_motor;
+    JrkG2Serial *_height_motor;
 };
 #endif

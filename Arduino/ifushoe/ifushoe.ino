@@ -31,6 +31,8 @@
 
 #pragma mark Globals
 bool booted=false;
+uint32_t boottime;
+uint16_t bootcount;
 
 typedef struct eeprom_shoe_data_t {
   shoecfg_t cfgR;
@@ -44,8 +46,6 @@ typedef struct eeprom_version_t {
 } eeprom_version_t; 
 
 
-uint32_t boottime;
-uint16_t bootcount;
 ArduinoOutStream cout(Serial);
 
 //Stress testing
@@ -275,7 +275,6 @@ void setup() {
     //Set up R vs. B side detection
     pinMode(PIN_SHOESENSE_R, INPUT);
     pinMode(PIN_SHOESENSE_B, INPUT);
-    
     digitalWrite(PIN_SHOESENSE_B, HIGH);
     digitalWrite(PIN_SHOESENSE_R, LOW);
 
@@ -299,7 +298,6 @@ void setup() {
 //Main loop, runs forever at full steam ahead
 void loop() {
 
-
     monitorTemperature();
 
     //If the command received flag is set
@@ -317,28 +315,23 @@ void loop() {
             Command *cmd=&commands[instruction.ndx];
 
             #ifdef DEBUG_COMMAND
-                cout<<"ShoeR "<<(shoeRConnected() ? "ON":"OFF")<<endl;
-                cout<<"ShoeB "<<(shoeBConnected() ? "ON":"OFF")<<endl;
-                cout<<"Command is ";Serial.println(cmd->name);
-
-
-            if(instruction.shoe==NO_SHOE) cout<<"Nshoe\n";
-            if(instruction.shoe==RED_SHOE) cout<<"Rshoe\n";
-            if(instruction.shoe==BLUE_SHOE) cout<<"Bshoe\n";
+              cout<<"ShoeR "<<(shoeRConnected() ? "ON":"OFF")<<endl;
+              cout<<"ShoeB "<<(shoeBConnected() ? "ON":"OFF")<<endl;
+              cout<<"Command is ";Serial.println(cmd->name);
+              if(instruction.shoe==NO_SHOE) cout<<"Nshoe\n";
+              if(instruction.shoe==RED_SHOE) cout<<"Rshoe\n";
+              if(instruction.shoe==BLUE_SHOE) cout<<"Bshoe\n";
             #endif
 
             //NB the formatting here affects python control
             if (shoeWiresCrossed()&& cmd->shoeSpecific) {
                 cout<<F("ERROR: R&B Swapped\n");
-                commandGood=false;
             } else if (instruction.shoe==NO_SHOE && cmd->shoeSpecific){
-                commandGood=false;
+                cout<<F("ERROR: Shoe?\n");
             } else if (instruction.shoe==RED_SHOE && !cmd->allowOffline && !shoeRConnected()) {
                 cout<<F("ERROR: R Unplugged\n");
-                commandGood=false;
             } else if (instruction.shoe==BLUE_SHOE && !cmd->allowOffline && !shoeBConnected()) {
                 cout<<F("ERROR: B Unplugged\n");
-                commandGood=false;
             } else {
                 commandGood=cmd->callback();  //Execute the command 
             }
@@ -374,19 +367,6 @@ void shoeOnlineMain() {
         }
     }
 
-
-    #ifdef DEBUG_ANALOG
-      //RpipeR filt0 fil1 filt2 filt3 filt4
-        uint16_t x[4];
-        x[0]=analogRead(PIN_PIPE_POT_R);
-        x[1]=analogRead(PIN_HEIGHT_POT_R);
-        x[2]=analogRead(PIN_PIPE_POT_B);
-        x[3]=analogRead(PIN_HEIGHT_POT_B);
-        cout<<"R,"<<x[0]<<","<<(uint32_t)filt0.filter(x[0])<<","<<(uint32_t)filt1.filter(x[0])<<",";
-        cout<<(uint32_t)filt2.filter(x[0])<<","<<(uint32_t)filt3.filter(x[0])<<endl;
-//        cout<<"B: p="<<(uint32_t)filt2.filter(x[2])<<"("<<x[2]<<") h="<<(uint32_t)filt3.filter(x[3])<<"("<<x[3]<<")\n";
-    #endif
-    
     //Call run on each shoe
     #ifdef DEBUG_RUN_TIME
         uint32_t t=micros();
@@ -400,7 +380,6 @@ void shoeOnlineMain() {
         //if((t1-t)>80) 
         cout<<"Run at "<<micros()<<" took "<<t1-t<<" us.\n";
     #endif    
-
 
 }
 
@@ -473,7 +452,6 @@ bool loadSlitPositionsFromEEPROM() {
         for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.cfgB.pipe_pos[i]<<" ";
         cout<<" H=";
         for (uint8_t i=0;i<N_HEIGHT_POS;i++) cout<<data.cfgB.height_pos[i]<<" ";
-        cout<<" Pos="<<data.posB.pipe<<", "<<data.posB.height<<endl;
     #endif
 
     return ret;
@@ -491,8 +469,6 @@ void saveSlitPositionsToEEPROM() {
     //Fetch the defined slit positions
     shoeB.getState(data.cfgB);    
     shoeR.getState(data.cfgR);
-    data.posR = shoeR.getCommandedPosition();
-    data.posB = shoeB.getCommandedPosition();
 
     //Store them with their CRC16
     EEPROM.put(EEPROM_SLIT_POSITIONS_ADDR, data);
@@ -509,7 +485,6 @@ void saveSlitPositionsToEEPROM() {
         for (uint8_t i=0;i<N_SLIT_POS;i++) cout<<data.cfgB.pipe_pos[i]<<" ";
         cout<<" H=";
         for (uint8_t i=0;i<N_HEIGHT_POS;i++) cout<<data.cfgB.height_pos[i]<<" ";
-        cout<<" Pos="<<data.posB.pipe<<", "<<data.posB.height<<endl;
     #endif
 }
 
@@ -822,10 +797,6 @@ bool TOcommand() {
   return true;
 
 }
-
-
-
-
 
 //HS[R|B][U|D]{#######}\0  without the last number the height uses the current position
 bool HScommand() {

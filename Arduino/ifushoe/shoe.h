@@ -122,9 +122,11 @@ typedef struct shoestatus_t {
   shoepos_t pos;
   shoepos_t target;
   shoeerr_t error;
+  shoeerr_t slerror; //distance from desired slit setpoint
   shoemoving_t moving;
   shoeheading_t heading;
   uint8_t desired_slit;
+  
 //  uint32_t last_pipe_movement_ms;
 //  uint32_t last_height_movement_ms;
 //  uint8_t retries_left;
@@ -136,7 +138,6 @@ class ShoeDrive {
   public:
     ShoeDrive(char shoe_name, uint8_t pipe_pot_pin, uint8_t height_pot_pin,
               uint8_t motorsoff_pin, uint8_t motorson_pin, JrkG2Serial *p, JrkG2Serial *h);
-//    ~ShoeDrive();
 
     void init();
     void stop();
@@ -145,7 +146,6 @@ class ShoeDrive {
 
     void tellCurrentPosition();
     shoepos_t getFilteredPosition();  //From feedback
-    shoepos_t getLivePosition(); //reads ADCs
     shoepos_t getCommandedPosition(); //from servo
 
     void tellStatus();
@@ -154,8 +154,6 @@ class ShoeDrive {
     uint8_t getCurrentSlit(); //0-5 or 0xFF = INTERMEDIATE, 0xFE = MOVING
     uint16_t getSlitPosition(uint8_t slit);
     uint16_t getHeightPosition(uint8_t height);
-    int16_t getPipeError();
-    int16_t getHeightError();
     
     bool moveInProgress();  //true if a move from one slit to another is in progress
     bool pipeMoving();  //indicates literal movement

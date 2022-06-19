@@ -48,9 +48,6 @@ void ShoeDrive::init() {
   }
 }
 
-//ShoeDrive::~ShoeDrive() {
-//}
-
 void ShoeDrive::defineTol(char axis, uint8_t tol) {
   if (axis=='H' && tol<=MAX_HEIGHT_TOL) _cfg.height_tol=tol;
   else if (axis=='P' && tol<=MAX_PIPE_TOL) _cfg.pipe_tol=tol;
@@ -97,7 +94,7 @@ void ShoeDrive::tellCurrentPosition() {
 }
 
 bool ShoeDrive::moveInProgress() {
-  return _moveInProgress>0;
+  return _moveInProgress!=SHOE_IDLE;
 }
 
 void ShoeDrive::defineSlitPosition(uint8_t slit, uint16_t pos){
@@ -140,18 +137,6 @@ void ShoeDrive::restoreState(shoecfg_t data) {
 
 bool ShoeDrive::idle() {
   return _moveInProgress==SHOE_IDLE;
-}
-
-int16_t ShoeDrive::getPipeError() {
-  //not meaningful if commanded position isn't via a slit
-  //todo we can fix this now with the jrk
-  return (int)_feedback_pos.pipe - (int)_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)];
-}
-
-int16_t ShoeDrive::getHeightError() {
-  //not meaningful if commanded position isn't via a slit
-  //todo we can fix this now with the jrk
-  return (int)_feedback_pos.height - (int)_cfg.height_pos[min(_cfg.desired_slit, N_SLIT_POS-1)];
 }
 
 uint8_t ShoeDrive::_currentPipeIndex() {
@@ -201,6 +186,8 @@ shoestatus_t ShoeDrive::_status() {
   x.moving.height=heightMoving();
   x.moving.pipe=pipeMoving();
   x.heading=_heading;
+  x.slerror.pipe=(int)_feedback_pos.pipe - (int)_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)];
+  x.slerror.height=(int)_feedback_pos.height - (int)_cfg.height_pos[min(_cfg.desired_slit, N_SLIT_POS-1)];
   return x;
 }
 
@@ -256,13 +243,6 @@ uint16_t ShoeDrive::_clearance_height(uint8_t slit, bool tell=false) {
 
 #pragma mark
 //Motor commands
-
-shoepos_t ShoeDrive::getLivePosition() {
-  shoepos_t pos;
-  pos.pipe=_pipe_motor->getFeedback();
-  pos.height=_height_motor->getFeedback();
-  return pos;
-}
 
 void ShoeDrive::setMotorPower(bool enable) {
   if (enable == motorsPowered)
@@ -374,6 +354,8 @@ void ShoeDrive::_protectStall(){
 
 void ShoeDrive::run(){
 
+  shoestatus_t stat;
+  
   // Monitor position
   _updateFeedbackPos();
 
@@ -381,7 +363,9 @@ void ShoeDrive::run(){
   _protectStall();
   
   // Build status struct
-  shoestatus_t stat = _status();
+  stat = _status();
+
+  if (_cfg.desired_slit==UNKNOWN_SLIT) _moveInProgress=SHOE_IDLE;
 
   //Execute move: lower, wait, move pipes, wait, raise, wait, done
   switch (_moveInProgress) {
@@ -477,18 +461,20 @@ void ShoeDrive::run(){
       _moveHeight(_safe_pipe_height);
       _moveInProgress=SLIT_MOVE_lower;
       break;
+      
     case SLIT_MOVE_lower:  //lowering in process
       if (safeToMovePipes()) { //transition to SLIT_MOVE_pipes
         errors=0;
         Serial.print(F("#Down ("));Serial.print(stat.error.height);Serial.println(F("), moving pipe."));
-        _movePipe(_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)]);
+        _movePipe(_cfg.pipe_pos[_cfg.desired_slit]);
         _moveInProgress=SLIT_MOVE_pipe;
-      } else if (!stat.moving.height){ //transition to RECOVERY_MOVE we are stalled breaks if stall timeout is too short to detect real movement
+      } else if (errors || !stat.moving.height){ //transition to RECOVERY_MOVE we are stalled breaks if stall timeout is too short to detect real movement
         Serial.print(F("#WARN: Height not down ")); Serial.println(stat.error.height);
         errors|=E_HEIGHTSTALL;
         _moveInProgress=RECOVERY_MOVE;
       }
       break;
+      
     case SLIT_MOVE_pipe: // moving pipes into position
       if (stat.moving.pipe) {
         _safe_pipe_height = _clearance_height(_cfg.desired_slit);
@@ -501,7 +487,7 @@ void ShoeDrive::run(){
       } else if (_currentPipeIndex() == _cfg.desired_slit) { // transition to SLIT_MOVE_raise
           errors=0;
           Serial.print(F("#Pipe done ("));Serial.print(stat.error.pipe);Serial.println(F("), raising."));
-          _moveHeight(_cfg.height_pos[min(_cfg.desired_slit, N_SLIT_POS-1)]);
+          _moveHeight(_cfg.height_pos[_cfg.desired_slit]);
           _moveInProgress=SLIT_MOVE_raise;
       } else  { //transition to RECOVERY_MOVE
         Serial.print(F("#WARN: Pipe error too large: "));Serial.println(stat.error.pipe);
@@ -622,35 +608,27 @@ void ShoeDrive::_updateFeedbackPos() {  //~500us
 
 void ShoeDrive::tellStatus() {
 
-  shoepos_t pos, cpos;
+  shoestatus_t stat;
   _updateFeedbackPos();
+  stat=_status();
 
   Serial.print(F("==="));Serial.print(_shoe_name);
   Serial.println(F(" Shoe Status===\n (pipe, height)"));
   Serial.print(" ADC: ");
-    Serial.println(analogRead(_pipe_pot_pin));
-    Serial.print(", ");
-    Serial.println(analogRead(_height_pot_pin));
+    Serial.println(analogRead(_pipe_pot_pin));Serial.print(", ");Serial.println(analogRead(_height_pot_pin));
 
+  Serial.print(F(" Servo: "));Serial.print(stat.target.pipe);Serial.print(F(", "));Serial.println(stat.target.height);
+  Serial.print(F(" Pos: "));Serial.print(stat.pos.pipe);Serial.print(F(", "));Serial.println(stat.pos.height);
+  Serial.print(F(" Err: ")); Serial.print(stat.error.pipe);Serial.print(F(", "));Serial.println(stat.error.height);
 
-  cpos=getCommandedPosition();
-  Serial.print(F(" Servo: "));Serial.print(cpos.pipe);Serial.print(F(", "));Serial.println(cpos.height);
-  pos=getLivePosition();
-  Serial.print(F(" Pos (live): "));
-    Serial.print(_feedback_pos.pipe);Serial.print(" ("); Serial.print(pos.pipe);Serial.print(F("), "));
-    Serial.print(_feedback_pos.height);Serial.print(" (");Serial.print(pos.height);Serial.print(")\n");
-  Serial.print(F(" Err: ")); Serial.print((int) _feedback_pos.pipe - (int)cpos.pipe);Serial.print(F(", "));Serial.println((int) _feedback_pos.height - (int) cpos.height);
-
-  Serial.print(F(" Moving: "));Serial.print(pipeMoving());Serial.print(F(", "));Serial.println(heightMoving());
+  Serial.print(F(" Moving: "));Serial.print(stat.moving.pipe);Serial.print(F(", "));Serial.println(stat.moving.height);
   Serial.print(F("  ms since move: "));
     Serial.print(millis()-_timeLastPipeMovement);Serial.print(F(", "));
     Serial.println(millis()-_timeLastHeightMovement);
-  Serial.print(F(" SL: "));Serial.println((int)_cfg.desired_slit+1);
-  Serial.print(F("  SL Delta: ")); Serial.print(getPipeError());Serial.print(F(", "));Serial.println(getHeightError());
+  Serial.print(F("  SL Delta: ")); Serial.print(stat.slerror.pipe);Serial.print(F(", "));Serial.println(stat.slerror.height);
   Serial.print(F(" Toler: ")); Serial.print(_cfg.pipe_tol);Serial.print(F(", "));Serial.println(_cfg.height_tol);
 
-
-  Serial.print(F("Desired Slit: ")); Serial.println((uint16_t) _cfg.desired_slit+1);
+  Serial.print(F("Desired Slit: ")); Serial.println(((int) stat.desired_slit)+1);
   Serial.print(F("Detected Slit: "));tellCurrentSlit();Serial.println();
 
   Serial.print(F("Errors: "));Serial.print(errors, BIN);
@@ -664,7 +642,7 @@ void ShoeDrive::tellStatus() {
       Serial.print(" ");
       Serial.print(_cfg.height_pos[i]);
     }
-    Serial.print(F("\n Down: "));
+  Serial.print(F("\n Down: "));
     for(uint8_t i=0;i<N_SLIT_POS;i++) {
       Serial.print(" ");
       Serial.print(_cfg.down_pos[i]);
@@ -674,8 +652,8 @@ void ShoeDrive::tellStatus() {
       Serial.print(" ");
       Serial.print(_cfg.pipe_pos[i]);
     }
-    Serial.print(F("\nFree Mem:"));Serial.print(freeMemory());
-    Serial.println(F("\n==================="));
+  Serial.print(F("\nFree Mem:"));Serial.print(freeMemory());
+  Serial.println(F("\n==================="));
 
 
 }

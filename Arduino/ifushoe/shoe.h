@@ -137,7 +137,7 @@ class ShoeDrive {
 
   public:
     ShoeDrive(char shoe_name, uint8_t pipe_pot_pin, uint8_t height_pot_pin,
-              uint8_t motorsoff_pin, uint8_t motorson_pin, JrkG2Serial *p, JrkG2Serial *h);
+              uint8_t motorsoff_pin, uint8_t motorson_pin, JrkG2I2C *p, JrkG2I2C *h);
 
     void init();
     void stop();
@@ -198,8 +198,9 @@ class ShoeDrive {
     uint8_t _currentPipeIndex();
     inline void _movePipe(uint16_t pos);
     inline void _moveHeight(uint16_t pos);
-    void _move(JrkG2Serial *axis, uint16_t pos);
-    bool _jrk_wants_to_move(JrkG2Serial *axis);
+    void _move(JrkG2I2C *axis, uint16_t pos);
+    bool _jrk_wants_to_move(JrkG2I2C *axis);
+    bool _jrk_stopped(JrkG2I2C *axis);
 
     uint16_t _safe_pipe_height;  //This changes depending on the move
     uint8_t _retries;
@@ -216,7 +217,7 @@ class ShoeDrive {
     uint32_t _samplet;
 
     uint8_t _moveInProgress;       //0 idle, 1 pipe, 2 height, 7 up move commanded, 8 pipe move commanded, 9 down move commanded ,10 starting move
-    JrkG2Serial *_pipe_motor;
-    JrkG2Serial *_height_motor;
+    JrkG2I2C *_pipe_motor;
+    JrkG2I2C *_height_motor;
 };
 #endif

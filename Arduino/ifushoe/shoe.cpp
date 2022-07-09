@@ -2,7 +2,7 @@
 #include "MemoryFree.h"
 
 ShoeDrive::ShoeDrive(char shoe_name, uint8_t pipe_pot_pin, uint8_t height_pot_pin,
-                     uint8_t motorsoff_pin, uint8_t motorson_pin, JrkG2Serial *p, JrkG2Serial *h)
+                     uint8_t motorsoff_pin, uint8_t motorson_pin, JrkG2I2C *p, JrkG2I2C *h)
                      : _shoe_name(shoe_name)
                      , _pipe_pot_pin(pipe_pot_pin)
                      , _height_pot_pin(height_pot_pin)
@@ -36,6 +36,8 @@ void ShoeDrive::init() {
   _retries=MAX_RETRIES;
   _heading.pipe=1;
   _heading.height=1;
+  _movepos.pipe=
+  _movepos.height=
 
   _cfg.pipe_tol = DEFAULT_TOL;
   _cfg.height_tol = DEFAULT_TOL;
@@ -169,11 +171,11 @@ bool ShoeDrive::fibersAreUp() {
 
 
 bool ShoeDrive::safeToMovePipes() {
-  shoepos_t cur = getFilteredPosition();
   shoepos_t cmd = getCommandedPosition();
-
+//  Serial.print("Cmd: ");Serial.print(cmd.height); Serial.print(" FB: ");Serial.print(_feedback_pos.height);
+//  Serial.print(" Safe");Serial.println(_safe_pipe_height);
   return (cmd.height<=_safe_pipe_height && // commanded to a low enough point
-          cur.height<=_safe_pipe_height); // Clear of the pipes
+          _feedback_pos.height<=(_safe_pipe_height+_cfg.height_tol)); // Clear of the pipes
 
 }
 
@@ -248,8 +250,7 @@ void ShoeDrive::setMotorPower(bool enable) {
   if (enable == motorsPowered)
     return;
   if (!enable) {
-    _pipe_motor->stopMotor();
-    _height_motor->stopMotor();
+    stop();
   } else {
     digitalWrite(_motorson_pin, LOW);
     delay(MOTOR_RELAY_HOLD_MS);
@@ -258,18 +259,7 @@ void ShoeDrive::setMotorPower(bool enable) {
   motorsPowered=enable;
 }
 
-void ShoeDrive::stop() {
-  _height_motor->stopMotor();
-  _pipe_motor->stopMotor();
-  _moveInProgress=SHOE_IDLE;
-}
 
-shoepos_t ShoeDrive::getCommandedPosition() {
-  shoepos_t pos;
-  pos.pipe=_pipe_motor->getTarget();
-  pos.height=_height_motor->getTarget();
-  return pos;
-}
 
 bool ShoeDrive::pipeMoving() { //indicates literal movement
   return millis()-_timeLastPipeMovement < MOVING_TIMEOUT_MS;
@@ -303,12 +293,26 @@ inline void ShoeDrive::_moveHeight(uint16_t pos){
   _move(_height_motor, pos);
 }
 
-void ShoeDrive::_move(JrkG2Serial *axis, uint16_t pos){
+
+void ShoeDrive::stop() {
+  _height_motor->stopMotor();
+  _pipe_motor->stopMotor();
+  _moveInProgress=SHOE_IDLE;
+}
+
+shoepos_t ShoeDrive::getCommandedPosition() {
+  shoepos_t pos;
+  pos.pipe=_pipe_motor->getTarget()/4;
+  pos.height=_height_motor->getTarget()/4;
+  return pos;
+}
+
+void ShoeDrive::_move(JrkG2I2C *axis, uint16_t pos){
   // Danger. This does not do any checks.
   int8_t heading=0;
   uint16_t last;
 
-  last=axis->getTarget();
+  last=axis->getTarget()/4;
   if (pos < last) heading = -1;
   else if (pos > last) heading = 1;
 
@@ -321,35 +325,129 @@ void ShoeDrive::_move(JrkG2Serial *axis, uint16_t pos){
   }
 
   setMotorPower(true);
-  axis->setTarget(pos);
+  axis->setTarget(pos*4);
+}
+
+bool ShoeDrive::_jrk_wants_to_move(JrkG2I2C *axis) {
+  int16_t dctarget, dc;
+  dctarget=axis->getDutyCycleTarget();
+  dc=axis->getDutyCycle();
+  return (dc!=0 || dctarget!=0) && !_jrk_stopped(axis);
+  //NB when (axis->getErrorFlagsOccurred()&JRK_HALTING_ERRORS)!=0 the motor may be halted even though dctarget==0
+}
+
+bool ShoeDrive::_jrk_stopped(JrkG2I2C *axis) {
+  uint8_t buf[2];
+  uint16_t e;
+  axis->getVariables(0x12, 2, buf);
+  e=buf[0];
+  e|=((uint16_t)buf[1])<<16;
+  return (e & (1 << (uint8_t)JrkG2Error::AwaitingCommand));
 }
 
 
 void ShoeDrive::_protectStall(){
   //Stops motor after DC (I*t) exceeds 210mA*3s, decays by .042A/s, increments by current*dt
 
-  //TODO
   uint32_t ms = millis();
   int32_t interval=ms-_stallmon.lastcall;
   _stallmon.lastcall=ms;
 
-  _stallmon.total_pipe += (_pipe_motor->getCurrent()-STALL_DECREMENT)*interval;
+  _stallmon.total_pipe += (((int32_t)_pipe_motor->getCurrent())-STALL_DECREMENT)*interval;
   _stallmon.total_pipe = _stallmon.total_pipe<0 ? 0:_stallmon.total_pipe;
   if (_stallmon.total_pipe>STALL_LIMIT) {
+    Serial.print(F("#Stallmon: current="));Serial.print(_pipe_motor->getCurrent());
+    Serial.print(F(" total="));Serial.println(_stallmon.total_pipe);
     //stall and need to stop
     errors|=E_PIPESTALL;
+    _stallmon.total_pipe=0;
     stop();
-    Serial.print(F("ERROR: Pipe motor stalled out, idling."));
+    Serial.println(F("ERROR: Pipe motor stalled out, idling."));
   }
  
-  _stallmon.total_height += (_height_motor->getCurrent()-STALL_DECREMENT)*interval;
+  _stallmon.total_height += (((int32_t)_height_motor->getCurrent())-STALL_DECREMENT)*interval;
   _stallmon.total_height = _stallmon.total_height<0 ? 0:_stallmon.total_height;
   if (_stallmon.total_height>STALL_LIMIT) {
     //stall and need to stop
     errors|=E_HEIGHTSTALL;
+    _stallmon.total_height=0;
     stop();
-    Serial.print(F("ERROR: Height motor stalled out, idling."));
+    Serial.println(F("ERROR: Height motor stalled out, idling."));
   }
+}
+
+
+void ShoeDrive::_updateFeedbackPos() { 
+
+  shoepos_t pos;
+  int adu;
+  float tmp;
+  uint32_t t = micros();
+  uint32_t t_ms=millis();
+  // returns number between 0-4092 that is averaged from configured number of 10bit ADC readings
+  pos.pipe=_pipe_motor->getScaledFeedback()/4; 
+  pos.height=_height_motor->getScaledFeedback()/4;
+
+  _feedback_pos=pos;
+  int deltah=(int)pos.height-(int)_movepos.height;
+  int deltap=(int)pos.pipe-(int)_movepos.pipe;
+
+  if (abs(deltap) > MOVING_PIPE_TOL ) {  //movement measured
+    if (!_pipe_moving) {
+      Serial.print(F("## "));
+      Serial.print(_shoe_name);
+      Serial.print(F(" Pipe move: "));
+      Serial.println(deltap);
+    }
+    _pipe_moving=true;
+    _movepos.pipe=pos.pipe;
+    _timeLastPipeMovement=t_ms;
+  } else if (_jrk_wants_to_move(_pipe_motor)) { //jrk is trying to move things
+    if (!_pipe_moving) {
+      Serial.print(F("## "));
+      Serial.print(_shoe_name);
+      Serial.println(F(" Pipe move wanted"));
+    }
+    _pipe_moving=true;
+    _movepos.pipe=pos.pipe;
+    _timeLastPipeMovement=t_ms;
+  } else if (t_ms-_timeLastPipeMovement > MOVING_TIMEOUT_MS) { // there has not been recent movement
+    if (_pipe_moving) {
+      Serial.print(F("## "));
+      Serial.print(_shoe_name);
+      Serial.println(F(" Pipe stop"));
+    }
+    _pipe_moving=false;
+  }
+
+  if (abs(deltah) > MOVING_HEIGHT_TOL ) {  //movement measured
+    if (!_height_moving) {
+      Serial.print(F("## "));
+      Serial.print(_shoe_name);
+      Serial.print(F(" Height move: "));
+      Serial.println(deltah);
+    }
+    _height_moving=true;
+    _movepos.height=pos.height;
+    _timeLastHeightMovement=t_ms;
+  } else if (_jrk_wants_to_move(_height_motor)) { //jrk is trying to move things
+    if (!_height_moving) {
+      Serial.print(F("## "));
+      Serial.print(_shoe_name);
+      Serial.println(F(" Height move wanted"));
+    }
+    _height_moving=true;
+    _movepos.height=pos.height;
+    _timeLastHeightMovement=t_ms;
+  } else if (t_ms-_timeLastHeightMovement > MOVING_TIMEOUT_MS) { // there has not been recent movement
+    if (_height_moving) {
+      Serial.print(F("## "));
+      Serial.print(_shoe_name);
+      Serial.println(F(" Height stop"));
+    }
+    _height_moving=false;
+  }
+   
 }
 
 void ShoeDrive::run(){
@@ -528,83 +626,6 @@ void ShoeDrive::run(){
 
 }
 
-bool ShoeDrive::_jrk_wants_to_move(JrkG2Serial *axis) {
-  int16_t dctarget, dc;
-  dctarget=axis->getDutyCycleTarget();
-  dc=axis->getDutyCycle();
-
-  return dc!=0 || dctarget!=0;
-  //NB when (axis->getErrorFlagsOccurred()&JRK_HALTING_ERRORS)!=0 the motor may be halted even though dctarget==0
-}
-
-void ShoeDrive::_updateFeedbackPos() {  //~500us
-
-  shoepos_t pos;
-  int adu;
-  float tmp;
-  uint32_t t = micros();
-  uint32_t t_ms=millis();
-  // returns number between 0-4092 that is averaged from configured number of 10bit ADC readings
-  pos.pipe=_pipe_motor->getFeedback(); 
-  pos.height=_height_motor->getFeedback();
-
-  _feedback_pos=pos;
-
-  if (abs(pos.pipe-_movepos.pipe) > MOVING_PIPE_TOL ) {  //movement measured
-    if (!_pipe_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.println(F(" Pipe move"));
-    }
-    _pipe_moving=true;
-    _movepos.pipe=pos.pipe;
-    _timeLastPipeMovement=t_ms;
-  } else if (_jrk_wants_to_move(_pipe_motor)) { //jrk is trying to move things
-    if (!_pipe_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.println(F(" Pipe move wanted"));
-    }
-    _pipe_moving=true;
-    _movepos.pipe=pos.pipe;
-    _timeLastPipeMovement=t_ms;
-  } else if (t_ms-_timeLastPipeMovement > MOVING_TIMEOUT_MS) { // there has not been recent movement
-    if (_pipe_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.println(F(" Pipe stop"));
-    }
-    _pipe_moving=false;
-  }
-
-  if (abs(pos.height-_movepos.height) > MOVING_HEIGHT_TOL ) {  //movement measured
-    if (!_height_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.println(F(" Height move"));
-    }
-    _height_moving=true;
-    _movepos.height=pos.height;
-    _timeLastHeightMovement=t_ms;
-  } else if (_jrk_wants_to_move(_height_motor)) { //jrk is trying to move things
-    if (!_height_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.println(F(" Height move wanted"));
-    }
-    _height_moving=true;
-    _movepos.height=pos.height;
-    _timeLastHeightMovement=t_ms;
-  } else if (t_ms-_timeLastHeightMovement > MOVING_TIMEOUT_MS) { // there has not been recent movement
-    if (_height_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.println(F(" Height stop"));
-    }
-    _height_moving=false;
-  }
-   
-}
 
 void ShoeDrive::tellStatus() {
 
@@ -615,7 +636,7 @@ void ShoeDrive::tellStatus() {
   Serial.print(F("==="));Serial.print(_shoe_name);
   Serial.println(F(" Shoe Status===\n (pipe, height)"));
   Serial.print(" ADC: ");
-    Serial.println(analogRead(_pipe_pot_pin));Serial.print(", ");Serial.println(analogRead(_height_pot_pin));
+    Serial.print(analogRead(_pipe_pot_pin));Serial.print(", ");Serial.println(analogRead(_height_pot_pin));
 
   Serial.print(F(" Servo: "));Serial.print(stat.target.pipe);Serial.print(F(", "));Serial.println(stat.target.height);
   Serial.print(F(" Pos: "));Serial.print(stat.pos.pipe);Serial.print(F(", "));Serial.println(stat.pos.height);
@@ -631,8 +652,9 @@ void ShoeDrive::tellStatus() {
   Serial.print(F("Desired Slit: ")); Serial.println(((int) stat.desired_slit)+1);
   Serial.print(F("Detected Slit: "));tellCurrentSlit();Serial.println();
 
-  Serial.print(F("Errors: "));Serial.print(errors, BIN);
-    Serial.print(F(" MiP: "));Serial.print(_moveInProgress);
+  Serial.print(F("Errors: "));Serial.println(errors, BIN);
+  Serial.print(F("Jrk: "));Serial.print(_pipe_motor->getErrorFlagsHalting(), BIN);Serial.print(F(", "));Serial.println(_height_motor->getErrorFlagsHalting(), BIN);
+  Serial.print(F("MiP: "));Serial.print(_moveInProgress);
     Serial.print(F(" Safe: "));Serial.print(safeToMovePipes());
     Serial.print(F(" Relay: "));Serial.print(motorsPowered);
     Serial.print(F(" curPipeNdx: "));Serial.println(_currentPipeIndex());

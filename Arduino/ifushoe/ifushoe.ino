@@ -2,7 +2,8 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <EEPROM.h>
-#include <SoftwareSerial.h>
+//#include <SoftwareSerial.h>
+#include <Wire.h>
 #include "fibershoe_pins.h"
 #include "shoe.h"
 #include "MemoryFree.h"
@@ -78,9 +79,22 @@ bool shoeOnline=true; //Always boot in offline mode
  * 0xF700000C19A4CD28 . on a shoe (3 dots, bshoe)
  */
 
+#define JRK_PIPE_R_DEV_NUM 11
+#define JRK_PIPE_B_DEV_NUM 22
+#define JRK_HEIGHT_R_DEV_NUM 33
+#define JRK_HEIGHT_B_DEV_NUM 44
+
 // The Shoe Drive connection and objects
-SoftwareSerial jrkSerial(PIN_JRK_RX, PIN_JRK_TX);
-JrkG2Serial jrk_pipe_r(jrkSerial, 0), jrk_pipe_b(jrkSerial, 1), jrk_height_r(jrkSerial, 2), jerk_height_b(jrkSerial, 3);
+//SoftwareSerial jrkSerial(PIN_JRK_RX, PIN_JRK_TX);
+//JrkG2Serial jrk_pipe_r(jrkSerial, JRK_PIPE_R_DEV_NUM);
+//JrkG2Serial jrk_pipe_b(jrkSerial, JRK_PIPE_B_DEV_NUM);
+//JrkG2Serial jrk_height_r(jrkSerial, JRK_HEIGHT_R_DEV_NUM);
+//JrkG2Serial jerk_height_b(jrkSerial, JRK_HEIGHT_B_DEV_NUM);
+
+JrkG2I2C jrk_pipe_r(JRK_PIPE_R_DEV_NUM);
+JrkG2I2C jrk_pipe_b(JRK_PIPE_B_DEV_NUM);
+JrkG2I2C jrk_height_r(JRK_HEIGHT_R_DEV_NUM);
+JrkG2I2C jerk_height_b(JRK_HEIGHT_B_DEV_NUM);
 ShoeDrive shoeR = ShoeDrive('R', PIN_PIPE_POT_R, PIN_HEIGHT_POT_R, PIN_MOTORSOFF_R, PIN_MOTORSON_R, 
                             &jrk_pipe_r, &jrk_height_r);
 ShoeDrive shoeB = ShoeDrive('B', PIN_PIPE_POT_B, PIN_HEIGHT_POT_B, PIN_MOTORSOFF_B, PIN_MOTORSON_B, 
@@ -269,8 +283,15 @@ void setup() {
     Serial.begin(115200);
 
     //Shoe Driver Startup
+    Wire.begin();
+    Wire.setClock(100000);
+//    pinMode(PIN_JRK_RX, INPUT);
+//    digitalWrite(PIN_JRK_RX, LOW);
+//    pinMode(PIN_JRK_TX, OUTPUT);
+//    jrkSerial.begin(9600);
     shoeR.init();
     shoeB.init();
+    cout<<F("#Boot shoe: ")<<millis()-boottime<<F(" ms.\n");
     
     //Set up R vs. B side detection
     pinMode(PIN_SHOESENSE_R, INPUT);
@@ -284,6 +305,7 @@ void setup() {
     load_deviceaddress(temps[SHOE_R_TEMP].address, SHOE_R_TEMP_ADDR);
     initTempSensors();
 
+    cout<<F("#Boot temp: ")<<millis()-boottime<<F(" ms.\n");
     //Restore the nominal slit positions & backlash amounts from EEPROM
     loadSlitPositionsFromEEPROM();
 
@@ -516,10 +538,12 @@ uint16_t bootCount(bool set) {
 }
 
 bool shoeRConnected() {
+  return true;
   return digitalRead(PIN_SHOESENSE_R);
 }
 
 bool shoeBConnected() {
+  return true;
   return !digitalRead(PIN_SHOESENSE_B);
 }
 
@@ -533,6 +557,8 @@ bool shoeWiresCrossed() {
   //No R   B to B -> B temp,   PIN_SHOESENSE_B pulled  low from high, PIN_SHOESENSE_R at low
   //No R   B to R -> B temp,   PIN_SHOESENSE_B pulled high from high, PIN_SHOESENSE_R pulled low from low
   //R to R B to R -> R&B temp, PIN_SHOESENSE_B pulled  low from high, PIN_SHOESENSE_R pulled high from low
+
+  return false;
   
   bool shoeB=temps[SHOE_B_TEMP].present;
   bool shoeR=temps[SHOE_R_TEMP].present;

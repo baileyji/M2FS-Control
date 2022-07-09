@@ -5,16 +5,18 @@
 #define PIN_PIPE_SERVO_B 3
 #define PIN_HEIGHT_SERVO_B 2
 
-#define PIN_JRK_TX 5
-#define PIN_JRK_RX 4
+//#define PIN_JRK_TX 3 //RX on jrk
+//#define PIN_JRK_RX 2 //TX on jrk
 
 #define PIN_PIPE_POT_R A3
 #define PIN_HEIGHT_POT_R A0
 #define PIN_PIPE_POT_B A1
 #define PIN_HEIGHT_POT_B A2
 
-#define PIN_SHOESENSE_R A4
-#define PIN_SHOESENSE_B A5
+//#define PIN_SHOESENSE_R A4
+//#define PIN_SHOESENSE_B A5
+#define PIN_SHOESENSE_R 3 //jumper A4 trace to D3 w/ pulldown
+#define PIN_SHOESENSE_B 2
 
 #define PIN_DOWNBUTTON_R 12
 #define PIN_DOWNBUTTON_B 11

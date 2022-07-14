@@ -17,12 +17,19 @@
 #define PIN_VA0_BENEAR 49
 #define PIN_IA0_BENEAR 48
 
-#define RELAY1 A15
-#define RELAY2 A14
-#define RELAY3 A12
-#define RELAY4 A10
-#define RELAY5 A13
-#define RELAY6 A11
+//#define RELAY1 A15
+//#define RELAY2 A14
+//#define RELAY3 A12
+//#define RELAY4 A10
+//#define RELAY5 A13
+//#define RELAY6 A11
+#define PIN_SDA2 A14
+#define PIN_SCL2 A15
+#define PIN_LAMP4_1 A12
+#define PIN_LAMP4_2 A10 //LAMP1=
+#define PIN_LAMP4_3 A11
+#define PIN_LAMP4_ENABLE A13
+
 
 #define PIN_VMON_LIHE  A2
 #define PIN_IMON_LIHE  A3

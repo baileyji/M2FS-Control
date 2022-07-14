@@ -12,6 +12,7 @@ COLORS = ('392', '407', 'whi', '740', '770', '875')
 
 COLORS = ('770', '740', '875', 'whi', '407', '392')
 HVLAMPS = ('thxe', 'benear', 'lihe')
+HVLMAP_MAX_CURRENT = {'thxe':20, 'benear':20, 'lihe':20}
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
 
 class IFUArduinoSerial(selectedconnection.SelectedSerial):
@@ -77,6 +78,7 @@ class IFUShieldAgent(Agent):
         Agent.__init__(self, 'IFUShieldAgent')
         self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
         self.max_clients = 2
+        self.lamp4_lamp = None
         self.command_handlers.update({
             'SHIELDRAW': self.RAW_command_handler,
             # Get/Set state of HV lamps
@@ -232,7 +234,8 @@ class IFUShieldAgent(Agent):
         """
         Handle geting/setting the HV lamps
 
-        Valid command string is a lamp name followed by a current value
+        Valid command string is a lamp name followed by a current value current values in excess of 20 will
+        activate lamp 4, clobbering any previous activation.
 
         Respond OK or error as appropriate.
         """
@@ -242,7 +245,7 @@ class IFUShieldAgent(Agent):
                 hvstat = response.split()
                 if len(hvstat) != len(HVLAMPS):
                     raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPS)))
-                hvdict={'thxe':hvstat[2], 'benear':hvstat[0], 'lihe':hvstat[1]}
+                hvdict={'thxe': hvstat[0], 'benear': hvstat[1], 'lihe': hvstat[2]}
                 lamp=command.string.split()[0].lower()
                 response = hvdict[lamp]
             except IOError as e:
@@ -253,8 +256,14 @@ class IFUShieldAgent(Agent):
         else:  #Activate the appropriate HV lamp
             command_parts = command.string.split(' ')
             try:
-                lamp_num = HVLAMPS.index(command_parts[0].lower())+1  #one base in ardunio  THXE_LAMP=1, BENEAR_LAMP=2, LIHE_LAMP=3, ALL_LAMPS=4
+                lamp = command.string.split()[0].lower()  #nb * not permitted, lamp4 not explicitly controller
+                lamp_num = HVLAMPS.index(lamp)+1  #one base in ardunio  THXE_LAMP=1, BENEAR_LAMP=2, LIHE_LAMP=3
                 current = int(command_parts[1])
+                lamp4_current = max(min(current-HVLMAP_MAX_CURRENT[lamp], HVLMAP_MAX_CURRENT[lamp]), 0)
+                current = min(current, HVLMAP_MAX_CURRENT[lamp])
+                if lamp4_current > 0 or self.lamp4_lamp == lamp or self.lamp4_lamp is None:
+                    self._send_command_to_shield('HV4{}{}'.format(lamp_num, lamp4_current))
+                    self.lamp4_lamp = lamp
                 self._send_command_to_shield('HV{}{}'.format(lamp_num, current))
                 command.setReply('OK')
             except (ValueError, IndexError):

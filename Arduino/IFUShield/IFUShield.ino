@@ -4,8 +4,13 @@
 #include <DallasTemperature.h>
 #include "Ultravolt.h"
 #include <Adafruit_TLC5947.h>
+#include <AsyncDelay.h>
+#include <SoftWire.h>
 
 //#define DEBUG
+char swi2cTxBuffer[16];
+char swi2cRxBuffer[16];
+SoftWire i2c(PIN_SDA2, PIN_SCL2);
 
 #define FIRST_LED_CHAN 0  //6 for the wirewrap board
 
@@ -15,11 +20,11 @@
    #define Serial SerialUSB
 #endif
 
-#define VERSION_STRING "1.0"
+#define VERSION_STRING "1.1"
 
 #define IGNITION_TIME_MS 80  //Takes about 37 ms to stabilize on a resistor
-#define VMAX 800
-#define IMAX 10
+#define VMAX 950
+#define IMAX 20
 
 #define N_TEMP_SENSORS 4  //entrance, ifu tower, fiber exit, hoffman
 #define ENTRANCE_TEMP 0
@@ -40,7 +45,7 @@
 #define DAC_ADDR 0x61  //0x62 for wirewrap shield, :(
 
 //HV Lamps
-typedef enum {THXE_LAMP=0, BENEAR_LAMP=1, LIHE_LAMP=2, ALL_LAMPS=3} lamp_t;
+typedef enum {THXE_LAMP=0, BENEAR_LAMP=1, LIHE_LAMP=2, ALL_LAMPS=3, USER_LAMP=4} lamp_t;
 Adafruit_MCP4725 dac; 
 Ultravolt benear = Ultravolt(PIN_IMON_BENEAR, PIN_VMON_BENEAR, PIN_ENABLE_BENEAR, PIN_VMODE_BENEAR,
                             PIN_IMODE_BENEAR, PIN_IA0_BENEAR, PIN_VA0_BENEAR, VMAX, IMAX, dac);
@@ -49,6 +54,10 @@ Ultravolt lihe = Ultravolt(PIN_IMON_LIHE, PIN_VMON_LIHE, PIN_ENABLE_LIHE, PIN_VM
 Ultravolt thxe = Ultravolt(PIN_IMON_THXE, PIN_VMON_THXE, PIN_ENABLE_THXE, PIN_VMODE_THXE,
                             PIN_IMODE_THXE, PIN_IA0_THXE, PIN_VA0_THXE, VMAX, IMAX, dac);
 
+//int thxe_pin, int benear_pin, int lihe_pin
+//This is correct because lamp colors are 123 but lamps are in bays 654
+UltravoltMultilamp lamp4 = UltravoltMultilamp(PIN_LAMP4_ENABLE, PIN_LAMP4_3, PIN_LAMP4_2, 
+                                              PIN_LAMP4_1, VMAX, IMAX, i2c); 
 //LED Levels
 //For PCB 390, 405, WHI, IR?, 740, 770
 uint16_t ledlevels[] = {0, 0, 0, 0, 0, 0};  //Maybe for wire wrap 770, 740, IR, white, 405, 390
@@ -166,11 +175,22 @@ void setup() {
     // Start serial connection
     Serial.begin(115200);
 
-    //Startup the light controllers 
-    dac.begin(DAC_ADDR);
+    //Startup the light controllers
+
+
+    dac.begin(DAC_ADDR, &Wire);
     thxe.begin();
     benear.begin();
     lihe.begin();
+
+    i2c.setTxBuffer(swi2cTxBuffer, sizeof(swi2cTxBuffer));
+    i2c.setRxBuffer(swi2cRxBuffer, sizeof(swi2cRxBuffer));
+    i2c.setDelay_us(5);
+    i2c.setTimeout(1000);
+    //i2c.enablePullups(false);
+    i2c.setClock(400000); // Set I2C frequency to desired speed
+    i2c.begin();
+    lamp4.begin();
 
     pinMode(AFLED_INHIBIT_PIN, OUTPUT);
     digitalWrite(AFLED_INHIBIT_PIN, HIGH);
@@ -355,6 +375,17 @@ bool LEcommand() {
 
 
 bool HVcommand() {
+  //2=benear  this is LAMP BAY 2 e.g. WIRE 2
+  //3=lihe NB this is LAMP BAY 1 e.g. WIRE 1
+  //1=thxe NB this is LAMP BAY 3 e.g. WIRE 3
+  //4#=selectable HV4[lamp][current]
+  //42=benear  this is LAMP BAY 5 e.g. WIRE 5
+  //43=lihe NB this is LAMP BAY 4 e.g. WIRE 4
+  //41=thxe NB this is LAMP BAY 6 e.g. WIRE 6
+/*
+ * presently L3=W6 into wire5 bay 5 and L1=W4 goes wire 6
+ */
+  
   /*
   HV # ############### \n
   HV##\n <- min command 
@@ -363,25 +394,48 @@ bool HVcommand() {
   lamp_t lamp;
   
   if (command_buffer[2]=='?') {
-    Serial.print(benear.getCurrent());
+    currentf_t currents[3];
+    currents[1]=benear.getCurrent();
+    currents[2]=lihe.getCurrent();
+    currents[0]=thxe.getCurrent();
+    if (lamp4.getSelectedLamp()<3) {
+      currents[lamp4.getSelectedLamp()]+=lamp4.getCurrent();
+    }
+    Serial.print(currents[0]);
     Serial.print(" ");
-    Serial.print(lihe.getCurrent());
+    Serial.print(currents[1]);
     Serial.print(" ");
-    Serial.println(thxe.getCurrent());
+    Serial.println(currents[2]);
+//    Serial.print(" ");
+//    Serial.println(lamp4.getCurrent());
     return true;
   }
 
 
-  if (command_buffer[2]>= '1' && command_buffer[2] <='3') {
+  if (command_buffer[2]-'1' < 4) {
     lamp = (lamp_t) command_buffer[2]-'1';
+    if (command_buffer[2]=='4') lamp=USER_LAMP;
   } else if (command_buffer[2] == '*') {
     lamp = ALL_LAMPS; 
   } else return false;
 
 
   if (command_length > 4){
-    long param = strtol(command_buffer+3, NULL, 10);
-    if (param<0 || (param==0 && command_buffer[3] !='0'))
+    long param=255;
+    lamp_t sublamp=255;
+    if (lamp==USER_LAMP) {
+      if (command_length<5) 
+        return false;
+      else {
+        sublamp = (lamp_t) command_buffer[3]-'1'; //THXE_LAMP=0='1', BENEAR_LAMP=1='2', LIHE_LAMP=2='3'
+        if (sublamp!=LIHE_LAMP && sublamp!=BENEAR_LAMP && sublamp!=THXE_LAMP)
+          return false;
+      }
+      param = strtol(command_buffer+4, NULL, 10);
+    } else {
+      param = strtol(command_buffer+3, NULL, 10);
+    }
+    if (param<0 ) //|| (param==0 && command_buffer[3] !='0'))
        return false;
     switch(lamp) {
         case BENEAR_LAMP : benear.turnOn((current_t) param);
@@ -389,6 +443,8 @@ bool HVcommand() {
         case THXE_LAMP   : thxe.turnOn((current_t) param);
                            break;
         case LIHE_LAMP   : lihe.turnOn((current_t) param);
+                           break;
+        case USER_LAMP   : lamp4.turnOn((current_t) param, (uint8_t) sublamp);
                            break;
         case ALL_LAMPS   : lihe.turnOn((current_t) param);
                            benear.turnOn((current_t) param);
@@ -479,19 +535,26 @@ bool TScommand() {
   Serial.print(lihe.getVoltage());Serial.print(F(" V ("));Serial.print(lihe.getVoltageLimit());Serial.print(F(" lim)  "));
   Serial.print(lihe.getCurrent());Serial.print(F(" mA ("));Serial.print(lihe.getCurrentLimit());Serial.println(F(" lim)"));
   
+  Serial.print(F("Lamp 4 is "));
+  if (!lamp4.isEnabled()) Serial.print(F("disabled"));
+  else Serial.print(F("enabled"));
+  Serial.print(F(", lamp "));Serial.print((uint16_t)lamp4.getSelectedLamp());Serial.println(" selected.");
+  Serial.print(lamp4.getVoltageLimit());Serial.print(F(" V "));Serial.print(lamp4.getCurrentLimit());Serial.println(F(" mA "));
+  
   return true;
 }
 
 //Print the commands
 bool PCcommand() {
-    Serial.println(F("#PC   Print Commands - Print this list of commands"));
-    Serial.println(F("#LEx# Led command - Set LED x, 1-6 to #, 0-4095 illumination"));
-    Serial.println(F("#HVx# High Voltage - Set HV lamp x, 1-3 to #, 0-10 illumination"));
-    Serial.println(F("#OF   Off - Turn all light sources off"));
-    Serial.println(F("#TS   Tell Status - Tell the status"));
-    Serial.println(F("#PV   Print Version - Print the version string"));
-    Serial.println(F("#TE   Temperature - Report all temperatures"));
-    Serial.println(F("#MIx# Monitor Ignition - Monitor Ignition of x to #"));
+    Serial.println(F("#PC    Print Commands - Print this list of commands"));
+    Serial.println(F("#LEx#  Led command - Set LED x, 1-6 to #, 0-4095 illumination"));
+    Serial.println(F("#HVx#  High Voltage - Set HV lamp x=1-3 (THXE, BENEAR, LIHE), to #=0-20 (mA)"));
+    Serial.println(F("#HV4x# High Voltage - Set HV boost lamp x=1-3 (THXE, BENEAR, LIHE), to #=0-20 (mA)"));
+    Serial.println(F("#OF    Off - Turn all light sources off"));
+    Serial.println(F("#TS    Tell Status - Tell the status"));
+    Serial.println(F("#PV    Print Version - Print the version string"));
+    Serial.println(F("#TE    Temperature - Report all temperatures"));
+    Serial.println(F("#MIx#  Monitor Ignition - Monitor Ignition of x=1-3 (THXE, BENEAR, LIHE) to # #=0-20 (mA)"));
     return true;
 }
 
@@ -505,6 +568,7 @@ bool OFcommand() {
   lihe.turnOff();
   thxe.turnOff();
   benear.turnOff();
+  lamp4.turnOff();
   return true;
 }
 

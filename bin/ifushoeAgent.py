@@ -132,6 +132,118 @@ def parseTS(xin):
     return response
 
 
+def parseTS_jrk(xin):
+    """
+    ===================
+    R connected
+    B connected
+    ===R Shoe Status===
+     (pipe, height)
+     ADC: 856, 158
+     Servo: 836, 154
+     Pos: 836, 154
+     Err: 0, 0
+     Moving: 0, 0
+      ms since move: 2494990, 2494990
+     SL: 256
+      SL Delta: 17, -76
+     Toler: 33, 33
+    Desired Slit: 256
+    Detected Slit: INTERMEDIATE
+    Errors: 0 MiP: 0 Safe: 0 Relay: 0 Idleoff: 1 curPipeNdx: 5
+    Slit Pos:
+     Up:    850 835 543 530 484 230
+     Down:  300 300 300 300 300 135
+     Pipe:  224 343 462 581 700 819
+    Free Mem:724
+    ===================
+    ===B Shoe Status===
+     (pipe, height)
+     ADC: 419, 158
+     Servo: 409, 154
+     Pos (live): 409 (409), 154 (154)
+     Err: 0, 0
+     Attached: 0, 0
+     Moving: 0, 0
+      ms since move: 2495030, 2495031
+      SL Delta: -53, -416
+     Toler: 33, 33
+    Desired Slit: 3
+    Detected Slit: INTERMEDIATE
+    Errors: 0
+    Jrk: 0, 0
+    MiP: 0 Safe: 0 Relay: 0 curPipeNdx: 255
+    Slit Pos:
+     Up:    865 843 570 530 500 210
+     Down:  300 300 300 300 300 135
+     Pipe:  224 343 462 581 700 819
+    Free Mem:724
+    ===================
+
+    """
+
+    x = '\n'.join([l.strip() for l in xin.split('\n') if
+                   not l.startswith('#') and
+                   '===================' not in l
+                   and l.strip()])
+
+    g, r_b = x.split('===R Shoe Status===')
+    rstat, bstat = r_b.split('===B Shoe Status===')
+    rstat = rstat.strip()
+    bstat = bstat.strip()
+
+    def parse_shoestat(x):
+        res = {}
+        d = {}
+        for l in x.split('\n'):
+            k, _, v = l.partition(':')
+            if not v:
+                continue
+            d[k] = v
+        res['moving'] = [bool(int(x)) for x in d['Moving'].split(',')]
+        res['slit'] = d['Detected Slit']
+        res['up'] = [int(x) for x in d['Up'].split()]
+        res['down'] = [int(x) for x in d['Down'].split()]
+        res['pipe'] = [int(x) for x in d['Pipe'].split()]
+        res['debug'] = 'Errors: ' + d['Errors']
+        res['jrk'] = [int(x, 2) for x in d['Jrk'].split(',')]
+        res['tol'] = [int(x) for x in d['Toler'].split(',')]
+        res['pos_err'] = [int(x) for x in d['SL Delta'].split(',')]
+        res['pos'] = [int(x) for x in d['Pos'].split(',')]
+        return res
+
+    rd = parse_shoestat(rstat)
+    bd = parse_shoestat(bstat)
+    response = {}
+    if 'R&B Swapped' in g:
+        response['ShoeR'] = 'swapped'
+    elif 'R disconnected' in g:
+        response['ShoeR'] = 'disconnected'
+    else:
+        response['ShoeR'] = 'connected'
+
+    if 'R&B Swapped' in g:
+        response['ShoeB'] = 'swapped'
+    elif 'B disconnected' in g:
+        response['ShoeB'] = 'disconnected'
+    else:
+        response['ShoeB'] = 'connected'
+
+    for x in 'RB':
+        d = rd if x == 'R' else bd
+        for y in ('up', 'down', 'pipe'):
+            response[y + '_pos_'+x.lower()] = d[y]
+        response['Slit'+x] = d['slit']
+        response['Pipe'+x] = 'MOVING ({})'.format(d['pos'][0]) if d['moving'][0] else d['pos'][0]
+        response['Height'+x] = 'MOVING ({})'.format(d['pos'][1]) if d['moving'][1] else d['pos'][1]
+        response['pos_err_'+x.lower()] = d['pos_err']
+        response['tol_' + x.lower()] = d['tol']
+        response['debug_'+x.lower()] = d['debug']
+        response['jrk_'+x.lower()] = d['jrk']
+
+    return response
+
+
 def shoecmd(connection, command_string, logger):
     with connection.rlock:
         connection.sendMessageBlocking(command_string)

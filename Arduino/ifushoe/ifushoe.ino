@@ -538,12 +538,12 @@ uint16_t bootCount(bool set) {
 }
 
 bool shoeRConnected() {
-  return true;
+//  return true;
   return digitalRead(PIN_SHOESENSE_R);
 }
 
 bool shoeBConnected() {
-  return true;
+//  return true;
   return !digitalRead(PIN_SHOESENSE_B);
 }
 
@@ -558,7 +558,7 @@ bool shoeWiresCrossed() {
   //No R   B to R -> B temp,   PIN_SHOESENSE_B pulled high from high, PIN_SHOESENSE_R pulled low from low
   //R to R B to R -> R&B temp, PIN_SHOESENSE_B pulled  low from high, PIN_SHOESENSE_R pulled high from low
 
-  return false;
+//  return false;
   
   bool shoeB=temps[SHOE_B_TEMP].present;
   bool shoeR=temps[SHOE_R_TEMP].present;

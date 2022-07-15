@@ -42,12 +42,13 @@ void ShoeDrive::init() {
   _cfg.pipe_tol = DEFAULT_TOL;
   _cfg.height_tol = DEFAULT_TOL;
   _cfg.desired_slit = UNKNOWN_SLIT;
-  const uint16_t default_heights[N_SLIT_POS] = {858, 839, 557, 530, 492, 220};
+  const uint16_t default_heights[N_SLIT_POS] = {990, 950, 586, 550, 492, 123};
   for (uint8_t i=0;i<N_SLIT_POS;i++) {
-    _cfg.pipe_pos[i]=119*i+224;
+    _cfg.pipe_pos[i]=175*i+50;
     _cfg.height_pos[i] = default_heights[i];
-    _cfg.down_pos[i] = 135;
+    _cfg.down_pos[i] = 300;
   }
+  _cfg.down_pos[N_SLIT_POS-1]=12
 }
 
 void ShoeDrive::defineTol(char axis, uint8_t tol) {
@@ -172,8 +173,6 @@ bool ShoeDrive::fibersAreUp() {
 
 bool ShoeDrive::safeToMovePipes() {
   shoepos_t cmd = getCommandedPosition();
-//  Serial.print("Cmd: ");Serial.print(cmd.height); Serial.print(" FB: ");Serial.print(_feedback_pos.height);
-//  Serial.print(" Safe");Serial.println(_safe_pipe_height);
   return (cmd.height<=_safe_pipe_height && // commanded to a low enough point
           _feedback_pos.height<=(_safe_pipe_height+_cfg.height_tol)); // Clear of the pipes
 
@@ -302,8 +301,8 @@ void ShoeDrive::stop() {
 
 shoepos_t ShoeDrive::getCommandedPosition() {
   shoepos_t pos;
-  pos.pipe=_pipe_motor->getTarget()/4;
-  pos.height=_height_motor->getTarget()/4;
+  pos.pipe=(uint16_t)min(round(_pipe_motor->getTarget()*JRK_TO_POS), 1000);
+  pos.height=(uint16_t)min(round(_height_motor->getTarget()*JRK_TO_POS), 1000);
   return pos;
 }
 
@@ -312,7 +311,7 @@ void ShoeDrive::_move(JrkG2I2C *axis, uint16_t pos){
   int8_t heading=0;
   uint16_t last;
 
-  last=axis->getTarget()/4;
+  last=(uint16_t)min(round(axis->getTarget()*JRK_TO_POS), 1000);
   if (pos < last) heading = -1;
   else if (pos > last) heading = 1;
 
@@ -325,14 +324,23 @@ void ShoeDrive::_move(JrkG2I2C *axis, uint16_t pos){
   }
 
   setMotorPower(true);
-  axis->setTarget(pos*4);
+  axis->setTarget((uint16_t)min(round(pos*POS_TO_JRK), 4096));
+  delayMicroseconds(300);
+//  int a=0;
+//  while(!_jrk_wants_to_move(axis)) {
+//    a++;
+//    delayMicroseconds(25);
+//  }
+//  Serial.print("Took us before jrk wanted to move:");Serial.println(a*25);
 }
 
 bool ShoeDrive::_jrk_wants_to_move(JrkG2I2C *axis) {
   int16_t dctarget, dc;
+
   dctarget=axis->getDutyCycleTarget();
   dc=axis->getDutyCycle();
   return (dc!=0 || dctarget!=0) && !_jrk_stopped(axis);
+  
   //NB when (axis->getErrorFlagsOccurred()&JRK_HALTING_ERRORS)!=0 the motor may be halted even though dctarget==0
 }
 
@@ -356,12 +364,13 @@ void ShoeDrive::_protectStall(){
   _stallmon.total_pipe += (((int32_t)_pipe_motor->getCurrent())-STALL_DECREMENT)*interval;
   _stallmon.total_pipe = _stallmon.total_pipe<0 ? 0:_stallmon.total_pipe;
   if (_stallmon.total_pipe>STALL_LIMIT) {
-    Serial.print(F("#Stallmon: current="));Serial.print(_pipe_motor->getCurrent());
-    Serial.print(F(" total="));Serial.println(_stallmon.total_pipe);
+//    Serial.print(F("#Stallmon: current="));Serial.print(_pipe_motor->getCurrent());
+//    Serial.print(F(" total="));Serial.println(_stallmon.total_pipe);
     //stall and need to stop
     errors|=E_PIPESTALL;
     _stallmon.total_pipe=0;
     stop();
+    //TODO consider setting an error only if the positon error is too great
     Serial.println(F("ERROR: Pipe motor stalled out, idling."));
   }
  
@@ -380,15 +389,13 @@ void ShoeDrive::_protectStall(){
 void ShoeDrive::_updateFeedbackPos() { 
 
   shoepos_t pos;
-  int adu;
-  float tmp;
-  uint32_t t = micros();
   uint32_t t_ms=millis();
-  // returns number between 0-4092 that is averaged from configured number of 10bit ADC readings
-  pos.pipe=_pipe_motor->getScaledFeedback()/4; 
-  pos.height=_height_motor->getScaledFeedback()/4;
+  // jrk returns number between 0-4096 that is averaged from configured number of 10bit ADC readings
+  pos.pipe=(uint16_t)min(round(_pipe_motor->getScaledFeedback()*JRK_TO_POS), 1000);
+  pos.height=(uint16_t)min(round(_height_motor->getScaledFeedback()*JRK_TO_POS), 1000);
 
   _feedback_pos=pos;
+  
   int deltah=(int)pos.height-(int)_movepos.height;
   int deltap=(int)pos.pipe-(int)_movepos.pipe;
 
@@ -463,7 +470,9 @@ void ShoeDrive::run(){
   // Build status struct
   stat = _status();
 
-  if (_cfg.desired_slit==UNKNOWN_SLIT) _moveInProgress=SHOE_IDLE;
+  if (_cfg.desired_slit==UNKNOWN_SLIT && 
+      _moveInProgress!=USER_MOVE_height && 
+      _moveInProgress!=USER_MOVE_pipe) _moveInProgress=SHOE_IDLE;
 
   //Execute move: lower, wait, move pipes, wait, raise, wait, done
   switch (_moveInProgress) {
@@ -618,7 +627,7 @@ void ShoeDrive::run(){
       if (!stat.moving.pipe) _moveInProgress=SHOE_IDLE;     //transition to SHOE_IDLE
       break;
     case SHOE_IDLE:
-      stop();
+      stop(); //NB must comment out while tuning pid loops or setting up jrk
       break;
     default:
       break;

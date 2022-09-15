@@ -153,7 +153,7 @@ typedef struct {
 Instruction instruction;
 
 //Commands
-#define N_COMMANDS 17
+#define N_COMMANDS 18
 typedef struct {
     String name;
     bool (*callback)();
@@ -177,6 +177,7 @@ bool TScommand();
 bool ZBcommand();
 bool MVcommand();
 bool DUcommand();
+bool PIcommand();
 
 bool PCcommand() {
 
@@ -198,7 +199,9 @@ bool PCcommand() {
             "#TO[R|B][P|H][#] - Set tolerance of axis\n"\
 
             "#CY# - Cycle shoes through all the slits # times\n"\
-   
+
+            "#PI - Toggle PID Mode, turns off autostop\n"\
+            
             "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
             "#OW - Print addresses temp sensors on 1Wire bus\n"\
             "#ZB - Zero the boot count\n");
@@ -227,6 +230,8 @@ Command commands[N_COMMANDS]={
     {"HS", HScommand, true, true},
     //Stop moving
     {"ST", STcommand, true, false},
+    //PI
+    {"PI", PIcommand, true, false},
     //Tell Step Position (# UKNOWN MOVING)
     {"TD", TDcommand, false, true},
     //Report temperature
@@ -889,5 +894,15 @@ bool MVcommand() {
   else return false;
 
   cout<<F("#Moving ")<<(uint16_t) instruction.shoe<<F(" axis ")<<instruction.arg_buffer[0]<<F(" to ")<<pos<<endl;
+  return true;
+}
+
+
+bool PIcommand() {
+  shoeR.keepSafe=!shoeR.keepSafe;
+  shoeB.keepSafe=!shoeB.keepSafe;
+  cout<<F("#Shoe protection is o");
+  if (shoeR.keepSafe) cout<<"n\n";
+  else cout<<"ff\n";
   return true;
 }

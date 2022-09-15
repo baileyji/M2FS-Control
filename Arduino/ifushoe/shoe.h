@@ -182,6 +182,7 @@ class ShoeDrive {
 
     uint16_t errors;
     bool motorsPowered;
+    bool keepSafe;
 
   private:
     char _shoe_name;

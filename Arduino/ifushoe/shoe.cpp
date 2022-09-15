@@ -49,6 +49,7 @@ void ShoeDrive::init() {
     _cfg.down_pos[i] = 300;
   }
   _cfg.down_pos[N_SLIT_POS-1]=12
+  keepSafe=true;
 }
 
 void ShoeDrive::defineTol(char axis, uint8_t tol) {
@@ -627,7 +628,7 @@ void ShoeDrive::run(){
       if (!stat.moving.pipe) _moveInProgress=SHOE_IDLE;     //transition to SHOE_IDLE
       break;
     case SHOE_IDLE:
-      stop(); //NB must comment out while tuning pid loops or setting up jrk
+      if (keepSafe) stop();
       break;
     default:
       break;

@@ -42,13 +42,13 @@ void ShoeDrive::init() {
   _cfg.pipe_tol = DEFAULT_TOL;
   _cfg.height_tol = DEFAULT_TOL;
   _cfg.desired_slit = UNKNOWN_SLIT;
-  const uint16_t default_heights[N_SLIT_POS] = {990, 950, 586, 550, 492, 123};
+  const uint16_t default_heights[N_SLIT_POS] = {800, 800, 586, 550, 492, 100};
   for (uint8_t i=0;i<N_SLIT_POS;i++) {
-    _cfg.pipe_pos[i]=175*i+50;
+    _cfg.pipe_pos[i]=188*i+50;
     _cfg.height_pos[i] = default_heights[i];
     _cfg.down_pos[i] = 300;
   }
-  _cfg.down_pos[N_SLIT_POS-1]=12
+  _cfg.down_pos[N_SLIT_POS-1]=12;
   keepSafe=true;
 }
 

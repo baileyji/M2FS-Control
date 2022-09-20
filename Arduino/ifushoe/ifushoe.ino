@@ -167,7 +167,7 @@ bool PVcommand();
 bool SDcommand();
 bool SGcommand();
 bool SLcommand();
-bool SScommand();
+bool PScommand();
 bool TOcommand();
 bool HScommand();
 bool STcommand();
@@ -193,18 +193,17 @@ bool PCcommand() {
             "#SL[R|B][1-6] - Move to slit\n"\
             "#DU[R|B] - Cycle down up\n"\
             "#SD[R|B][1-6] - Report defined slit position\n"\
-            "#PS[R|B][1-6]{#} - Set slit pipe to current position or, "\
-               "if given, specified position.\n"\
-            "#HS[R|B][U|D][1-6]{#} - Set up/down positon like PS.\n"\
+            "#PS[R|B][1-6][#] - Set slit pipe to specified position.\n"\
+            "#HS[R|B][U|D][1-6][#] - Set up/down positon like PS.\n"\
             "#TO[R|B][P|H][#] - Set tolerance of axis\n"\
 
             "#CY# - Cycle shoes through all the slits # times\n"\
 
             "#PI - Toggle PID Mode, turns off autostop\n"\
             
-            "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
+            "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-4095) without safety checks.\n"\
             "#OW - Print addresses temp sensors on 1Wire bus\n"\
-            "#ZB - Zero the boot count\n");
+            "#ZB{1} - Zero the boot count, 1 to clear EEPROM\n");
 
     return true;
 }
@@ -223,7 +222,7 @@ Command commands[N_COMMANDS]={
     //Slit, move to position of slit
     {"SL", SLcommand, false, true},
     //Pipe Set, define position of slit
-    {"PS", SScommand, true, true},
+    {"PS", PScommand, true, true},
     //Set TOlerance Set, define position of slit
     {"TO", TOcommand, true, true},
     //Height Set, define position of up/down
@@ -708,7 +707,7 @@ bool SGcommand() {
   if ( instruction.shoe==NO_SHOE ) return false;
 
   shoes[instruction.shoe]->tellCurrentSlit();
-  shoepos_t pos = shoes[instruction.shoe]->getFilteredPosition();
+  shoepos_t pos = shoes[instruction.shoe]->getFeedbackPosition();
   cout<<" ("<<pos.pipe<<", "<<pos.height<<")"<<endl;
   return true;
 }
@@ -755,7 +754,7 @@ bool TDcommand(){
   bool moving;
   moving=shoes[instruction.shoe]->moveInProgress();
   if (moving) cout<<F("MOVING (");
-  shoes[instruction.shoe]->tellCurrentPosition();
+  shoes[instruction.shoe]->tellFeedbackPosition();
   if (moving) cout<<")";
   cout<<endl;
   return true;
@@ -790,8 +789,8 @@ bool SLcommand() {
 }
 
 //Define a nominal slit position
-//SS[R|B][#]{#######}\0  without the last number the slit uses the current position
-bool SScommand() {
+//SS[R|B][#][#######]\0 
+bool PScommand() {
   if ( instruction.shoe==NO_SHOE) return false;
 
   if (instruction.arg_len<2) return false;
@@ -829,7 +828,7 @@ bool TOcommand() {
 
 }
 
-//HS[R|B][U|D]{#######}\0  without the last number the height uses the current position
+//HS[R|B][U|D][1-6][#######]\0
 bool HScommand() {
   if (instruction.shoe==NO_SHOE) return false;
   if (instruction.arg_len<3) return false;

@@ -32,6 +32,11 @@ Height has about 16.60mm travel  ~20um/adc count
 // r pipe at 13.37 um per scaled step 9/17/22  (3.25um in the pololu gui)
 
 
+#define JrkFeedbackErrorMinimum 0x19  // uint16_t,
+#define JrkFeedbackErrorMaximum 0x1B  // uint16_t,
+#define JrkFeedbackMinimum 0x1D  // uint16_t,
+#define JrkFeedbackMaximum 0x1F  // uint16_t,
+
 #define E_HEIGHTSTALL   0b000001
 #define E_HEIGHTSTUCK   0b000010
 #define E_PIPESTALL     0b000100
@@ -39,6 +44,8 @@ Height has about 16.60mm travel  ~20um/adc count
 #define E_RECOVER       0b010000
 #define E_PIPESHIFT     0b100000
 
+
+#define MAX_CURRENT 210  //mA
 
 #define N_UP_POS 6
 #define N_DOWN_POS 6
@@ -81,7 +88,8 @@ Height has about 16.60mm travel  ~20um/adc count
 #define SLIT_MOVE_pipe 8
 #define SLIT_MOVE_raise 7
 
-//average spacing is about 185, so about 40%
+//average spacing is about 180, so about 40%
+#define PIPE_SPACING 180
 #define PIPE_SPACING_FOR_CLEARNCE 75   
 
 #define CHALLENGING_LOWPOS 80
@@ -156,8 +164,8 @@ class ShoeDrive {
     void setMotorPower(bool);
     void run(); //1ms when idle
 
-    void tellCurrentPosition();
-    shoepos_t getFilteredPosition();  //From feedback
+    void tellFeedbackPosition();
+    shoepos_t getFeedbackPosition();  //From feedback
     shoepos_t getCommandedPosition(); //from servo
 
     void tellStatus();
@@ -217,6 +225,7 @@ class ShoeDrive {
 
     uint16_t _safe_pipe_height;  //This changes depending on the move
     uint8_t _retries;
+    uint8_t _retry_down;
     shoeheading_t _heading;
     shoepos_t _feedback_pos;
     shoepos_t _movepos; //for detecting movement
@@ -224,7 +233,6 @@ class ShoeDrive {
     uint32_t _timeLastHeightMovement;
     bool _height_moving;
     bool _pipe_moving;
-//    shoestatus_t _status;
     stalldata_t _stallmon;
     
     uint32_t _samplet;

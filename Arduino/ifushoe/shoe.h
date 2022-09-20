@@ -32,6 +32,11 @@ Height has about 16.60mm travel  ~20um/adc count
 // r pipe at 13.37 um per scaled step 9/17/22  (3.25um in the pololu gui)
 
 
+#define JrkFeedbackErrorMinimum 0x19  // uint16_t,
+#define JrkFeedbackErrorMaximum 0x1B  // uint16_t,
+#define JrkFeedbackMinimum 0x1D  // uint16_t,
+#define JrkFeedbackMaximum 0x1F  // uint16_t,
+
 #define E_HEIGHTSTALL   0b000001
 #define E_HEIGHTSTUCK   0b000010
 #define E_PIPESTALL     0b000100
@@ -40,11 +45,13 @@ Height has about 16.60mm travel  ~20um/adc count
 #define E_PIPESHIFT     0b100000
 
 
+#define MAX_CURRENT 210  //mA
+
 #define N_UP_POS 6
 #define N_DOWN_POS 6
 #define N_SLIT_POS 6
 
-#define MAX_SHOE_POS 1000
+#define MAX_SHOE_POS 4095
 
 #define DOWN_NDX 0
 
@@ -52,19 +59,16 @@ Height has about 16.60mm travel  ~20um/adc count
 
 #define MOVING 0xFE
 #define UNKNOWN_SLIT 0xFF
-#define DEFAULT_TOL 33   // about 0.33mm, 20mm/1000 per unit, more than 135 is right out!
-#define MAX_HEIGHT_TOL 100
-#define MAX_PIPE_TOL 35
+#define DEFAULT_TOL 135   // about 0.33mm, 20mm/1000 per unit
+#define MAX_HEIGHT_TOL 410
+#define MAX_PIPE_TOL 144
 
 #define MAX_ADC 1023
 #define ADU_PER_STEP 1.024// 1.0929
 #define ADU_TO_STEP 0.9765625// 1.0929
 
-#define POS_TO_JRK 4.095
-#define JRK_TO_POS (1.0/4.095)
-
-#define MOVING_PIPE_TOL 3
-#define MOVING_HEIGHT_TOL 3
+#define MOVING_PIPE_TOL 12
+#define MOVING_HEIGHT_TOL 12
 #define MOVING_TIMEOUT_MS 250
 
 #define MAX_RETRIES 2
@@ -76,15 +80,17 @@ Height has about 16.60mm travel  ~20um/adc count
 #define RECOVERY_MOVE 99
 #define RECOVERY_MOVE_pipe 98
 #define RECOVERY_MOVE_raise 97
+#define SHOE_CALIBRATING 50
 #define SLIT_MOVE 10
 #define SLIT_MOVE_lower 9
 #define SLIT_MOVE_pipe 8
 #define SLIT_MOVE_raise 7
 
-//average spacing is about 185, so about 40%
-#define PIPE_SPACING_FOR_CLEARNCE 75   
+//average spacing is about 758, so about 40%
+#define PIPE_SPACING 758
+#define PIPE_SPACING_FOR_CLEARNCE 307   
 
-#define CHALLENGING_LOWPOS 80
+#define CHALLENGING_LOWPOS 328
 
 #define STALL_DECREMENT 42
 #define STALL_LIMIT 840000 //630000
@@ -156,9 +162,11 @@ class ShoeDrive {
     void setMotorPower(bool);
     void run(); //1ms when idle
 
-    void tellCurrentPosition();
-    shoepos_t getFilteredPosition();  //From feedback
+    void tellFeedbackPosition();
+    shoepos_t getFeedbackPosition();  //From feedback
     shoepos_t getCommandedPosition(); //from servo
+
+    void calibrateFeedbackScale();
 
     void tellStatus();
     
@@ -217,14 +225,15 @@ class ShoeDrive {
 
     uint16_t _safe_pipe_height;  //This changes depending on the move
     uint8_t _retries;
+    uint8_t _retry_down;
     shoeheading_t _heading;
+    shoepos_t _zero_offset;
     shoepos_t _feedback_pos;
     shoepos_t _movepos; //for detecting movement
     uint32_t _timeLastPipeMovement;
     uint32_t _timeLastHeightMovement;
     bool _height_moving;
     bool _pipe_moving;
-//    shoestatus_t _status;
     stalldata_t _stallmon;
     
     uint32_t _samplet;

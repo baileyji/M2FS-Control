@@ -3,7 +3,7 @@ Description=M2FS Director
 Wants=m2fs_datalogger.service
 Wants=m2fs_mcalled.service
 Wants=m2fs_slitController.service
-Wants=m2fs_plugController.sevice
+Wants=m2fs_plugController.service
 
 After=network.target
 

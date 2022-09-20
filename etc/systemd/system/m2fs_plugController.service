@@ -3,8 +3,7 @@ Description=M2FS Plug Controller
 #ConditionPathExists=!/dev/ifum
 
 [Install]
-#WantedBy=m2fs_director.service
-#Also=
+WantedBy=m2fs_director.service
 
 [Service]
 Type=simple

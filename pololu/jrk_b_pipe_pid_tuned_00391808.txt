@@ -16,10 +16,10 @@ input_scaling_degree: linear
 input_detect_disconnect: false
 input_analog_samples_exponent: 7
 feedback_mode: analog
-feedback_error_minimum: 299
-feedback_error_maximum: 3541
-feedback_minimum: 599
-feedback_maximum: 2986
+feedback_error_minimum: 280
+feedback_error_maximum: 3455
+feedback_minimum: 560
+feedback_maximum: 2814
 feedback_invert: true
 feedback_detect_disconnect: false
 feedback_dead_zone: 16

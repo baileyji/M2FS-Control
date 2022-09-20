@@ -26,6 +26,12 @@ Pipes have about 13.55mm travel  ~20um adc count
 Height has about 16.60mm travel  ~20um/adc count
  */
 
+
+//B measured at 14.4um per scaled step 9/16/22
+//R measured at 16.7um per scaled step 9/16/22
+// r pipe at 13.37 um per scaled step 9/17/22  (3.25um in the pololu gui)
+
+
 #define E_HEIGHTSTALL   0b000001
 #define E_HEIGHTSTUCK   0b000010
 #define E_PIPESTALL     0b000100
@@ -75,10 +81,13 @@ Height has about 16.60mm travel  ~20um/adc count
 #define SLIT_MOVE_pipe 8
 #define SLIT_MOVE_raise 7
 
-#define CHALLENGING_LOWPOS 170
+//average spacing is about 185, so about 40%
+#define PIPE_SPACING_FOR_CLEARNCE 75   
+
+#define CHALLENGING_LOWPOS 80
 
 #define STALL_DECREMENT 42
-#define STALL_LIMIT 630000
+#define STALL_LIMIT 840000 //630000
 
 
 typedef struct stalldata_t {

@@ -1,0 +1,13 @@
+theme,dark
+domain,10
+input,0,0.00,819,#00ffff,#84ffff
+target,1,-814.71,819,#0000ff,#8282ff
+feedback,0,0.00,819,#ff00aa,#ff84d6
+scaled_feedback,1,-814.71,819,#ff0000,#fc4646
+error,1,12.88,246,#9400d3,#b970d8
+integral,1,-2500.00,1000,#ff8c00,#ff8c00
+duty_cycle_target,0,19679.32,6500,#32cd32,#85ff85
+duty_cycle,0,359.69,120,#006400,#4ea04e
+raw_current,0,0.00,819,#660066,#bc00bc
+current,1,-498.56,100,#b8860b,#e8ac7f
+current_chopping,0,0.00,0.05,#d500ff,#ea82ff

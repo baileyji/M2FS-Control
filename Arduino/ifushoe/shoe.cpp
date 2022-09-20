@@ -227,8 +227,7 @@ uint16_t ShoeDrive::_clearance_height(uint8_t slit, bool tell=false) {
     }
   }
 
-  if ((current<N_SLIT_POS-1) &&
-      (pipe > (_cfg.pipe_pos[current]+40) ))  // 1/3rd of the way between pipes
+  if ((current<N_SLIT_POS-1) && (pipe > (_cfg.pipe_pos[current]+PIPE_SPACING_FOR_CLEARNCE) ))  // 1/3rd of the way between pipes
     current++;
 
   //Determine height
@@ -361,12 +360,15 @@ void ShoeDrive::_protectStall(){
   uint32_t ms = millis();
   int32_t interval=ms-_stallmon.lastcall;
   _stallmon.lastcall=ms;
+  int32_t current;
 
-  _stallmon.total_pipe += (((int32_t)_pipe_motor->getCurrent())-STALL_DECREMENT)*interval;
+  current = _pipe_motor->getCurrent();
+  
+  _stallmon.total_pipe += (min(current, 210)-STALL_DECREMENT)*interval;
   _stallmon.total_pipe = _stallmon.total_pipe<0 ? 0:_stallmon.total_pipe;
   if (_stallmon.total_pipe>STALL_LIMIT) {
-//    Serial.print(F("#Stallmon: current="));Serial.print(_pipe_motor->getCurrent());
-//    Serial.print(F(" total="));Serial.println(_stallmon.total_pipe);
+//    Serial.print(F("#Stall pcurrent="));Serial.print(current);
+//    Serial.print(F(" total="));Serial.print(_stallmon.total_pipe);Serial.print(F(" last interval="));Serial.println(interval);
     //stall and need to stop
     errors|=E_PIPESTALL;
     _stallmon.total_pipe=0;
@@ -374,10 +376,13 @@ void ShoeDrive::_protectStall(){
     //TODO consider setting an error only if the positon error is too great
     Serial.println(F("ERROR: Pipe motor stalled out, idling."));
   }
- 
-  _stallmon.total_height += (((int32_t)_height_motor->getCurrent())-STALL_DECREMENT)*interval;
+
+  current = _height_motor->getCurrent();
+  _stallmon.total_height += (min(current,210)-STALL_DECREMENT)*interval;
   _stallmon.total_height = _stallmon.total_height<0 ? 0:_stallmon.total_height;
   if (_stallmon.total_height>STALL_LIMIT) {
+//    Serial.print(F("#Stall hcurrent="));Serial.print(current);
+//    Serial.print(F(" total="));Serial.print(_stallmon.total_height);Serial.print(F(" last interval="));Serial.println(interval);
     //stall and need to stop
     errors|=E_HEIGHTSTALL;
     _stallmon.total_height=0;
@@ -585,9 +590,14 @@ void ShoeDrive::run(){
       
     case SLIT_MOVE_pipe: // moving pipes into position
       if (stat.moving.pipe) {
-        _safe_pipe_height = _clearance_height(_cfg.desired_slit);
+        _safe_pipe_height = _clearance_height(_cfg.desired_slit, false);
         if (!safeToMovePipes()) { // transition to RECOVERY_MOVE else nothing to do but wait
           Serial.print(F("#WARN: Height moved too high: "));Serial.print(stat.error.height);Serial.println(F(". Stoping pipe."));
+//          shoepos_t cmd = getCommandedPosition();
+//          Serial.print(F("#WARN: cmdH: "));Serial.print(cmd.height);
+//          Serial.print(F(" safeH:"));Serial.print(_safe_pipe_height);
+//          Serial.print(F(" fbH:"));Serial.print(_feedback_pos.height);
+//          Serial.print(F(" statH:"));Serial.print(stat.pos.height);
           _movePipe(stat.pos.pipe);
           _moveInProgress=RECOVERY_MOVE;
           errors|=E_HEIGHTMOVEDUP;

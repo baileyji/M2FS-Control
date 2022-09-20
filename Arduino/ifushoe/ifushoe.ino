@@ -191,7 +191,7 @@ bool PCcommand() {
             "#ST{R|B} - Stop motion, optionally of shoe\n"\
 
             "#SL[R|B][1-6] - Move to slit\n"\
-            "#DU[R|B] - Cycle down up"\
+            "#DU[R|B] - Cycle down up\n"\
             "#SD[R|B][1-6] - Report defined slit position\n"\
             "#PS[R|B][1-6]{#} - Set slit pipe to current position or, "\
                "if given, specified position.\n"\

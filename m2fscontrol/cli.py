@@ -1,7 +1,7 @@
 import socket
 from m2fscontrol.m2fsConfig import M2FSConfig
 
-def conn(thing, timeout=None):
+def conn(thing, timeout=2):
     if isinstance(thing, str):
         thing = ('localhost' if thing.lower() != 'director' else socket.gethostname(),
                  M2FSConfig.getPort(thing))

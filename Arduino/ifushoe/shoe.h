@@ -92,7 +92,7 @@ Height has about 16.60mm travel  ~20um/adc count
 #define PIPE_SPACING 180
 #define PIPE_SPACING_FOR_CLEARNCE 75   
 
-#define CHALLENGING_LOWPOS 80
+#define CHALLENGING_LOWPOS 90
 
 #define STALL_DECREMENT 42
 #define STALL_LIMIT 840000 //630000

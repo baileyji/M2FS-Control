@@ -12,6 +12,8 @@ SUBSYSTEM=="tty", ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe", T
 SUBSYSTEM=="tty", ATTRS{serial}=="55731323136351604270", SYMLINK+="ifum_shoe4270"
 SUBSYSTEM=="tty", ATTRS{serial}=="85036313130351712011", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
 SUBSYSTEM=="tty", ATTRS{serial}=="85036313130351712011", SYMLINK+="ifum_shoe2011"
+SUBSYSTEM=="tty", ATTRS{serial}=="957303330383512041C0", SYMLINK+="ifum_shoe", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ifum_shoe.service"
+SUBSYSTEM=="tty", ATTRS{serial}=="957303330383512041C0", SYMLINK+="ifum_shoe41C0"
 
 
 #IFU Selector

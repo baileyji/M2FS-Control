@@ -70,8 +70,8 @@ Height has about 16.60mm travel  ~20um/adc count
 #define POS_TO_JRK 4.095
 #define JRK_TO_POS (1.0/4.095)
 
-#define MOVING_PIPE_TOL 3
-#define MOVING_HEIGHT_TOL 3
+#define MOVING_PIPE_TOL 6
+#define MOVING_HEIGHT_TOL 6
 #define MOVING_TIMEOUT_MS 250
 
 #define MAX_RETRIES 2

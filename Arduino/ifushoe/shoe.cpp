@@ -116,7 +116,14 @@ void ShoeDrive::_updateFeedbackPos() {
   // jrk returns number between 0-4096 that is averaged from configured number of 10bit ADC readings
   pos.pipe=(uint16_t)min(round(_pipe_motor->getScaledFeedback()*JRK_TO_POS), 1000);
   pos.height=(uint16_t)min(round(_height_motor->getScaledFeedback()*JRK_TO_POS), 1000);
+
   _feedback_pos=pos;
+
+  shoepos_t target;
+  shoeerr_t error;
+  target=getCommandedPosition();
+  error.pipe = (int) _feedback_pos.pipe - (int) target.pipe;
+  error.height = (int) _feedback_pos.height - (int) target.height;
   
   int deltah=(int)pos.height-(int)_movepos.height;
   int deltap=(int)pos.pipe-(int)_movepos.pipe;
@@ -144,7 +151,9 @@ void ShoeDrive::_updateFeedbackPos() {
     if (_pipe_moving) {
       Serial.print(F("## "));
       Serial.print(_shoe_name);
-      Serial.println(F(" Pipe stop"));
+      Serial.print(F(" Pipe stop: "));
+      Serial.print(_feedback_pos.pipe);Serial.print(F(" ("));
+      Serial.print(error.pipe);Serial.println(F(")"));
     }
     _pipe_moving=false;
   }
@@ -172,7 +181,9 @@ void ShoeDrive::_updateFeedbackPos() {
     if (_height_moving) {
       Serial.print(F("## "));
       Serial.print(_shoe_name);
-      Serial.println(F(" Height stop"));
+      Serial.print(F(" Height stop: "));
+      Serial.print(_feedback_pos.height);Serial.print(F(" ("));
+      Serial.print(error.height);Serial.println(F(")"));
     }
     _height_moving=false;
   }
@@ -508,9 +519,13 @@ void ShoeDrive::run(){
           tellStatus();
           _retries--;
 
-          if ( errors & E_HEIGHTSTALL & _retry_down) {
+          if ( (errors & E_HEIGHTSTALL) && _retry_down) {
+            Serial.println(F("#Down again"));
             //try to move down a bit again
+            _height_motor->stopMotor();
+            delay(200);
             _moveHeight(_safe_pipe_height);
+            delay(200);
             _retry_down=0;
             errors=0;
             _retries++;
@@ -553,10 +568,10 @@ void ShoeDrive::run(){
       if (stat.moving.pipe) {
          //wait
       } 
-      else if (_currentPipeIndex() == 0) { // we can now raise all the way up
+      else if (_currentPipeIndex() == 0) { // we can now raise all the way
           errors=0;
           Serial.print(F("#RECOVERY_MOVE_pipe done: "));Serial.print(stat.error.pipe);Serial.println(F(". Raise"));
-          _moveHeight(_cfg.height_pos[0]);
+          _moveHeight(_cfg.down_pos[0]);
           _moveInProgress=RECOVERY_MOVE_raise;
       } 
       else  { //transition to RECOVERY_MOVE
@@ -592,7 +607,6 @@ void ShoeDrive::run(){
       break;
       
     case SLIT_MOVE_lower:  //lowering in process
-      _retry_down=0;
       if (safeToMovePipes()) { //transition to SLIT_MOVE_pipes
         errors=0;
         Serial.print(F("#Down ("));Serial.print(stat.error.height);Serial.println(F("), move pipe."));
@@ -607,6 +621,7 @@ void ShoeDrive::run(){
       break;
       
     case SLIT_MOVE_pipe: // moving pipes into position
+      _retry_down=0;
       if (stat.moving.pipe) {
         _safe_pipe_height = _clearance_height(_cfg.desired_slit, false);
         if (!safeToMovePipes()) { // transition to RECOVERY_MOVE else nothing to do but wait
@@ -645,6 +660,11 @@ void ShoeDrive::run(){
           Serial.print(F("#Raised ("));Serial.print(stat.error.height);Serial.print(F("). Slit "));Serial.println((int) _cfg.desired_slit+1);
           _moveInProgress=SHOE_IDLE;
           errors=0;
+          Serial.print(F("#Pos: "));
+          Serial.print(stat.pos.pipe);Serial.print(F(" ("));
+          Serial.print(stat.error.pipe);Serial.print(F("), "));
+          Serial.print(stat.pos.height);Serial.print(F(" ("));
+          Serial.print(stat.error.height);Serial.println(F(")"));
       } else { //transition to RECOVERY_MOVE
           Serial.print(F("#WARN: Height stopped too low:"));Serial.println(stat.error.height);
           errors|=E_HEIGHTSTUCK;

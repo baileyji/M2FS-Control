@@ -702,7 +702,7 @@ bool ZBcommand(){
 }
 
 
-//Report the current slit for specified shoe: 1-6,UNKNOWN,INTERMEDIATE,MOVING
+//Report the current slit for specified shoe: 1-6,INTERMEDIATE,MOVING (#pipe, #height)
 bool SGcommand() {
   if ( instruction.shoe==NO_SHOE ) return false;
 

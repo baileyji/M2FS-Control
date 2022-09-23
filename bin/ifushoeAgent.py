@@ -548,11 +548,11 @@ class IFUShoeAgent(Agent):
         else:
             # Vet the command
             command_parts = command.string.upper().replace(',', ' ').split(' ')
-            slnum = SLIT_NUMBERS.get(command_parts[2], command_parts[2])
-            if not (len(command_parts) == 3 and command_parts[1] in ('R', 'B') and slnum in ('1','2','3','4','5','6')):
+            slit = SLIT_NUMBERS.get(command_parts[2], command_parts[2])
+            if not (len(command_parts) == 3 and command_parts[1] in ('R', 'B') and slit in ('1','2','3','4','5','6')):
                 self.bad_command_handler(command)
                 return
-            _, id, slit = command_parts
+            id = command_parts[1]
 
         try:
             status = self._TS()

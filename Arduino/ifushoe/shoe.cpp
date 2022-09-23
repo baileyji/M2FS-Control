@@ -128,17 +128,19 @@ void ShoeDrive::_updateFeedbackPos() {
   int deltah=(int)pos.height-(int)_movepos.height;
   int deltap=(int)pos.pipe-(int)_movepos.pipe;
 
-  if (abs(deltap) > MOVING_PIPE_TOL ) {  //movement measured
-    if (!_pipe_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.print(F(" Pipe move: "));
-      Serial.println(deltap);
-    }
-    _pipe_moving=true;
-    _movepos.pipe=pos.pipe;
-    _timeLastPipeMovement=t_ms;
-  } else if (_jrk_wants_to_move(_pipe_motor)) { //jrk is trying to move things
+//  if (abs(deltap) > MOVING_PIPE_TOL ) {  //movement measured
+//    if (!_pipe_moving) {
+//      Serial.print(F("## "));
+//      Serial.print(_shoe_name);
+//      Serial.print(F(" Pipe move: "));
+//      Serial.println(deltap);
+//    }
+//    _pipe_moving=true;
+//    _movepos.pipe=pos.pipe;
+//    _timeLastPipeMovement=t_ms;
+//  } 
+//  else 
+  if (_jrk_wants_to_move(_pipe_motor)) { //jrk is trying to move things
     if (!_pipe_moving) {
       Serial.print(F("## "));
       Serial.print(_shoe_name);
@@ -147,7 +149,8 @@ void ShoeDrive::_updateFeedbackPos() {
     _pipe_moving=true;
     _movepos.pipe=pos.pipe;
     _timeLastPipeMovement=t_ms;
-  } else if (t_ms-_timeLastPipeMovement > MOVING_TIMEOUT_MS) { // there has not been recent movement
+  } 
+  else if (t_ms-_timeLastPipeMovement > MOVING_TIMEOUT_MS) { // there has not been recent movement
     if (_pipe_moving) {
       Serial.print(F("## "));
       Serial.print(_shoe_name);
@@ -158,17 +161,19 @@ void ShoeDrive::_updateFeedbackPos() {
     _pipe_moving=false;
   }
 
-  if (abs(deltah) > MOVING_HEIGHT_TOL ) {  //movement measured
-    if (!_height_moving) {
-      Serial.print(F("## "));
-      Serial.print(_shoe_name);
-      Serial.print(F(" Height move: "));
-      Serial.println(deltah);
-    }
-    _height_moving=true;
-    _movepos.height=pos.height;
-    _timeLastHeightMovement=t_ms;
-  } else if (_jrk_wants_to_move(_height_motor)) { //jrk is trying to move things
+//  if (abs(deltah) > MOVING_HEIGHT_TOL ) {  //movement measured
+//    if (!_height_moving) {
+//      Serial.print(F("## "));
+//      Serial.print(_shoe_name);
+//      Serial.print(F(" Height move: "));
+//      Serial.println(deltah);
+//    }
+//    _height_moving=true;
+//    _movepos.height=pos.height;
+//    _timeLastHeightMovement=t_ms;
+//  } 
+//  else 
+  if (_jrk_wants_to_move(_height_motor)) { //jrk is trying to move things
     if (!_height_moving) {
       Serial.print(F("## "));
       Serial.print(_shoe_name);
@@ -624,17 +629,17 @@ void ShoeDrive::run(){
       _retry_down=0;
       if (stat.moving.pipe) {
         _safe_pipe_height = _clearance_height(_cfg.desired_slit, false);
-        if (!safeToMovePipes()) { // transition to RECOVERY_MOVE else nothing to do but wait
-          Serial.print(F("#WARN: Height moved too high: "));Serial.print(stat.error.height);Serial.println(F(". Try recover"));
-//          shoepos_t cmd = getCommandedPosition();
-//          Serial.print(F("#WARN: cmdH: "));Serial.print(cmd.height);
-//          Serial.print(F(" safeH:"));Serial.print(_safe_pipe_height);
-//          Serial.print(F(" fbH:"));Serial.print(_feedback_pos.height);
-//          Serial.print(F(" statH:"));Serial.print(stat.pos.height);
-          _movePipe(stat.pos.pipe);
-          _moveInProgress=RECOVERY_MOVE;
-          errors|=E_HEIGHTMOVEDUP;
-        }
+//        if (!safeToMovePipes()) { // transition to RECOVERY_MOVE else nothing to do but wait
+//          Serial.print(F("#WARN: Height moved too high: "));Serial.print(stat.error.height);Serial.println(F(". Try recover"));
+////          shoepos_t cmd = getCommandedPosition();
+////          Serial.print(F("#WARN: cmdH: "));Serial.print(cmd.height);
+////          Serial.print(F(" safeH:"));Serial.print(_safe_pipe_height);
+////          Serial.print(F(" fbH:"));Serial.print(_feedback_pos.height);
+////          Serial.print(F(" statH:"));Serial.print(stat.pos.height);
+//          _movePipe(stat.pos.pipe);
+//          _moveInProgress=RECOVERY_MOVE;
+//          errors|=E_HEIGHTMOVEDUP;
+//        }
       } 
       else if (_currentPipeIndex() == _cfg.desired_slit) { // transition to SLIT_MOVE_raise
           errors=0;

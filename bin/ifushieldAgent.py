@@ -12,8 +12,9 @@ COLORS = ('392', '407', 'whi', '740', '770', '875')
 
 COLORS = ('770', '740', '875', 'whi', '407', '392')
 HVLAMPS = ('thxe', 'benear', 'lihe')
-HVLMAP_MAX_CURRENT = {'thxe':20, 'benear':20, 'lihe':20}
+HVLMAP_MAX_CURRENT = {'thxe': 20, 'benear': 20, 'lihe': 20}
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
+
 
 class IFUArduinoSerial(selectedconnection.SelectedSerial):
     """
@@ -62,7 +63,7 @@ class IFUArduinoSerial(selectedconnection.SelectedSerial):
     def _implementationSpecificDisconnect(self):
         """ Disconnect the serial connection, telling the shoe to disconnect """
         try:
-            self.connection.write('OF\n')  #turn everything off
+            self.connection.write('OF\n')  # turn everything off
             self.connection.flushOutput()
             self.connection.flushInput()
             self.connection.close()
@@ -74,6 +75,7 @@ class IFUShieldAgent(Agent):
     """
     This program is responsible for the c
     """
+
     def __init__(self):
         Agent.__init__(self, 'IFUShieldAgent')
         self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
@@ -82,13 +84,13 @@ class IFUShieldAgent(Agent):
         self.command_handlers.update({
             'SHIELDRAW': self.RAW_command_handler,
             # Get/Set state of HV lamps
-            'THXE': self.HV_command_handler,   #response: {OK,ERROR,#}
+            'THXE': self.HV_command_handler,  # response: {OK,ERROR,#}
             'BENEAR': self.HV_command_handler,
             'LIHE': self.HV_command_handler,
             # Get/Set state of LEDs
-            'MCLED': self.LED_command_handler, #response:{ OK,ERROR, # # # # # #}
-            #Report all the temps
-            'TEMPS': self.TEMPS_command_handler})  #response:{  # # # # # #}
+            'MCLED': self.LED_command_handler,  # response:{ OK,ERROR, # # # # # #}
+            # Report all the temps
+            'TEMPS': self.TEMPS_command_handler})  # response:{  # # # # # #}
 
     def add_additional_cli_arguments(self):
         """
@@ -183,13 +185,13 @@ class IFUShieldAgent(Agent):
         """
         if self.connections['ifushield'].rlock.acquire(False):
             try:
-                response=self._send_command_to_shield('TE')
+                response = self._send_command_to_shield('TE')
             except IOError, e:
-                response='UNKNOWN'
+                response = 'UNKNOWN'
             finally:
                 self.connections['ifushield'].rlock.release()
         else:
-            response='ERROR: Busy, try again'
+            response = 'ERROR: Busy, try again'
         command.setReply(response)
 
     def LED_command_handler(self, command):
@@ -211,10 +213,10 @@ class IFUShieldAgent(Agent):
                 response = str(e)
             command.setReply(response)
         else:
-            #Set the LED brightness 0-4096
+            # Set the LED brightness 0-4096
             command_parts = command.string.split(' ')
             try:
-                commands = ['LE{}{}'.format(i+1, val) for i, val in
+                commands = ['LE{}{}'.format(i + 1, val) for i, val in
                             enumerate(map(int, command_parts[1:]))]
                 if len(commands) != len(COLORS):
                     raise IndexError
@@ -241,25 +243,25 @@ class IFUShieldAgent(Agent):
         """
         if '?' in command.string:
             try:
-                response = self._send_command_to_shield('HV?')  #Per arduino order is BeNeAr LiHe ThXe
+                response = self._send_command_to_shield('HV?')  # Per arduino order is BeNeAr LiHe ThXe
                 hvstat = response.split()
                 if len(hvstat) != len(HVLAMPS):
                     raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPS)))
-                hvdict={'thxe': hvstat[0], 'benear': hvstat[1], 'lihe': hvstat[2]}
-                lamp=command.string.split()[0].lower()
+                hvdict = {'thxe': hvstat[0], 'benear': hvstat[1], 'lihe': hvstat[2]}
+                lamp = command.string.split()[0].lower()
                 response = hvdict[lamp]
             except IOError as e:
                 response = str(e)
                 if not response.startswith('ERROR: '):
                     response = 'ERROR: ' + response
             command.setReply(response)
-        else:  #Activate the appropriate HV lamp
+        else:  # Activate the appropriate HV lamp
             command_parts = command.string.split(' ')
             try:
-                lamp = command.string.split()[0].lower()  #nb * not permitted, lamp4 not explicitly controller
-                lamp_num = HVLAMPS.index(lamp)+1  #one base in ardunio  THXE_LAMP=1, BENEAR_LAMP=2, LIHE_LAMP=3
+                lamp = command.string.split()[0].lower()  # nb * not permitted, lamp4 not explicitly controller
+                lamp_num = HVLAMPS.index(lamp) + 1  # one base in ardunio  THXE_LAMP=1, BENEAR_LAMP=2, LIHE_LAMP=3
                 current = int(command_parts[1])
-                lamp4_current = max(min(current-HVLMAP_MAX_CURRENT[lamp], HVLMAP_MAX_CURRENT[lamp]), 0)
+                lamp4_current = max(min(current - HVLMAP_MAX_CURRENT[lamp], HVLMAP_MAX_CURRENT[lamp]), 0)
                 current = min(current, HVLMAP_MAX_CURRENT[lamp])
                 if lamp4_current > 0 or self.lamp4_lamp == lamp or self.lamp4_lamp is None:
                     self._send_command_to_shield('HV4{}{}'.format(lamp_num, lamp4_current))
@@ -286,21 +288,21 @@ class IFUShieldAgent(Agent):
             if len(ledstat) != len(COLORS):
                 raise IOError('Malformed reply to LE? "{}"'.format(reply))
         except IOError as e:
-            ledstat = ['ERROR']*len(COLORS)
+            ledstat = ['ERROR'] * len(COLORS)
             self.logger.error('Unable to fetch led values: "{}"'.format(e))
 
         try:
             reply = self._send_command_to_shield('HV?')
             hvstat = reply.split()
-            if len(hvstat)!=len(HVLAMPS):
+            if len(hvstat) != len(HVLAMPS):
                 raise IOError('Malformed reply to HV? "{}"'.format(reply))
         except IOError as e:
             hvstat = ['ERROR'] * len(HVLAMPS)
             self.logger.error('Unable to fetch HV values: "{}"'.format(e))
 
         return ([(self.get_version_string(), self.cookie)] +
-                [(c, v) for c,v in zip(COLORS, ledstat)] +
-                [(c, v) for c,v in zip(HVLAMPS, hvstat)])
+                [(c, v) for c, v in zip(COLORS, ledstat)] +
+                [(c, v) for c, v in zip(HVLAMPS, hvstat)])
 
 
 if __name__ == '__main__':

@@ -6,13 +6,16 @@ from m2fscontrol.shoe import ShoeSerial as _ShoeSerial, ShoeCommandNotAcknowledg
 from m2fscontrol.selectedconnection import ConnectError, ReadError
 import serial
 
-
-SHOE_AGENT_VERSION_STRING = 'IFU Shoe Agent v1.0'
+EXPECTED_FIBERSHOE_INO_VERSION = 'IFUShoe v2.0'
+SHOE_AGENT_VERSION_STRING = 'IFU Shoe Agent v2.0'
 SHOE_AGENT_VERSION_STRING_SHORT = SHOE_AGENT_VERSION_STRING.split()[-1]
 
 SHOE_TIMEOUT=.35
 MAX_SLIT_MOVE_TIME = 25
 STOWSLIT = 1
+
+SLIT_NAMES = {'1': 'S80', '2': 'S300', '3': 'L180', '4': 'L80', '5': 'L300', '6': 'H180'}
+SLIT_NUMBERS = {v: k for k, v in SLIT_NAMES.items()}
 
 # 'SLITSRAW': self.RAW_command_handler,
 # # Get/Set the active slit.
@@ -286,7 +289,7 @@ def shoecmd(connection, command_string, logger):
 class ShoeSerial(_ShoeSerial):
     SHOE_BOOT_TIME = 3.5
     SHOE_SHUTDOWN_TIME = .25
-    EXPECTED_FIBERSHOE_INO_VERSION = 'IFUShoe v1.3'
+    EXPECTED_FIBERSHOE_INO_VERSION = EXPECTED_FIBERSHOE_INO_VERSION
     """
     Slit moves generate many intermediate messages starting with #, may trigger an internal tellstatus
     and may end with a ERROR:
@@ -361,7 +364,7 @@ class IFUShoeAgent(Agent):
             # Send the command string directly to the shoe
             'SLITSRAW': self.RAW_command_handler,
             # Get/Set the active slit.
-            'SLITS': self.SLITS_command_handler,
+            'SLIT': self.SLIT_command_handler,
             # downup cycle
             'SLITS_DOWNUP': self.DOWNUP_command_handler,
             # Get/Set the positions corresponding to a slit
@@ -514,21 +517,21 @@ class IFUShoeAgent(Agent):
         response = ','.join(['UNKNOWN' if '999.' in x else x for x in response.split(',')])
         command.setReply(response)
 
-    def SLITS_command_handler(self, command):
+    def SLIT_command_handler(self, command):
         """
         Get/Set the active slit
 
         Command is of the form
-        SLITS R|B {1-6}
+        SLIT R|B {H180,S300,S80,L300,L180,L80,1,2,3,4,5,6}
         or
-        SLITS R|B ?
+        SLIT R|B ? -> H180,S300,S80,L300,L180,L80
 
         If setting, the command instructs the shoe to move to the
         requested slit position, using the defined step positions for
         that slit. It is an error to set the slits when a move is in progress.
-        If done the error '!ERROR: Can not set slits at this time. will be generated.'
+        If done the error '!ERROR: Can not set slits at this time.' will be generated
 
-        If getting, respond in the form INTERMEDIATE|MOVING|{1-6}.
+        If getting, respond in the form ERROR|INTERMEDIATE # # |MOVING # #|{H180,S300,S80,L300,L180,L80} # #.
         """
         if self._shoe_error is not None:
             command.setReply(self._shoe_error)
@@ -536,13 +539,17 @@ class IFUShoeAgent(Agent):
             return
         if '?' in command.string:
             # Command the shoe to report the active slit
-            command.setReply(self._send_command_to_shoe('SGR' if 'r' in command.string.lower() else 'SGB'))
+            resp = self._send_command_to_shoe('SGR' if 'r' in command.string.lower() else 'SGB')
+            status, _, pos = resp.partition(' ')
+            pos = pos.strip().replace('(', '').replace(')', '').replace(' ', '').replace(',', ' ')
+            resp = SLIT_NAMES.get(status, status)+' '+pos
+            command.setReply(resp)
             return
         else:
             # Vet the command
             command_parts = command.string.upper().replace(',', ' ').split(' ')
-            if not (len(command_parts) == 3 and command_parts[1] in ('R', 'B') and
-                    command_parts[2] in ('1','2','3','4','5','6')):
+            slnum = SLIT_NUMBERS.get(command_parts[2], command_parts[2])
+            if not (len(command_parts) == 3 and command_parts[1] in ('R', 'B') and slnum in ('1','2','3','4','5','6')):
                 self.bad_command_handler(command)
                 return
             _, id, slit = command_parts
@@ -667,7 +674,7 @@ class IFUShoeAgent(Agent):
             l = [self.connections['shoe'].receiveMessageBlocking() for _ in range(TS_LINES)]
         response = '\n'.join(l)
         try:
-            return parseTS(response)
+            return parseTS_jrk(response)
         except Exception:
             self.logger.error('Failed to parse {}.\n\n'.format(response), exc_info=True)
 

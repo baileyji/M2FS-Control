@@ -143,7 +143,7 @@ class Director(Agent):
             'PLUGPOS':self.PLUGGING_command_handler}
         self.IFUM_COMMANDS = {
             'SLITSRAW': self.SLITS_comand_handler,
-            'SLITS': self.SLITS_comand_handler,
+            'SLIT': self.SLITS_comand_handler,
             'SLITS_SLITPOS': self.SLITS_comand_handler,
             'SLITS_TEMP': self.SLITS_comand_handler,
             'SLITS_HARDHAT': self.SLITS_comand_handler,
@@ -179,7 +179,7 @@ class Director(Agent):
             'BENEAR': self.IFUSHIELD_command_handler,
             'LIHE': self.IFUSHIELD_command_handler,
             'THXE': self.IFUSHIELD_command_handler,
-            'SHEILDRAW':self.IFUSHIELD_command_handler,}
+            'SHIELDRAW':self.IFUSHIELD_command_handler,}
         self.command_handlers.update(GENERAL_COMMANDS)
         self.command_handlers.update(self.M2FS_COMMANDS)
         self.command_handlers.update(self.IFUM_COMMANDS)

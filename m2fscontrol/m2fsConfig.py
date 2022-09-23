@@ -342,7 +342,7 @@ class M2FSConfig(object):
     @staticmethod
     def getShoeColorInCradle(color):
         """
-        Return 'R', 'B', or '' debending on the she in the specified cradle
+        Return 'R', 'B', or '' depending on the shoe in the specified cradle
         """
         if color not in ['R', 'B']:
             raise ValueError

@@ -420,39 +420,43 @@ bool HVcommand() {
   } else return false;
 
 
-  if (command_length > 4){
-    long param=255;
-    lamp_t sublamp=255;
-    if (lamp==USER_LAMP) {
-      if (command_length<5) 
+  if (command_length < 4) return false;
+  
+  long param=255;
+  lamp_t sublamp=255;
+  
+  if (lamp==USER_LAMP) {
+    if (command_length<5) return false;
+    else {
+      //THXE_LAMP=0='1', BENEAR_LAMP=1='2', LIHE_LAMP=2='3'
+      sublamp = (lamp_t) command_buffer[3]-'1'; 
+      if (sublamp!=LIHE_LAMP && 
+          sublamp!=BENEAR_LAMP && 
+          sublamp!=THXE_LAMP)
         return false;
-      else {
-        sublamp = (lamp_t) command_buffer[3]-'1'; //THXE_LAMP=0='1', BENEAR_LAMP=1='2', LIHE_LAMP=2='3'
-        if (sublamp!=LIHE_LAMP && sublamp!=BENEAR_LAMP && sublamp!=THXE_LAMP)
-          return false;
-      }
-      param = strtol(command_buffer+4, NULL, 10);
-    } else {
-      param = strtol(command_buffer+3, NULL, 10);
     }
-    if (param<0 ) //|| (param==0 && command_buffer[3] !='0'))
-       return false;
-    switch(lamp) {
-        case BENEAR_LAMP : benear.turnOn((current_t) param);
-                           break;
-        case THXE_LAMP   : thxe.turnOn((current_t) param);
-                           break;
-        case LIHE_LAMP   : lihe.turnOn((current_t) param);
-                           break;
-        case USER_LAMP   : lamp4.turnOn((current_t) param, (uint8_t) sublamp);
-                           break;
-        case ALL_LAMPS   : lihe.turnOn((current_t) param);
-                           benear.turnOn((current_t) param);
-                           thxe.turnOn((current_t) param);
-                           break;
-    }
-    return true;
-  } else return false;
+    param = strtol(command_buffer+4, NULL, 10);
+  } 
+  else {
+    param = strtol(command_buffer+3, NULL, 10);
+  }
+  if (param<0 ) //|| (param==0 && command_buffer[3] !='0'))
+     return false;
+  switch(lamp) {
+      case BENEAR_LAMP : benear.turnOn((current_t) param);
+                         break;
+      case THXE_LAMP   : thxe.turnOn((current_t) param);
+                         break;
+      case LIHE_LAMP   : lihe.turnOn((current_t) param);
+                         break;
+      case USER_LAMP   : lamp4.turnOn((current_t) param, (uint8_t) sublamp);
+                         break;
+      case ALL_LAMPS   : lihe.turnOn((current_t) param);
+                         benear.turnOn((current_t) param);
+                         thxe.turnOn((current_t) param);
+                         break;
+  }
+  return true;
 
 }
 

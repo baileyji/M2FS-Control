@@ -228,7 +228,7 @@ currentf_t UltravoltMultilamp::getCurrent() {
 bool UltravoltMultilamp::setCurrentLimit(current_t limit) {
     _ilimit = limit > MAX_IOUT_MA ? MAX_IOUT_MA : limit;
     uint16_t out = round(((float)_ilimit)*MILLIAMPS_TO_ADC);
-    Serial.print("Set IDAC to ");Serial.println(out);
+//    Serial.print("Set IDAC to ");Serial.println(out);
     _mcp4725SetVoltage(LAMP_4_I_ADDR, out, false);
     delay(1);
 }
@@ -314,11 +314,11 @@ bool UltravoltMultilamp::_mcp4725SetVoltage(uint8_t addr, uint16_t output, bool 
 
   _i2c.beginTransmission(addr);
   if (_i2c.write(packet, 3) != 3) {
-    Serial.println("Write packet failed");
+//    Serial.println("Write packet failed");
     return false;
   }
   if (_i2c.endTransmission(true) != 0) {
-    Serial.println("end transmission failed");
+//    Serial.println("end transmission failed");
     return false;
   }
   return true;

@@ -59,7 +59,8 @@ Height has about 16.60mm travel  ~20um/adc count
 
 #define MOVING 0xFE
 #define UNKNOWN_SLIT 0xFF
-#define DEFAULT_TOL 33   // about 0.33mm, 20mm/1000 per unit, more than 135 is right out!
+#define HEIGHT_TOL_UP 15
+#define DEFAULT_TOL 15   // about 0.33mm, 20mm/1000 per unit, more than 135 is right out!
 #define MAX_HEIGHT_TOL 100
 #define MAX_PIPE_TOL 35
 

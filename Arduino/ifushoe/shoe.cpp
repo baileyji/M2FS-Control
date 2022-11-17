@@ -274,7 +274,7 @@ bool ShoeDrive::fibersAreUp() {
   uint16_t err = abs((int)_feedback_pos.height-(int)_cfg.height_pos[_cfg.desired_slit]);
   
   return (cmd.height==_cfg.height_pos[_cfg.desired_slit] && 
-          err < _cfg.height_tol &&  !heightMoving());
+          err < HEIGHT_TOL_UP &&  !heightMoving());
 }
 
 bool ShoeDrive::safeToMovePipes() {

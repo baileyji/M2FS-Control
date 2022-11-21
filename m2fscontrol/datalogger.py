@@ -2,7 +2,7 @@ import time, select
 
 import redis
 from serial import Serial, SerialException
-from datetime import datetime
+from datetime import datetime, timedelta
 from construct import UBInt32, StrictRepeater, LFloat32, SLInt16, ULInt32
 import numpy as np
 import threading
@@ -253,12 +253,20 @@ class DataloggerListener(threading.Thread):
                             rec = {k + self.side: logdata[k] for k in ('echelle', 'prism', 'lores')
                                    if logdata[k] is not None}
                             t = datetime.utcfromtimestamp(logdata['time'])
+                            if t.year == 2013:  #The B side seems to be ignoring tell-time responses.
+                                # This is a dirty hack but since we never go offline and then catch back up its irrelevant.
+                                self.logger.warning('Telling time because it thinks its 2013')
+                                self.datalogger.telltime()
+                                t = datetime.utcnow()-timedelta(seconds=1)
                             for k, v in rec.items():
                                 getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
                         except ValueError as e:
                             self.logger.error(str(e))
                         except redis.ResponseError as e:
                             self.logger.error('Redis error {} while logging {} at t={}'.format(e, rec, t))
+                            if 'XADD' in str(e):
+                                self.logger.warning('Telling time to clear up redis errors')
+                                self.datalogger.telltime()
                         except RedisError as e:
                             self.logger.error(e, exc_info=True)
                     elif byte == 'E':

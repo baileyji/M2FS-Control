@@ -21,3 +21,7 @@ plates/output/*.eps
 Arduino/libraries/Arduino_AVRSTL
 Arduino/libraries/ArduinoJson
 m2fscontrol.egg-info
+Arduino/cmake-build-debug
+CMakeLists.txt
+main.cpp
+Arduino/clion_ifushoe

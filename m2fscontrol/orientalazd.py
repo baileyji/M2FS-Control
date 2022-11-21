@@ -63,7 +63,6 @@ DEFAULT_SPEED = int(round(MM_TO_PULSE * DEFAULT_SPEED_MMPERS))
 DEFAULT_ACCEL = int(round(MM_TO_PULSE * 600))  # 0.6 m/s^2 is what the system came programmed with
 DEFAULT_DECEL = DEFAULT_ACCEL
 
-
 #need to be able to check software limits from agent
 
 #MBC bit indicates the break is disabled, might stand for motor break current

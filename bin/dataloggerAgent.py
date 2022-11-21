@@ -90,7 +90,7 @@ class DataloggerAgent(Agent):
         templist = IFUM_TEMP_LIST+BASE_TEMP_LIST if M2FSConfig.ifum_devices_present() else M2FS_TEMP_LIST+BASE_TEMP_LIST
 
         try:
-            latest = [getattr(self.redis_ts, k.lower())[datetime.utcnow() - timedelta(minutes=1.1):] for k in templist]
+            latest = [getattr(self.redis_ts, k.lower())[datetime.utcnow() - timedelta(minutes=3.1):] for k in templist]
         except RedisError as e:
             self.logger.error(exc_info=True)
             return 'ERROR: '+str(e)

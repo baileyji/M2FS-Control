@@ -10,9 +10,11 @@ EXPECTED_FIBERSHOE_INO_VERSION = 'IFUShoe v2.0'
 SHOE_AGENT_VERSION_STRING = 'IFU Shoe Agent v2.0'
 SHOE_AGENT_VERSION_STRING_SHORT = SHOE_AGENT_VERSION_STRING.split()[-1]
 
-SHOE_TIMEOUT=.35
+SHOE_TIMEOUT = .35
 MAX_SLIT_MOVE_TIME = 25
 STOWSLIT = 1
+SHOE_BOOT_TIME = 4.0
+SHOE_SHUTDOWN_TIME = .25
 
 SLIT_NAMES = {'1': 'S80', '2': 'S300', '3': 'L180', '4': 'L80', '5': 'L300', '6': 'H180'}
 SLIT_NUMBERS = {v: k for k, v in SLIT_NAMES.items()}
@@ -287,8 +289,8 @@ def shoecmd(connection, command_string, logger):
 
 
 class ShoeSerial(_ShoeSerial):
-    SHOE_BOOT_TIME = 3.5
-    SHOE_SHUTDOWN_TIME = .25
+    SHOE_BOOT_TIME = SHOE_BOOT_TIME
+    SHOE_SHUTDOWN_TIME = SHOE_SHUTDOWN_TIME
     EXPECTED_FIBERSHOE_INO_VERSION = EXPECTED_FIBERSHOE_INO_VERSION
     """
     Slit moves generate many intermediate messages starting with #, may trigger an internal tellstatus

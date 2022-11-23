@@ -49,7 +49,19 @@ class DataloggerAgent(Agent):
         Agent.__init__(self, 'DataloggerAgent')
         # Initialize the dataloggers
         self.redis_ts = self.redis.time_series('temps', BASE_TEMP_LIST+M2FS_TEMP_LIST+IFUM_TEMP_LIST)
-        # self.redis_stream = self.redis_ts.temp_stream
+        for k in BASE_TEMP_LIST+M2FS_TEMP_LIST+IFUM_TEMP_LIST:
+            series = getattr(self.redis_ts, k.lower())
+            try:
+                top = series[datetime.utcnow()-timedelta(hours=1):][-1].timestamp
+            except:
+                top = None
+            self.logger.info('Latest record (past hour or newer) for {} is at t={}'.format(k, top))
+
+        # for k in BASE_TEMP_LIST+M2FS_TEMP_LIST+IFUM_TEMP_LIST:
+        #     series = getattr(redis_ts, k.lower())
+        #     newer = series[datetime.utcnow():]
+        #     for m in newer:
+        #         series.delete(m.message_id)
 
         self.dataloggerR = DataloggerListener('R', '/dev/m2fs_dataloggerR', self.redis_ts)
         self.dataloggerR.start()
@@ -133,7 +145,8 @@ class DataloggerAgent(Agent):
             if resp and 'busy' not in resp.lower():
                 d = map(floatnone, resp.split(','))
                 self.logger.debug('Got {}'.format(d))
-                cradleRTemp, cradleBTemp, shoeboxTemp = d
+                #cradleRTemp, cradleBTemp, shoeboxTemp = d
+                cradleBTemp, cradleRTemp, shoeboxTemp = d
         except IOError:
             self.logger.debug("Failed to poll IFU Shoes for temps")
         except ValueError:
@@ -226,7 +239,13 @@ class DataloggerAgent(Agent):
         t = datetime.utcnow()
         self.logger.debug('Logging {}'.format(rec))
         for k, v in rec.items():
-            getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
+            series = getattr(self.redis_ts, k.lower())
+            # try:
+            #     top = series[t - timedelta(minutes=1.1):][-1].timestamp
+            # except:
+            #     top = None
+            # self.logger.error('Logging {} @ t={}. Stream top: {}'.format(k, t, top))
+            series.add({'': v}, id=t)
 
         # Do it again in in a few
         self.queryAgentsTimer = Timer(POLL_AGENTS_INTERVAL, self.logTemps)

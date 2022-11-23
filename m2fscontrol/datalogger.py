@@ -252,21 +252,25 @@ class DataloggerListener(threading.Thread):
                             self.logger.debug(logdata)
                             rec = {k + self.side: logdata[k] for k in ('echelle', 'prism', 'lores')
                                    if logdata[k] is not None}
-                            t = datetime.utcfromtimestamp(logdata['time'])
-                            if t.year == 2013:  #The B side seems to be ignoring tell-time responses.
-                                # This is a dirty hack but since we never go offline and then catch back up its irrelevant.
-                                self.logger.warning('Telling time because it thinks its 2013')
-                                self.datalogger.telltime()
-                                t = datetime.utcnow()-timedelta(seconds=1)
+                            dl_t = datetime.utcfromtimestamp(logdata['time'])
+                            t = datetime.utcnow()
                             for k, v in rec.items():
-                                getattr(self.redis_ts, k.lower()).add({'': v}, id=t)
+                                try:
+                                    series = getattr(self.redis_ts, k.lower())
+                                    series.add({'': v}, id=t)
+                                except redis.ResponseError as e:
+                                    if 'XADD' in str(e):
+                                        try:
+                                            top = getattr(self.redis_ts, k.lower())[t - timedelta(minutes=1.1):][-1].timestamp
+                                        except:
+                                            top=None
+                                        self.logger.error('{}. {} @ t={}. Stream top: {} DLt: {}'.format(e, k, t, top, dl_t))
+                                    else:
+                                        raise
                         except ValueError as e:
                             self.logger.error(str(e))
                         except redis.ResponseError as e:
                             self.logger.error('Redis error {} while logging {} at t={}'.format(e, rec, t))
-                            if 'XADD' in str(e):
-                                self.logger.warning('Telling time to clear up redis errors')
-                                self.datalogger.telltime()
                         except RedisError as e:
                             self.logger.error(e, exc_info=True)
                     elif byte == 'E':

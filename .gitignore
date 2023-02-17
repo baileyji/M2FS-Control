@@ -25,3 +25,4 @@ Arduino/cmake-build-debug
 CMakeLists.txt
 main.cpp
 Arduino/clion_ifushoe
+pycharm/m2fsrot/*.fits

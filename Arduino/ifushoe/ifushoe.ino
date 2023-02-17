@@ -14,7 +14,7 @@
 //#define DEBUG_COMMAND
 
 #define POWERDOWN_DELAY_US  1000
-#define VERSION_STRING "IFUShoe v2.0"
+#define VERSION_STRING "IFUShoe v2.1"
 #define VERSION 0x05
 
 #define TEMP_UPDATE_INTERVAL_MS 5000  //must be longer than max conversion time

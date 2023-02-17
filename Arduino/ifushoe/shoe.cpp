@@ -294,6 +294,7 @@ shoestatus_t ShoeDrive::_status() {
   x.heading=_heading;
   x.slerror.pipe=(int)_feedback_pos.pipe - (int)_cfg.pipe_pos[min(_cfg.desired_slit, N_SLIT_POS-1)];
   x.slerror.height=(int)_feedback_pos.height - (int)_cfg.height_pos[min(_cfg.desired_slit, N_SLIT_POS-1)];
+  x.desired_slit=_cfg.desired_slit;
   return x;
 }
 

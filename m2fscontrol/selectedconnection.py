@@ -280,7 +280,7 @@ class SelectedConnection(object):
                     err=escapeString(err.format(count,message))
                     raise WriteError(err)
             except WriteError,err:
-                self.handle_error(err)
+                self.handle_error(str(err))
                 raise WriteError(str(err))
 
     def _terminateMessage(self, message):

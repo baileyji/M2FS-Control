@@ -6,7 +6,7 @@ from m2fscontrol.shoe import ShoeSerial as _ShoeSerial, ShoeCommandNotAcknowledg
 from m2fscontrol.selectedconnection import ConnectError, ReadError
 import serial
 
-EXPECTED_FIBERSHOE_INO_VERSION = 'IFUShoe v2.0'
+EXPECTED_FIBERSHOE_INO_VERSION = 'IFUShoe v2.1'
 SHOE_AGENT_VERSION_STRING = 'IFU Shoe Agent v2.0'
 SHOE_AGENT_VERSION_STRING_SHORT = SHOE_AGENT_VERSION_STRING.split()[-1]
 

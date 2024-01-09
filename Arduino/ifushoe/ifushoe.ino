@@ -153,7 +153,7 @@ typedef struct {
 Instruction instruction;
 
 //Commands
-#define N_COMMANDS 18
+#define N_COMMANDS 16
 typedef struct {
     String name;
     bool (*callback)();
@@ -164,14 +164,12 @@ typedef struct {
 
 bool CYcommand();
 bool PVcommand();
-bool SDcommand();
 bool SGcommand();
 bool SLcommand();
 bool PScommand();
 bool TOcommand();
 bool HScommand();
 bool STcommand();
-bool TDcommand();
 bool TEcommand();
 bool TScommand();
 bool ZBcommand();
@@ -186,13 +184,11 @@ bool PCcommand() {
             "#PV - Print Version\n"\
             "#TE - Report temperatures (B, R, Ctrl)\n"\
   
-            "#TD[R|B] - Tell position\n"\
             "#SG[R|B] - Get the current slit for shoe\n"\
             "#ST{R|B} - Stop motion, optionally of shoe\n"\
 
             "#SL[R|B][1-6] - Move to slit\n"\
             "#DU[R|B] - Cycle down up\n"\
-            "#SD[R|B][1-6] - Report defined slit position\n"\
             "#PS[R|B][1-6][#] - Set slit pipe to specified position.\n"\
             "#HS[R|B][U|D][1-6][#] - Set up/down positon like PS.\n"\
             "#TO[R|B][P|H][#] - Set tolerance of axis\n"\
@@ -201,7 +197,7 @@ bool PCcommand() {
 
             "#PI - Toggle PID Mode, turns off autostop\n"\
             
-            "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-4095) without safety checks.\n"\
+            "#MV[R|B][P|H][#] - !DANGER! Move the Height or Pipe axis to # (0-1000) without safety checks.\n"\
             "#OW - Print addresses temp sensors on 1Wire bus\n"\
             "#ZB{1} - Zero the boot count, 1 to clear EEPROM\n");
 
@@ -215,8 +211,6 @@ Command commands[N_COMMANDS]={
     {"PC", PCcommand, true, false},
     //Print version String
     {"PV", PVcommand, true, false},
-    //Slit Defined Position, get the defined position of slit
-    {"SD", SDcommand, true, true},
     //Slit Get. Get the current slit for shoe R|B 1-6,UNKNOWN,INTERMEDIATE,MOVING
     {"SG", SGcommand, false, true},
     //Slit, move to position of slit
@@ -231,8 +225,6 @@ Command commands[N_COMMANDS]={
     {"ST", STcommand, true, false},
     //PI
     {"PI", PIcommand, true, false},
-    //Tell Step Position (# UKNOWN MOVING)
-    {"TD", TDcommand, false, true},
     //Report temperature
     {"TE", TEcommand, true, false},
     //Tell Status (e.g. moving vreg, etc)
@@ -712,17 +704,6 @@ bool SGcommand() {
   return true;
 }
 
-//Report the nominial position of the specified slit
-bool SDcommand() {
-  if ( instruction.shoe==NO_SHOE ) return false;
-  ShoeDrive *shoe=shoes[instruction.shoe];
-
-  unsigned char slit=charToSlit(instruction.arg_buffer[0]);
-  if ( slit>N_SLIT_POS-1 ) return false;
-  
-  cout<<shoe->getSlitPosition(slit)<<endl;
-  return true;
-}
 
 //Report the status bytes
 bool TScommand() {
@@ -745,18 +726,6 @@ bool TScommand() {
   } else {
     shoes[instruction.shoe]->tellStatus();
   }
-  return true;
-}
-
-// Get currrent position/moving/unknown
-bool TDcommand(){
-  if ( instruction.shoe==NO_SHOE) return false;
-  bool moving;
-  moving=shoes[instruction.shoe]->moveInProgress();
-  if (moving) cout<<F("MOVING (");
-  shoes[instruction.shoe]->tellFeedbackPosition();
-  if (moving) cout<<")";
-  cout<<endl;
   return true;
 }
 
@@ -811,7 +780,7 @@ bool PScommand() {
 }
 
 //Define a motor axis tolerance
-//TO[R|B][H|P][1-25]\0
+//TO[R|B][H|P][1- ~25]
 bool TOcommand() {
  
   if ( instruction.shoe==NO_SHOE) return false;

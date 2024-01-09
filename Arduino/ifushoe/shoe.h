@@ -59,7 +59,7 @@ Height has about 16.60mm travel  ~20um/adc count
 
 #define MOVING 0xFE
 #define UNKNOWN_SLIT 0xFF
-#define HEIGHT_TOL_UP 15
+#define HEIGHT_TOL_UP 35
 #define DEFAULT_TOL 15   // about 0.33mm, 20mm/1000 per unit, more than 135 is right out!
 #define MAX_HEIGHT_TOL 100
 #define MAX_PIPE_TOL 35
@@ -90,10 +90,8 @@ Height has about 16.60mm travel  ~20um/adc count
 #define SLIT_MOVE_raise 7
 
 //average spacing is about 180, so about 40%
-#define PIPE_SPACING 180
-#define PIPE_SPACING_FOR_CLEARNCE 75   
-
-#define CHALLENGING_LOWPOS 90
+#define PIPE_SPACING 186
+#define PIPE_SPACING_FOR_CLEARNCE 75
 
 #define STALL_DECREMENT 42
 #define STALL_LIMIT 840000 //630000
@@ -165,7 +163,6 @@ class ShoeDrive {
     void setMotorPower(bool);
     void run(); //1ms when idle
 
-    void tellFeedbackPosition();
     shoepos_t getFeedbackPosition();  //From feedback
     shoepos_t getCommandedPosition(); //from servo
 
@@ -196,8 +193,6 @@ class ShoeDrive {
     void getState(shoecfg_t &data);
     void restoreState(shoecfg_t data);
 
-    bool idle();  //return true when in position and nothing will move when run is called
-
     uint16_t errors;
     bool motorsPowered;
     bool keepSafe;
@@ -223,6 +218,7 @@ class ShoeDrive {
     void _move(JrkG2I2C *axis, uint16_t pos);
     bool _jrk_wants_to_move(JrkG2I2C *axis);
     bool _jrk_stopped(JrkG2I2C *axis);
+    int16_t _jrk_dist_to_target(JrkG2I2C *axis);
 
     uint16_t _safe_pipe_height;  //This changes depending on the move
     uint8_t _retries;

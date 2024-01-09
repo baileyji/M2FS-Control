@@ -543,19 +543,7 @@ void ShoeDrive::run(){
           tellStatus();
           _retries--;
 
-          if ( (errors & E_HEIGHTSTALL) && _retry_down) {
-            Serial.println(F("#Down again"));
-            //try to move down a bit again
-            _height_motor->stopMotor();
-            delay(200);
-            _moveHeight(_safe_pipe_height);
-            delay(200);
-            _retry_down=0;
-            errors=0;
-            _retries++;
-            _moveInProgress=SLIT_MOVE_lower;
-          }
-          else if ( (errors & (E_HEIGHTSTALL|E_HEIGHTMOVEDUP|E_RECOVER|E_PIPESHIFT)) | !safeToMovePipes()) {
+          if ( (errors & (E_HEIGHTSTALL|E_PIPESHIFT)) | !safeToMovePipes()) {
 
             // E_HEIGHTSTALL: didn't move down all the way may be down just a bit or just not clear.
             // Lower pipes are slightly more prone to not getting all the way down
@@ -564,26 +552,18 @@ void ShoeDrive::run(){
             Serial.println(F("#Pipe to SL 1"));
             _movePipe(_cfg.pipe_pos[0]);
             _moveInProgress=RECOVERY_MOVE_pipe;
-          } 
+           _retries=0;
+///fail after pipe to 1
+          }
           else if (errors & E_PIPESTALL) {
-
-            uint16_t dest = stat.target.pipe - 200;//*stat.heading.pipe;
-            Serial.print(F("#Pipe retry "));Serial.print(stat.target.pipe);Serial.print(F(" via "));Serial.println(dest);
-            // E_PIPESTALL: pipe didn't get to where it was sent. if height is down we can send it safely where ever,
-            // if height isn't safe then simplest to handle it like a height stall (see above)
-            _movePipe(dest);
-            _movePipe(stat.target.pipe);
-            errors=0;
-            _moveInProgress=SLIT_MOVE_pipe;
-
+              Serial.println(F("ERROR: Pipe stall, idling."));
+              _moveInProgress=SHOE_IDLE;
+              _retries=0;
           } 
           else if (errors & E_HEIGHTSTUCK) {
-            Serial.println(F("#Raise fail, lower"));
-            // E_HEIGHTSTUCK: height didn't up get to where it was sent. if pipes aren't where they need to be then
-            // that would cause this (though that isn't possible by sw. design), just lower back down and let the cycle go again
-            _moveHeight(_clearance_height(_cfg.desired_slit));
-            errors=0;
-            _moveInProgress=SLIT_MOVE_lower;
+              Serial.println(F("#ERROR: Raise fail, idling"));
+              _moveInProgress=SHOE_IDLE;
+              _retries=0;
           }
         }
         break;
@@ -594,25 +574,18 @@ void ShoeDrive::run(){
       } 
       else if (_currentPipeIndex() == 0) { // we can now raise all the way
           errors=0;
-          Serial.print(F("#RECOVERY_MOVE_pipe done: "));Serial.print(stat.error.pipe);Serial.println(F(". Raise"));
-          _moveHeight(_cfg.down_pos[0]);
-          _moveInProgress=RECOVERY_MOVE_raise;
-      } 
+          Serial.print(F("#RECOVERY_MOVE_pipe done: "));Serial.print(stat.error.pipe);
+          _moveInProgress=SHOE_IDLE;
+          _retries=0;
+      }
       else  { //transition to RECOVERY_MOVE
-        _moveInProgress=RECOVERY_MOVE;
-        errors|=E_RECOVER;
+        _moveInProgress=SHOE_IDLE;
+        _retries=0;
         Serial.print(F("#RECOVERY_MOVE_pipe failed"));Serial.println(stat.error.pipe);
         tellStatus();
       }
       break;
 
-    case RECOVERY_MOVE_raise:
-      if (!stat.moving.height) {
-        Serial.print(F("#RECOVERY_MOVE_raise done: "));Serial.println(stat.error.height);
-        errors=0;
-        _moveInProgress=SLIT_MOVE;
-      }
-      break;
 
     /*positions
     _feedback_pos. filtered analog position
@@ -622,7 +595,6 @@ void ShoeDrive::run(){
     */
     case SLIT_MOVE: //new move, lower cassette
       errors=0;
-      _retry_down=1;
       _safe_pipe_height = _clearance_height(_cfg.desired_slit, true);
       Serial.print(F("#To SL")); Serial.print((uint16_t)_cfg.desired_slit+1);
       Serial.print(F(". Lower to "));Serial.println(_safe_pipe_height);
@@ -645,7 +617,6 @@ void ShoeDrive::run(){
       break;
       
     case SLIT_MOVE_pipe: // moving pipes into position
-      _retry_down=0;
       if (stat.moving.pipe) {
         _safe_pipe_height = _clearance_height(_cfg.desired_slit, false);
       } 
@@ -665,7 +636,7 @@ void ShoeDrive::run(){
       if (stat.moving.height) {
         if (_currentPipeIndex() != _cfg.desired_slit) { //pipe shifted abort, else nothing to do but wait
           Serial.print(F("#WARN: Pipe shifted "));Serial.print(stat.error.pipe);Serial.println(F(". Lowering."));
-          _moveHeight(_clearance_height(_cfg.desired_slit));
+          _height_motor->stopMotor();
           errors|=E_PIPESHIFT;
           _moveInProgress=RECOVERY_MOVE;
         }

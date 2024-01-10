@@ -61,7 +61,7 @@ void ShoeDrive::init() {
   for (uint8_t i=0;i<N_SLIT_POS;i++) {
     _cfg.pipe_pos[i]=PIPE_SPACING*i+45;
     _cfg.height_pos[i] = default_heights[i];
-    _cfg.down_pos[i] = 100;
+    _cfg.down_pos[i] = 80;
   }
   _cfg.down_pos[N_SLIT_POS-1]=0;
   keepSafe=true;
@@ -551,6 +551,7 @@ void ShoeDrive::run(){
             // Pathological case of pipe jammed into the rear of the tab or between tabs is thankfully not physically possible.
             Serial.println(F("#Pipe to SL 1"));
             _movePipe(_cfg.pipe_pos[0]);
+            _moveHeight(min(_cfg.down_pos[5], stat.pos.height));
             _moveInProgress=RECOVERY_MOVE_pipe;
            _retries=0;
 ///fail after pipe to 1
@@ -623,6 +624,8 @@ void ShoeDrive::run(){
       else if (_currentPipeIndex() == _cfg.desired_slit) { // transition to SLIT_MOVE_raise
           errors=0;
           Serial.print(F("#Pipe done ("));Serial.print(stat.error.pipe);Serial.println(F("), raising."));
+          delay(75);
+          _pipe_motor->stopMotor();
           _moveHeight(_cfg.height_pos[_cfg.desired_slit]);
           _moveInProgress=SLIT_MOVE_raise;
       } 

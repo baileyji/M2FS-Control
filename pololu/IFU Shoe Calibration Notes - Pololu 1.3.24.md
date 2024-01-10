@@ -71,15 +71,16 @@ The pipes are 2.5 mm apart, so the positions relative to the front face are:
 
 Nominal positions are then (position-3mm)*(
 
-Post     Position   Nominal
--lim        4.65    15
-1           5.65    24
-2           8.15    46
-3          10.65    68
-4          13.15    91
-5          15.65    114
-6          18.15    136
-+lim       22.51    175
+  | Post | Position | Nominal |
+  |------|----------|---------|
+  | -lim | 4.65     | 15      |
+  | 1    | 5.65     | 24      |
+  | 2    | 8.15     | 46      |
+  | 3    | 10.65    | 68      |
+  | 4    | 13.15    | 91      |
+  | 5    | 15.65    | 114     |
+  | 6    | 18.15    | 136     |
+  | +lim | 22.51    | 175     |
 
 The mechanical limits on this scale happen at 4.65 and 22.51.
 Pipes have about 13.55mm travel  ~2um adc count
@@ -301,7 +302,7 @@ SL1 centered inboard low outboard 45%
 
 SL3 looks well centered to within 10%
 SL2 centered
-SL1 LOW 15% LEFT 50% RIGHT (OUTBOARD) 
+SL1 LOW 15% LEFT 50% RIGHT (OUTBOARD)
 SL4  LOW 100% LEFT & RIGHT
 SL5 LOOKS GOOD, MIGHT BE A TOUCH HIGH BUT BASICALLY NOT POSSIBLE TO IMPROVE GIVEN MOUNT VARIABILITY
 SL6 HIGH LEFT AND RIGHT BY 50%
@@ -324,7 +325,7 @@ slr2: 25% high r 13% high l
 slr3: 50% high l 33%ish R
 slr4: too high ~50%
 slr5: too high ~40%
- 
+
 Wiggle R
 slr6: similar
 slr1: similar

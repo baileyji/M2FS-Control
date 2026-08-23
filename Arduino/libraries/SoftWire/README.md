@@ -61,6 +61,8 @@ The AsyncDelay library is required, see
 * [Phonog](https://github.com/Phonog)
 * [Tutoduino](https://github.com/tutoduino)
 * [Brian Park](https://github.com/bxparks)
+* [Wayne Piekarski](https://github.com/waynepiekarski)
+* [nerdyscout](https://github.com/nerdyscout)
 
 ## Credits
 

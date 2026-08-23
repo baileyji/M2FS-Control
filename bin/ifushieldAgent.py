@@ -12,8 +12,10 @@ COLORS = ('392', '407', 'whi', '740', '770', '875')
 
 COLORS = ('770', '740', '875', 'whi', '407', '392')
 HVLAMPS = ('thxe', 'benear', 'lihe')
-HVLMAP_MAX_CURRENT = {'thxe': 20, 'benear': 20, 'lihe': 20}
+HVLMAP_MAX_CURRENT = {'thxe': 10, 'benear': 10, 'lihe': 10}
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
+
+HVLAMPMAP = {1: 'thxe', 2: 'benear', 3: 'lihe', 4: 'thxe', 5: 'benear', 6: 'lihe'}
 
 
 class IFUArduinoSerial(selectedconnection.SelectedSerial):
@@ -245,11 +247,11 @@ class IFUShieldAgent(Agent):
             try:
                 response = self._send_command_to_shield('HV?')  # Per arduino order is BeNeAr LiHe ThXe
                 hvstat = response.split()
-                if len(hvstat) != len(HVLAMPS):
-                    raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPS)))
-                hvdict = {'thxe': hvstat[0], 'benear': hvstat[1], 'lihe': hvstat[2]}
+                if len(hvstat) != len(HVLAMPMAP):
+                    raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPMAP)))
+                hvdict = {i: s for i, s in enumerate(hvstat)}
                 lamp = command.string.split()[0].lower()
-                response = hvdict[lamp]
+                response = sum([hvdict[lamp_ndx] for lamp_ndx, lamp_type in HVLAMPMAP.items() if lamp_type==lamp])
             except IOError as e:
                 response = str(e)
                 if not response.startswith('ERROR: '):
@@ -258,15 +260,30 @@ class IFUShieldAgent(Agent):
         else:  # Activate the appropriate HV lamp
             command_parts = command.string.split(' ')
             try:
-                lamp = command.string.split()[0].lower()  # nb * not permitted, lamp4 not explicitly controller
-                lamp_num = HVLAMPS.index(lamp) + 1  # one base in ardunio  THXE_LAMP=1, BENEAR_LAMP=2, LIHE_LAMP=3
+                lamp_type = command.string.split()[0].lower()  # nb * not permitted
+                lamp_indices = [i for i, kind in HVLAMPMAP.items() if kind == lamp_type]
+
+                if len(lamp_indices) < 1:
+                    raise IOError('No lamp type "{}"'.format(lamp_type))
+
                 current = int(command_parts[1])
-                lamp4_current = max(min(current - HVLMAP_MAX_CURRENT[lamp], HVLMAP_MAX_CURRENT[lamp]), 0)
-                current = min(current, HVLMAP_MAX_CURRENT[lamp])
-                if lamp4_current > 0 or self.lamp4_lamp == lamp or self.lamp4_lamp is None:
-                    self._send_command_to_shield('HV4{}{}'.format(lamp_num, lamp4_current))
-                    self.lamp4_lamp = lamp
-                self._send_command_to_shield('HV{}{}'.format(lamp_num, current))
+                if current > len(lamp_indices)*HVLMAP_MAX_CURRENT[lamp_type]:
+                    raise IOError('Current {} too high for {} available lamps of type {}'.format(current, len(lamp_indices), lamp_type))
+
+                # Split the current more or less evenly between the lamps
+                base_current = current // len(lamp_indices)
+                bonus_current = current % len(lamp_indices)
+                for lamp_ndx in lamp_indices:
+                    current = min(base_current+bonus_current, HVLMAP_MAX_CURRENT[lamp_type])
+                    bonus_current = max(0, bonus_current - (current-base_current))
+                    self._send_command_to_shield('HV{}{}'.format(lamp_ndx, current))
+
+                # Split the current bright to dim between the lamps
+                # while current>0:
+                #     l_current = min(current, HVLMAP_MAX_CURRENT[lamp_type])
+                #     self._send_command_to_shield('HV{}{}'.format(lamp_indices.pop(),l_current))
+                #     current -= l_current
+
                 command.setReply('OK')
             except (ValueError, IndexError):
                 self.bad_command_handler(command)

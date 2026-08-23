@@ -52,6 +52,12 @@ Adafruit_TLC5947::Adafruit_TLC5947(uint16_t n, uint8_t c, uint8_t d,
 }
 
 /*!
+ *    @brief  Releases allocated resources
+ */
+
+Adafruit_TLC5947::~Adafruit_TLC5947() { free(pwmbuffer); }
+
+/*!
  *    @brief  Writes PWM data to the all connected TLC5947 boards
  */
 void Adafruit_TLC5947::write() {
@@ -79,7 +85,7 @@ void Adafruit_TLC5947::write() {
 /*!
  *    @brief  Set the PWM channel / value
  *    @param  chan
- *            channel number ([0 - 23] on each board, so chanel 2 for second
+ *            channel number ([0 - 23] on each board, so channel 2 for second
  * board will be 25)
  *    @param  pwm
  *            pwm value [0-4095]
@@ -87,9 +93,25 @@ void Adafruit_TLC5947::write() {
 void Adafruit_TLC5947::setPWM(uint16_t chan, uint16_t pwm) {
   if (pwm > 4095)
     pwm = 4095;
-  if (chan > 24 * numdrivers)
+  if (chan >= 24 * numdrivers)
     return;
   pwmbuffer[chan] = pwm;
+}
+
+/*!
+ *    @brief  Get the PWM value for channel.
+ *    @param  chan
+ *            channel number ([0 - 23] on each board, so channel 2 for second
+ * board will be 25)
+ *    @return PWM value ([0 - 4095]) for valid channels, 0 for non-existing
+ * channels.
+ */
+uint16_t Adafruit_TLC5947::getPWM(uint16_t chan) {
+  if (chan >= 24 * numdrivers) {
+    return 0;
+  } else {
+    return pwmbuffer[chan];
+  }
 }
 
 /*!

@@ -1,0 +1,59 @@
+//These are Arduino Pins, e.g. args to digitalWrite
+#define AFLED_LAT_PIN 5
+#define AFLED_CLK_PIN 6
+#define AFLED_DIN_PIN 7
+#define AFLED_INHIBIT_PIN 4
+
+#define SDA_PIN 20 
+#define SCL_PIN 21
+
+#define ONEWIRE_PIN 2
+
+
+#define PIN_IMODE_LAMP1 A0
+#define PIN_CSEL_LAMP1 A1
+#define PIN_ENABLE_LAMP1   A2
+
+#define PIN_IMODE_LAMP2 A3
+#define PIN_CSEL_LAMP2 A4
+#define PIN_ENABLE_LAMP2   A5
+
+#define PIN_IMODE_LAMP3 A6
+#define PIN_CSEL_LAMP3 A7
+#define PIN_ENABLE_LAMP3   A8
+
+#define PIN_IMODE_LAMP4 A9
+#define PIN_CSEL_LAMP4 A10
+#define PIN_ENABLE_LAMP4   A11
+
+#define PIN_IMODE_LAMP5 A12
+#define PIN_CSEL_LAMP5 A13
+#define PIN_ENABLE_LAMP5   A14
+
+#define PIN_IMODE_LAMP6  A15
+#define PIN_ENABLE_LAMP6    53
+#define PIN_CSEL_LAMP6  52
+
+#define PIN_IMODE_LAMP7  50
+#define PIN_ENABLE_LAMP7    48
+#define PIN_CSEL_LAMP7  51
+
+#define PIN_IMODE_LAMP8  49
+#define PIN_ENABLE_LAMP8    47
+#define PIN_CSEL_LAMP8  46
+
+#define PIN_IMODE_LAMP9  44
+#define PIN_ENABLE_LAMP9    42
+#define PIN_CSEL_LAMP9  45
+
+#define PIN_IMODE_LAMP10 43
+#define PIN_ENABLE_LAMP10   41
+#define PIN_CSEL_LAMP10 40
+
+#define PIN_IMODE_LAMP11 38
+#define PIN_ENABLE_LAMP11   36
+#define PIN_CSEL_LAMP11 39
+
+#define PIN_IMODE_LAMP12 37
+#define PIN_ENABLE_LAMP12   35
+#define PIN_CSEL_LAMP12 34

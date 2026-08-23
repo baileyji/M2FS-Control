@@ -52,7 +52,7 @@ Need to figure out lamp enum and control. All On is probably ok, but I need to c
    #define Serial SerialUSB
 #endif
 
-#define VERSION_STRING "1.1"
+#define VERSION_STRING "1.2"
 
 #define IGNITION_TIME_MS 80  //Takes about 37 ms to stabilize on a resistor
 #define VMAX 950
@@ -244,63 +244,7 @@ void setup() {
   //   case TLA202x_RATE_128_SPS: Serial.println("128 SPS");break;
   //   case TLA202x_RATE_250_SPS: Serial.println("250 SPS");break;
   //   case TLA202x_RATE_490_SPS: Serial.println("490 SPS");break;
-  //   case TLA202x_RATE_920_SPS: Serial.println("920 SPS");break;
-  //   case TLA202x_RATE_1600_SPS: Serial.println("1600 SPS");break;
-  //   case TLA202x_RATE_2400_SPS: Serial.println("2400 SPS");break;
-  //   case TLA202x_RATE_3300_SPS: Serial.println("3300 SPS");break;
-  // }
-
-  // Serial.print("Measurement range set to: ");
-  // switch(adc.getRange()){
-  //   case TLA202x_RANGE_6_144_V:
-  //   Serial.println("+6.144 V to -6.144 V"); break;
-  //   case TLA202x_RANGE_4_096_V:
-  //   Serial.println("+4.096 V to -4.096 V"); break;
-  //   case TLA202x_RANGE_2_048_V:
-  //   Serial.println("+2.048 V to -2.048 V"); break;
-  //   case TLA202x_RANGE_1_024_V:
-  //   Serial.println("+1.024 V to -1.024 V"); break;
-  //   case TLA202x_RANGE_0_512_V:
-  //   Serial.println("+0.512 V to -0.512 V"); break;
-  //   case TLA202x_RANGE_0_256_V:
-  //   Serial.println("+0.256 V to -0.256 V"); break;
-  // }
-  // Serial.print("Multiplexer set to: ");
-  // switch (adc.getMux()) {
-  //   case TLA202x_MUX_AIN0_AIN1:
-  //     Serial.println("AINp = AIN 0, AINn = AIN 1"); break;
-  //   case TLA202x_MUX_AIN0_AIN3:
-  //     Serial.println("AINp = AIN 0, AINn = AIN 3"); break;
-  //   case TLA202x_MUX_AIN1_AIN3:
-  //     Serial.println("AINp = AIN 1, AINn = AIN 3"); break;
-  //   case TLA202x_MUX_AIN2_AIN3:
-  //     Serial.println("AINp = AIN 2, AINn = AIN 3"); break;
-  //   case TLA202x_MUX_AIN0_GND:
-  //     Serial.println("AINp = AIN 0, AINn = GND"); break;
-  //   case TLA202x_MUX_AIN1_GND:
-  //     Serial.println("AINp = AIN 1, AINn = GND"); break;
-  //   case TLA202x_MUX_AIN2_GND:
-  //     Serial.println("AINp = AIN 2, AINn = GND"); break;
-  //   case TLA202x_MUX_AIN3_GND:
-  //     Serial.println("AINp = AIN 3, AINn = GND"); break;
-
-  // }
-  // switch(adc.getMode()){
-  //   case TLA202x_MODE_ONE_SHOT: Serial.println("One-shot"); break;
-  //   case TLA202x_MODE_CONTINUOUS: Serial.println("Continuous"); break;
-  // }
-
-
-  // adc.setMux(TLA202x_MUX_AIN0_GND);
-  // Serial.print("IMON AIN0: ");
-  // Serial.println(adc.readVoltage());
-
-  // adc.setMux(TLA202x_MUX_AIN1_GND);
-  // Serial.print("VMON AIN1: ");
-  // Serial.println(adc.readVoltage());
-
-  //   digitalWrite(PIN_CSEL_LAMP1, LOW);
-
+  //   case TLA202x_RATE_92
     idac.begin(IDAC_ADDR, &Wire);
     vdac.begin(VDAC_ADDR, &Wire);
 
@@ -352,22 +296,6 @@ void setup() {
 
     Serial.print("Total devices found: ");
     Serial.println(deviceCount);
-    
-
-
-    // Serial.println(F("#Searching for temp sensors: "));
-    // for (int i=0;i<N_TEMP_SENSORS;i++) {
-    //   DeviceAddress x;
-    //   bool present;
-    //   present = tempSensors.getAddress(x, i);
-    //   if (present) {
-    //     Serial.print(F("#Found sensor at: "));print1WireAddress(x);Serial.println("");
-    //     if (device_address_match(x, HOFFMAN_TEMP_ADDR3)) {
-    //       load_deviceaddress(temps[HOFFMAN_TEMP].address, HOFFMAN_TEMP_ADDR3);
-    //     }
-    //   }        
-    // }
-    // Serial.println(F("# done searching."));
     
     tempSensors.requestTemperatures();
     time_of_last_temp_request=millis();
@@ -547,6 +475,7 @@ bool HVcommand() {
       Serial.print(currents[0]);
       if (i!=N_LAMPS-1) Serial.print(" ");
     }
+    Serial.println();
     return true;
   }
 

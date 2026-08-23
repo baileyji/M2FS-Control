@@ -15,7 +15,7 @@ HVLAMPS = ('thxe', 'benear', 'lihe')
 HVLMAP_MAX_CURRENT = {'thxe': 10, 'benear': 10, 'lihe': 10}
 TEMPS = ('stage', 'lsb', 'hsb', 'msb')
 
-HVLAMPMAP = {1: 'thxe', 2: 'benear', 3: 'lihe', 4: 'thxe', 5: 'benear', 6: 'lihe'}
+HVLAMPMAP = {1: 'thxe', 2: 'benear', 3: 'lihe', 4: 'thxe', 5: 'benear', 6: 'lihe'}  # 1 indexed on arduino
 
 
 class IFUArduinoSerial(selectedconnection.SelectedSerial):
@@ -249,9 +249,9 @@ class IFUShieldAgent(Agent):
                 hvstat = response.split()
                 if len(hvstat) != len(HVLAMPMAP):
                     raise IOError('Bad response to HV? "{}", expected {} values'.format(response, len(HVLAMPMAP)))
-                hvdict = {i: s for i, s in enumerate(hvstat)}
+                hvdict = {i+1: float(s) for i, s in enumerate(hvstat)}
                 lamp = command.string.split()[0].lower()
-                response = sum([hvdict[lamp_ndx] for lamp_ndx, lamp_type in HVLAMPMAP.items() if lamp_type==lamp])
+                response = str(sum([hvdict[lamp_ndx] for lamp_ndx, lamp_type in HVLAMPMAP.items() if lamp_type==lamp]))
             except IOError as e:
                 response = str(e)
                 if not response.startswith('ERROR: '):

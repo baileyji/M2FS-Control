@@ -81,7 +81,9 @@ class IFUShieldAgent(Agent):
 
     def __init__(self):
         Agent.__init__(self, 'IFUShieldAgent')
-        self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
+        self.connections['ifushield'] = IFUArduinoSerial(
+            self.args.DEVICE, 115200, timeout=.5,
+            default_message_received_callback=self._unsolicited_msg_handler)
         self.max_clients = 2
         self.command_handlers.update({
             'SHIELDRAW': self.RAW_command_handler,
@@ -93,6 +95,13 @@ class IFUShieldAgent(Agent):
             'MCLED': self.LED_command_handler,  # response:{ OK,ERROR, # # # # # #}
             # Report all the temps
             'TEMPS': self.TEMPS_command_handler})  # response:{  # # # # # #}
+
+    def _unsolicited_msg_handler(self, message_source, message):
+        """ Discard comments from the IFUShield, warn about anything else. """
+        if message.startswith('#'):
+            self.logger.debug('IFUShield says: {}'.format(message))
+        else:
+            self.logger.warning('Unexpected message from IFUShield: {}'.format(message))
 
     def add_additional_cli_arguments(self):
         """
@@ -138,29 +147,38 @@ class IFUShieldAgent(Agent):
         # No command, return
         if not command_string:
             return ''
-        # Send the command(s)
-        self.connections['ifushield'].sendMessageBlocking(command_string)
-        # Get the first byte, this will be it for a simple ACK
-        response = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
-        # 3 cases:, :, ?, or stuff followed by \r\n:
-        # case 1, command succeeds but returns nothing, return
-        if response == ':':
-            return ''
-        elif response == '?':  # command failed
-            raise IOError("ERROR: IFUShield did not acknowledge (gave ?) command {}".format(command_string))
-        # command is returning something
-        else:
-            # do a blocking receive on \n
-            response = response + self.connections['ifushield'].receiveMessageBlocking()
-            # ...and a single byte read to grab the :
-            confByte = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
-            if confByte == ':':
-                return response.strip()
-            else:  # Consider it a failure, log it. Add the byte to the response for logging
-                response += confByte
-                err = ("IFUShield did not adhere to protocol. '%s' got '%s'" % (command_string, response))
-                self.logger.warning(err)
-                raise IOError('ERROR: %s' % err)
+        with self.connections['ifushield'].rlock:
+            # Send the command(s)
+            self.connections['ifushield'].sendMessageBlocking(command_string)
+            # Get the first byte, this will be it for a simple ACK
+            response = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+            while response == '#':
+                response += self.connections['ifushield'].receiveMessageBlocking()
+                self.logger.debug('IFUShield says: {}'.format(response))
+                response = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+            # 3 cases:, :, ?, or stuff followed by \r\n:
+            # case 1, command succeeds but returns nothing, return
+            if response == ':':
+                return ''
+            elif response == '?':  # command failed
+                raise IOError("ERROR: IFUShield did not acknowledge (gave ?) command {}".format(command_string))
+            # command is returning something
+            else:
+                # do a blocking receive on \n
+                response = response + self.connections['ifushield'].receiveMessageBlocking()
+                # ...and a single byte read to grab the :
+                confByte = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+                while confByte == '#':
+                    comment = confByte + self.connections['ifushield'].receiveMessageBlocking()
+                    self.logger.debug('IFUShield says: {}'.format(comment))
+                    confByte = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+                if confByte == ':':
+                    return response.strip()
+                else:  # Consider it a failure, log it. Add the byte to the response for logging
+                    response += confByte
+                    err = ("IFUShield did not adhere to protocol. '%s' got '%s'" % (command_string, response))
+                    self.logger.warning(err)
+                    raise IOError('ERROR: %s' % err)
 
     def RAW_command_handler(self, command):
         """
@@ -352,7 +370,29 @@ class IFUShieldAgent(Agent):
             ```
 
         """
-        ts_reply = self._send_command_to_shield('TS')
+        with self.connections['ifushield'].rlock:
+            self.connections['ifushield'].sendMessageBlocking('TS')
+            TS_LINES = 6 + len(HVLAMPMAP)
+            lines = []
+            while len(lines) < TS_LINES:
+                response = self.connections['ifushield'].receiveMessageBlocking()
+                if response.startswith('#'):
+                    self.logger.debug('IFUShield says: {}'.format(response))
+                    continue
+                lines.append(response)
+
+            confByte = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+            while confByte == '#':
+                comment = confByte + self.connections['ifushield'].receiveMessageBlocking()
+                self.logger.debug('IFUShield says: {}'.format(comment))
+                confByte = self.connections['ifushield'].receiveMessageBlocking(nBytes=1)
+            if confByte != ':':
+                response = '\n'.join(lines) + confByte
+                err = ("IFUShield did not adhere to protocol. '%s' got '%s'" % ('TS', response))
+                self.logger.warning(err)
+                raise IOError('ERROR: %s' % err)
+
+        ts_reply = '\n'.join(lines)
         ret = {}
         lines = [l.strip() for l in ts_reply.split('\n') if l.strip()]
         if len(lines) < 7:
@@ -440,7 +480,6 @@ class IFUShieldAgent(Agent):
 
         hv_lamp_name:volt_current_mode_str is of form '{species}_bay{number}':'{volt}/{volt_lim} V{"*" if not current_mode else ""} {current}/{current_lim} mA{"*" if current_mode else ""} (enabled or disabled))'
         """
-
         try:
             parsed = self.query_status()
             lamp_details = [('{}_bay{}'.format(HVLAMPMAP[i], i), parsed['{}_bay{}'.format(HVLAMPMAP[i], i)]) for i in sorted(HVLAMPMAP.keys())]
@@ -448,12 +487,12 @@ class IFUShieldAgent(Agent):
             lamp_status = [(c, parsed[c+'_total']) for c in HVLAMPS]
             status_list = led_status + lamp_status + lamp_details
         except IOError as e:
-            num_keys = len(COLORS) + len(HVLAMPS) + len(HVLAMPMAP)
-            status_list = [('ERROR', 'ERROR')] * num_keys
+            status_list = ([(c, 'ERROR') for c in COLORS] + [(c, 'ERROR') for c in HVLAMPS] +
+                           [('{}_bay{}'.format(HVLAMPMAP[i], i), 'ERROR') for i in sorted(HVLAMPMAP.keys())])
             self.logger.error('Unable query TS status: "{}"'.format(e))
         except Exception as e:
-            num_keys = len(COLORS) + len(HVLAMPS) + len(HVLAMPMAP)
-            status_list = [('ERROR', 'ERROR')] * num_keys
+            status_list = ([(c, 'ERROR') for c in COLORS] + [(c, 'ERROR') for c in HVLAMPS] +
+                           [('{}_bay{}'.format(HVLAMPMAP[i], i), 'ERROR') for i in sorted(HVLAMPMAP.keys())])
             self.logger.error('Failure parsing TS: "{}"'.format(e))
 
         return [(self.get_version_string(), self.cookie)] + status_list

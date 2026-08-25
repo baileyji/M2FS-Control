@@ -20,7 +20,7 @@
 #define ADC_TO_VOLTS (1000.0/5.0)
 #define ADC_TO_MILLIAMPS (30.0/5.0)
 
-#define SEL_PIN_DELAY_US 25    //~10 I2C clocks
+#define SEL_PIN_DELAY_US 250    //~10 I2C clocks
 
 typedef unsigned int current_t;
 typedef float currentf_t;

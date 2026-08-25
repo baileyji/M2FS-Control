@@ -33,8 +33,8 @@ void Ultravolt::begin() {
     _adc.setDataRate(TLA202x_RATE_1600_SPS);
     _adc.setMux(TLA202x_MUX_AIN0_GND);
 
-    _vdac.setVoltage(0, false);
-    _idac.setVoltage(0, false);
+    _vdac.setVoltage(0, false, 100000);
+    _idac.setVoltage(0, false, 100000);
 
     digitalWrite(_csel_pin, LOW);
 
@@ -75,10 +75,11 @@ bool Ultravolt::setVoltageLimit(voltage_t limit) {
     uint16_t out = round(VOLTS_TO_DAC * (float) _vlimit);
 
     //Serial.print("Set VDAC to ");Serial.println(out);
-    _vdac.setVoltage(out, false); //don't persist the voltage to eeprom
+    bool success = _vdac.setVoltage(out, false, 100000); //don't persist the voltage to eeprom
 
     delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_csel_pin, LOW);
+    return success;
 }
 
 current_t Ultravolt::getCurrentLimit() {
@@ -105,11 +106,11 @@ bool Ultravolt::setCurrentLimit(current_t limit) {
     delayMicroseconds(SEL_PIN_DELAY_US);
 
     uint16_t out = round(((float)_ilimit)*MILLIAMPS_TO_DAC);
-    // Serial.print("Set IDAC to ");Serial.println(out);
-    _idac.setVoltage(out, false); //don't persist to eeprom
+    bool success = _idac.setVoltage(out, false, 100000); //don't persist to eeprom
 
     delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_csel_pin, LOW);
+    return success;
 }
 
 
@@ -118,8 +119,8 @@ void Ultravolt::turnOff() {
     
     digitalWrite(_csel_pin, HIGH);
     delayMicroseconds(SEL_PIN_DELAY_US);
-    _vdac.setVoltage(0, false); //don't persist to eeprom
-    _idac.setVoltage(0, false); //don't persist to eeprom
+    _vdac.setVoltage(0, false, 100000); //don't persist to eeprom
+    _idac.setVoltage(0, false, 100000); //don't persist to eeprom
     delayMicroseconds(SEL_PIN_DELAY_US);
     digitalWrite(_csel_pin, LOW);
 
@@ -142,9 +143,22 @@ void Ultravolt::turnOn(current_t current) {
       turnOff();
       return;
     }
-    setCurrentLimit(current);
-    setVoltageLimit(_vlimit);
-    digitalWrite(_enable_pin, HIGH);
+    bool fault=false;
+    if (!setCurrentLimit(current)) {
+        Serial.println(F("#ERROR: Set current failed, will not enable."));
+        fault=true;
+    }
+    if (!setVoltageLimit(_vlimit)) {
+        Serial.println(F("#ERROR: Set voltage limit failed, will not enable"));
+        fault=true;
+    }
+    if (!fault)
+        digitalWrite(_enable_pin, HIGH);
+
+    delay(100);
+    current_t i=getCurrent();
+
+
 }
 
 void Ultravolt::monitorIgnition(uint32_t duration_ms) {

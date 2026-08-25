@@ -79,6 +79,15 @@ Need to figure out lamp enum and control. All On is probably ok, but I need to c
 #define VDAC_ADDR 0x61  //0x62 for wirewrap shield, :(
 #define IDAC_ADDR 0x65
 
+
+#define INIT_LAMP_PINS(n)                          \
+    pinMode(PIN_ENABLE_LAMP##n, OUTPUT);           \
+    digitalWrite(PIN_ENABLE_LAMP##n, LOW);         \
+    pinMode(PIN_CSEL_LAMP##n, OUTPUT);             \
+    digitalWrite(PIN_CSEL_LAMP##n, LOW);           \
+    pinMode(PIN_IMODE_LAMP##n, INPUT_PULLUP)
+
+
 //HV Lamps
 typedef enum {
   THXE1_LAMP=0,
@@ -224,42 +233,39 @@ void print1WireAddress(DeviceAddress deviceAddress) {
 //Setup
 void setup() {
 
+    pinMode(AFLED_INHIBIT_PIN, OUTPUT);
+    digitalWrite(AFLED_INHIBIT_PIN, HIGH);
+
     // Start serial connection
     Serial.begin(115200);
 
-    //Startup the light controllers
+    //Start LEDs
+    Serial.print(F("#LED Start: "));Serial.println(leddrive.begin());
+    for (int i=0;i<24;i++) leddrive.setPWM(i,0);
+    leddrive.write();
 
+    //Startup the lamp controllers
+    Wire.begin();
+    Wire.setClock(100000);
 
-    digitalWrite(PIN_CSEL_LAMP1, HIGH);
-    delayMicroseconds(SEL_PIN_DELAY_US);
-
-  //   if (!adc.begin(0x49)) Serial.println("Failed to find TLA202x chip");
-  //   adc.setMode(TLA202x_MODE_ONE_SHOT);
-  //   adc.setRange(TLA202x_RANGE_6_144_V);
-  //   adc.setDataRate(TLA202x_RATE_1600_SPS);
-  //   adc.setMux(TLA202x_MUX_AIN0_GND);
-
-  // Serial.print("Data rate set to: ");
-  // switch (adc.getDataRate()) {
-  //   case TLA202x_RATE_128_SPS: Serial.println("128 SPS");break;
-  //   case TLA202x_RATE_250_SPS: Serial.println("250 SPS");break;
-  //   case TLA202x_RATE_490_SPS: Serial.println("490 SPS");break;
-  //   case TLA202x_RATE_92
-    idac.begin(IDAC_ADDR, &Wire);
+    INIT_LAMP_PINS(1);
+    INIT_LAMP_PINS(2);
+    INIT_LAMP_PINS(3);
+    INIT_LAMP_PINS(4);
+    INIT_LAMP_PINS(5);
+    INIT_LAMP_PINS(6);
+    INIT_LAMP_PINS(7);
+    INIT_LAMP_PINS(8);
+    INIT_LAMP_PINS(9);
+    INIT_LAMP_PINS(10);
+    INIT_LAMP_PINS(11);
+    INIT_LAMP_PINS(12);
+    idac.begin(IDAC_ADDR, &Wire);  //adafruit library does try to get an ack but doesn't send any init commands 
     vdac.begin(VDAC_ADDR, &Wire);
-
-
     for (int i=0; i<N_LAMPS; i++) {
       lamps[i].begin();
     }
 
-
-    pinMode(AFLED_INHIBIT_PIN, OUTPUT);
-    digitalWrite(AFLED_INHIBIT_PIN, HIGH);
-    Serial.print(F("#LED Start: "));Serial.println(leddrive.begin());
-    for (int i=0;i<24;i++) leddrive.setPWM(i,0);
-    leddrive.write();
-    
     //Set up temp sensors
     initTempSensors();
     load_deviceaddress(temps[ENTRANCE_TEMP].address, ENTRANCE_TEMP_ADDR);
@@ -562,9 +568,9 @@ bool TScommand() {
 
 
   for (int i=0; i<N_LAMPS; i++) {
-    Serial.print(F("Lamp "));Serial.print(i);Serial.print(F(" is "));
+    Serial.print(F("Lamp "));Serial.print(i+1);Serial.print(F(" is "));
     Serial.print(lamps[i].isEnabled() ? F("enabled") : F("disabled"));
-    Serial.print(F(", running in "));Serial.print(lamps[i].isCurrentMode() ? "voltage":"current");Serial.println(F(" mode"));
+    Serial.print(F(", running in "));Serial.print(lamps[i].isCurrentMode() ? "current":"voltage");Serial.println(F(" mode"));
     Serial.print(lamps[i].getVoltage());Serial.print(F(" V ("));Serial.print(lamps[i].getVoltageLimit());Serial.print(F(" lim)  "));
     Serial.print(lamps[i].getCurrent());Serial.print(F(" mA ("));Serial.print(lamps[i].getCurrentLimit());Serial.println(F(" lim)"));
   }
@@ -592,6 +598,7 @@ bool OFcommand() {
     ledlevels[i]=0;
     leddrive.setPWM(i+6, 0);
   }
+  leddrive.write();
   digitalWrite(AFLED_INHIBIT_PIN, HIGH);
   for (int i=0; i<N_LAMPS; i++) lamps[i].turnOff();
   return true;

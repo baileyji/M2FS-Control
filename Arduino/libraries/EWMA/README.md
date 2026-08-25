@@ -58,8 +58,23 @@ void loop()
     int raw = analogRead(A0);
     float filtered1 = adcFilter1.filter(raw);
     float filtered2 = adcFilter2.filter(raw);
-    Serial.printf("Raw=%d, Filter1=%.3f, Filter2=%.3f", raw, filtered1, filtered2);
-    
+    #if defined(ESP8266)
+      Serial.printf("Raw=%d, Filter1=%.3f, Filter2=%.3f", raw, filtered1, filtered2);
+    #else
+      Serial.print(F("Raw="));
+      Serial.print(raw);
+      Serial.print(F(", Filter1="));
+      Serial.print(filtered1);
+      Serial.print(F(", Filter2="));
+      Serial.println(filtered2);
+    #endif
+
     delay(100);
 }
 ```
+
+# Changes
+
+## 1.0.3
+- [#10](https://github.com/jonnieZG/EWMA/pull/10) - Changed `unsigned int` to `uint32_t` for `alphaScale` in `EwmaT`, so that the scale has a guaranteed width on platforms where `int` is only 16 bits.
+- [#11](https://github.com/jonnieZG/EWMA/pull/11) - Fixed example compilation error - `Serial.printf` is only used on ESP8266, while other platforms fall back to a sequence of `Serial.print` calls.

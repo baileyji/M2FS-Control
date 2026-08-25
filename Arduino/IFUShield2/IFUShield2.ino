@@ -559,7 +559,7 @@ bool TScommand() {
   Serial.print(F(" IR (740): "));Serial.print(ledlevels[3]);Serial.print(F("  IR (770): "));Serial.print(ledlevels[4]);
   Serial.print(F("  IR (850): "));Serial.println(ledlevels[5]);
 
-  Serial.println(F("Temps:"));
+  Serial.println(F("Temps"));Serial.print(" ");
   for (int i=0;i<N_TEMP_SENSORS-1;i++) {
     Serial.print(temps[i].reading);
     Serial.print(", "); 
@@ -567,12 +567,12 @@ bool TScommand() {
   Serial.println(temps[N_TEMP_SENSORS-1].reading, 3);
 
 
+ Serial.println(F("Lamps"));
   for (int i=0; i<N_LAMPS; i++) {
-    Serial.print(F("Lamp "));Serial.print(i+1);Serial.print(F(" is "));
-    Serial.print(lamps[i].isEnabled() ? F("enabled") : F("disabled"));
-    Serial.print(F(", running in "));Serial.print(lamps[i].isCurrentMode() ? "current":"voltage");Serial.println(F(" mode"));
-    Serial.print(lamps[i].getVoltage());Serial.print(F(" V ("));Serial.print(lamps[i].getVoltageLimit());Serial.print(F(" lim)  "));
-    Serial.print(lamps[i].getCurrent());Serial.print(F(" mA ("));Serial.print(lamps[i].getCurrentLimit());Serial.println(F(" lim)"));
+    Serial.print(" ");Serial.print(i+1);Serial.print(", "); Serial.print(lamps[i].isEnabled() ? F("enabled") : F("disabled"));
+    Serial.print(", ");Serial.print(lamps[i].isCurrentMode() ? "current":"voltage");Serial.print(F("_limit_mode, "));
+    Serial.print(lamps[i].getVoltage(), 2);Serial.print(F(" V ("));Serial.print(lamps[i].getVoltageLimit());Serial.print(F(" lim), "));
+    Serial.print(lamps[i].getCurrent(), 2);Serial.print(F(" mA ("));Serial.print(lamps[i].getCurrentLimit());Serial.println(F(" lim)"));
   }
   
   return true;

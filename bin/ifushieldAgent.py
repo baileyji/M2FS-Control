@@ -13,7 +13,8 @@ COLORS = ('392', '407', 'whi', '740', '770', '875')
 COLORS = ('770', '740', '875', 'whi', '407', '392')
 HVLAMPS = ('thxe', 'benear', 'lihe')
 HVLMAP_MAX_CURRENT = {'thxe': 10, 'benear': 10, 'lihe': 10}
-TEMPS = ('stage', 'lsb', 'hsb', 'msb')
+HVLMAP_MIN_CURRENT = {'thxe': 1, 'benear': 2, 'lihe': 1}
+TEMPS = ('ebox', 'stage', 'enc1', 'enc2')
 
 HVLAMPMAP = {1: 'thxe', 2: 'benear', 3: 'lihe', 4: 'thxe', 5: 'benear', 6: 'lihe'}  # 1 indexed on arduino
 
@@ -82,7 +83,6 @@ class IFUShieldAgent(Agent):
         Agent.__init__(self, 'IFUShieldAgent')
         self.connections['ifushield'] = IFUArduinoSerial(self.args.DEVICE, 115200, timeout=.5)
         self.max_clients = 2
-        self.lamp4_lamp = None
         self.command_handlers.update({
             'SHIELDRAW': self.RAW_command_handler,
             # Get/Set state of HV lamps
@@ -257,6 +257,7 @@ class IFUShieldAgent(Agent):
                 if not response.startswith('ERROR: '):
                     response = 'ERROR: ' + response
             command.setReply(response)
+
         else:  # Activate the appropriate HV lamp
             command_parts = command.string.split(' ')
             try:
@@ -270,21 +271,38 @@ class IFUShieldAgent(Agent):
                 if current > len(lamp_indices)*HVLMAP_MAX_CURRENT[lamp_type]:
                     raise IOError('Current {} too high for {} available lamps of type {}'.format(current, len(lamp_indices), lamp_type))
 
-                # Split the current more or less evenly between the lamps
-                base_current = current // len(lamp_indices)
-                bonus_current = current % len(lamp_indices)
-                for lamp_ndx in lamp_indices:
-                    current = min(base_current+bonus_current, HVLMAP_MAX_CURRENT[lamp_type])
-                    bonus_current = max(0, bonus_current - (current-base_current))
-                    self._send_command_to_shield('HV{}{}'.format(lamp_ndx, current))
+                if current == 0:
+                    for lamp_ndx in lamp_indices:
+                        self._send_command_to_shield('HV{}{}'.format(lamp_ndx, 0))
+                else:
+                    # Either
 
-                # Split the current bright to dim between the lamps
-                # while current>0:
-                #     l_current = min(current, HVLMAP_MAX_CURRENT[lamp_type])
-                #     self._send_command_to_shield('HV{}{}'.format(lamp_indices.pop(),l_current))
-                #     current -= l_current
+                    # Split the current bright to dim between the lamps
+                    # while current>0:
+                    #     l_current = min(max(HVLMAP_MIN_CURRENT[lamp_type], current), HVLMAP_MAX_CURRENT[lamp_type])
+                    #     self._send_command_to_shield('HV{}{}'.format(lamp_indices.pop(), l_current))
+                    #     current -= l_current
 
-                command.setReply('OK')
+                    # Or
+
+                    # Split the current more or less evenly between the lamps
+                    base_current = current // len(lamp_indices)
+                    bonus_current = current % len(lamp_indices)
+
+                    if base_current < HVLMAP_MIN_CURRENT[lamp_type]:
+                        current = min(max(HVLMAP_MIN_CURRENT[lamp_type], current), HVLMAP_MAX_CURRENT[lamp_type])
+                        self._send_command_to_shield('HV{}{}'.format(lamp_indices[0], current))
+                    else:
+                        for lamp_ndx in lamp_indices:
+                            current = min(base_current+bonus_current, HVLMAP_MAX_CURRENT[lamp_type])
+                            bonus_current = max(0, bonus_current - (current-base_current))
+                            self._send_command_to_shield('HV{}{}'.format(lamp_ndx, current))
+
+                fault, state = self.check_lamp_fault(lamp_type)
+                if fault:
+                    command.setReply('ERROR: {} fault: {}'.format(lamp_type, state))
+                else:
+                    command.setReply('OK')
             except (ValueError, IndexError):
                 self.bad_command_handler(command)
             except IOError as e:
@@ -293,33 +311,152 @@ class IFUShieldAgent(Agent):
                     response = 'ERROR: ' + response
                 command.setReply(response)
 
+    def check_lamp_fault(self, species):
+        status = self.query_status()
+        lamp_bays = [bay for bay, lamp in HVLAMPMAP.items() if lamp == species]
+        state = {'{}_bay{}'.format(species, bay): status['{}_bay{}'.format(species, bay)]
+                 for bay in lamp_bays if '{}_bay{}'.format(species, bay) in status}
+        have_faults = any(status.get('{}_bay{}_fault'.format(species, bay), False) for bay in lamp_bays)
+        return have_faults, state
+
+    def query_status(self):
+        """
+        Parses TS command
+
+            ```c
+            bool TScommand() {
+              Serial.println("LEDs");
+              Serial.print(F(" UV (390): "));Serial.print(ledlevels[0]);Serial.print(F("  BL (410): "));Serial.print(ledlevels[1]);
+              Serial.print(F("  White : "));Serial.println(ledlevels[2]);
+              Serial.print(F(" IR (740): "));Serial.print(ledlevels[3]);Serial.print(F("  IR (770): "));Serial.print(ledlevels[4]);
+              Serial.print(F("  IR (850): "));Serial.println(ledlevels[5]);
+
+              Serial.println(F("Temps"));Serial.print(" ");
+              for (int i=0;i<N_TEMP_SENSORS-1;i++) {
+                Serial.print(temps[i].reading);
+                Serial.print(", ");
+              }
+              Serial.println(temps[N_TEMP_SENSORS-1].reading, 3);
+
+
+             Serial.println(F("Lamps"));
+              for (int i=0; i<N_LAMPS; i++) {
+                Serial.print(" ");Serial.print(i+1);Serial.print(", "); Serial.print(lamps[i].isEnabled() ? F("enabled") : F("disabled"));
+                Serial.print(", ");Serial.print(lamps[i].isCurrentMode() ? "current":"voltage");Serial.print(F("_limit_mode, "));
+                Serial.print(lamps[i].getVoltage(), 2);Serial.print(F(" V ("));Serial.print(lamps[i].getVoltageLimit());Serial.print(F(" lim), "));
+                Serial.print(lamps[i].getCurrent(), 2);Serial.print(F(" mA ("));Serial.print(lamps[i].getCurrentLimit());Serial.println(F(" lim)"));
+              }
+
+              return true;
+            }
+            ```
+
+        """
+        ts_reply = self._send_command_to_shield('TS')
+        ret = {}
+        lines = [l.strip() for l in ts_reply.split('\n') if l.strip()]
+        if len(lines) < 7:
+            raise IOError('Malformed TS reply: too few lines')
+        if lines[0] != 'LEDs':
+            raise IOError('Malformed TS reply: missing LEDs heading')
+
+        # parse LED values
+        led_values = []
+        led_values.extend(lines[1].replace('UV (390):', '')
+                          .replace('BL (410):', '')
+                          .replace('White :', '')
+                          .split())
+        led_values.extend(lines[2].replace('IR (740):', '')
+                          .replace('IR (770):', '')
+                          .replace('IR (850):', '')
+                          .split())
+        if len(led_values) != len(COLORS):
+            raise IOError('Malformed TS reply: expected {} LED values, got {}'.format(len(COLORS), len(led_values)))
+        led_map = {'392': led_values[0], '407': led_values[1], 'whi': led_values[2],
+                   '740': led_values[3], '770': led_values[4], '875': led_values[5]}
+        ret.update(led_map)
+
+        if not lines[3].startswith('Temps'):
+            raise IOError('Malformed TS reply: missing Temps heading')
+        if len(lines) > 4:
+            temp_values = [x.strip() for x in lines[4].split(',') if x.strip()]
+            if len(temp_values) != len(TEMPS):
+                self.logger.warning('Unexpected temp response format: "{}"'.format(lines[4]))
+            else:
+                for key, val in zip(TEMPS, temp_values):
+                    ret[key] = val
+
+        if len(lines) < 6 or lines[5] != 'Lamps':
+            raise IOError('Malformed TS reply: missing Lamps heading')
+
+        lamp_ids = sorted(HVLAMPMAP.keys())
+        if len(lines) < 6 + len(lamp_ids):
+            raise IOError('Malformed TS reply: incomplete lamp status block')
+        lamp_lines = lines[6:]
+        lamp_current_totals = {lamp_type: 0.0 for lamp_type in HVLAMPS}
+
+        for lamp_line_idx, i in enumerate(lamp_ids):
+            state_line = lamp_lines[lamp_line_idx]
+
+            state = [x.strip() for x in state_line.split(',')]
+            if len(state) < 5:
+                raise IOError('Malformed TS reply: bad lamp state "{}"'.format(state_line))
+            if int(state[0]) != i:
+                raise IOError('Malformed TS reply: expected lamp {} found {}'.format(i, state[0]))
+
+            enabled = (state[1] == 'enabled')
+
+            current_mode = (state[2].split('_')[0] == 'current')
+
+            voltage_field, current_field = state[3], state[4]
+            if ' V (' not in voltage_field or ' mA (' not in current_field:
+                raise IOError('Malformed TS reply: bad lamp value "{}"'.format(state_line))
+
+            voltage, volt_lim = voltage_field.split(' V (', 1)
+            current, current_lim = current_field.split(' mA (', 1)
+            volt_lim = volt_lim.replace(' lim)', '')
+            current_lim = current_lim.replace(' lim)', '')
+            lamp_current_totals[HVLAMPMAP[i]] += float(current)
+
+            lamp_type = HVLAMPMAP[i]
+            lamp_name = '{}_bay{}'.format(lamp_type, i)
+            star_v = '' if current_mode else '*'
+            star_i = '*' if current_mode else ''
+            ret[lamp_name+'_fault'] = enabled and not current_mode
+            enabled_label = 'enabled' if enabled else 'disabled'
+            ret[lamp_name] = '{}/{} V{} {}/{} mA{} ({})'.format(
+                voltage.strip(), volt_lim.strip(), star_v, current.strip(), current_lim.strip(), star_i, enabled_label)
+
+        for k in HVLAMPS:
+            ret[k + '_total'] = '{}'.format(lamp_current_totals[k])
+
+        return ret
+
     def get_status_list(self):
         """
         Return a list of two element tuples to be formatted into a status reply
 
-        Report the Key:Value pairs name:cookie, color:value, led:value, hv:value
+        Report the Key:Value pairs name:cookie, led_color:led_value, hv_lamp_species:total_current, hv_lamp_name:volt_current_mode_str
+
+        hv_lamp_name:volt_current_mode_str is of form '{species}_bay{number}':'{volt}/{volt_lim} V{"*" if not current_mode else ""} {current}/{current_lim} mA{"*" if current_mode else ""} (enabled or disabled))'
         """
-        try:
-            reply = self._send_command_to_shield('LE?')
-            ledstat = reply.split()
-            if len(ledstat) != len(COLORS):
-                raise IOError('Malformed reply to LE? "{}"'.format(reply))
-        except IOError as e:
-            ledstat = ['ERROR'] * len(COLORS)
-            self.logger.error('Unable to fetch led values: "{}"'.format(e))
 
         try:
-            reply = self._send_command_to_shield('HV?')
-            hvstat = reply.split()
-            if len(hvstat) != len(HVLAMPS):
-                raise IOError('Malformed reply to HV? "{}"'.format(reply))
+            parsed = self.query_status()
+            lamp_details = [('{}_bay{}'.format(HVLAMPMAP[i], i), parsed['{}_bay{}'.format(HVLAMPMAP[i], i)]) for i in sorted(HVLAMPMAP.keys())]
+            led_status = [(c, parsed[c]) for c in COLORS]
+            lamp_status = [(c, parsed[c+'_total']) for c in HVLAMPS]
+            status_list = led_status + lamp_status + lamp_details
         except IOError as e:
-            hvstat = ['ERROR'] * len(HVLAMPS)
-            self.logger.error('Unable to fetch HV values: "{}"'.format(e))
+            num_keys = len(COLORS) + len(HVLAMPS) + len(HVLAMPMAP)
+            status_list = [('ERROR', 'ERROR')] * num_keys
+            self.logger.error('Unable query TS status: "{}"'.format(e))
+        except Exception as e:
+            num_keys = len(COLORS) + len(HVLAMPS) + len(HVLAMPMAP)
+            status_list = [('ERROR', 'ERROR')] * num_keys
+            self.logger.error('Failure parsing TS: "{}"'.format(e))
 
-        return ([(self.get_version_string(), self.cookie)] +
-                [(c, v) for c, v in zip(COLORS, ledstat)] +
-                [(c, v) for c, v in zip(HVLAMPS, hvstat)])
+        return [(self.get_version_string(), self.cookie)] + status_list
 
 
 if __name__ == '__main__':

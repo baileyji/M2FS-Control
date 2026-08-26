@@ -16,7 +16,7 @@ HVLMAP_MAX_CURRENT = {'thxe': 10, 'benear': 10, 'lihe': 10}
 HVLMAP_MIN_CURRENT = {'thxe': 1, 'benear': 2, 'lihe': 1}
 TEMPS = ('ebox', 'stage', 'enc1', 'enc2')
 
-HVLAMPMAP = {1: 'thxe', 2: 'benear', 3: 'lihe', 4: 'thxe', 5: 'benear', 6: 'lihe'}  # 1 indexed on arduino
+HVLAMPMAP = {1: 'lihe', 2: 'benear', 3: 'thxe', 4: 'lihe', 5: 'benear', 6: 'thxe'}  # 1 indexed on arduino
 
 
 class IFUArduinoSerial(selectedconnection.SelectedSerial):

@@ -318,7 +318,7 @@ class IFUShieldAgent(Agent):
 
                 fault, state = self.check_lamp_fault(lamp_type)
                 if fault:
-                    command.setReply('ERROR: Check {} lamp: {}'.format(lamp_type.upper(), state))
+                    command.setReply('ERROR: {}(s) dead or disconnected. \n{}'.format(lamp_type.upper(), state))
                 else:
                     command.setReply('OK')
             except (ValueError, IndexError):

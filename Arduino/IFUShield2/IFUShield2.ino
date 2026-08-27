@@ -478,7 +478,7 @@ bool HVcommand() {
       currents[i]=lamps[i].getCurrent();
 
     for (int i=0;i<N_LAMPS;i++) {
-      Serial.print(currents[0]);
+      Serial.print(currents[i]);
       if (i!=N_LAMPS-1) Serial.print(" ");
     }
     Serial.println();
